@@ -157,6 +157,12 @@ arguments. Arrays may be passed with adjustable dimensions.
 
 ## 6. Input / output
 
+> **Not a sandbox.** `OPEN`/`READ`/`WRITE` access the host filesystem. Relative file
+> names resolve under the engine's `save_root` (default `.`), but absolute paths and
+> `..` reach outside it — `pyf66` runs a program's I/O against the real filesystem and
+> does not contain it. Don't run untrusted source expecting isolation. Default unit
+> assignments (V5 Table 10-1): units 3/6 → line printer, unit 5 → terminal input.
+
 ### Sequential
 ```
 READ  (u, f) list          ! formatted, unit u, FORMAT label f

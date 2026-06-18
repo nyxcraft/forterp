@@ -1,4 +1,4 @@
-"""AST node definitions for the FORTRAN-10 subset used by Empire.
+"""AST node definitions for FORTRAN-66 / DEC FORTRAN-10.
 
 Expressions and executable statements are dataclasses.  Program-unit-level
 declaration information (types, arrays, commons, parameters, data, formats)

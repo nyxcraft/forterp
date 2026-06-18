@@ -3,8 +3,8 @@ from strict ANSI FORTRAN-66.
 
 The lexer and source reader read a Dialect (threaded through tokenize / scan_file /
 parse_units, default FORTRAN10) and gate their DEC extensions on it, so the front-end
-is selectable in place -- a game/extension picks the dialect rather than shipping its
-own lexer.  See [[package-breakup-plan]].
+is selectable in place -- a host program picks the dialect rather than shipping its
+own lexer.
 """
 from __future__ import annotations
 

@@ -1,8 +1,9 @@
 """pyf66 -- a FORTRAN-66 / DEC FORTRAN-10 interpreter in Python.
 
-A faithful interpreter for 1970s DEC FORTRAN-10 / FORTRAN-66, with the machine value
-model (36-bit words, SIXBIT/A5 packing, .TRUE.=-1) and the front-end dialect both
-pluggable. PDP-10/FORTRAN-10 is the default and shipped target.
+A configurable FORTRAN-66 interpreter: the machine value model (`Target`) and the
+front-end dialect (`Dialect`) are both pluggable. The default target is NATIVE (a
+portable 64-bit host); PDP10 (36-bit, packed ASCII, .TRUE.=-1) is the faithful DEC
+FORTRAN-10 target, selected with `Engine(..., target=PDP10)`.
 
 Quick start::
 
@@ -22,10 +23,12 @@ Public API:
     STDLIB                          -- the standard FORTRAN-10 intrinsic/library table
     install_runtime(eng)            -- wire the FORTRAN-10 runtime (STDLIB + FOROTS I/O)
     make_engine(units, ...)         -- build a ready-to-run engine
-    parse_source(text, ...)         -- parse source text into program units
+    parse_source(text, ...)         -- parse source text into program units (raises ParseError)
     run_source(text, ...)           -- parse + run a source string, return the Engine
+    ParseError                      -- raised by parse_source/run_source on bad source
 """
 from f66.engine import Engine, Frame, StopExecution
+from f66.parser import ParseError
 from f66.target import Target, PDP10, NATIVE, VAX
 from f66.dialect import Dialect, FORTRAN10, STRICT_F66
 from f66.forlib import STDLIB
@@ -34,7 +37,8 @@ from f66 import forbin
 __version__ = "0.1.0"
 
 __all__ = [
-    "Engine", "Frame", "StopExecution", "Target", "PDP10", "NATIVE", "VAX",
+    "Engine", "Frame", "StopExecution", "ParseError",
+    "Target", "PDP10", "NATIVE", "VAX",
     "Dialect", "FORTRAN10", "STRICT_F66", "STDLIB", "forbin",
     "install_runtime", "make_engine", "parse_source", "run_source",
 ]
@@ -57,21 +61,32 @@ def make_engine(units, **kwargs):
     return eng
 
 
-def parse_source(text, dialect=FORTRAN10):
-    """Parse FORTRAN source text into a {name: ProgramUnit} dict."""
+def parse_source(text, dialect=FORTRAN10, on_error=None):
+    """Parse FORTRAN source text into a {name: ProgramUnit} dict.
+
+    Raises ``ParseError`` on malformed source, with every diagnostic in the message --
+    invalid statements are NOT silently dropped. Pass ``on_error(statement, message)``
+    to instead receive each diagnostic yourself and keep the (partial) result.
+    """
     import os
     import tempfile
     from f66.source import scan_file, expand_includes
     from f66.parser import parse_units
+    errs = []
+    cb = on_error if on_error is not None else (lambda st, m: errs.append((st.line, m)))
     with tempfile.NamedTemporaryFile("w", suffix=".FOR", delete=False) as fh:
         fh.write(text)
         path = fh.name
     try:
         stmts = expand_includes(scan_file(path, dialect=dialect).statements,
                                 os.path.dirname(path))
-        return {u.name: u for u in parse_units(stmts, dialect=dialect)}
+        units = {u.name: u for u in parse_units(stmts, dialect=dialect, on_error=cb)}
     finally:
         os.unlink(path)
+    if on_error is None and errs:
+        raise ParseError("parse error(s):\n"
+                         + "\n".join(f"  line {ln}: {m}" for ln, m in errs))
+    return units
 
 
 def run_source(text, program=None, dialect=FORTRAN10, **kwargs):

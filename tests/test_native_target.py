@@ -93,3 +93,14 @@ def test_native_o_format_width_follows_target():
     items = fmt.parse_format("(O24)")
     assert fmt.render(items, [-1], PDP10)[0] == "000000000000777777777777"    # 36-bit word
     assert fmt.render(items, [-1], NATIVE)[0] == "001777777777777777777777"   # 64-bit word
+
+
+# ---- pin fix: formatted L input stores the target's truth value ------------------
+def test_native_l_format_input_uses_target_truth():
+    # FORMAT(L1) read of 'T' stores the TARGET's .TRUE.: 1 on NATIVE, -1 on PDP-10
+    # (was hardcoded -1 -- wrong under the default NATIVE).
+    src = ("        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n        LOGICAL B\n"
+           "        COMMON /OUT/ V(40)\n        ACCEPT 5, B\n"
+           "    5 FORMAT(L1)\n        V(1) = B\n        END\n")
+    assert out(run(src, inputs=["T"], target=NATIVE), 1) == 1
+    assert out(run(src, inputs=["T"], target=PDP10), 1) == -1

@@ -37,3 +37,20 @@ def test_explicit_tty_open_overrides_default_device():
               "        WRITE(6,10)\n  10    FORMAT(' TERM')\n" + END)
     assert printed(eng) == ""
     assert "TERM\n" in "".join(eng.out)
+
+
+# ---- the READ side: unit 5 defaults to terminal input (V5 Table 10-1) ----
+def test_unopened_unit5_reads_from_terminal_list_directed():
+    # The documented READ(5,*) on an UNOPENED unit auto-connects to terminal input
+    # (the injected readline) -- previously this silently no-op'd.
+    src = ("        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n        COMMON /OUT/ V(40)\n"
+           "        READ(5,*) A, B, C\n        V(1)=A\n        V(2)=B\n        V(3)=C\n" + END)
+    eng = run(src, inputs=["10 20 30"])
+    assert (out(eng, 1), out(eng, 2), out(eng, 3)) == (10, 20, 30)
+
+
+def test_unopened_unit5_formatted_read():
+    src = ("        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n        COMMON /OUT/ V(40)\n"
+           "        READ(5,7) A, B\n    7 FORMAT(2I3)\n        V(1)=A\n        V(2)=B\n" + END)
+    eng = run(src, inputs=["  5 42"])
+    assert (out(eng, 1), out(eng, 2)) == (5, 42)

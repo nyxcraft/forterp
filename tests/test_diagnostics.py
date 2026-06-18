@@ -90,3 +90,20 @@ def test_no_warning_for_six_char_or_shorter_names():
     finally:
         os.unlink(path)
     assert warns == []
+
+
+def test_parse_source_raises_on_invalid_statement():
+    # The public parse_source must SURFACE a malformed statement, not silently drop it
+    # and hand back a runnable truncated unit. Default = raise ParseError; on_error=
+    # opts into collect-and-continue.
+    import f66
+    bad = "      PROGRAM T\n      X = = 5\n      Y = 1\n      END\n"
+    raised = False
+    try:
+        f66.parse_source(bad)
+    except f66.ParseError:
+        raised = True
+    assert raised, "parse_source must raise on malformed source"
+    errs = []
+    f66.parse_source(bad, on_error=lambda st, m: errs.append(m))
+    assert len(errs) == 1

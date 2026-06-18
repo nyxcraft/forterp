@@ -242,4 +242,4 @@ run across **both seams**: the value-model axis (pinned to `PDP10`, the faithful
 unit suite asserts, and again under the default `NATIVE`) and the front-end-dialect axis
 (again under `STRICT_F66`, since the audits are pure ANSI). All three runs produce the
 identical conformance aggregate — independent evidence both seams preserve standard
-behavior. 311 tests pass standalone.
+behavior. 315 tests pass standalone.

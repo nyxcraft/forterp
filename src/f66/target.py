@@ -1,12 +1,13 @@
 """The machine value model an f66 program runs against -- the seam between the generic
-FORTRAN-66 core and a specific target environment.
+FORTRAN-66 core and a specific machine.
 
-A Target fixes the three things that make values machine-dependent: the word width +
-signed-integer wrap, how characters pack into a word, and the logical-truth convention.
-PDP-10/SIXBIT (36-bit words, 5 seven-bit chars/word, .TRUE.=-1) is the default and the
-only target we ship; a portable target would differ.  The Engine holds one
-(`Engine(..., target=...)`) and routes its value model through it, so the core itself
-is representation-agnostic.  See [[package-breakup-plan]] / [[value-model-packed-ascii]].
+A Target fixes what makes values machine-dependent: the word width + signed-integer
+wrap, how characters pack into a word (width, bits-per-char, byte order), the
+logical-truth convention, and whether the logical connectives are bit-wise. The Engine
+holds one (`Engine(..., target=...)`) and routes its whole value model through it, so the
+core itself is representation-agnostic. Shipped targets: NATIVE (the default -- a portable
+64-bit host), PDP10 (faithful DEC FORTRAN-10: 36-bit words, 5x7-bit packing, .TRUE.=-1),
+and VAX (provisional, unvalidated).
 """
 from __future__ import annotations
 

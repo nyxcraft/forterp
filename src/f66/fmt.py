@@ -394,7 +394,7 @@ def read_values(items, line, target=PDP10):
             else:
                 chunk, pos = _next_token(line, pos)
             t = chunk.lstrip()[:1].upper()             # first non-blank: T or F
-            vals.append(("L", -1 if t == "T" else 0))
+            vals.append(("L", target.from_bool(t == "T")))
         elif it.kind in ("F", "E", "D"):
             tok, pos = _next_token(line, pos)
             try:

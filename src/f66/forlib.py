@@ -2,13 +2,12 @@
 Appendix H).
 
 These ship WITH the interpreter -- they are part of "being FORTRAN-10 V5", not
-part of any one game/driver. A host program (driver) registers them via
-`eng.register_builtins(STDLIB)` alongside its own external routines (Empire's
-MACRO-10 routines live in interp/builtins.py). The environment-dependent ones read
-services off the engine that the DRIVER controls -- notably the clock provider
-`eng.now()` -- so wall-time/error behavior is an injected input, never an ambient
-read. This is the formal split: interpreter = language + standard runtime; driver =
-host environment. See [[v5-implementation-backlog]].
+part of any one host/driver. A host program registers them via
+`eng.register_builtins(STDLIB)` alongside its own external routines. The
+environment-dependent ones read services off the engine that the host controls --
+notably the clock provider `eng.now()` -- so wall-time/error behavior is an injected
+input, never an ambient read. This is the formal split: interpreter = language +
+standard runtime; host = environment.
 
 Implemented here: TIME, DATE (read eng.now), EXIT, ERRSNS, ERRSET (read/write the
 engine's FOROTS error state). Each has the builtin signature (eng, frame, arg_nodes).
@@ -138,8 +137,8 @@ def _noop(eng, frame, n):
 
 # Calcomp plotter, core dumps, SORT, illegal-char flag, and the FORTRAN-10 realtime
 # library (Appendix G): registered as callable no-ops. NUMBER/WHERE/LINE/LEGAL are
-# DELIBERATELY omitted -- those names collide with Empire's own variables, and a name
-# can't be both a variable and a subroutine; a driver that needs the plotting NUMBER/
+# DELIBERATELY omitted -- those names commonly collide with user variables, and a name
+# can't be both a variable and a subroutine; a host that needs the plotting NUMBER/
 # WHERE/LINE or the LEGAL flag can register them itself.
 _NOOP_LIB = (
     "AXIS PLOT PLOTS SCALE SYMBOL MKTBL SETABL DUMP PDUMP SORT ILL "

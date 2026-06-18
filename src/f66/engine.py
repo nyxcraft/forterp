@@ -1,6 +1,6 @@
-"""Execution engine + value model for the Empire FORTRAN-10 interpreter.
+"""Execution engine + value model for the f66 FORTRAN-66 / DEC FORTRAN-10 interpreter.
 
-Value model (see memory: value-model-packed-ascii):
+Value model (configurable via the Engine's Target; the PDP10 target is described here):
   * every word is a Python int held in signed 36-bit range, or a float for REAL.
   * character/Hollerith literals -> left-justified blank-padded packed ASCII,
     interpreted as a *signed* 36-bit int (matching PDP-10 CAM comparisons).
@@ -34,8 +34,8 @@ def trunc_div(a: int, b: int) -> int:
     if b == 0:
         return 0          # FORTRAN-10/FOROTS warned on divide-by-zero and CONTINUED
         #                   (non-fatal, quotient 0); never aborted like Python. The
-        #                   game never divides by zero, so the exact value is moot --
-        #                   what matters is not crashing the interpreter.
+        #                   exact recovery value is moot -- what matters is FOROTS-style
+        #                   warn-and-continue, not crashing the interpreter.
     q = abs(a) // abs(b)
     return q if (a < 0) == (b < 0) else -q
 
@@ -60,7 +60,7 @@ OOB_WRITES = 0
 
 #: OOB handling mode. "off" = faithful silent (read->0, write->drop, matching the
 #: unchecked PDP-10). "log" = also append full context to OOB_LOG and continue (an
-#: audit/checker mode for fuzzing: surfaces every OOB so game-bug edges can be told
+#: audit/checker mode for fuzzing: surfaces every OOB so program-bug edges can be told
 #: apart from interpreter bugs). "raise" = hard error (fail-fast strict checker).
 OOB_CHECK = "off"
 OOB_LOG = []                    # populated when OOB_CHECK == "log"
@@ -102,8 +102,7 @@ class CellRef:
     out-of-bounds reference read/wrote adjacent memory rather than faulting (e.g.
     KLINE's FOO(0:3) indexed at 4/5 when an unclamped sector number is 8/9). We
     model that faithfully: OOB read -> 0 (benign garbage), OOB write -> dropped.
-    Negative indices are treated as OOB too (no Python end-wrap). See
-    [[smac-out-of-bounds-faithful]]."""
+    Negative indices are treated as OOB too (no Python end-wrap)."""
     __slots__ = ("store", "idx")
 
     def __init__(self, store, idx):
@@ -276,8 +275,9 @@ class Engine:
         self.rts = {}               # unit name -> UnitRT
         self.entries = {}           # ENTRY name -> (owning unit, pc, params)  (V5 15.7)
         self.builtins = {}
-        self.root = root            # read-only game source + maps/
-        self.save_root = root       # writable EMPIRE.DAT dir (isolated for map-eval)
+        self.root = root            # base dir for INCLUDE / read-only source + data
+        self.save_root = root       # base dir for OPEN file specs (NOT a sandbox -- a
+                                    # driver may point it elsewhere; see _open_path)
         self.out = []               # captured terminal output
         self.rng = random.Random(0)
         self.clock = 1
@@ -287,10 +287,12 @@ class Engine:
         # Units 3 and 6 default to the line printer (LPT). We model the printer as
         # an ENVIRONMENT SERVICE (self.printer, supplied by the driver like emit/
         # readline) so the language core stays host-agnostic; the driver decides the
-        # printer means a 'print<job>.prt' spool file. (Empire OPENs all its units
-        # and uses TYPE for the terminal, so it never hits this path -- the game is
-        # unaffected; this serves general FORTRAN-10 source, e.g. FCVS listings.)
-        self.default_devices = {3: "lpt", 6: "lpt"}
+        # printer means a 'print<job>.prt' spool file. This serves general FORTRAN-10
+        # source, e.g. the FCVS conformance listings, which write their report to unit 6.
+        # Default device assignments (V5 Table 10-1): units 3/6 -> line printer; unit 5
+        # is the conventional terminal/card input, so an unopened READ(5,...) reads via
+        # the injected `readline` (and WRITE(5,...) echoes to the terminal).
+        self.default_devices = {3: "lpt", 5: "term", 6: "lpt"}
         # FOROTS runtime error status (V5 Appendix H): ERRSNS reports the last
         # I/O op's (first, second) code; ERRSET caps how many LIB/APR domain
         # warnings get printed -- V5 Table 15-3: suppress after N occurrences,
@@ -300,15 +302,14 @@ class Engine:
         self.lib_apr_count = 0
         self.sense_lights = set()   # SLITE/SLITET console sense lights (V5 Table 15-3)
         # Clock provider -- an ENVIRONMENT SERVICE the driver supplies. The standard
-        # library TIME/DATE (interp/forlib.py) read wall time ONLY through this hook,
-        # so the language core has no ambient os-time dependency and determinism is an
-        # injected input (like the RNG seed and the map). Default = fixed timestamp;
-        # the interactive driver overrides it with a real (per-session) clock.
+        # library TIME/DATE (forlib.py) read wall time ONLY through this hook, so the
+        # language core has no ambient os-time dependency and determinism is an injected
+        # input (like the RNG seed). Default = fixed timestamp; an interactive driver
+        # overrides it with a real (per-session) clock.
         self.now = lambda: DEFAULT_CLOCK
         # Pluggable OPEN device handlers (devname -> fn(eng, unit, specs, frame)). The
-        # core knows only TTY + ordinary files; a dialect/game registers the rest (e.g.
-        # Empire's GAM: terrain device) via register_device, so the engine stays game-
-        # agnostic. See [[package-breakup-plan]].
+        # core knows only TTY + ordinary files; a host program registers the rest (e.g.
+        # a 'GAM:' terrain device) via register_device, so the engine stays host-agnostic.
         self.device_handlers = {}
         self.steps = 0
         self.max_steps = 50_000_000
@@ -341,7 +342,7 @@ class Engine:
 
     def register_device(self, name, fn):
         """Register an OPEN device handler. `fn(eng, unit, specs, frame)` sets up
-        eng.io[unit] for a program that OPENs `name:` (e.g. Empire's GAM:)."""
+        eng.io[unit] for a program that OPENs `name:` (e.g. a 'GAM:' device)."""
         self.device_handlers[name.upper()] = fn
 
     def _binio(self):
@@ -705,8 +706,7 @@ class Engine:
         return a defined recovery value computed on the nearest in-domain argument
         (|x| for SQRT/LOG, clamp to [-1,1] for ASIN/ACOS). FORLIB's exact recovery
         value isn't specified in the V5 manual, so this is a documented
-        approximation -- same class as REAL=Python double. The game triggers none
-        of these (it calls no SQRT/LOG/ASIN/ACOS)."""
+        approximation -- same class as REAL=Python double."""
         if name == "LSH":                  # PDP-10 logical word shift: width from the target
             return _lsh(self.tgt, args[0], args[1])
         try:
@@ -1084,7 +1084,6 @@ class Engine:
         self.emit(text)
 
     def do_accept(self, s, frame):
-        from f66.fmt import parse_format, read_values
         if getattr(s, "reread", False):
             line = getattr(self, "_last_input", "")   # REREAD: the last record again
         else:
@@ -1093,13 +1092,19 @@ class Engine:
         if "\x1a" in line:                  # CONTROL-Z = end-of-file (V5 terminal input)
             self.last_io_error = (24, 308)
             raise StopExecution()           # EOF on ACCEPT (no END=) ends the program
+        self._apply_read_line(s, frame, line)
+
+    def _apply_read_line(self, s, frame, line):
+        """Distribute one input record to the io-list: a NAMELIST group, list-directed
+        input (`*`), or under a FORMAT. Shared by ACCEPT / terminal READ and by an
+        unopened unit-READ that auto-connects to the terminal (V5 unit 5)."""
+        from f66.fmt import parse_format, read_values
         nml = self._nml_name(s.fmt, frame)
-        if nml is not None:                 # ACCEPT/READ of a NAMELIST group
+        if nml is not None:                       # NAMELIST group
             self._nml_read(nml, line, frame)
             return
-        refs = self._unf_refs(s.items, frame)
         if s.fmt == "*":                          # list-directed input
-            self._ld_in(line, refs)
+            self._ld_in(line, self._unf_refs(s.items, frame))
             return
         spec = frame.rt.unit.formats.get(s.fmt)
         items = parse_format(spec) if spec else []
@@ -1357,6 +1362,17 @@ class Engine:
             if dev is None:
                 return None
             st = self.io[unit] = {"mode": dev}
+        if s.mode == "READ" and st.get("mode") == "term":   # terminal input (e.g. unit 5)
+            line = self.readline().rstrip("\r\n")
+            self._last_input = line
+            if "\x1a" in line:                              # CONTROL-Z = EOF
+                self.last_io_error = (24, 308)
+                if "END" in s.specs:
+                    return Goto(s.specs["END"])
+                raise StopExecution()
+            self._apply_read_line(s, frame, line)
+            self.last_io_error = (0, 0)
+            return None
         if s.mode == "READ" and st.get("text"):       # formatted read from a text file
             return self._read_text(s, st, frame)
         if s.mode == "WRITE":
@@ -1460,8 +1476,13 @@ class Engine:
         return None
 
     def _open_path(self, name):
-        """Resolve an OPEN file-spec to a host path under save_root: try the name as
-        given, then a .DAT default (TOPS-10), then a case-insensitive match."""
+        """Resolve an OPEN file-spec to a host path relative to save_root: try the name
+        as given, then a .DAT default (TOPS-10), then a case-insensitive match.
+
+        NOTE: save_root is a BASE DIRECTORY for relative names, not a security boundary.
+        f66 runs the program's file I/O against the real filesystem -- an absolute path
+        or one with `..` reaches outside save_root. f66 is an interpreter, not a sandbox;
+        do not run untrusted source expecting containment."""
         import os
         cand = os.path.join(self.save_root, name)
         if os.path.exists(cand):
@@ -1667,7 +1688,7 @@ _LIB_RECOVER = {
 _INT_RESULT = frozenset({"INT", "IFIX", "IDINT", "NINT"})   # results take the target's integer wrap
 
 INTRINSICS = {
-    # ---- DEC / Empire ----
+    # ---- DEC extensions ----
     "LSH": lambda a: _lsh(PDP10, a[0], a[1]),   # width-dependent; _apply_intrinsic re-routes via self.tgt
     # ---- type conversion (INT-family wrap applied target-aware in _apply_intrinsic) ----
     "INT": lambda a: int(a[0]),

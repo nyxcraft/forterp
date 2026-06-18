@@ -1,4 +1,4 @@
-"""Parser for the FORTRAN-10 subset used by Empire.
+"""Recursive-descent parser for FORTRAN-66 / DEC FORTRAN-10.
 
 Consumes the (label, text) statements from `source` + tokens from `lexer`,
 groups them into ProgramUnits, fills each unit's declaration tables, and parses
@@ -68,13 +68,12 @@ def fix_tokens(toks: list[Token]) -> list[Token]:
 
 # --- F66 3.1.6 blanks-insignificance (retry path only) --------------------------
 # Blanks are not significant except inside '...'/Hollerith. Our normal lexer keeps
-# blanks AS token separators -- faithful to well-formatted source and what the game
-# uses. The three FCVS audit routines FOR 3.1.6 (FM010/011/021) instead put blanks
-# INSIDE tokens (DIM EN SION, 3 2 7 6 7, K 5 6 78  9). We support that ONLY as a
-# RETRY: a statement that fails the normal parse is re-tried with blanks removed
-# (literal-aware) and a leading statement keyword re-spaced off its glued operand.
-# The game never fails the normal parse, so it never takes this path -> zero game
-# impact (verified: parsecheck stays 0 errors).
+# blanks AS token separators -- faithful to well-formatted source. The three FCVS audit
+# routines FOR 3.1.6 (FM010/011/021) instead put blanks INSIDE tokens (DIM EN SION,
+# 3 2 7 6 7, K 5 6 78  9). We support that ONLY as a RETRY: a statement that fails the
+# normal parse is re-tried with blanks removed (literal-aware) and a leading statement
+# keyword re-spaced off its glued operand. Well-formatted source never fails the normal
+# parse, so it never takes this path.
 
 _RESPACE_KW = ("DOUBLEPRECISION", "DIMENSION", "EQUIVALENCE", "EXTERNAL",
                "COMPLEX", "INTEGER", "LOGICAL", "COMMON", "DOUBLE", "REAL", "DATA")
@@ -1072,7 +1071,7 @@ def parse_units(statements, *, on_error=None, on_warn=None, dialect=FORTRAN10):
         try:
             _route(unit, st, toks, on_warn)
         except (ParseError, LexError) as e:
-            # F66 3.1.6 blanks-insignificance retry (the game never reaches here).
+            # F66 3.1.6 blanks-insignificance retry (well-formed source never reaches here).
             del unit.data[n_data:]              # undo any partial append before retry
             del unit.code[n_code:]
             norm = _respace_stmt(_strip_blanks(st.text))
@@ -1139,7 +1138,7 @@ def _route(unit, st, toks, on_warn=None):
     # FORTRAN-66 statement function: name(d1,d2,...)=expr appearing before any
     # executable statement, where `name` is NOT a declared array and the subscripts
     # are plain dummy names. (Distinct from an array-element assignment, whose name
-    # is dimensioned. Empire has none, so the array guard keeps it unambiguous.)
+    # is dimensioned; the array guard keeps the two cases unambiguous.)
     if (isinstance(stmt, A.Assign) and isinstance(stmt.target, A.Ref)
             and stmt.target.name not in unit.arrays
             and st.label is None and not unit.code

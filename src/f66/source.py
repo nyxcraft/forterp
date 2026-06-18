@@ -1,7 +1,7 @@
-"""Fixed-form FORTRAN-10 source reader for the Empire sources.
+"""Fixed-form FORTRAN-66 / DEC FORTRAN-10 source reader.
 
 Turns the raw column-oriented .FOR text into a stream of logical statements,
-handling the dialect quirks we verified actually occur in this codebase:
+handling the fixed-form rules and the DEC extensions gated by the Dialect:
 
   * column 1 in 'C c * ! $ /'    -> full-line comment (F66 / V5 2.3.3)
   * column 1 in 'D d'            -> debug line (compiled only under /DEBUG;
@@ -22,11 +22,10 @@ and F66 (3.3) treat as an automatic remark (ignored). scan_file has two modes:
   * strict_cols=False (default) -- lenient: drop the cols 73+ field UNLESS truncating
     at column 72 would obviously cut a statement in half, i.e. cols 7-72 are left with
     an unclosed '(' or an unterminated string. This recovers source whose statement
-    text was nudged past col 72 (the Empire .FOR is uniformly +2-col reindented from
-    its col-7 original, so two long CALL STROUT(...) lines spill their closing ')'
-    into cols 73-74) without keeping genuine sequence fields -- those sit after a
-    self-contained, balanced statement, so they are still dropped. Best-effort: it
-    relaxes the obvious mid-statement cases, not every conceivable one.
+    text was nudged past col 72 (e.g. period source re-indented from its col-7 original,
+    so a long statement spills its closing ')' into cols 73-74) without keeping genuine
+    sequence fields -- those sit after a self-contained, balanced statement, so they are
+    still dropped. Best-effort: it relaxes the obvious mid-statement cases, not every one.
 """
 
 from __future__ import annotations
@@ -125,8 +124,8 @@ def _tab_split(raw: str):
     """DEC tab-format source line (FORTRAN-10 2.3): a TAB within the label field
     (cols 1-6) terminates it. Returns (label, is_continuation, body) or None if the
     line is not tab-formatted. After the TAB a digit 1-9 marks a continuation line;
-    anything else is an initial line. Empire is space-formatted and never triggers
-    this; Adventure (and much PDP-10 source) is tab-formatted."""
+    anything else is an initial line. (Space-formatted source never triggers this;
+    much PDP-10 source -- and many editors -- emit tab-formatted lines.)"""
     tab = raw[:6].find("\t")
     if tab < 0:
         return None
@@ -167,7 +166,7 @@ def _trim_seqfield(raw: str) -> str:
     statement in half (cols 7-72 left with an unclosed paren or open string). In that
     case the spillover is real statement text, so keep the whole line. A genuine
     sequence field follows a complete, balanced statement and is dropped as usual.
-    See module docstring (the Empire source is +2-col reindented)."""
+    See the module docstring (lenient cols-73+ handling)."""
     if len(raw) <= 72 or not raw[72:].strip():
         return raw                                   # nothing meaningful past col 72
     # Keep the tail only if it COMPLETES the statement: cols 7-72 are cut mid-way
