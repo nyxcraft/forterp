@@ -133,7 +133,8 @@ unit is a **flat statement list with a program counter**, a **label table**, and
   `_do_bookkeep` handles the loop-back/termination when the PC reaches the terminal label.
   This differs from F77 and tests depend on it.
 - Arithmetic `IF` branches on sign (`<0 / ==0 / >0`); logical truth everywhere goes through
-  `self.tgt.truthy` (sign-negative), never Python truthiness.
+  `self.tgt.truthy` (the target's convention — sign-negative on PDP-10, nonzero on NATIVE),
+  never Python truthiness.
 
 Subprograms: each unit has a `UnitRT` (compiled code + labels + DO-terminals + assigned-
 label scan). A call builds a `Frame`, binds actuals to formals by reference (`bind_args`),
@@ -195,12 +196,13 @@ Two distinct tables:
   `register_builtins`. These take `(eng, frame, arg_nodes)` so they can touch engine state
   and write back through references.
 
-> **Target-awareness (done):** the integer-valued intrinsics now follow the engine's
-> `Target` — `_apply_intrinsic` re-applies `self.tgt.wrap` to `INT`/`IFIX`/`IDINT`/`NINT`
-> results, and `_lsh` takes the target (shift width from `tgt.mask`). The math/`C*`
-> intrinsics are pure value→value and target-neutral. Two minor PDP-10 pins remain, noted
-> in code: `parser.const_eval` packs a Hollerith-as-constant at *parse* time (no target in
-> scope), and `fmt._ofmt`'s `O` octal width uses a 36-bit mask.
+> **Target-awareness (done):** the integer-valued intrinsics follow the engine's `Target`
+> — `_apply_intrinsic` re-applies `self.tgt.wrap` to `INT`/`IFIX`/`IDINT`/`NINT` results,
+> and `_lsh` takes the target (shift width from `tgt.mask`). The math/`C*` intrinsics are
+> pure value→value and target-neutral. The whole value model — integer wrap, the logical
+> algebra, the character codec, the `O`-descriptor width, and Hollerith `PARAMETER`
+> constants (packed at use via `Engine._const_value`, not at parse time) — now routes
+> through the `Target`; there are no known PDP-10 pins left in the core.
 
 ---
 
@@ -233,5 +235,5 @@ prints a PASS/ERROR tally to the line printer, which the runner captures and par
 triage is **dynamic, by parse result** — a file that parses clean is run; one needing F77
 `CHARACTER` is kept but not run — never classified by keyword. The corpus is run under
 **both** targets: pinned to `PDP10` (the faithful target the unit suite asserts) and again
-under the default `NATIVE`, which produces the identical conformance aggregate. 300 tests
+under the default `NATIVE`, which produces the identical conformance aggregate. 301 tests
 pass standalone.

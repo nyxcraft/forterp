@@ -494,6 +494,12 @@ class Engine:
             for tgt in targets:
                 self._data_assign(rt, unit, tgt, it)
 
+    def _const_value(self, v):
+        """Materialize a stored PARAMETER value into a runtime value. A Hollerith
+        constant is kept as a raw str by the parser (which has no Target) and packed
+        here through the engine's target, so it matches a literal of the same text."""
+        return self.tgt.pack(v) if isinstance(v, str) else v
+
     def _const_val(self, v, unit):
         if isinstance(v, bool):                   # .TRUE./.FALSE. in DATA; bool is an
             return self.tgt.from_bool(v)          # int subclass, so test it FIRST.
@@ -503,7 +509,7 @@ class Engine:
             return complex(float(self._const_val(v.re, unit)),
                            float(self._const_val(v.im, unit)))
         if isinstance(v, A.Var):
-            return unit.consts.get(v.name, 0)
+            return self._const_value(unit.consts.get(v.name, 0))
         if isinstance(v, float):
             return v
         return self.tgt.wrap(v) if isinstance(v, int) else v
@@ -538,7 +544,7 @@ class Engine:
         if isinstance(node, A.OctalLit):
             return node.value
         if isinstance(node, A.Var):
-            return unit.consts[node.name]
+            return self._const_value(unit.consts[node.name])
         if isinstance(node, A.Unary):
             v = self._const_eval_int(node.operand, unit)
             return -v if node.op == "-" else v
@@ -622,7 +628,7 @@ class Engine:
     def eval_var(self, name, frame):
         unit = frame.rt.unit
         if name in unit.consts:
-            return unit.consts[name]
+            return self._const_value(unit.consts[name])
         if name in unit.arrays:               # bare array name (I/O / arg use)
             return self.arrayview(frame, name)
         if (name in self.entries and name not in frame.args
@@ -777,7 +783,7 @@ class Engine:
             name = node.name
             unit = frame.rt.unit
             if name in unit.consts:
-                return TempRef(unit.consts[name])
+                return TempRef(self._const_value(unit.consts[name]))
             if name in unit.arrays:
                 return self.arrayview(frame, name)
             # a procedure name passed as an argument (F66 8.3): EXTERNAL-declared,

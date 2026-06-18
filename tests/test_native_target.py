@@ -6,7 +6,7 @@ suite validates). Broad conformance under NATIVE is covered by the FCVS corpus r
 (test_fcvs_conformance.test_native_target_runs_the_corpus_identically)."""
 
 from f66.target import PDP10, NATIVE
-from conftest import run_int, out
+from conftest import run, run_int, out
 
 
 # ---- axis 1: integers are 64-bit, not 36-bit -------------------------------------
@@ -51,3 +51,13 @@ def test_native_char_comparison_is_ascii_monotonic():
     # packed chars compare in ASCII order (left-justified big-endian), like PDP-10.
     assert NATIVE.pack("A") < NATIVE.pack("B")
     assert NATIVE.pack("AA") < NATIVE.pack("AB")
+
+
+def test_native_hollerith_parameter_matches_literal():
+    # A Hollerith PARAMETER must compare equal to a literal of the same text: the
+    # constant is packed by the engine's target, not hard-coded PDP-10 at parse time.
+    src = ("        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n"
+           "        COMMON /OUT/ V(40)\n        PARAMETER (C = 'X')\n"
+           "        V(1) = 0\n        IF (C .EQ. 'X') V(1) = 1\n        END\n")
+    assert out(run(src, target=NATIVE), 1) == 1
+    assert out(run(src, target=PDP10), 1) == 1

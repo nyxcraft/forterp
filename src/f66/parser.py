@@ -944,7 +944,8 @@ def const_eval(node, consts):
     if isinstance(node, A.RealLit):
         return node.value
     if isinstance(node, A.StrLit):
-        return pack5(node.value)
+        return node.value          # kept raw: the engine packs it via its Target (no
+                                   # target at parse time). See Engine._const_value.
     if isinstance(node, A.Var):
         if node.name in consts:
             return consts[node.name]

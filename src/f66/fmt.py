@@ -231,7 +231,7 @@ def _render_one(k, it, v, scale, target=PDP10):
     if k == "I":
         return _ifmt(int(v), w)
     if k == "O":
-        return _ofmt(int(v), w)
+        return _ofmt(int(v), w, target)
     if k == "L":
         return " " * (max(w, 1) - 1) + ("T" if target.truthy(v) else "F")
     if k == "F":
@@ -267,8 +267,8 @@ def _ifmt(iv, w):
     return s.rjust(w) if w else " " + s
 
 
-def _ofmt(iv, w):
-    s = format(int(iv) & MASK36, "o")      # 36-bit octal pattern
+def _ofmt(iv, w, target=PDP10):
+    s = format(int(iv) & target.mask, "o")  # octal of the word's bit pattern (target width)
     if w and len(s) > w:
         return "*" * w
     return s.zfill(w) if w else s          # V5 Table 13-2: O is ZERO-padded
