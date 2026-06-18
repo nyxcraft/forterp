@@ -1,0 +1,54 @@
+"""Regression over the vendored FCVS corpus (tests/fcvs/, see its NOTICE).
+
+Runs the F66-compatible audit routines through the interpreter and pins the
+aggregate result. FCVS is independent of our own assumptions (it predates this
+project by ~40 years), so a regression here catches conformance drift our own
+hand-written tests (test_f66_conformance.py) might share a blind spot with.
+
+These numbers are the locked-in baseline; a change means real behavior moved.
+"""
+
+from fcvs_runner import run_corpus
+
+R = run_corpus()
+
+
+def test_f66_subset_size_is_stable():
+    # 52 routines parse clean under our F66+DEC front end and are executed. (Was 49;
+    # FM010/FM011/FM021 -- the section-3.1.6 blank-insignificance audit routines --
+    # joined once blanks-within-tokens was supported on the parse-retry path.)
+    assert R["n_run"] == 52
+    assert R["n_gap"] == 0                       # no F66-valid file left unparsed
+
+
+def test_blanks_insignificance_files_run_and_pass():
+    # The 3.1.6 audit routines now run; they self-check, so passing means our
+    # blanks-within-tokens handling (DIM EN SION / 3 2 7 6 7 / K 5 6 78  9) is correct.
+    for f in ("FM010.FOR", "FM011.FOR", "FM021.FOR"):
+        passed, errors = R["run"][f]
+        assert passed > 0 and errors == 0, (f, passed, errors)
+
+
+def test_total_conformance_tests_passed():
+    assert R["total_pass"] == 1146
+
+
+def test_only_expected_failure_is_fm001_by_design():
+    # The single ERROR is FM001 TEST 002, labelled "FORCE FAIL CODE TO BE
+    # EXECUTED" -- the suite's self-test of its own fail-reporting path
+    # (COMPUTED == CORRECT == 2). No genuine conformance failures.
+    assert R["total_err"] == 1
+    assert R["run"]["FM001.FOR"][1] == 1
+
+
+def test_print_and_eyeball_files_have_no_autocheck():
+    # FM005/FM109 print values under FORMAT descriptors for visual inspection;
+    # they self-report no PASS/FAIL summary. Documented, not a failure.
+    assert set(R["nosummary"]) == {"FM005.FOR", "FM109.FOR"}
+
+
+def test_f77_corpus_is_kept_but_not_run():
+    # The F77 routines (CHARACTER, etc.) are vendored for completeness but are
+    # beyond our F66+DEC target, so they are not executed.
+    assert R["n_f77"] > 0
+    assert "FM001.FOR" not in R["f77"]

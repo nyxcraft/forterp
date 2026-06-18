@@ -1,0 +1,1738 @@
+"""Execution engine + value model for the Empire FORTRAN-10 interpreter.
+
+Value model (see memory: value-model-packed-ascii):
+  * every word is a Python int held in signed 36-bit range, or a float for REAL.
+  * character/Hollerith literals -> left-justified blank-padded packed ASCII,
+    interpreted as a *signed* 36-bit int (matching PDP-10 CAM comparisons).
+Memory model:
+  * COMMON blocks are flat word arrays with storage association (a unit's
+    variables map onto offsets, so different units overlay the same words).
+  * locals are static per unit (FORTRAN-10 allocated them statically -- they
+    persist across calls), arguments are passed by reference.
+Control model:
+  * each unit runs as a flat statement list with a program counter, a label
+    table, and a DO-stack (FORTRAN's arbitrary GOTOs make this the right shape).
+"""
+
+from __future__ import annotations
+
+import cmath
+import math
+
+from f66 import ast_nodes as A
+from f66.parser import pack5
+from f66.target import Target, PDP10
+
+# The default target's value model (see target.py), re-exported as module-level names:
+# forlib, the intrinsics table, the empire builtins and tests import these. The Engine
+# routes its OWN value model through self.tgt; these aliases are the PDP-10 default.
+MASK36 = PDP10.mask
+SIGN36 = PDP10.sign
+wrap36 = PDP10.wrap
+
+
+def trunc_div(a: int, b: int) -> int:
+    if b == 0:
+        return 0          # FORTRAN-10/FOROTS warned on divide-by-zero and CONTINUED
+        #                   (non-fatal, quotient 0); never aborted like Python. The
+        #                   game never divides by zero, so the exact value is moot --
+        #                   what matters is not crashing the interpreter.
+    q = abs(a) // abs(b)
+    return q if (a < 0) == (b < 0) else -q
+
+
+def fort_mod(a, b):
+    if b == 0:
+        return a          # quotient 0 on divide-by-zero -> a - 0*b = a (non-fatal)
+    if isinstance(a, float) or isinstance(b, float):
+        return a - b * float(int(a / b))
+    return a - b * trunc_div(a, b)
+
+
+truthy = PDP10.truthy          # FORTRAN-10: .TRUE. iff sign negative (-1/0)
+packword = PDP10.pack          # chars -> one signed packed word
+
+
+# ----------------------------------------------------------------- references
+#: counts faithful out-of-bounds cell accesses (FORTRAN-10 had no array bounds
+#: checking; OOB touched adjacent memory). Per-process; tools snapshot the delta.
+OOB_READS = 0
+OOB_WRITES = 0
+
+#: OOB handling mode. "off" = faithful silent (read->0, write->drop, matching the
+#: unchecked PDP-10). "log" = also append full context to OOB_LOG and continue (an
+#: audit/checker mode for fuzzing: surfaces every OOB so game-bug edges can be told
+#: apart from interpreter bugs). "raise" = hard error (fail-fast strict checker).
+OOB_CHECK = "off"
+OOB_LOG = []                    # populated when OOB_CHECK == "log"
+
+
+class OobError(Exception):
+    """Raised on an out-of-bounds cell access when OOB_CHECK == 'raise'."""
+
+
+def _oob_context(idx, store_len, op):
+    """Best-effort (routine, array, subscripts) for an OOB, via the eval stack."""
+    import inspect
+    routine = array = subs = None
+    for fi in inspect.stack()[2:]:
+        loc = fi.frame.f_locals
+        fr = loc.get("frame")
+        nm = getattr(getattr(getattr(fr, "rt", None), "unit", None), "name", None)
+        if nm and routine is None:
+            routine = nm
+        if array is None and "name" in loc and "subs" in loc:
+            array, subs = loc.get("name"), list(loc.get("subs"))
+        if routine and array is not None:
+            break
+    return {"op": op, "routine": routine, "array": array, "subs": subs,
+            "idx": idx, "len": store_len}
+
+
+def _oob_event(idx, store_len, op):
+    if OOB_CHECK == "raise":
+        raise OobError(_oob_context(idx, store_len, op))
+    if OOB_CHECK == "log":
+        OOB_LOG.append(_oob_context(idx, store_len, op))
+
+
+class CellRef:
+    """Reference to one word in a backing list.
+
+    FORTRAN-10 compiled array access as unchecked pointer arithmetic, so an
+    out-of-bounds reference read/wrote adjacent memory rather than faulting (e.g.
+    KLINE's FOO(0:3) indexed at 4/5 when an unclamped sector number is 8/9). We
+    model that faithfully: OOB read -> 0 (benign garbage), OOB write -> dropped.
+    Negative indices are treated as OOB too (no Python end-wrap). See
+    [[smac-out-of-bounds-faithful]]."""
+    __slots__ = ("store", "idx")
+
+    def __init__(self, store, idx):
+        self.store, self.idx = store, idx
+
+    def read(self):
+        if 0 <= self.idx < len(self.store):
+            return self.store[self.idx]
+        global OOB_READS
+        OOB_READS += 1
+        if OOB_CHECK != "off":
+            _oob_event(self.idx, len(self.store), "read")
+        return 0
+
+    def write(self, v):
+        if 0 <= self.idx < len(self.store):
+            self.store[self.idx] = v
+            return
+        global OOB_WRITES
+        OOB_WRITES += 1
+        if OOB_CHECK != "off":
+            _oob_event(self.idx, len(self.store), "write")
+
+
+class DictRef:
+    """Reference to a named local scalar (lazily defaulting to 0)."""
+    __slots__ = ("d", "key")
+
+    def __init__(self, d, key):
+        self.d, self.key = d, key
+
+    def read(self):
+        return self.d.get(self.key, 0)
+
+    def write(self, v):
+        self.d[self.key] = v
+
+
+class TempRef:
+    """Reference to a pass-by-value temporary."""
+    __slots__ = ("val",)
+
+    def __init__(self, val):
+        self.val = val
+
+    def read(self):
+        return self.val
+
+    def write(self, v):
+        self.val = v
+
+
+class ProcRef:
+    """A procedure name passed as an actual argument (F66 8.3/15.10: a dummy
+    procedure). Bound to a dummy parameter, it makes CALL <dummy>(...) or a
+    function reference dispatch to the named external procedure."""
+    __slots__ = ("target",)
+
+    def __init__(self, target):
+        self.target = target
+
+    def read(self):                       # if used as a value, it's just the name
+        return self.target
+
+
+class ArrayView:
+    """A view onto a backing store at a base offset; .loc(i) -> CellRef."""
+    __slots__ = ("store", "base")
+
+    def __init__(self, store, base):
+        self.store, self.base = store, base
+
+    def loc(self, i):
+        return CellRef(self.store, self.base + i)
+
+
+def linidx(subs, dims):
+    """Column-major linear index from subscripts and (lo,hi) dimension list."""
+    idx, mult = 0, 1
+    for k, (lo, hi) in enumerate(dims):
+        idx += (subs[k] - lo) * mult
+        mult *= (hi - lo + 1)
+    return idx
+
+
+def array_size(dims):
+    n = 1
+    for lo, hi in dims:
+        n *= (hi - lo + 1)
+    return n
+
+
+# ------------------------------------------------------------- control signals
+class Goto:
+    __slots__ = ("label",)
+    def __init__(self, label): self.label = label
+
+class Ret:
+    __slots__ = ("alt",)
+    def __init__(self, alt=None): self.alt = alt    # RETURN e -> alternate return
+
+class Stop:
+    pass
+
+
+# --------------------------------------------------------------------- frames
+class DoFrame:
+    __slots__ = ("ref", "trips", "step", "term", "body", "term_idx")
+    def __init__(self, ref, trips, step, term, body, term_idx):
+        self.ref, self.trips, self.step, self.term = ref, trips, step, term
+        self.body = body            # pc of first statement inside the loop
+        self.term_idx = term_idx    # pc of the loop's terminal statement
+
+
+class Frame:
+    __slots__ = ("rt", "args", "pc", "do_stack")
+    def __init__(self, rt, args):
+        self.rt = rt
+        self.args = args            # dummy name -> Ref / ArrayView
+        self.pc = 0
+        self.do_stack = []
+
+
+# --------------------------------------------------------------- unit runtime
+class UnitRT:
+    def __init__(self, unit):
+        self.unit = unit
+        self.common_map = {}        # name -> (block, offset, dims|None)
+        self.local_scalars = {}     # static
+        self.local_arrays = {}      # name -> store(list)
+        self.do_terms = set()       # labels that terminate some DO
+        self.assigned = set()       # names used as scalar lvalues -> local vars
+        for s in unit.code:
+            if isinstance(s, A.Do):
+                self.do_terms.add(s.term_label)
+            self._scan_assigned(s)
+
+    def _scan_assigned(self, s):
+        """Collect scalar names that are assignment / DO / input targets, so a
+        bare name like FGHT's local `H` isn't mistaken for FUNCTION H()."""
+        t = type(s)
+        if t is A.Assign and isinstance(s.target, A.Var):
+            self.assigned.add(s.target.name)
+        elif t is A.Do:
+            self.assigned.add(s.var)
+        elif t is A.IfLogical and s.stmt is not None:
+            self._scan_assigned(s.stmt)
+        elif t in (A.AcceptStmt, A.IoStmt):
+            for it in s.items:
+                if isinstance(it, A.Var):
+                    self.assigned.add(it.name)
+
+
+DEFAULT_INT_LETTERS = set("IJKLMN")
+
+# Default value of the clock provider (eng.now), as (Y, M, D, hh, mm, ss, tenth).
+# A FIXED timestamp so every automated harness (tests/fuzz/autoplay/replay) is
+# deterministic; the interactive driver overrides eng.now with a real clock.
+DEFAULT_CLOCK = (1979, 1, 1, 0, 0, 0, 0)
+
+
+class Engine:
+    def __init__(self, units: dict, root=".", emit=None, getch=None,
+                 readline=None, printer=None, target=None, binio=None):
+        import random
+        self.tgt = target if target is not None else PDP10   # the machine value model
+        self.binio = binio          # unformatted-I/O codec (FOROTS); injected by the runtime
+        self.units = units
+        self.commons = {}           # block -> list (flat store)
+        self.rts = {}               # unit name -> UnitRT
+        self.entries = {}           # ENTRY name -> (owning unit, pc, params)  (V5 15.7)
+        self.builtins = {}
+        self.root = root            # read-only game source + maps/
+        self.save_root = root       # writable EMPIRE.DAT dir (isolated for map-eval)
+        self.out = []               # captured terminal output
+        self.rng = random.Random(0)
+        self.clock = 1
+        self.io = {}                # unit number -> open-file state
+        # FORTRAN-10 V5 Table 10-1 default LOGICAL DEVICE ASSIGNMENTS: a unit that
+        # is written to but never explicitly OPENed routes to its default device.
+        # Units 3 and 6 default to the line printer (LPT). We model the printer as
+        # an ENVIRONMENT SERVICE (self.printer, supplied by the driver like emit/
+        # readline) so the language core stays host-agnostic; the driver decides the
+        # printer means a 'print<job>.prt' spool file. (Empire OPENs all its units
+        # and uses TYPE for the terminal, so it never hits this path -- the game is
+        # unaffected; this serves general FORTRAN-10 source, e.g. FCVS listings.)
+        self.default_devices = {3: "lpt", 6: "lpt"}
+        # FOROTS runtime error status (V5 Appendix H): ERRSNS reports the last
+        # I/O op's (first, second) code; ERRSET caps how many LIB/APR domain
+        # warnings get printed -- V5 Table 15-3: suppress after N occurrences,
+        # default N=2.
+        self.last_io_error = (0, 0)
+        self.errset_limit = 2
+        self.lib_apr_count = 0
+        self.sense_lights = set()   # SLITE/SLITET console sense lights (V5 Table 15-3)
+        # Clock provider -- an ENVIRONMENT SERVICE the driver supplies. The standard
+        # library TIME/DATE (interp/forlib.py) read wall time ONLY through this hook,
+        # so the language core has no ambient os-time dependency and determinism is an
+        # injected input (like the RNG seed and the map). Default = fixed timestamp;
+        # the interactive driver overrides it with a real (per-session) clock.
+        self.now = lambda: DEFAULT_CLOCK
+        # Pluggable OPEN device handlers (devname -> fn(eng, unit, specs, frame)). The
+        # core knows only TTY + ordinary files; a dialect/game registers the rest (e.g.
+        # Empire's GAM: terrain device) via register_device, so the engine stays game-
+        # agnostic. See [[package-breakup-plan]].
+        self.device_handlers = {}
+        self.steps = 0
+        self.max_steps = 50_000_000
+        self._emit = emit or (lambda s: self.out.append(s))
+        self._getch = getch
+        self._readline = readline
+        self._printer = printer
+        self._build()
+
+    # ---- terminal / RNG plumbing
+    def emit(self, s):
+        self._emit(s)
+
+    def getch(self):
+        return self._getch() if self._getch else "\n"
+
+    def readline(self):
+        return self._readline() if self._readline else ""
+
+    def printer(self, s):
+        # Line-printer (LPT) sink. The driver attaches a spool file; with no driver
+        # hook we fall back to the terminal so printer output is never silently lost.
+        (self._printer or self.emit)(s)
+
+    def seed_rng(self, n):
+        self.rng.seed(n & MASK36)
+
+    def register_builtins(self, table):
+        self.builtins.update(table)
+
+    def register_device(self, name, fn):
+        """Register an OPEN device handler. `fn(eng, unit, specs, frame)` sets up
+        eng.io[unit] for a program that OPENs `name:` (e.g. Empire's GAM:)."""
+        self.device_handlers[name.upper()] = fn
+
+    def _binio(self):
+        """The unformatted-I/O codec (FOROTS record + DEC-10 float layout). It's a
+        target-specific runtime, injected via f66.install_runtime; the
+        generic core has none, so binary I/O without it is a clear error."""
+        if self.binio is None:
+            raise RuntimeError("unformatted/binary I/O needs a FORTRAN-10 runtime "
+                               "(f66.install_runtime)")
+        return self.binio
+
+    # ---- setup
+    def _build(self):
+        sizes = {}
+        # first pass: size every common block to its largest layout. A member's
+        # dimensions may come from a separate DIMENSION/type statement rather than
+        # the COMMON statement itself (F66 6.2/7.2.1.1: declaration order is free),
+        # so fall back to u.arrays when the COMMON entry carries no inline dims.
+        for u in self.units.values():
+            for block, members in u.commons:
+                off = 0
+                for name, dims in members:
+                    d = dims or u.arrays.get(name)
+                    off += array_size(d) if d else 1
+                sizes[block] = max(sizes.get(block, 0), off)
+        for block, n in sizes.items():
+            self.commons[block] = [0] * n
+
+        for name, u in self.units.items():
+            rt = UnitRT(u)
+            for block, members in u.commons:
+                off = 0
+                for mname, dims in members:
+                    d = dims or u.arrays.get(mname)
+                    rt.common_map[mname] = (block, off, d)
+                    off += array_size(d) if d else 1
+            self._layout_equivalence(name, u, rt)   # EQUIVALENCE storage aliasing (V5 6.6)
+            self.rts[name] = rt
+        # ENTRY points (V5 15.7): map each entry name to (owning unit, pc, params)
+        for uname, u in self.units.items():
+            for i, stmt in enumerate(u.code):
+                if isinstance(stmt, A.EntryStmt):
+                    self.entries[stmt.name] = (uname, i, stmt.params)
+        # initialize DATA / parameters into storage
+        for name, u in self.units.items():
+            self._apply_data(self.rts[name], u)
+
+    def _layout_equivalence(self, uname, u, rt):
+        """Allocate EQUIVALENCE groups (V5 6.6) into common_map: alias each member to
+        a shared backing store -- a COMMON block if any member is in one (extending it
+        FORWARD as needed; backward extension is clamped), else a synthetic per-unit
+        block in self.commons. Offsets come from a weighted union-find that records
+        each name's word offset relative to its component root. Reusing common_map
+        means every read/write/array/DATA path resolves equivalenced names unchanged.
+
+        NOTE: storage is one value-slot per element (not bit-level words), so a
+        cross-type EQUIVALENCE shares the slot's value, not a reinterpreted bit
+        pattern -- consistent with our REAL=double divergence."""
+        if not u.equivs:
+            return
+        parent, off = {}, {}
+
+        def find(x):
+            if x not in parent:
+                parent[x], off[x] = x, 0
+                return x
+            if parent[x] != x:
+                p = parent[x]
+                r = find(p)
+                off[x] += off[p]
+                parent[x] = r
+            return parent[x]
+
+        def union(a, b, delta):                 # constrain base(b) = base(a) + delta
+            ra, rb = find(a), find(b)
+            if ra == rb:
+                return
+            parent[rb] = ra
+            off[rb] = off[a] + delta - off[b]
+
+        def elem_off(name, subs):               # 0-based element offset within `name`
+            if name not in u.arrays or not subs:
+                return 0
+            dims = u.arrays[name]
+            vals = [self._const_eval_int(s, u) for s in subs]
+            if len(vals) == 1:                  # single subscript: array as 1-D
+                return vals[0] - dims[0][0]
+            return linidx(vals, dims)
+
+        def size_of(name):
+            return array_size(u.arrays[name]) if name in u.arrays else 1
+
+        for group in u.equivs:
+            if not group:
+                continue
+            n0, s0 = group[0]
+            base0 = elem_off(n0, s0)
+            find(n0)
+            for ni, si in group[1:]:            # ni coincides with n0 at one word
+                union(n0, ni, base0 - elem_off(ni, si))
+
+        comps = {}
+        for name in list(parent):
+            comps.setdefault(find(name), []).append(name)
+
+        eq_block = 0
+        for root, members in comps.items():
+            anchor = next((m for m in members if m in rt.common_map), None)
+            if anchor is not None:              # tie the whole group into a COMMON block
+                block, coff, _ = rt.common_map[anchor]
+                for m in members:
+                    mo = coff + (off[m] - off[anchor])
+                    if mo < 0:
+                        mo = 0                  # V5: no backward common extension (clamp)
+                    rt.common_map[m] = (block, mo, u.arrays.get(m))
+                    end = mo + size_of(m)
+                    if end > len(self.commons[block]):
+                        self.commons[block].extend([0] * (end - len(self.commons[block])))
+            else:                               # purely local group -> synthetic block
+                mn = min(off[m] for m in members)
+                size = max(off[m] - mn + size_of(m) for m in members)
+                key = f"$EQV.{uname}.{eq_block}"
+                eq_block += 1
+                self.commons[key] = [0] * size
+                for m in members:
+                    rt.common_map[m] = (key, off[m] - mn, u.arrays.get(m))
+
+    def type_of(self, unit, name):
+        if name in unit.types:
+            return unit.types[name]
+        if name and name[0] in unit.implicit:
+            return unit.implicit[name[0]]
+        return "INTEGER" if (name and name[0] in DEFAULT_INT_LETTERS) else "REAL"
+
+    # ---- DATA initialization
+    def _apply_data(self, rt, unit):
+        for targets, values in unit.data:
+            flat = []
+            for count, v in values:
+                # a literal longer than one word (5 chars) spans consecutive
+                # variables/elements: 'ABCDEFGHIJKL' -> 'ABCDE','FGHIJ','KL   '
+                if isinstance(v, A.StrLit) and len(v.value) > 5:
+                    words = [self.tgt.pack(v.value[i:i + 5])
+                             for i in range(0, len(v.value), 5)]
+                    flat.extend(words * count)
+                else:
+                    flat.extend([self._const_val(v, unit)] * count)
+            it = iter(flat)
+            for tgt in targets:
+                self._data_assign(rt, unit, tgt, it)
+
+    def _const_val(self, v, unit):
+        if isinstance(v, bool):                   # .TRUE./.FALSE. in DATA; bool is an
+            return -1 if v else 0                 # int subclass, so test it FIRST.
+        if isinstance(v, A.StrLit):               # FORTRAN-10: .TRUE.=-1, .FALSE.=0
+            return self.tgt.pack(v.value)
+        if isinstance(v, A.Complex):              # complex constant in DATA
+            return complex(float(self._const_val(v.re, unit)),
+                           float(self._const_val(v.im, unit)))
+        if isinstance(v, A.Var):
+            return unit.consts.get(v.name, 0)
+        if isinstance(v, float):
+            return v
+        return self.tgt.wrap(v) if isinstance(v, int) else v
+
+    def _data_assign(self, rt, unit, tgt, it):
+        if isinstance(tgt, A.Var):
+            if tgt.name in unit.arrays:
+                view, dims = self._static_array(rt, unit, tgt.name)
+                for i in range(array_size(dims)):
+                    view.loc(i).write(next(it))
+            else:
+                self._scalar_static_ref(rt, unit, tgt.name).write(next(it))
+        elif isinstance(tgt, A.Ref):
+            view, dims = self._static_array(rt, unit, tgt.name)
+            subs = [self._const_eval_int(a, unit) for a in tgt.args]
+            view.loc(linidx(subs, dims)).write(next(it))
+        elif isinstance(tgt, A.ImpliedDo):
+            lo = self._const_eval_int(tgt.start, unit)
+            hi = self._const_eval_int(tgt.stop, unit)
+            step = self._const_eval_int(tgt.step, unit) if tgt.step else 1
+            i = lo
+            while (step > 0 and i <= hi) or (step < 0 and i >= hi):
+                unit.consts[tgt.var] = i          # transient loop var
+                for sub in tgt.items:
+                    self._data_assign(rt, unit, sub, it)
+                i += step
+            unit.consts.pop(tgt.var, None)
+
+    def _const_eval_int(self, node, unit):
+        if isinstance(node, A.IntLit):
+            return node.value
+        if isinstance(node, A.OctalLit):
+            return node.value
+        if isinstance(node, A.Var):
+            return unit.consts[node.name]
+        if isinstance(node, A.Unary):
+            v = self._const_eval_int(node.operand, unit)
+            return -v if node.op == "-" else v
+        if isinstance(node, A.Binary):
+            a = self._const_eval_int(node.left, unit)
+            b = self._const_eval_int(node.right, unit)
+            return {"+": a + b, "-": a - b, "*": a * b,
+                    "/": trunc_div(a, b)}[node.op]
+        raise RuntimeError(f"bad DATA subscript {node}")
+
+    def _static_array(self, rt, unit, name):
+        dims = unit.arrays[name]
+        if name in rt.common_map:
+            block, off, _ = rt.common_map[name]
+            return ArrayView(self.commons[block], off), dims
+        if name not in rt.local_arrays:
+            rt.local_arrays[name] = [0] * array_size(dims)
+        return ArrayView(rt.local_arrays[name], 0), dims
+
+    def _scalar_static_ref(self, rt, unit, name):
+        if name in rt.common_map:
+            block, off, _ = rt.common_map[name]
+            return CellRef(self.commons[block], off)
+        return DictRef(rt.local_scalars, name)
+
+    # ---- name resolution within a running frame
+    def arrayview(self, frame, name):
+        rt, unit = frame.rt, frame.rt.unit
+        if name in frame.args:
+            return frame.args[name]
+        return self._static_array(rt, unit, name)[0]
+
+    def _dims(self, name, frame):
+        """Resolve an array's (lo,hi) bounds, evaluating any adjustable (dummy-arg)
+        dimension expressions in the current frame. Fast-paths all-constant dims."""
+        raw = frame.rt.unit.arrays[name]
+        for lo, hi in raw:
+            if type(lo) is not int or type(hi) is not int:
+                return [(lo if type(lo) is int else int(self.eval(lo, frame)),
+                         hi if type(hi) is int else int(self.eval(hi, frame)))
+                        for lo, hi in raw]
+        return raw
+
+    def scalar_ref(self, frame, name):
+        rt, unit = frame.rt, frame.rt.unit
+        if name in frame.args:
+            return frame.args[name]
+        return self._scalar_static_ref(rt, unit, name)
+
+    # ---- expression evaluation
+    def eval(self, node, frame):
+        t = type(node)
+        if t is A.IntLit:
+            return node.value
+        if t is A.RealLit:
+            return node.value
+        if t is A.OctalLit:
+            return self.tgt.wrap(node.value)
+        if t is A.Complex:                        # (re, im) complex constant
+            return complex(float(self.eval(node.re, frame)),
+                           float(self.eval(node.im, frame)))
+        if t is A.StrLit:
+            return self.tgt.pack(node.value)
+        if t is A.LogicalLit:
+            return -1 if node.value else 0      # FORTRAN-10 .TRUE.=-1, .FALSE.=0
+        if t is A.Var:
+            return self.eval_var(node.name, frame)
+        if t is A.Ref:
+            return self.eval_ref(node, frame)
+        if t is A.Unary:
+            v = self.eval(node.operand, frame)
+            if node.op == "NOT":
+                return self.tgt.wrap(~int(v))          # .NOT. = bitwise complement (36-bit)
+            if node.op == "-":
+                return self.tgt.wrap(-v) if isinstance(v, int) else -v
+            return v
+        if t is A.Binary:
+            return self.eval_binary(node, frame)
+        raise RuntimeError(f"cannot eval {node}")
+
+    def eval_var(self, name, frame):
+        unit = frame.rt.unit
+        if name in unit.consts:
+            return unit.consts[name]
+        if name in unit.arrays:               # bare array name (I/O / arg use)
+            return self.arrayview(frame, name)
+        if (name in self.entries and name not in frame.args
+                and name not in frame.rt.common_map and name not in unit.types
+                and name not in frame.rt.assigned):
+            return self._call_entry_func(name, [], frame)   # no-arg ENTRY function ref
+        if (name != frame.rt.unit.name
+                and name in self.units and self.units[name].kind == "function"
+                and name not in frame.args and name not in frame.rt.common_map
+                and name not in unit.types and name not in frame.rt.assigned):
+            return self.call_function(name, [], frame)
+        if name not in frame.args and name not in frame.rt.common_map \
+                and name not in unit.types and name in self.builtins:
+            return self.builtins[name](self, frame, [])
+        return self.scalar_ref(frame, name).read()
+
+    def eval_ref(self, node, frame):
+        name = node.name
+        unit = frame.rt.unit
+        if name in unit.arrays:
+            dims = self._dims(name, frame)
+            subs = [self.eval(a, frame) for a in node.args]
+            return self.arrayview(frame, name).loc(linidx(subs, dims)).read()
+        proc = frame.args.get(name)
+        if isinstance(proc, ProcRef):         # reference to a dummy procedure (function)
+            return self.call_function(proc.target, node.args, frame)
+        if name in unit.stmt_funcs:
+            return self._call_stmt_func(name, node.args, frame)
+        if name in self.entries:              # V5 15.7: function ENTRY reference
+            return self._call_entry_func(name, node.args, frame)
+        if (name in unit.externals and name in self.units
+                and self.units[name].kind == "function"):
+            return self.call_function(name, node.args, frame)   # V5 15.3: EXTERNAL beats intrinsic
+        if name in INTRINSICS:
+            return self._apply_intrinsic(name, [self.eval(a, frame) for a in node.args])
+        if name in self.units and self.units[name].kind == "function":
+            return self.call_function(name, node.args, frame)
+        if name in self.builtins:
+            return self.builtins[name](self, frame, node.args)
+        raise RuntimeError(f"unknown function/array {name!r}")
+
+    def _call_stmt_func(self, name, arg_nodes, frame):
+        """Evaluate a FORTRAN-66 statement function: bind its dummy params to the
+        actual values, evaluate its body expression, then restore the locals it
+        shadowed (the dummies are local to the statement function)."""
+        params, body = frame.rt.unit.stmt_funcs[name]
+        actuals = [self.eval(a, frame) for a in arg_nodes]
+        store = frame.rt.local_scalars
+        saved = {p: store[p] for p in params if p in store}
+        present = {p for p in params if p in store}
+        for p, v in zip(params, actuals):
+            store[p] = v
+        try:
+            return self.eval(body, frame)
+        finally:
+            for p in params:
+                if p in present:
+                    store[p] = saved[p]
+                else:
+                    store.pop(p, None)
+
+    def _lib_warn(self, msg):
+        """Emit a FOROTS LIB/APR warning (V5 App H) and count it. ERRSET caps how
+        many are printed; beyond the cap they still occur but are not listed."""
+        self.lib_apr_count += 1
+        if self.lib_apr_count <= self.errset_limit:
+            self.emit(msg + "\n")
+
+    def _apply_intrinsic(self, name, args):
+        """Apply a library intrinsic. FORTRAN-10 V5 (Appendix H, Table H-2): math
+        LIB domain errors -- SQRT/LOG of a negative arg, ASIN/ACOS of |arg|>1 --
+        and APR floating overflow are "reported as warnings and the program
+        continues"; they must NOT raise. We print the manual's exact message and
+        return a defined recovery value computed on the nearest in-domain argument
+        (|x| for SQRT/LOG, clamp to [-1,1] for ASIN/ACOS). FORLIB's exact recovery
+        value isn't specified in the V5 manual, so this is a documented
+        approximation -- same class as REAL=Python double. The game triggers none
+        of these (it calls no SQRT/LOG/ASIN/ACOS)."""
+        try:
+            return INTRINSICS[name](args)
+        except ValueError:                 # math domain error (negative / out of range)
+            if name in _LIB_MSG:
+                self._lib_warn(_LIB_MSG[name])
+                return _LIB_RECOVER[name](args)
+            raise
+        except OverflowError:              # APR floating overflow (e.g. EXP of large arg)
+            self._lib_warn("Floating Overflow")
+            return math.inf if (args and args[0] > 0) else -math.inf
+
+    def eval_binary(self, node, frame):
+        op = node.op
+        # FORTRAN-10 logical operators are BITWISE on the full 36-bit word (Ch 4,
+        # p4-7), not boolean. Operands are -1/0 for logical/relational results.
+        if op == "AND":
+            return self.tgt.wrap(int(self.eval(node.left, frame)) & int(self.eval(node.right, frame)))
+        if op == "OR":
+            return self.tgt.wrap(int(self.eval(node.left, frame)) | int(self.eval(node.right, frame)))
+        if op in ("XOR", "NEQV"):
+            return self.tgt.wrap(int(self.eval(node.left, frame)) ^ int(self.eval(node.right, frame)))
+        if op == "EQV":
+            return self.tgt.wrap(~(int(self.eval(node.left, frame)) ^ int(self.eval(node.right, frame))))
+        a = self.eval(node.left, frame)
+        b = self.eval(node.right, frame)
+        cx = isinstance(a, complex) or isinstance(b, complex)
+        # relational results are FORTRAN logicals: .TRUE.=-1, .FALSE.=0
+        if op == "EQ": return -1 if a == b else 0
+        if op == "NE": return -1 if a != b else 0
+        if op in ("LT", "LE", "GT", "GE") and cx:
+            return 0                              # V5 CTR: complex .LT./.GT./... undefined
+        if op == "LT": return -1 if a < b else 0
+        if op == "LE": return -1 if a <= b else 0
+        if op == "GT": return -1 if a > b else 0
+        if op == "GE": return -1 if a >= b else 0
+        fl = isinstance(a, float) or isinstance(b, float)
+        if op == "+": return a + b if (fl or cx) else self.tgt.wrap(a + b)
+        if op == "-": return a - b if (fl or cx) else self.tgt.wrap(a - b)
+        if op == "*": return a * b if (fl or cx) else self.tgt.wrap(a * b)
+        if op == "/":
+            if cx:
+                return a / b if b != 0 else 0j    # complex divide (non-fatal /0)
+            if fl:
+                return a / b if b != 0 else 0.0   # FOROTS divide-by-zero: non-fatal
+            return trunc_div(a, b)                # (handles b==0 -> 0)
+        if op == "^":
+            if cx:
+                return a ** b                     # complex exponentiation
+            if fl:
+                if a == 0 and b < 0:
+                    return 0.0                    # 0.0**negative: non-fatal stand-in
+                if a < 0 and b != int(b):         # F66 6.4: neg base ** real exp = undefined
+                    self._lib_warn("Negative Number to a Real Power")  # FOROTS LIB error
+                    return abs(a) ** b            # real stand-in (Python would give complex)
+                return a ** b
+            base, exp = int(a), int(b)
+            if exp < 0:                       # FORTRAN integer**negative truncates
+                if base == 1:
+                    return 1
+                if base == -1:
+                    return 1 if exp % 2 == 0 else -1
+                return 0                      # |base|>1 -> 0; base 0 -> 0 (no crash)
+            return self.tgt.wrap(base ** exp)
+        raise RuntimeError(f"bad operator {op}")
+
+    # ---- argument passing
+    def arg_ref(self, node, frame):
+        """Build a reference/view for an actual argument (pass by reference)."""
+        if isinstance(node, A.Var):
+            name = node.name
+            unit = frame.rt.unit
+            if name in unit.consts:
+                return TempRef(unit.consts[name])
+            if name in unit.arrays:
+                return self.arrayview(frame, name)
+            # a procedure name passed as an argument (F66 8.3): EXTERNAL-declared,
+            # or a dummy procedure being passed down another level
+            if isinstance(frame.args.get(name), ProcRef):
+                return frame.args[name]
+            if (name in unit.externals
+                    and (name in self.units or name in self.builtins)):
+                return ProcRef(name)
+            return self.scalar_ref(frame, name)
+        if isinstance(node, A.Ref) and node.name in frame.rt.unit.arrays:
+            dims = self._dims(node.name, frame)
+            subs = [self.eval(a, frame) for a in node.args]
+            return self.arrayview(frame, node.name).loc(linidx(subs, dims))
+        return TempRef(self.eval(node, frame))
+
+    def bind_args(self, callee_rt, actuals):
+        params = callee_rt.unit.params
+        return {p: actuals[i] for i, p in enumerate(params) if i < len(actuals)}
+
+    # ---- calls
+    def _entry_frame(self, name, arg_nodes, frame):
+        """Build a frame entering `name`'s owning unit at the ENTRY's pc, bound to
+        the ENTRY's own dummy args (V5 15.7). Returns (frame, owner_rt, alt_labels)."""
+        owner, epc, eparams = self.entries[name]
+        crt = self.rts[owner]
+        actuals, alt_labels = [], []
+        for a in arg_nodes:
+            if isinstance(a, A.LabelArg):
+                alt_labels.append(a.label); actuals.append(None)
+            else:
+                actuals.append(self.arg_ref(a, frame))
+        binding = {p: actuals[i] for i, p in enumerate(eparams)
+                   if p != "*" and i < len(actuals) and actuals[i] is not None}
+        f = Frame(crt, binding)
+        f.pc = epc                          # begin at the ENTRY (a no-op) -> next stmt
+        return f, crt, alt_labels
+
+    def _call_entry_func(self, name, arg_nodes, frame):
+        f, crt, _ = self._entry_frame(name, arg_nodes, frame)
+        self.run(f)
+        return crt.local_scalars.get(name, 0)   # value returned via the entry name
+
+    def call_sub(self, name, arg_nodes, frame):
+        proc = frame.args.get(name)
+        if isinstance(proc, ProcRef):              # CALL <dummy procedure>(...)
+            return self.call_sub(proc.target, arg_nodes, frame)
+        if name in self.builtins:
+            self.builtins[name](self, frame, arg_nodes)
+            return None
+        if name in self.entries:                   # CALL of an ENTRY point (V5 15.7)
+            f, crt, alt_labels = self._entry_frame(name, arg_nodes, frame)
+            alt = self.run(f)
+            if alt and 1 <= alt <= len(alt_labels):
+                return Goto(alt_labels[alt - 1])
+            return None
+        callee = self.units.get(name)
+        if callee is None:
+            raise RuntimeError(f"undefined subroutine {name!r}")
+        crt = self.rts[name]
+        params = crt.unit.params
+        # split actuals into value refs and alternate-return labels (the latter
+        # align positionally with '*' dummy params)
+        actuals, alt_labels = [], []
+        for a in arg_nodes:
+            if isinstance(a, A.LabelArg):
+                alt_labels.append(a.label)
+                actuals.append(None)
+            else:
+                actuals.append(self.arg_ref(a, frame))
+        binding = {p: actuals[i] for i, p in enumerate(params)
+                   if p != "*" and i < len(actuals) and actuals[i] is not None}
+        alt = self.run(Frame(crt, binding))           # RETURN e -> e, else None
+        if alt and 1 <= alt <= len(alt_labels):
+            return Goto(alt_labels[alt - 1])           # jump in the CALLER
+        return None
+
+    def call_function(self, name, arg_nodes, frame):
+        callee = self.units[name]
+        actuals = [self.arg_ref(a, frame) for a in arg_nodes]
+        crt = self.rts[name]
+        f = Frame(crt, self.bind_args(crt, actuals))
+        self.run(f)
+        return crt.local_scalars.get(name, 0)
+
+    # ---- statement execution; returns None | Goto | Ret | Stop
+    def exec_stmt(self, s, frame):
+        t = type(s)
+        if t is A.Assign:
+            self.do_assign(s, frame)
+            return None
+        if t is A.Continue:
+            return None
+        if t is A.EntryStmt:                      # V5 15.7: nonexecutable -> no-op
+            return None
+        if t is A.Goto:
+            return Goto(s.target)
+        if t is A.AssignLabel:                    # ASSIGN <label> TO <var>
+            self.scalar_ref(frame, s.var).write(self.tgt.wrap(s.tgt))
+            return None
+        if t is A.AssignedGoto:                   # GO TO <var>  -> jump to stored label
+            return Goto(int(self.eval_var(s.var, frame)))
+        if t is A.CompGoto:
+            i = self.eval(s.index, frame)
+            if 1 <= i <= len(s.labels):
+                return Goto(s.labels[i - 1])
+            return None
+        if t is A.IfLogical:
+            if self.tgt.truthy(self.eval(s.cond, frame)):
+                return self.exec_stmt(s.stmt, frame)
+            return None
+        if t is A.IfBranch:
+            v = self.eval(s.cond, frame)
+            if len(s.labels) == 3:
+                k = 0 if (v < 0) else (1 if v == 0 else 2)
+                return Goto(s.labels[k])
+            return Goto(s.labels[0] if self.tgt.truthy(v) else s.labels[1])
+        if t is A.Do:
+            return self.exec_do(s, frame)
+        if t is A.Call:
+            return self.call_sub(s.name, s.args, frame)
+        if t is A.Return:
+            return Ret(self.eval(s.expr, frame) if s.expr is not None else None)
+        if t is A.StopStmt:
+            if s.code is not None:           # V5 9.6: STOP 'msg' / STOP n prints, then halts
+                self.emit((s.code if isinstance(s.code, str) else str(s.code)) + "\n")
+            return Stop()
+        if t is A.PauseStmt:
+            msg = "PAUSE" + (f" {s.code}" if s.code is not None else "")
+            self.emit(msg + "\n")        # F66 PAUSE: print and continue (batch mode)
+            return None
+        if t is A.TypeStmt:
+            self.do_type(s, frame)
+            return None
+        if t is A.AcceptStmt:
+            self.do_accept(s, frame)
+            return None
+        if t in (A.IoStmt, A.FileCtl):
+            return self.do_io(s, frame)
+        if t is A.DefineFile:
+            return self.do_define_file(s, frame)
+        if t is A.EncDec:
+            self.do_encdec(s, frame)
+            return None
+        raise RuntimeError(f"cannot exec {s}")
+
+    def do_assign(self, s, frame):
+        val = self.eval(s.expr, frame)
+        tgt = s.target
+        # numeric conversion at the type boundary -- but a Hollerith/char constant
+        # adopts the target type as a bit pattern (no conversion), e.g. TTY='TTY'
+        ttype = self.type_of(frame.rt.unit, tgt.name)
+        if isinstance(val, bool) or isinstance(s.expr, A.StrLit):
+            pass
+        elif ttype == "COMPLEX":                  # real/int -> complex(x, 0)
+            if not isinstance(val, complex):
+                val = complex(float(val), 0.0)
+        elif isinstance(val, complex):            # complex -> scalar uses the real part
+            val = self.tgt.wrap(int(val.real)) if ttype == "INTEGER" else val.real
+        elif ttype in ("REAL", "DOUBLE PRECISION") and isinstance(val, int):
+            val = float(val)
+        elif ttype == "INTEGER" and isinstance(val, float):
+            val = self.tgt.wrap(int(val))
+        if isinstance(tgt, A.Var):
+            self.scalar_ref(frame, tgt.name).write(val)
+        else:
+            dims = self._dims(tgt.name, frame)
+            subs = [self.eval(a, frame) for a in tgt.args]
+            self.arrayview(frame, tgt.name).loc(linidx(subs, dims)).write(val)
+
+    def exec_do(self, s, frame):
+        start = self.eval(s.start, frame)
+        stop = self.eval(s.stop, frame)
+        step = self.eval(s.step, frame) if s.step else 1
+        ref = self.scalar_ref(frame, s.var)
+        ref.write(start)
+        if isinstance(start, float) or isinstance(stop, float) or isinstance(step, float):
+            trips = int((stop - start + step) / step)
+        else:
+            trips = trunc_div(stop - start + step, step)
+        if trips < 1:
+            trips = 1            # DEC FORTRAN-10 V5/V6 (F66): the body always runs
+            #                      at least once -- e.g. DO I=1,0 executes once with
+            #                      I=1, then exits. (F77 zero-trip is a later compiler.)
+        term_idx = frame.rt.unit.labels[s.term_label]
+        frame.do_stack.append(
+            DoFrame(ref, trips, step, s.term_label, frame.pc + 1, term_idx))
+        return None
+
+    # ---- the per-unit run loop
+    def run(self, frame):
+        code = frame.rt.unit.code
+        labels = frame.rt.unit.labels
+        do_terms = frame.rt.do_terms
+        n = len(code)
+        while 0 <= frame.pc < n:
+            self.steps += 1
+            if self.steps > self.max_steps:
+                u = frame.rt.unit
+                raise RuntimeError(
+                    f"step budget exceeded in {u.name} pc={frame.pc} "
+                    f"line={code[frame.pc].line}: "
+                    f"{type(code[frame.pc]).__name__} | "
+                    f"do_stack={[(d.term, d.trips) for d in frame.do_stack]}")
+            s = code[frame.pc]
+            ctrl = self.exec_stmt(s, frame)
+            if ctrl is None:
+                if s.label is not None and s.label in do_terms \
+                        and self._do_bookkeep(frame, s.label):
+                    continue
+                frame.pc += 1
+            elif type(ctrl) is Goto:
+                tgt = ctrl.label
+                if isinstance(tgt, tuple):           # skip-to-after-terminal
+                    newpc = labels[tgt[1]] + 1
+                else:
+                    newpc = labels[tgt]
+                # leaving any DO loop that no longer contains the PC: abandon it
+                while frame.do_stack and not (
+                        frame.do_stack[-1].body <= newpc
+                        <= frame.do_stack[-1].term_idx):
+                    frame.do_stack.pop()
+                frame.pc = newpc
+            elif type(ctrl) is Ret:
+                return ctrl.alt
+            elif type(ctrl) is Stop:
+                raise StopExecution()
+
+    def _do_bookkeep(self, frame, label):
+        while frame.do_stack and frame.do_stack[-1].term == label:
+            f = frame.do_stack[-1]
+            f.trips -= 1
+            if f.trips > 0:
+                v = f.ref.read()
+                f.ref.write(v + f.step if isinstance(v, float) else self.tgt.wrap(v + f.step))
+                frame.pc = f.body
+                return True
+            # Loop done: DEC FORTRAN-10 leaves the index at the LAST value executed
+            # (e.g. 9 after DO I=1,9), NOT the terminating value. JIGGLE (7.FOR) relies
+            # on this: after DO 100 I1=1,9 finds no match, it tests `IF(M==9)` as the
+            # "nothing found" sentinel -- which only holds if I1 stayed 9.
+            frame.do_stack.pop()
+        return False
+
+    # ---- formatted terminal + file I/O
+    @staticmethod
+    def _ld_out(values):
+        """List-directed output: each value, space-separated, default-formatted."""
+        parts = []
+        for v in values:
+            if isinstance(v, complex):
+                parts.append(f" ({v.real},{v.imag})")     # complex -> (re,im)
+            else:
+                parts.append(" " + (repr(v) if isinstance(v, float) else str(int(v))))
+        return "".join(parts)
+
+    @staticmethod
+    def _cx_expand(values):
+        """A COMPLEX value transfers as two reals under format control (V5 Ch4)."""
+        out = []
+        for v in values:
+            if isinstance(v, complex):
+                out.append(v.real); out.append(v.imag)
+            else:
+                out.append(v)
+        return out
+
+    @staticmethod
+    def _ld_in(line, refs):
+        """List-directed input: split on blanks/commas, convert by token form."""
+        import re
+        toks = [t for t in re.split(r"[ ,\t]+", line.strip()) if t]
+        for ref, tok in zip(refs, toks):
+            try:
+                v = int(tok)
+            except ValueError:
+                try:
+                    v = float(tok)
+                except ValueError:
+                    v = pack5(tok)               # non-numeric -> packed char
+            ref.write(v)
+
+    def do_type(self, s, frame):
+        from f66.fmt import parse_format, render, apply_carriage
+        nml = self._nml_name(s.fmt, frame)
+        if nml is not None:                       # TYPE/PRINT of a NAMELIST group
+            self.emit(self._nml_write(nml, frame))
+            return
+        values = self._unf_values(s.items, frame)
+        if s.fmt == "*":                          # list-directed output
+            self.emit(self._ld_out(values) + "\n")
+            return
+        spec = frame.rt.unit.formats.get(s.fmt)
+        items = parse_format(spec) if spec else []
+        text, suppress = render(items, self._cx_expand(values))   # complex -> 2 reals
+        text = apply_carriage(text)
+        if not suppress:
+            text += "\n"
+        self.emit(text)
+
+    def do_accept(self, s, frame):
+        from f66.fmt import parse_format, read_values
+        if getattr(s, "reread", False):
+            line = getattr(self, "_last_input", "")   # REREAD: the last record again
+        else:
+            line = self.readline().rstrip("\r\n")   # the line terminator isn't record data
+            self._last_input = line
+        if "\x1a" in line:                  # CONTROL-Z = end-of-file (V5 terminal input)
+            self.last_io_error = (24, 308)
+            raise StopExecution()           # EOF on ACCEPT (no END=) ends the program
+        nml = self._nml_name(s.fmt, frame)
+        if nml is not None:                 # ACCEPT/READ of a NAMELIST group
+            self._nml_read(nml, line, frame)
+            return
+        refs = self._unf_refs(s.items, frame)
+        if s.fmt == "*":                          # list-directed input
+            self._ld_in(line, refs)
+            return
+        spec = frame.rt.unit.formats.get(s.fmt)
+        items = parse_format(spec) if spec else []
+        reads = read_values(items, line)
+        self._assign_reads(s.items, reads, frame)   # COMPLEX consumes 2 real fields
+
+    def do_encdec(self, s, frame):
+        """ENCODE/DECODE (V5 10.15): internal formatted I/O to a packed-ASCII buffer.
+        ENCODE renders the list per the FORMAT into the buffer; DECODE parses the
+        buffer per the FORMAT into the list. No carriage control (it's not a record
+        to a device) -- render() output goes straight to the buffer."""
+        from f66.fmt import parse_format, render, read_values, unpack_chars
+        count = int(self.eval(s.count, frame))
+        spec = frame.rt.unit.formats.get(s.fmt) if s.fmt != "*" else None
+        items = parse_format(spec) if spec else []
+        buf = self.arg_ref(s.buf, frame)
+        if s.decode:
+            nwords = (count + 4) // 5
+            chunks = [unpack_chars(buf.loc(i).read() if hasattr(buf, "loc")
+                                   else (buf.read() if i == 0 else 0), 5)
+                      for i in range(nwords)]
+            text = "".join(chunks)[:count]
+            refs = self._unf_refs(s.items, frame)
+            if s.fmt == "*":
+                self._ld_in(text, refs)
+            else:
+                for ref, (_, v) in zip(refs, read_values(items, text)):
+                    ref.write(v)
+        else:
+            values = self._unf_values(s.items, frame)
+            text = (self._ld_out(values) if s.fmt == "*" else render(items, values)[0])
+            text = text[:count].ljust(count)               # fill the buffer to `count`
+            words = [self.tgt.pack(text[i:i + 5].ljust(5)) for i in range(0, count, 5)]
+            if hasattr(buf, "loc"):
+                for i, w in enumerate(words):
+                    buf.loc(i).write(w)
+            elif words:
+                buf.write(words[0])                        # scalar buffer: first word only
+
+    # ---- NAMELIST-controlled I/O (V5 Ch11) ---------------------------------
+    def _nml_name(self, fmt, frame):
+        """If `fmt` names a NAMELIST group in this unit, return that name, else None."""
+        nm = fmt.name if isinstance(fmt, A.Var) else fmt
+        return nm if (isinstance(nm, str) and nm in frame.rt.unit.namelists) else None
+
+    def _nml_write(self, gname, frame):
+        """Build a re-readable NAMELIST output record: ` $NAME V= vals, ... $END`.
+        (Field widths are list-directed-style, not the manual's column layout --
+        a documented approximation; the structure round-trips through _nml_read.)"""
+        out = [f" ${gname}\n"]
+        for it in frame.rt.unit.namelists[gname]:
+            vname = it.name if isinstance(it, (A.Var, A.Ref)) else str(it)
+            vals = self._unf_values([it], frame)
+            body = ", ".join(repr(v) if isinstance(v, float) else str(int(v))
+                             for v in vals)
+            out.append(f" {vname}= {body},\n")
+        out.append(" $END\n")
+        return "".join(out)
+
+    def _nml_read(self, gname, line, frame):
+        """Parse a NAMELIST input record ($NAME V=vals,... $) and assign (V5 11.2.1)."""
+        import re
+        refmap = {(it.name if isinstance(it, (A.Var, A.Ref)) else str(it)):
+                  self._item_refs(it, frame)
+                  for it in frame.rt.unit.namelists[gname]}
+        body = line
+        m = re.search(r"[$&]\s*[A-Za-z][A-Za-z0-9]*", body)    # skip past the $NAME
+        if m:
+            body = body[m.end():]
+        e = re.search(r"[$&]", body)                           # stop at the closing $
+        if e:
+            body = body[:e.start()]
+        parts = re.split(r"([A-Za-z][A-Za-z0-9]*(?:\s*\([^)]*\))?)\s*=", body)
+        i = 1
+        while i + 1 < len(parts):
+            target = parts[i].strip()
+            base = target.split("(")[0].strip().upper()[:6]
+            refs = refmap.get(base)
+            if refs:
+                off = 0
+                if "(" in target:                     # A(2,3)= -> start at that element
+                    sub = target[target.index("(") + 1:target.rindex(")")]
+                    off = self._nml_offset(base, sub, frame)
+                self._nml_store(parts[i + 1], refs[off:])
+            i += 2
+
+    def _nml_offset(self, base, substr, frame):
+        """0-based linear element offset for a subscripted NAMELIST input target."""
+        dims = frame.rt.unit.arrays.get(base)
+        if not dims:
+            return 0
+        try:
+            subs = [int(x) for x in substr.split(",")]
+        except ValueError:
+            return 0
+        return linidx(subs, dims)
+
+    def _nml_store(self, valstr, refs):
+        vals = []
+        for tok in valstr.split(","):
+            tok = tok.strip()
+            if not tok:
+                continue
+            if "*" in tok:                       # V5: repetition factor  n*k
+                n, _, k = tok.partition("*")
+                try:
+                    vals.extend([self._nml_const(k)] * int(n))
+                except ValueError:
+                    vals.append(self._nml_const(tok))
+            else:
+                vals.append(self._nml_const(tok))
+        for ref, v in zip(refs, vals):
+            ref.write(v)
+
+    @staticmethod
+    def _nml_const(tok):
+        t = tok.strip().upper()
+        if t in ("T", ".TRUE."):
+            return -1                            # logical .TRUE. = -1
+        if t in ("F", ".FALSE."):
+            return 0
+        try:
+            return wrap36(int(t))                # staticmethod: module-level (PDP-10) wrap
+        except ValueError:
+            try:
+                return float(t)
+            except ValueError:
+                return pack5(tok.strip())        # character constant
+
+    def _formatted_write(self, s, frame, sink=None):
+        """Formatted WRITE(unit,fmt) to a character device. `sink` is where the
+        rendered text goes -- the terminal (default) or the line printer."""
+        from f66.fmt import parse_format, render, apply_carriage
+        sink = sink or self.emit
+        values = self._unf_values(s.items, frame)
+        if s.fmt == "*":                          # list-directed output
+            sink(self._ld_out(values) + "\n")
+            return
+        spec = frame.rt.unit.formats.get(s.fmt)
+        items = parse_format(spec) if spec else []
+        text, suppress = render(items, self._cx_expand(values))   # complex -> 2 reals
+        text = apply_carriage(text)
+        if not suppress:
+            text += "\n"
+        sink(text)
+
+    def do_define_file(self, s, frame):
+        """DEFINE FILE u(m,n,U,v) (V5 10.3.5): set up random-access units. We model the
+        record store in memory; the associated variable `v` tracks the next record."""
+        for d in s.defs:
+            unit = int(self.eval(d["unit"], frame))
+            st = self.io.setdefault(unit, {"recs": [], "pos": 0, "mode": "random"})
+            st["mode"] = "random"
+            st["assoc"] = d["assoc"]
+            st["pos"] = st.get("pos", 0)
+            self._set_assoc(st, frame, 1)        # associated var starts at record 1
+        return None
+
+    def _set_assoc(self, st, frame, nextrec):
+        """Update a random unit's associated variable with the next record number."""
+        name = st.get("assoc")
+        if name:
+            self.scalar_ref(frame, name).write(self.tgt.wrap(int(nextrec)))
+
+    def _fmt_items(self, s, frame):
+        """Parsed FORMAT items if this random I/O is formatted (a label), else None
+        (unformatted or list-directed -> raw value-list record)."""
+        from f66.fmt import parse_format
+        if s.fmt is None or s.fmt == "*":
+            return None
+        spec = frame.rt.unit.formats.get(s.fmt)
+        return parse_format(spec) if spec else None
+
+    def _random_io(self, s, frame, unit):
+        """Random-access READ/WRITE(u#r) and FIND(u#r) (V5 10.3.5/10.14): index the
+        unit's records by number. A record holds either a raw value list (unformatted)
+        or a rendered text line (formatted, when the statement carries a FORMAT). The
+        associated variable (DEFINE FILE / OPEN) is updated to the next record number.
+        Auto-opens an in-memory unit."""
+        from f66.fmt import render, read_values
+        st = self.io.get(unit)
+        if st is None:
+            st = self.io[unit] = {"recs": [], "pos": 0, "mode": "random"}
+        recs = st.setdefault("recs", [])
+        rec = int(self._spec(s.specs.get("REC", 1), frame))     # 1-based record number
+        items = self._fmt_items(s, frame)                       # None => unformatted
+        binmode = st.get("binary")                              # OPEN MODE='BINARY'
+        if s.mode == "FIND":
+            st["pos"] = max(0, rec - 1)
+            self._set_assoc(st, frame, rec)
+            return None
+        if s.mode == "WRITE":
+            while len(recs) < rec:
+                recs.append(None)
+            if binmode:                                         # FOROTS LSCW word record
+                recs[rec - 1] = self._binio().encode_record(self._bin_words(s.items, frame))
+            elif items is not None:                             # formatted -> text record
+                vals = self._cx_expand(self._unf_values(s.items, frame))
+                recs[rec - 1] = render(items, vals)[0]
+            else:
+                recs[rec - 1] = self._unf_values(s.items, frame)
+            st["pos"] = rec
+            self._set_assoc(st, frame, rec + 1)
+            return None
+        cell = recs[rec - 1] if 1 <= rec <= len(recs) else None
+        if cell is not None and cell != []:                     # READ an existing record
+            if binmode and isinstance(cell, list):
+                self._assign_words(s.items, self._binio().decode_record(cell, 0)[0], frame)
+            elif items is not None and isinstance(cell, str):
+                self._assign_reads(s.items, read_values(items, cell), frame)
+            else:
+                for ref, w in zip(self._unf_refs(s.items, frame), cell):
+                    ref.write(w)
+            st["pos"] = rec
+            self._set_assoc(st, frame, rec + 1)
+        else:
+            self.last_io_error = (25, 302)                       # invalid/unwritten record
+            if "END" in s.specs:
+                return Goto(s.specs["END"])
+        return None
+
+    def do_io(self, s, frame):
+        """Unformatted READ/WRITE on a unit, modeled as ordered records (each
+        statement = one record). Returns a Goto for READ ... END= at EOF."""
+        if isinstance(s, A.FileCtl):
+            return self._file_ctl(s, frame)
+        nml = self._nml_name(s.fmt, frame)
+        if nml is not None:                     # READ/WRITE(unit, NAMELIST)
+            st = self.io.get(self.eval(s.unit, frame))
+            if s.mode == "WRITE":
+                text = self._nml_write(nml, frame)
+                if st and st.get("mode") == "w":      # file: store as a text record
+                    st["recs"].append(text)
+                elif st and st.get("mode") == "lpt":
+                    self.printer(text)
+                else:
+                    self.emit(text)                   # terminal / default
+            else:                                     # READ
+                if st and st.get("mode") == "r" and st.get("recs") is not None:
+                    pos = st.get("pos", 0)
+                    rec = st["recs"][pos] if pos < len(st["recs"]) else ""
+                    st["pos"] = pos + 1
+                    line = rec if isinstance(rec, str) else ""
+                else:
+                    line = self.readline()            # terminal / default
+                self._nml_read(nml, line, frame)
+            return None
+        unit = self.eval(s.unit, frame)
+        if s.mode == "FIND" or "REC" in s.specs:   # random-access (V5 10.3.5/10.14)
+            return self._random_io(s, frame, unit)
+        st = self.io.get(unit)
+        if st is None:
+            # Auto-connect to the default device (V5 Table 10-1): units 3/6 -> LPT.
+            dev = self.default_devices.get(unit)
+            if dev is None:
+                return None
+            st = self.io[unit] = {"mode": dev}
+        if s.mode == "READ" and st.get("text"):       # formatted read from a text file
+            return self._read_text(s, st, frame)
+        if s.mode == "WRITE":
+            mode = st.get("mode")
+            if mode == "term":
+                self._formatted_write(s, frame)
+            elif mode == "lpt":
+                self._formatted_write(s, frame, self.printer)
+            elif mode == "w":
+                st["recs"].append(self._unf_values(s.items, frame))
+            return None
+        recs = st.get("recs")
+        if recs is None:
+            return None
+        if st["pos"] >= len(recs):
+            # V5 App H: EOF during READ -> ERRSNS status 24 / monitor 308.
+            self.last_io_error = (24, 308)
+            if "END" in s.specs:
+                return Goto(s.specs["END"])
+            return None
+        rec = recs[st["pos"]]
+        st["pos"] += 1
+        for ref, w in zip(self._unf_refs(s.items, frame), rec):
+            ref.write(w)
+        self.last_io_error = (0, 0)        # successful read clears the status
+        return None
+
+    def _spec(self, v, frame):
+        return v if (v is None or isinstance(v, (int, str))) else self.eval(v, frame)
+
+    def _file_ctl(self, s, frame):
+        import os
+        import json
+        specs = s.specs
+        unit = self._spec(specs.get("UNIT", 1), frame)
+        if s.verb == "OPEN":
+            from f66.fmt import unpack_chars
+            dev = specs.get("DEVICE")
+            if isinstance(dev, str) or dev is None:
+                devname = dev or ""
+            else:
+                dv = self.eval(dev, frame)
+                devname = (unpack_chars(dv, 5).strip() if isinstance(dv, int)
+                           else str(dv).strip())
+            access = specs.get("ACCESS")
+            assoc = specs.get("ASSOCIATEVARIABLE")
+            assoc_name = (assoc.name if isinstance(assoc, A.Var)
+                          else assoc if isinstance(assoc, str) else None)
+            if access == "RANDOM" or assoc_name is not None:     # random-access (V5 10.3.5)
+                st = self.io.setdefault(unit, {"recs": [], "pos": 0, "mode": "random"})
+                st["mode"] = "random"
+                mode_kw = specs.get("MODE")                       # 'BINARY' -> FOROTS words
+                if isinstance(mode_kw, str) and mode_kw.upper() == "BINARY":
+                    st["binary"] = True
+                if assoc_name:
+                    st["assoc"] = assoc_name
+                    self._set_assoc(st, frame, 1)
+                return None
+            handler = self.device_handlers.get(devname)
+            if handler is not None:                   # a registered device (e.g. GAM:)
+                handler(self, unit, specs, frame)
+            elif devname == "TTY":
+                self.io[unit] = {"mode": "term"}      # block printout -> terminal
+            else:
+                fname = self._spec(specs.get("FILE") or specs.get("NAME")
+                                   or "EMPIRE.DAT", frame)
+                path = self._open_path(str(fname))
+                if access == "SEQOUT":
+                    self.io[unit] = {"recs": [], "pos": 0, "mode": "w", "path": path}
+                else:
+                    try:                              # our binary save is a JSON record list
+                        with open(path) as fh:
+                            recs = json.load(fh)
+                        self.io[unit] = {"recs": recs, "pos": 0, "mode": "r", "path": path}
+                    except ValueError:                # not JSON -> a formatted text data
+                        with open(path, errors="replace") as fh:    # file (e.g. advent.dat)
+                            self.io[unit] = {"lines": fh.read().splitlines(),
+                                             "pos": 0, "mode": "r", "text": True, "path": path}
+                    except OSError:                   # missing/empty
+                        self.io[unit] = {"recs": [], "pos": 0, "mode": "r", "path": path}
+            return None
+        if s.verb == "CLOSE":
+            st = self.io.pop(unit, None)
+            if st and st.get("mode") == "w":
+                with open(st["path"], "w") as fh:
+                    json.dump(st["recs"], fh)
+            return None
+        # device control: REWIND / BACKSPACE / ENDFILE / SKIP RECORD / SKIP FILE
+        st = self.io.get(unit)
+        if st is not None and "pos" in st:
+            recs = st.setdefault("recs", [])
+            if s.verb == "REWIND":
+                st["pos"] = 0
+            elif s.verb == "BACKSPACE":
+                st["pos"] = max(0, st["pos"] - 1)
+            elif s.verb == "ENDFILE":
+                del recs[st["pos"]:]                 # write end-of-file at current pos
+            elif s.verb == "SKIPREC":
+                st["pos"] = min(len(recs), st["pos"] + 1)
+            elif s.verb == "SKIPFILE":
+                st["pos"] = len(recs)
+        return None
+
+    def _open_path(self, name):
+        """Resolve an OPEN file-spec to a host path under save_root: try the name as
+        given, then a .DAT default (TOPS-10), then a case-insensitive match."""
+        import os
+        cand = os.path.join(self.save_root, name)
+        if os.path.exists(cand):
+            return cand
+        if "." not in name and os.path.exists(cand + ".DAT"):
+            return cand + ".DAT"
+        low = name.lower()
+        try:
+            for f in os.listdir(self.save_root):
+                if f.lower() in (low, low + ".dat"):
+                    return os.path.join(self.save_root, f)
+        except OSError:
+            pass
+        return cand
+
+    def _read_text(self, s, st, frame):
+        """Formatted/list-directed READ from a text file unit (e.g. advent.dat): read
+        the next line and parse it per the FORMAT (or by tokens if list-directed)."""
+        from .fmt import parse_format, read_values
+        lines = st["lines"]
+        if st["pos"] >= len(lines):
+            self.last_io_error = (24, 308)            # EOF
+            return Goto(s.specs["END"]) if "END" in s.specs else None
+        line = lines[st["pos"]]
+        st["pos"] += 1
+        if s.fmt is None or s.fmt == "*":
+            self._ld_in(line, self._unf_refs(s.items, frame))
+        else:
+            spec = frame.rt.unit.formats.get(s.fmt)
+            items = parse_format(spec) if spec else []
+            self._assign_reads(s.items, read_values(items, line), frame)
+        self.last_io_error = (0, 0)
+        return None
+
+    def _unf_values(self, items, frame):
+        return [r.read() for it in items for r in self._item_refs(it, frame)]
+
+    def _unf_refs(self, items, frame):
+        return [r for it in items for r in self._item_refs(it, frame)]
+
+    def _item_refs_cx(self, it, frame):
+        """Like _item_refs but pairs each ref with whether its declared type is
+        COMPLEX, so formatted input can consume TWO real fields per complex element
+        (V5 Ch4: a complex datum transfers as two reals under format control)."""
+        unit = frame.rt.unit
+        if isinstance(it, A.Var) and it.name in unit.arrays:
+            cx = self.type_of(unit, it.name) == "COMPLEX"
+            view = self.arrayview(frame, it.name)
+            return [(view.loc(i), cx)
+                    for i in range(array_size(unit.arrays[it.name]))]
+        if isinstance(it, A.ImpliedDo):
+            out = []
+            lo = self.eval(it.start, frame)
+            hi = self.eval(it.stop, frame)
+            step = self.eval(it.step, frame) if it.step else 1
+            vref = self.scalar_ref(frame, it.var)
+            i = lo
+            while (step > 0 and i <= hi) or (step < 0 and i >= hi):
+                vref.write(i)
+                for sub in it.items:
+                    out.extend(self._item_refs_cx(sub, frame))
+                i += step
+            return out
+        cx = (isinstance(it, (A.Var, A.Ref))
+              and self.type_of(unit, it.name) == "COMPLEX")
+        return [(self.arg_ref(it, frame), cx)]
+
+    def _item_refs_typed(self, items, frame):
+        """(ref, declared-type-name) for each I/O-list element, via _item_refs_cx's
+        traversal -- used to encode/decode FOROTS binary words per target type."""
+        unit = frame.rt.unit
+        out = []
+        for it in items:
+            name = getattr(it, "name", None)
+            ty = self.type_of(unit, name) if name else "INTEGER"
+            for ref, _cx in self._item_refs_cx(it, frame):
+                out.append((ref, ty))
+        return out
+
+    def _bin_words(self, items, frame):
+        """Encode the I/O list's values to FOROTS data words (V5 D.5.2 word forms)."""
+        d2d = self._binio().double_to_dec10
+        words = []
+        for v in self._unf_values(items, frame):
+            if isinstance(v, complex):
+                words += [d2d(v.real), d2d(v.imag)]
+            elif isinstance(v, float):
+                words.append(d2d(v))
+            else:
+                words.append(self.tgt.wrap(int(v)))
+        return words
+
+    def _assign_words(self, items, words, frame):
+        """Assign FOROTS binary data words to the I/O list, decoding each word per the
+        target's declared type (REAL -> DEC-10 float; COMPLEX -> two words)."""
+        dec2d = self._binio().dec10_to_double
+        wi = iter(words)
+        for ref, ty in self._item_refs_typed(items, frame):
+            try:
+                w = next(wi)
+            except StopIteration:
+                break
+            if ty == "COMPLEX":
+                ref.write(complex(dec2d(w), dec2d(next(wi, 0))))
+            elif ty in ("REAL", "DOUBLE PRECISION"):
+                ref.write(dec2d(w))
+            else:
+                ref.write(self.tgt.wrap(w))           # integer/logical: 2's-complement value
+
+    def _assign_reads(self, items, reads, frame):
+        """Write formatted-input values to the I/O list. A COMPLEX target consumes
+        two consecutive real fields -> complex(re, im) (V5 Ch4)."""
+        vals = iter(v for (_, v) in reads)
+        for ref, cx in (p for it in items for p in self._item_refs_cx(it, frame)):
+            try:
+                v = next(vals)
+            except StopIteration:
+                break
+            if cx and not isinstance(v, complex):
+                v = complex(float(v), float(next(vals, 0.0)))
+            ref.write(v)
+
+    def _item_refs(self, it, frame):
+        """Flatten one I/O list item into element references (whole arrays
+        expand to all elements; implied-DO expands its range)."""
+        if isinstance(it, A.Var) and it.name in frame.rt.unit.arrays:
+            view = self.arrayview(frame, it.name)
+            return [view.loc(i)
+                    for i in range(array_size(frame.rt.unit.arrays[it.name]))]
+        if isinstance(it, A.ImpliedDo):
+            refs = []
+            lo = self.eval(it.start, frame)
+            hi = self.eval(it.stop, frame)
+            step = self.eval(it.step, frame) if it.step else 1
+            vref = self.scalar_ref(frame, it.var)
+            i = lo
+            while (step > 0 and i <= hi) or (step < 0 and i >= hi):
+                vref.write(i)
+                for sub in it.items:
+                    refs.extend(self._item_refs(sub, frame))
+                i += step
+            return refs
+        return [self.arg_ref(it, frame)]
+
+    @staticmethod
+    def _show(v):
+        return str(v)
+
+
+def _lsh(v, n):
+    """PDP-10 LSH: logical (unsigned) shift of a 36-bit word; n<0 shifts right."""
+    u = int(v) & MASK36
+    u = (u << n) & MASK36 if n >= 0 else u >> (-n)
+    return wrap36(u)
+
+
+def _anint(x):                         # round to nearest whole, halves away from zero
+    return float(math.floor(x + 0.5)) if x >= 0 else float(math.ceil(x - 0.5))
+
+
+# FORTRAN-10 V5 Appendix H, Table H-2: exact FOROTS message text for the math
+# LIB domain errors, plus the recovery value each returns after the warning.
+_LIB_MSG = {
+    "SQRT":   "Attempt to take SQRT of Negative Arg.",
+    "DSQRT":  "Attempt to take DSQRT of Negative Arg.",
+    "ALOG":   "Attempt to take LOG of Negative Arg.",
+    "ALOG10": "Attempt to take LOG of Negative Arg.",
+    "DLOG":   "Attempt to take DLOG of Negative Arg.",
+    "DLOG10": "Attempt to take DLOG of Negative Arg.",
+    "ASIN":   "ASIN of Arg. > 1.0 in Magnitude",
+    "ACOS":   "ACOS of Arg. > 1.0 in Magnitude",
+}
+
+
+def _rec_log(a):                       # log on |x|; log of 0 -> 0.0 (avoid -inf)
+    x = abs(a[0])
+    return math.log(x) if x > 0 else 0.0
+
+
+def _rec_log10(a):
+    x = abs(a[0])
+    return math.log10(x) if x > 0 else 0.0
+
+
+_LIB_RECOVER = {
+    "SQRT":   lambda a: math.sqrt(abs(a[0])),
+    "DSQRT":  lambda a: math.sqrt(abs(a[0])),
+    "ALOG":   _rec_log,
+    "ALOG10": _rec_log10,
+    "DLOG":   _rec_log,
+    "DLOG10": _rec_log10,
+    "ASIN":   lambda a: math.asin(max(-1.0, min(1.0, a[0]))),
+    "ACOS":   lambda a: math.acos(max(-1.0, min(1.0, a[0]))),
+}
+
+
+INTRINSICS = {
+    # ---- DEC / Empire ----
+    "LSH": lambda a: _lsh(a[0], a[1]),
+    # ---- type conversion ----
+    "INT": lambda a: wrap36(int(a[0])),
+    "IFIX": lambda a: wrap36(int(a[0])),
+    "IDINT": lambda a: wrap36(int(a[0])),
+    "FLOAT": lambda a: float(a[0]),
+    "FLOATR": lambda a: float(a[0]),
+    "SNGL": lambda a: float(a[0]),
+    "REAL": lambda a: (a[0].real if isinstance(a[0], complex) else float(a[0])),
+    # ---- COMPLEX (V5 Ch4/Table 15-1; values are Python complex) ----
+    "CMPLX": lambda a: complex(a[0], a[1] if len(a) > 1 else 0.0),
+    "DCMPLX": lambda a: complex(a[0], a[1] if len(a) > 1 else 0.0),
+    "AIMAG": lambda a: a[0].imag if isinstance(a[0], complex) else 0.0,
+    "CONJG": lambda a: a[0].conjugate() if isinstance(a[0], complex) else complex(a[0]),
+    "CABS": lambda a: abs(a[0]),
+    "CSQRT": lambda a: cmath.sqrt(a[0]),
+    "CEXP": lambda a: cmath.exp(a[0]),
+    "CLOG": lambda a: cmath.log(a[0]),
+    "CSIN": lambda a: cmath.sin(a[0]),
+    "CCOS": lambda a: cmath.cos(a[0]),
+    "TIM2GO": lambda a: 1.0e9,           # CPU time remaining (V5 Table 15-2): effectively unlimited
+    "DBLE": lambda a: float(a[0]),
+    "AINT": lambda a: float(int(a[0])),                 # truncate toward zero
+    "ANINT": lambda a: _anint(a[0]),
+    "NINT": lambda a: wrap36(int(_anint(a[0]))),
+    # ---- absolute value / sign / difference ----
+    "ABS": lambda a: abs(a[0]),
+    "IABS": lambda a: abs(int(a[0])),
+    "DABS": lambda a: abs(a[0]),
+    "SIGN": lambda a: abs(a[0]) if a[1] >= 0 else -abs(a[0]),
+    "ISIGN": lambda a: abs(int(a[0])) if a[1] >= 0 else -abs(int(a[0])),
+    "DSIGN": lambda a: abs(a[0]) if a[1] >= 0 else -abs(a[0]),
+    "DIM": lambda a: max(a[0] - a[1], 0),
+    "IDIM": lambda a: max(int(a[0]) - int(a[1]), 0),
+    # ---- remaindering ----
+    "MOD": lambda a: fort_mod(a[0], a[1]),
+    "AMOD": lambda a: fort_mod(float(a[0]), float(a[1])),
+    "DMOD": lambda a: fort_mod(float(a[0]), float(a[1])),
+    # ---- max / min (all F66 typed variants + generic) ----
+    "MAX0": lambda a: max(int(x) for x in a),
+    "MIN0": lambda a: min(int(x) for x in a),
+    "MAX1": lambda a: int(max(float(x) for x in a)),
+    "MIN1": lambda a: int(min(float(x) for x in a)),
+    "AMAX0": lambda a: float(max(int(x) for x in a)),
+    "AMIN0": lambda a: float(min(int(x) for x in a)),
+    "AMAX1": lambda a: max(float(x) for x in a),
+    "AMIN1": lambda a: min(float(x) for x in a),
+    "MAX": lambda a: max(a),
+    "MIN": lambda a: min(a),
+    # ---- square root / exponential / logarithm ----
+    "SQRT": lambda a: math.sqrt(a[0]),
+    "DSQRT": lambda a: math.sqrt(a[0]),
+    "EXP": lambda a: math.exp(a[0]),
+    "DEXP": lambda a: math.exp(a[0]),
+    "ALOG": lambda a: math.log(a[0]),
+    "DLOG": lambda a: math.log(a[0]),
+    "ALOG10": lambda a: math.log10(a[0]),
+    "DLOG10": lambda a: math.log10(a[0]),
+    # ---- trigonometric / hyperbolic ----
+    "SIN": lambda a: math.sin(a[0]),
+    "DSIN": lambda a: math.sin(a[0]),
+    "COS": lambda a: math.cos(a[0]),
+    "DCOS": lambda a: math.cos(a[0]),
+    "TAN": lambda a: math.tan(a[0]),
+    "ATAN": lambda a: math.atan(a[0]),
+    "DATAN": lambda a: math.atan(a[0]),
+    "ATAN2": lambda a: math.atan2(a[0], a[1]),
+    "DATAN2": lambda a: math.atan2(a[0], a[1]),
+    "SINH": lambda a: math.sinh(a[0]),
+    "COSH": lambda a: math.cosh(a[0]),
+    "TANH": lambda a: math.tanh(a[0]),
+    "SIND": lambda a: math.sin(math.radians(a[0])),     # sine of degrees
+    "COSD": lambda a: math.cos(math.radians(a[0])),     # cosine of degrees
+    "ASIN": lambda a: math.asin(a[0]),
+    "ACOS": lambda a: math.acos(a[0]),
+    # ---- double-precision variants (we model double as Python float) ----
+    "DFLOAT": lambda a: float(a[0]),                    # integer -> double
+    "DMAX1": lambda a: max(float(x) for x in a),
+    "DMIN1": lambda a: min(float(x) for x in a),
+}
+
+
+class StopExecution(Exception):
+    pass

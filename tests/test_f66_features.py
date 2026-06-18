@@ -1,0 +1,276 @@
+"""General FORTRAN-66 features added for broad coverage (Empire uses few of these,
+but a faithful F66 interpreter should): statement functions, PAUSE, ASSIGN/assigned
+GOTO, type size modifiers, blank common, Hollerith nH literals, multiple RETURN."""
+
+from conftest import run, run_int, out
+from f66.parser import pack5
+
+IH = "        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n        COMMON /OUT/ V(40)\n"
+END = "        END\n"
+
+
+# ---- statement functions ---------------------------------------------------
+def test_single_arg_statement_function():
+    eng = run(IH + "        SQ(X)=X*X\n        V(1)=SQ(5)\n        V(2)=SQ(9)\n" + END)
+    assert out(eng, 1) == 25
+    assert out(eng, 2) == 81
+
+
+def test_two_arg_statement_function():
+    eng = run(IH + "        ADD(A,B)=A+B*2\n        V(1)=ADD(3,4)\n" + END)
+    assert out(eng, 1) == 11
+
+
+def test_statement_function_uses_unit_variables():
+    # M and B are ordinary unit variables; the statement function closes over them
+    eng = run(IH + "        LIN(X)=M*X+B\n        M=3\n        B=1\n"
+              "        V(1)=LIN(10)\n" + END)
+    assert out(eng, 1) == 31
+
+
+def test_statement_function_dummy_does_not_clobber_unit_var():
+    eng = run(IH + "        SQ(X)=X*X\n        X=99\n        V(1)=SQ(5)\n        V(2)=X\n" + END)
+    assert out(eng, 1) == 25
+    assert out(eng, 2) == 99            # the unit's X is restored after the call
+
+
+def test_nested_statement_functions():
+    eng = run(IH + "        F(X)=X+1\n        G(X)=F(X)*2\n        V(1)=G(3)\n" + END)
+    assert out(eng, 1) == 8             # G(3) = (3+1)*2
+
+def test_array_assignment_not_misread_as_statement_function():
+    # V is dimensioned, so V(1)=... is an array store, never a statement function
+    eng = run(IH + "        DIMENSION W(3)\n        W(1)=7\n        V(1)=W(1)\n" + END)
+    assert out(eng, 1) == 7
+
+
+# ---- ASSIGN + assigned GOTO ------------------------------------------------
+def test_assign_and_assigned_goto():
+    src = ("        V(1)=0\n        ASSIGN 200 TO N\n        GOTO N\n"
+           "        V(1)=99\n  200   V(1)=7\n")
+    assert out(run_int(src), 1) == 7            # jumped to 200, skipped the 99
+
+
+def test_assigned_goto_reassignment():
+    # the variable holds the active label; reassigning changes the jump target
+    src = ("        ASSIGN 10 TO N\n        GOTO 5\n"
+           "  10    V(1)=1\n        GOTO 99\n"
+           "  20    V(1)=2\n        GOTO 99\n"
+           "  5     ASSIGN 20 TO N\n        GOTO N\n"
+           "  99    CONTINUE\n")
+    assert out(run_int(src), 1) == 2            # N reassigned to 20 before the jump
+
+
+def test_assigned_goto_with_label_list():
+    # the optional ,(label-list) is advisory; the jump still uses the stored label
+    src = ("        ASSIGN 30 TO L\n        GOTO L,(10,20,30)\n"
+           "  10    V(1)=1\n        GOTO 99\n"
+           "  30    V(1)=3\n  99    CONTINUE\n")
+    assert out(run_int(src), 1) == 3
+
+
+# ---- PAUSE -----------------------------------------------------------------
+def test_pause_does_not_halt_execution():
+    eng = run_int("        V(1)=1\n        PAUSE\n        V(1)=2\n")
+    assert out(eng, 1) == 2            # statement after PAUSE ran
+
+def test_pause_with_code_emits_and_continues():
+    eng = run(IH + "        V(1)=1\n        PAUSE 77\n        V(1)=2\n" + END)
+    assert out(eng, 1) == 2
+    assert "PAUSE 77" in "".join(eng.out)
+
+
+# ---- type size modifiers ---------------------------------------------------
+def test_type_size_modifiers():
+    eng = run("        PROGRAM T\n        REAL*8 D\n        INTEGER*2 I\n        REAL A,B*8\n"
+              "        COMMON /OUT/ V(40)\n        REAL V\n"
+              "        D=3\n        I=7\n        A=2.5\n        B=4\n"
+              "        V(1)=D*2\n        V(2)=I\n        V(3)=B\n" + END)
+    assert out(eng, 1) == 6.0          # REAL*8 = double
+    assert out(eng, 2) == 7.0          # INTEGER*2 = integer
+    assert out(eng, 3) == 4.0          # per-variable B*8 = double
+
+
+# ---- blank / unlabeled common ----------------------------------------------
+def test_blank_common():
+    eng = run("        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n"
+              "        COMMON X,Y\n        COMMON /OUT/ V(40)\n"
+              "        X=11\n        Y=22\n        V(1)=X+Y\n" + END)
+    assert out(eng, 1) == 33
+    eng2 = run("        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n"
+               "        COMMON //P,Q\n        COMMON /OUT/ V(40)\n"
+               "        P=5\n        Q=6\n        V(1)=P*Q\n" + END)
+    assert out(eng2, 1) == 30
+
+
+# ---- Hollerith nH literals -------------------------------------------------
+def test_hollerith_nh_literals():
+    eng = run(IH + "        DATA C/2HAB/\n        V(1)=0\n"
+              "        IF(C==2HAB) V(1)=1\n        V(2)=C\n" + END)
+    assert out(eng, 1) == 1
+    assert out(eng, 2) == pack5("AB")
+
+def test_hollerith_preserves_spaces_and_count():
+    eng = run(IH + "        V(1)=0\n        IF(5HHELLO==5HHELLO) V(1)=1\n" + END)
+    assert out(eng, 1) == 1
+
+def test_do_var_h_not_misread_as_hollerith():
+    # a space before H (DO 5 H=...) must NOT be taken as a Hollerith count
+    eng = run_int("        N=0\n        DO 5 H=1,3\n  5     N=N+H\n        V(1)=N\n")
+    assert out(eng, 1) == 6
+
+
+# ---- multiple / alternate RETURN -------------------------------------------
+_ALT = ("        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n        COMMON /OUT/ V(40)\n"
+        "        V(1)=0\n        CALL SUB(2,$100,$200)\n        V(1)=9\n        GOTO 999\n"
+        "  100   V(1)=1\n        GOTO 999\n  200   V(1)=2\n  999   CONTINUE\n        END\n"
+        "        SUBROUTINE SUB(K,*,*)\n        RETURN K\n        END\n")
+
+def test_alternate_return_selects_label():
+    assert out(run(_ALT), 1) == 2                       # RETURN 2 -> 2nd label ($200)
+    assert out(run(_ALT.replace("RETURN K", "RETURN 1")), 1) == 1
+
+def test_alternate_return_out_of_range_is_normal_return():
+    assert out(run(_ALT.replace("RETURN K", "RETURN 5")), 1) == 9
+
+def test_alternate_return_ampersand_label_constant():
+    # V5 3.2.8: a statement-label constant may be written $n OR &n
+    assert out(run(_ALT.replace("$100,$200", "&100,&200")), 1) == 2
+
+
+# ---- STOP with a message (V5 9.6) ------------------------------------------
+def test_stop_with_message_prints_then_halts():
+    eng = run("        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n"
+              "        COMMON /OUT/ V(40)\n        V(1)=1\n        STOP 'ALL DONE'\n"
+              "        V(1)=2\n        END\n")
+    assert "ALL DONE" in "".join(eng.out)
+    assert out(eng, 1) == 1            # the statement after STOP did not run
+
+def test_bare_stop_halts_silently():
+    eng = run("        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n"
+              "        COMMON /OUT/ V(40)\n        V(1)=1\n        STOP\n"
+              "        V(1)=2\n        END\n")
+    assert out(eng, 1) == 1
+
+
+# ---- list-directed I/O -----------------------------------------------------
+def test_list_directed_output():
+    eng = run("        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n        REAL X\n"
+              "        I=42\n        X=3.5\n        TYPE *, I, X\n        PRINT *, I\n" + END)
+    assert "".join(eng.out) == " 42 3.5\n 42\n"
+
+def test_list_directed_input():
+    eng = run(IH + "        ACCEPT *, A, B, C\n        V(1)=A\n        V(2)=B\n        V(3)=C\n"
+              + END, inputs=["10 20 30"])
+    assert [out(eng, i) for i in range(1, 4)] == [10, 20, 30]
+
+
+# ---- adjustable (dummy-arg) array dimensions -------------------------------
+def test_adjustable_dimensions():
+    src = ("        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n        COMMON /OUT/ V(40)\n"
+           "        DIMENSION M(2,3)\n        DATA M/10,20,30,40,50,60/\n"
+           "        CALL GET(M,2,3)\n        END\n"
+           "        SUBROUTINE GET(A,NR,NC)\n        IMPLICIT INTEGER(A-Z)\n"
+           "        DIMENSION A(NR,NC)\n        COMMON /OUT/ V(40)\n"
+           "        V(1)=A(1,1)\n        V(2)=A(2,1)\n        V(3)=A(1,2)\n        V(4)=A(2,3)\n"
+           "        END\n")
+    eng = run(src)
+    assert [out(eng, i) for i in range(1, 5)] == [10, 20, 30, 60]
+
+
+# ---- literal-spanning DATA -------------------------------------------------
+def test_literal_spanning_data():
+    from f66.fmt import unpack_chars
+    eng = run(IH + "        DATA X,Y,Z/'ABCDEFGHIJKL'/\n"
+              "        V(1)=X\n        V(2)=Y\n        V(3)=Z\n" + END)
+    assert [unpack_chars(out(eng, i), 5) for i in range(1, 4)] == ["ABCDE", "FGHIJ", "KL   "]
+
+
+# ---- device control --------------------------------------------------------
+def test_device_control_record_positioning():
+    import f66.ast_nodes as A
+    from f66.engine import Engine
+    eng = Engine({})
+    eng.io[1] = {"recs": [10, 20, 30], "pos": 2, "mode": "r"}
+    eng._file_ctl(A.FileCtl(verb="REWIND", specs={"UNIT": 1}), None)
+    assert eng.io[1]["pos"] == 0
+    eng.io[1]["pos"] = 2
+    eng._file_ctl(A.FileCtl(verb="BACKSPACE", specs={"UNIT": 1}), None)
+    assert eng.io[1]["pos"] == 1
+    eng._file_ctl(A.FileCtl(verb="SKIPREC", specs={"UNIT": 1}), None)
+    assert eng.io[1]["pos"] == 2
+    eng.io[1]["pos"] = 1
+    eng._file_ctl(A.FileCtl(verb="ENDFILE", specs={"UNIT": 1}), None)
+    assert eng.io[1]["recs"] == [10]
+
+
+# ---- default-device I/O, PUNCH, REREAD -------------------------------------
+def test_punch_and_default_device_write():
+    eng = run("        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n        I=7\n"
+              "        PUNCH *, I\n        WRITE 100, I\n  100   FORMAT(' N=',I3)\n" + END)
+    # PUNCH list-directed " 7\n"; then WRITE's ' ' carriage control is consumed
+    # (single advance) and the record ends with its trailing newline -> no blank line
+    assert "".join(eng.out) == " 7\nN=  7\n"
+
+def test_default_device_read_and_reread():
+    eng = run(IH + "        READ *, A\n        REREAD *, B, C\n"
+              "        V(1)=A\n        V(2)=B\n        V(3)=C\n" + END,
+              inputs=["11 22 33"])
+    assert [out(eng, i) for i in range(1, 4)] == [11, 11, 22]   # REREAD re-reads the record
+
+
+# ---- COMMON sized by a separate DIMENSION statement ------------------------
+# F66 lets a COMMON member be dimensioned in a later DIMENSION (or type) stmt.
+# The block must reserve the FULL array, not one word per name. (Adventure's
+# /VOCCOM/ KTAB,ATAB,TABSIZ with DIMENSION KTAB(300),ATAB(300) needs this.)
+def test_common_dimensioned_by_separate_statement():
+    eng = run(IH + "        COMMON /BLK/ KTAB,ATAB,SIZ\n"
+              "        DIMENSION KTAB(300),ATAB(300)\n"
+              "        DO 5 I=1,6\n        KTAB(I)=I*10\n  5     ATAB(I)=I*100\n"
+              "        SIZ=300\n"
+              "        DO 6 I=1,6\n        V(I)=KTAB(I)\n  6     V(I+6)=ATAB(I)\n"
+              "        V(13)=SIZ\n" + END)
+    assert [out(eng, i) for i in range(1, 7)] == [10, 20, 30, 40, 50, 60]
+    assert [out(eng, i) for i in range(7, 13)] == [100, 200, 300, 400, 500, 600]
+    assert out(eng, 13) == 300                  # SIZ not clobbered by KTAB/ATAB overlap
+
+
+# ---- procedure passed as an argument (F66 8.3, dummy procedure) -------------
+# EXTERNAL declares a procedure name; passing it binds a dummy procedure that the
+# callee invokes via CALL <dummy>(...). (Adventure: YES/YESM pass RSPEAK/MSPEAK
+# to YESX, which does CALL SPK.)
+def test_subroutine_passed_as_argument():
+    src = (IH + "        EXTERNAL SETIT\n        CALL APPLY(SETIT,7)\n" + END +
+           "        SUBROUTINE APPLY(PROC,N)\n        IMPLICIT INTEGER(A-Z)\n"
+           "        CALL PROC(N)\n        RETURN\n        END\n"
+           "        SUBROUTINE SETIT(N)\n        IMPLICIT INTEGER(A-Z)\n"
+           "        COMMON /OUT/ V(40)\n        V(1)=N*11\n        RETURN\n        END\n")
+    eng = run(src)
+    assert out(eng, 1) == 77                    # APPLY called SETIT(7) through the dummy
+
+
+def test_function_passed_as_argument():
+    src = (IH + "        EXTERNAL DBL\n        V(1)=USE(DBL,8)\n" + END +
+           "        INTEGER FUNCTION USE(F,N)\n        IMPLICIT INTEGER(A-Z)\n"
+           "        USE=F(N)+1\n        RETURN\n        END\n"
+           "        INTEGER FUNCTION DBL(N)\n        IMPLICIT INTEGER(A-Z)\n"
+           "        DBL=N*2\n        RETURN\n        END\n")
+    eng = run(src)
+    assert out(eng, 1) == 17                    # USE evaluated DBL(8)=16, +1
+
+
+# ---- ACCEPT strips the line terminator before the formatted read -----------
+# The terminal newline is not record data; an A5 field must not absorb it
+# (else a word read from "NO\n" won't compare equal to the literal 'NO').
+def test_accept_strips_line_terminator():
+    eng = run(IH + "        DIMENSION A(4)\n        ACCEPT 3,(A(I),I=1,4)\n"
+              "  3     FORMAT(4A5)\n        V(1)=0\n"
+              "        IF(A(1).EQ.'NO')V(1)=20\n" + END, inputs=["NO\n"])
+    assert out(eng, 1) == 20                    # 'NO   ' read == literal 'NO'
+
+
+# ---- consecutive single-space records are single-spaced --------------------
+def test_consecutive_records_single_spaced():
+    eng = run("        PROGRAM T\n        TYPE 1\n        TYPE 1\n"
+              "  1     FORMAT(' LINE')\n" + END)
+    assert "".join(eng.out) == "LINE\nLINE\n"   # not "\nLINE\n\nLINE\n"
