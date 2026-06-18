@@ -13,14 +13,24 @@ from __future__ import annotations
 
 class Target:
     def __init__(self, word_bits=36, chars_per_word=5, logical_true=-1,
-                 bitwise_logic=True, bits_per_char=7):
+                 bitwise_logic=True, bits_per_char=7, little_endian=False, truth=None):
         self.word_bits = word_bits
         self.chars_per_word = chars_per_word
         self.bits_per_char = bits_per_char    # PDP-10: 7-bit ASCII, 5 to a 36-bit word
+        self.little_endian = little_endian    # char 0 in the LOW byte (VAX) vs high (PDP-10)
         self.logical_true = logical_true
         self.bitwise_logic = bitwise_logic    # PDP-10 .AND./.OR. act on the word's bits
+        # truth test: "sign" (v<0), "nonzero" (v!=0), "low_bit" (v&1); None = derive from
+        # logical_true's sign (PDP-10 -> sign, a positive logical_true -> nonzero).
+        self.truth = truth
         self.mask = (1 << word_bits) - 1
         self.sign = 1 << (word_bits - 1)
+
+    def _charshift(self, i):
+        """Bit offset of the i-th packed character. Big-endian (PDP-10/NATIVE): char 0 in
+        the high bits. Little-endian (VAX): char 0 in the low bits."""
+        bpc = self.bits_per_char
+        return bpc * i if self.little_endian else self.word_bits - bpc - bpc * i
 
     def wrap(self, v: int) -> int:
         """Reduce an integer to a signed word value (PDP-10: 2's-complement, 36 bits)."""
@@ -28,10 +38,17 @@ class Target:
         return v - (1 << self.word_bits) if v & self.sign else v
 
     def truthy(self, v) -> bool:
-        """Is this value .TRUE.? PDP-10 (logical_true=-1, all bits set): the sign is
-        negative. A target with a positive logical_true: any nonzero value."""
+        """Is this value .TRUE.?  PDP-10: sign-negative; NATIVE: nonzero; VAX: low-order
+        bit set. With truth=None, derive from logical_true's sign (back-compat)."""
         if isinstance(v, bool):
             return v
+        m = self.truth
+        if m == "low_bit":
+            return (int(v) & 1) == 1
+        if m == "nonzero":
+            return v != 0
+        if m == "sign":
+            return v < 0
         return v < 0 if self.logical_true < 0 else v != 0
 
     def from_bool(self, b) -> int:
@@ -64,10 +81,9 @@ class Target:
         cw, bpc = self.chars_per_word, self.bits_per_char
         s = (s + " " * cw)[:cw]
         cmask = (1 << bpc) - 1
-        top = self.word_bits - bpc
         v = 0
         for i, c in enumerate(s):
-            v |= (ord(c) & cmask) << (top - bpc * i)
+            v |= (ord(c) & cmask) << self._charshift(i)
         return self.wrap(v)
 
     def unpack(self, w, n=None) -> str:
@@ -77,11 +93,10 @@ class Target:
             return w[:n] if n else w
         cw, bpc = self.chars_per_word, self.bits_per_char
         cmask = (1 << bpc) - 1
-        top = self.word_bits - bpc
         u = int(w) & self.mask
         out = []
         for k in range(min(n, cw) if n else cw):
-            c = (u >> (top - bpc * k)) & cmask
+            c = (u >> self._charshift(k)) & cmask
             out.append(chr(c) if c else " ")
         return "".join(out)
 
@@ -93,3 +108,15 @@ PDP10 = Target()          # faithful DEC PDP-10: 36-bit, 5x7-bit packed ASCII, .
 # ASCII (8 chars/word), .TRUE.=1 with boolean (not bitwise) logical operators.
 NATIVE = Target(word_bits=64, chars_per_word=8, bits_per_char=8,
                 logical_true=1, bitwise_logic=False)
+
+# PROVISIONAL, UNVALIDATED guess at the VAX-11 / VAX FORTRAN value model -- no driver or
+# real compiler/manual has been checked against this yet. Best current understanding:
+# 32-bit two's-complement integers; 8-bit ASCII packed 4-per-longword LITTLE-ENDIAN (char
+# 0 in the low byte), so Hollerith-in-INTEGER does NOT compare in string order; LOGICAL
+# .TRUE.=-1 / .FALSE.=0 with a LOW-ORDER-BIT truth test; .AND./.OR. bit-wise on the word.
+# REAL is modeled as a Python float (we do NOT reproduce VAX F_floating bit-for-bit -- the
+# same approximation as PDP10/NATIVE). Things to verify against a VAX FORTRAN reference:
+# the .TRUE. constant value, the exact truth test, byte order for A-format, and whether
+# logical ops are bit-wise.
+VAX = Target(word_bits=32, chars_per_word=4, bits_per_char=8, logical_true=-1,
+             bitwise_logic=True, little_endian=True, truth="low_bit")

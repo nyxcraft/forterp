@@ -50,9 +50,10 @@ eng.run(f66.Frame(eng.rts["MAIN"], {}))
 ## What's pluggable
 
 - **Machine target** — `f66.Target(word_bits, chars_per_word, logical_true, bitwise_logic,
-  bits_per_char)` fixes the value model. `f66.NATIVE` (64-bit, 8-bit ASCII, boolean
-  logicals) is the default; `f66.PDP10` (36-bit, 5×7-bit packed, `.TRUE.`=−1, bit-wise
-  logicals) is the faithful DEC target. Pass `Engine(..., target=...)`.
+  bits_per_char, little_endian, truth)` fixes the value model. `f66.NATIVE` (64-bit, 8-bit
+  ASCII, boolean logicals) is the default; `f66.PDP10` (36-bit, 5×7-bit packed, `.TRUE.`=−1,
+  bit-wise logicals) is the faithful DEC target; `f66.VAX` (32-bit, little-endian, low-bit
+  logical) is a *provisional, unvalidated* guess. Pass `Engine(..., target=...)`.
 - **Front-end dialect** — `f66.FORTRAN10` (DEC extensions on) vs `f66.STRICT_F66`
   (ANSI). Threaded through the source reader and lexer.
 - **OPEN devices** — `eng.register_device(name, handler)` plugs in special devices.

@@ -25,9 +25,12 @@ representation-agnostic; a `Target` makes it concrete. Two ship:
   a signed 36-bit int (so comparisons match PDP-10 `CAM` arithmetic), `.TRUE.` is −1 tested
   as *sign-negative*, and `.AND./.OR.` are *bit-wise* on the word.
 
-In both, `REAL` is a Python `float` and `COMPLEX` a Python `complex`. Everything else in
-the design serves running real code against the chosen model without that model leaking
-into places it shouldn't — see §6 on the `Target` seam.
+In both, `REAL` is a Python `float` and `COMPLEX` a Python `complex`. A third target,
+`VAX` (32-bit, little-endian char packing, low-order-bit truth test), is a **provisional,
+unvalidated** guess — it exercises the seam's `little_endian` and `truth` knobs but has
+not been checked against a real VAX FORTRAN. Everything else in the design serves running
+real code against the chosen model without that model leaking into places it shouldn't —
+see §6 on the `Target` seam.
 
 ---
 
@@ -235,5 +238,5 @@ prints a PASS/ERROR tally to the line printer, which the runner captures and par
 triage is **dynamic, by parse result** — a file that parses clean is run; one needing F77
 `CHARACTER` is kept but not run — never classified by keyword. The corpus is run under
 **both** targets: pinned to `PDP10` (the faithful target the unit suite asserts) and again
-under the default `NATIVE`, which produces the identical conformance aggregate. 301 tests
+under the default `NATIVE`, which produces the identical conformance aggregate. 305 tests
 pass standalone.
