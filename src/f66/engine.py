@@ -311,17 +311,19 @@ class Engine:
         self.out = []  # captured terminal output
         self.rng = random.Random(0)
         self.clock = 1
-        self.io = {}  # unit number -> open-file state
-        # FORTRAN-10 V5 Table 10-1 default LOGICAL DEVICE ASSIGNMENTS: a unit that
-        # is written to but never explicitly OPENed routes to its default device.
-        # Units 3 and 6 default to the line printer (LPT). We model the printer as
-        # an ENVIRONMENT SERVICE (self.printer, supplied by the driver like emit/
-        # readline) so the language core stays host-agnostic; the driver decides the
-        # printer means a 'print<job>.prt' spool file. This serves general FORTRAN-10
-        # source, e.g. the FCVS conformance listings, which write their report to unit 6.
-        # Default device assignments (V5 Table 10-1): units 3/6 -> line printer; unit 5
-        # is the conventional terminal/card input, so an unopened READ(5,...) reads via
-        # the injected `readline` (and WRITE(5,...) echoes to the terminal).
+        # unit number -> open-file state; the shape depends on its "mode":
+        #   "term"      terminal (read via readline, write via emit)
+        #   "lpt"       line printer (write via self.printer)
+        #   "r" / "w"   sequential file as ordered records {recs, pos, path}; "w"
+        #               buffers and serializes on CLOSE. A formatted TEXT file adds
+        #               "text": True (records are lines, not value-lists).
+        #   "random"    random-access {recs, pos, assoc}, indexed by record number
+        self.io = {}
+        # FORTRAN-10 V5 Table 10-1 default device assignments: a unit used but never
+        # explicitly OPENed routes to a default device -- units 3/6 to the line printer,
+        # unit 5 to terminal/card input. The printer and terminal are injected host
+        # services (self.printer / readline), so the core stays host-agnostic: an
+        # unopened WRITE(6,...) spools, READ(5,...) reads a terminal line.
         self.default_devices = {3: "lpt", 5: "term", 6: "lpt"}
         # FOROTS runtime error status (V5 Appendix H): ERRSNS reports the last
         # I/O op's (first, second) code; ERRSET caps how many LIB/APR domain
@@ -1021,10 +1023,10 @@ class Engine:
             trips = int((stop - start + step) / step)
         else:
             trips = trunc_div(stop - start + step, step)
+        # DEC FORTRAN-10 (F66) one-trip DO: the body always runs at least once -- e.g.
+        # DO I=1,0 executes once with I=1, then exits. (F77 zero-trip is a later compiler.)
         if trips < 1:
-            trips = 1  # DEC FORTRAN-10 V5/V6 (F66): the body always runs
-            #                      at least once -- e.g. DO I=1,0 executes once with
-            #                      I=1, then exits. (F77 zero-trip is a later compiler.)
+            trips = 1
         term_idx = frame.rt.unit.labels[s.term_label]
         frame.do_stack.append(DoFrame(ref, trips, step, s.term_label, frame.pc + 1, term_idx))
         return None
@@ -1081,10 +1083,9 @@ class Engine:
                 f.ref.write(v + f.step if isinstance(v, float) else self.tgt.wrap(v + f.step))
                 frame.pc = f.body
                 return True
-            # Loop done: DEC FORTRAN-10 leaves the index at the LAST value executed
-            # (e.g. 9 after DO I=1,9), NOT the terminating value. JIGGLE (7.FOR) relies
-            # on this: after DO 100 I1=1,9 finds no match, it tests `IF(M==9)` as the
-            # "nothing found" sentinel -- which only holds if I1 stayed 9.
+            # Loop done: DEC FORTRAN-10 (F66) leaves the index at the LAST value executed
+            # (e.g. 9 after DO I=1,9), NOT the terminating value -- so a post-loop
+            # `IF (I .EQ. n)` sentinel works. See tests/test_control_flow.py.
             frame.do_stack.pop()
         return False
 
@@ -1429,7 +1430,7 @@ class Engine:
             return self._random_io(s, frame, unit)
         st = self.io.get(unit)
         if st is None:
-            # Auto-connect to the default device (V5 Table 10-1): units 3/6 -> LPT.
+            # Auto-connect to its default device (see default_devices / V5 Table 10-1).
             dev = self.default_devices.get(unit)
             if dev is None:
                 return None
@@ -1473,6 +1474,8 @@ class Engine:
         return None
 
     def _spec(self, v, frame):
+        """Resolve an I/O-statement spec value: a literal int/str (or None) is used
+        as-is; anything else is an expression node to evaluate in `frame`."""
         return v if (v is None or isinstance(v, (int, str))) else self.eval(v, frame)
 
     def _file_ctl(self, s, frame):
@@ -1522,7 +1525,7 @@ class Engine:
                             recs = json.load(fh)
                         self.io[unit] = {"recs": recs, "pos": 0, "mode": "r", "path": path}
                     except ValueError:  # not JSON -> a formatted text data
-                        with open(path, errors="replace") as fh:  # file (e.g. advent.dat)
+                        with open(path, errors="replace") as fh:  # an ordinary text data file
                             self.io[unit] = {
                                 "lines": fh.read().splitlines(),
                                 "pos": 0,
@@ -1580,7 +1583,7 @@ class Engine:
         return cand
 
     def _read_text(self, s, st, frame):
-        """Formatted/list-directed READ from a text file unit (e.g. advent.dat): read
+        """Formatted/list-directed READ from a text file unit: read
         the next line and parse it per the FORMAT (or by tokens if list-directed)."""
         from .fmt import parse_format, read_values
 

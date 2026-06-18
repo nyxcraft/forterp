@@ -157,9 +157,9 @@ functions (`_call_stmt_func`) are supported.
 - **Unformatted (binary) I/O goes through a seam** (see §6): the engine calls
   `self._binio()` rather than importing the FOROTS codec directly.
 - `ENCODE`/`DECODE` (`do_encdec`) is internal-buffer formatted I/O.
-- **Default device assignments** (V5 Table 10-1): a unit written-to but never `OPEN`ed
-  routes to a default device — units 3 and 6 default to the line printer, modeled as the
-  injected `printer` environment service.
+- **Default device assignments** (V5 Table 10-1): a unit used but never `OPEN`ed routes
+  to a default device — units 3 and 6 to the line printer (the injected `printer`
+  service), unit 5 to terminal/card input (the injected `readline`).
 
 ---
 

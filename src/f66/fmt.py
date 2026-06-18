@@ -368,7 +368,7 @@ def apply_carriage(text):
     selects vertical spacing. We translate it to terminal/printer motion as a PREFIX
     only -- the record's own line break is the trailing newline the caller appends.
     So consecutive ' ' (single-space) records are single-spaced, not double; this
-    matches FORTRAN-10 terminal output (e.g. Adventure's multi-line room text)."""
+    matches FORTRAN-10 terminal output (e.g. multi-line program output)."""
     if not text:
         return ""  # empty record -> a blank line (caller's trailing \n)
     c = text[0]

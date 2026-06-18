@@ -1,6 +1,7 @@
-"""General FORTRAN-66 features added for broad coverage (Empire uses few of these,
-but a faithful F66 interpreter should): statement functions, PAUSE, ASSIGN/assigned
-GOTO, type size modifiers, blank common, Hollerith nH literals, multiple RETURN."""
+"""General FORTRAN-66 features for broad coverage (beyond a minimal subset, but a
+faithful F66 interpreter should support them): statement functions, PAUSE, ASSIGN/
+assigned GOTO, type size modifiers, blank common, Hollerith nH literals, multiple
+RETURN."""
 
 from conftest import run, run_int, out
 from f66.parser import pack5
@@ -263,8 +264,8 @@ def test_default_device_read_and_reread():
 
 # ---- COMMON sized by a separate DIMENSION statement ------------------------
 # F66 lets a COMMON member be dimensioned in a later DIMENSION (or type) stmt.
-# The block must reserve the FULL array, not one word per name. (Adventure's
-# /VOCCOM/ KTAB,ATAB,TABSIZ with DIMENSION KTAB(300),ATAB(300) needs this.)
+# The block must reserve the FULL array, not one word per name -- e.g. COMMON
+# /BLK/ KTAB,ATAB,SIZ with DIMENSION KTAB(300),ATAB(300), as the test below shows.
 def test_common_dimensioned_by_separate_statement():
     eng = run(
         IH + "        COMMON /BLK/ KTAB,ATAB,SIZ\n"
@@ -281,8 +282,8 @@ def test_common_dimensioned_by_separate_statement():
 
 # ---- procedure passed as an argument (F66 8.3, dummy procedure) -------------
 # EXTERNAL declares a procedure name; passing it binds a dummy procedure that the
-# callee invokes via CALL <dummy>(...). (Adventure: YES/YESM pass RSPEAK/MSPEAK
-# to YESX, which does CALL SPK.)
+# callee invokes via CALL <dummy>(...) -- the test below passes an EXTERNAL
+# routine as an argument and calls it through the dummy.
 def test_subroutine_passed_as_argument():
     src = (
         IH

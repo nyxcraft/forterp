@@ -1,6 +1,6 @@
-"""Dialect boundary: what the Empire FORTRAN-10 dialect accepts vs what it doesn't.
+"""Dialect boundary: what the DEC FORTRAN-10 dialect accepts vs what it doesn't.
 
-The interpreter targets DEC FORTRAN-10 as Empire uses it (F66-era + DEC extensions),
+The interpreter targets DEC FORTRAN-10 (F66-era + DEC extensions),
 NOT FORTRAN-77. These tests pin both the supported forms and the F77 constructs that
 correctly do NOT parse -- a regression here would mean we drifted toward F77.
 """
@@ -22,13 +22,13 @@ def _rejected(src, **kw):
         return True
 
 
-# ---- supported DEC FORTRAN-10 forms (the game relies on these) ----
+# ---- supported DEC FORTRAN-10 forms ----
 def test_caret_is_the_power_operator():
     assert out(run_int("        V(1)=2^10\n"), 1) == 1024
 
 
 def test_parenless_parameter_is_accepted():
-    # DEC/F66 style used by the game: PARAMETER X=val (no parentheses)
+    # DEC/F66 style: PARAMETER X=val (no parentheses)
     src = (
         "        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n        PARAMETER K=5\n"
         "        COMMON /OUT/ V(40)\n        V(1)=K*2\n" + END
@@ -60,7 +60,7 @@ def test_do_while_is_rejected():
 
 
 # ---- ** (standard FORTRAN power) is accepted as a synonym for ^ ----
-# The game uses '^' exclusively, but '**' is standard FORTRAN-66 power; the lexer
+# '^' is the DEC power operator and '**' is standard FORTRAN-66 power; the lexer
 # now emits the same power token for both so general F66 code works too.
 def test_double_star_is_power_synonym_for_caret():
     assert out(run_int("        V(1)=2**10\n"), 1) == 1024

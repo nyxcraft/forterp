@@ -108,10 +108,10 @@ def test_linidx_2d_column_major():
     assert linidx([3, 4], dims) == 11
 
 
-# ---- OPEN device-handler registry (game-agnostic interpreter core) ----
+# ---- OPEN device-handler registry (host-agnostic interpreter core) ----
 def test_open_device_registry_dispatches():
     # OPEN ... DEVICE='X' dispatches to a handler registered via register_device, so the
-    # core knows only TTY + files; Empire's GAM: terrain device plugs in exactly this way.
+    # core knows only TTY + files; a host's e.g. 'GAM:' device plugs in exactly this way.
     from conftest import run, out
 
     def setup(eng):

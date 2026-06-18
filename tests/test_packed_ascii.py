@@ -40,7 +40,7 @@ def test_char_literal_assignment_and_compare():
 def test_hollerith_count_marker_is_case_insensitive():
     # FORTRAN is case-insensitive, so nH and nh are both Hollerith. The lexer used to
     # only accept uppercase 'H', so '1hC' parsed as the integer 1 (-> blanks) -- which
-    # broke DECWAR's STATUS full report (tknlst(i)=1hC).
+    # broke real code that used lowercase Hollerith (e.g. tknlst(i)=1hc).
     eng = run(
         "        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n"
         "        COMMON /OUT/ V(40)\n"

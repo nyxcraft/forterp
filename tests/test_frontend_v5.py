@@ -1,8 +1,7 @@
 """Tier-3 front-end fidelity (V5 §3.3 / §15.3 / terminal input):
 6-character identifier truncation, EXTERNAL with the */& intrinsic-override
-prefix, and CONTROL-Z = end-of-file on terminal input. The Empire test case uses
-none of these (its names are all <=6 chars, no EXTERNAL), so they are general
-FORTRAN-10 V5 coverage verified not to disturb the game (parsecheck/fuzz clean).
+prefix, and CONTROL-Z = end-of-file on terminal input. These are general
+FORTRAN-10 V5 coverage beyond the minimal subset a single program tends to use.
 """
 
 from conftest import run, run_int, out

@@ -181,18 +181,36 @@ def _trim_seqfield(raw: str) -> str:
 def scan_file(
     path: str, debug: bool = False, strict_cols: bool = False, dialect=FORTRAN10
 ) -> FileScan:
+    """Scan a fixed-form source FILE into logical statements."""
+    with open(path, "r", errors="replace") as fh:
+        return scan_text(fh.read(), path, debug, strict_cols, dialect)
+
+
+def scan_text(
+    text: str,
+    path: str = "<string>",
+    debug: bool = False,
+    strict_cols: bool = False,
+    dialect=FORTRAN10,
+) -> FileScan:
+    """Scan fixed-form source TEXT into logical statements (no filesystem access).
+    `path` only labels the produced statements for diagnostics."""
     fs = FileScan(path=path)
     strict = strict_cols or dialect.strict_cols
-    # gate the DEC inline-'!' comment on the dialect (ANSI F66 has no inline comments)
-    strip_comment = (
-        (lambda b, instr: _split_inline_comment(b, instr))
-        if dialect.inline_comment
-        else (lambda b, instr: (b, instr))
-    )
-    with open(path, "r", errors="replace") as fh:
-        rawlines = fh.read().splitlines()
+    # ANSI F66 has no inline comments; only the DEC dialect strips a trailing '!'.
+    if dialect.inline_comment:
+        strip_comment = _split_inline_comment
+    else:
 
-    # (label, text-fragments, first-physical-line) for the statement under build
+        def strip_comment(body, instr):  # no-op: keep the body as-is
+            return body, instr
+
+    rawlines = text.splitlines()
+
+    # The statement under construction: physical lines (an initial line plus its
+    # continuations) accumulate here until flush() emits one or more logical statements
+    # from them (one per top-level ';'). Tracks the label, the text fragments, the first
+    # physical line number, and the open-string state carried across continuations.
     pending_label: int | None = None
     pending_frags: list[str] = []
     pending_line = 0

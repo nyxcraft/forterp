@@ -1,5 +1,5 @@
-"""Tier-2 FORMAT completeness (V5 Ch13): the edit descriptors and rules the
-Empire test case never exercises but a complete FORTRAN-10 V5 needs --
+"""Tier-2 FORMAT completeness (V5 Ch13): the edit descriptors and rules a
+minimal program never exercises but a complete FORTRAN-10 V5 needs --
 O (octal), L (logical), Tw (tab), R (alphanumeric), nP (scale factor), the
 bare-descriptor default widths (13.2.6), and the Gw.d magnitude rule (Table 13-4).
 
@@ -65,7 +65,7 @@ def test_r_descriptor_right_justifies_when_wide():
 
 # ---- bare G default + G-on-integer = I conversion (13.2.3 / 13.2.6) ---------
 def test_bare_g_on_integer_is_i15():
-    # the game's diagnostic 'G' fields: bare G on an integer -> I15
+    # diagnostic 'G' fields: bare G on an integer -> I15
     assert r("(G)", [42]) == "             42"
     assert r("(3G)", [1, 2, 3]) == "              1              2              3"
 

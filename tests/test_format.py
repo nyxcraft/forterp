@@ -1,9 +1,9 @@
-"""FORMAT engine (interp/fmt.py): spec parsing, output rendering, carriage
-control, and input parsing -- the path every line of game display flows through.
+"""FORMAT engine (fmt.py): spec parsing, output rendering, carriage
+control, and input parsing -- the path every formatted record flows through.
 
 Direct tests pin exact behavior; a few end-to-end TYPE tests confirm the wiring
 (render -> carriage control -> emit). Where the engine intentionally simplifies
-(I-field overflow, E as fixed-point) we document it -- the game never hits those.
+(I-field overflow, E as fixed-point) we document it.
 """
 
 from f66.fmt import parse_format, render, apply_carriage, read_values
@@ -130,7 +130,7 @@ def test_format_reversion_repeats_descriptors():
 
 
 def test_format_reversion_board_style():
-    # Empire's board display pattern: 11 descriptors, many values -> one row per pass
+    # board-style display: a short repeating FORMAT over many values -> one row per pass
     txt, _ = render(parse_format("(4I5)"), [1, 2, 3, 4, 5, 6, 7, 8])
     assert txt == "    1    2    3    4\n    5    6    7    8"
 

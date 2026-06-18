@@ -82,21 +82,13 @@ def parse_source(text, dialect=FORTRAN10, on_error=None):
     invalid statements are NOT silently dropped. Pass ``on_error(statement, message)``
     to instead receive each diagnostic yourself and keep the (partial) result.
     """
-    import os
-    import tempfile
-    from f66.source import scan_file, expand_includes
+    from f66.source import scan_text, expand_includes
     from f66.parser import parse_units
 
     errs = []
     cb = on_error if on_error is not None else (lambda st, m: errs.append((st.line, m)))
-    with tempfile.NamedTemporaryFile("w", suffix=".FOR", delete=False) as fh:
-        fh.write(text)
-        path = fh.name
-    try:
-        stmts = expand_includes(scan_file(path, dialect=dialect).statements, os.path.dirname(path))
-        units = {u.name: u for u in parse_units(stmts, dialect=dialect, on_error=cb)}
-    finally:
-        os.unlink(path)
+    stmts = expand_includes(scan_text(text, dialect=dialect).statements, ".")
+    units = {u.name: u for u in parse_units(stmts, dialect=dialect, on_error=cb)}
     if on_error is None and errs:
         raise ParseError("parse error(s):\n" + "\n".join(f"  line {ln}: {m}" for ln, m in errs))
     return units

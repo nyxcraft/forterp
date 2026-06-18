@@ -1,6 +1,6 @@
 """FORTRAN-10 V5 compiler diagnostics (Appendix F) -- the lexical/syntactic subset
 this front-end can detect, rendered in the faithful '?FTNXXX LINE:n text' format.
-These fire only on INVALID source; valid programs (the game) emit none.
+These fire only on INVALID source; valid programs emit none.
 """
 
 from conftest import run

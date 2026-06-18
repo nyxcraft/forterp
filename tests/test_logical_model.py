@@ -67,7 +67,7 @@ def test_or_binds_tighter_than_eqv_and_xor():
 
 
 def test_logical_ops_on_relationals_drive_if_correctly():
-    # the game's actual pattern: logical ops over relational operands inside IF
+    # a common pattern: logical ops over relational operands inside IF
     body = (
         "        V(1)=0\n        V(2)=0\n        V(3)=0\n"
         "        IF((3==3).AND.(4>1)) V(1)=1\n"

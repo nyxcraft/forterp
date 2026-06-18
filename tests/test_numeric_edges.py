@@ -1,7 +1,7 @@
 """Numeric edge cases: overflow/wrap, divide-by-zero, real range, underflow.
 
 Where FORTRAN-10's behavior is well-defined we assert it; where our model diverges
-from the PDP-10 (real range/precision) we DOCUMENT it -- the game's values never go
+from the PDP-10 (real range/precision) we DOCUMENT it -- typical values never go
 near those edges, so the divergence is benign.
 """
 
@@ -71,7 +71,7 @@ def test_real_underflow_goes_to_zero():
 def test_real_range_exceeds_pdp10_known_divergence():
     # PDP-10 floats overflow at ~1.7E38; Python double does not until ~1.8E308. Our
     # model therefore computes values the real machine would have trapped on. The
-    # game never approaches this, so we accept (and pin) the divergence here.
+    # normal values never approach this, so we accept (and pin) the divergence here.
     eng = run(REAL + "        V(1)=1.E60\n        V(2)=1.E300\n" + END)
     assert out(eng, 1) == 1.0e60  # would have overflowed on a real PDP-10
     assert out(eng, 2) == 1.0e300

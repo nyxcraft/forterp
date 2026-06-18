@@ -4,8 +4,7 @@ Appendix H: "APR and LIB errors are usually reported as warnings and the program
 continues." So a math LIB domain error (SQRT/LOG of a negative arg, ASIN/ACOS of
 |arg|>1) must print the manual's message and KEEP RUNNING -- never raise. CALL EXIT
 halts (like STOP); ERRSNS(I[,J]) reports the last I/O status; ERRSET caps how many
-domain warnings get printed. The Empire test case exercises none of these -- this is
-general FORTRAN-10 V5 coverage (the goal), with the game as one regression test.
+domain warnings get printed. This is general FORTRAN-10 V5 runtime/library coverage.
 """
 
 import math

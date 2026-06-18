@@ -3,9 +3,8 @@
 A unit written to but never explicitly OPENed routes to its default device; units 3
 and 6 default to the line printer. The interpreter models the printer as an injected
 driver service (eng.printer); the test harness captures it to a buffer so printer
-output can be verified separately from the terminal stream. (Empire OPENs all its
-units and never touches the LPT, so this serves general FORTRAN-10 source, e.g. the
-FCVS conformance listings, which write their report to unit 6.)
+output can be verified separately from the terminal stream. This serves general
+FORTRAN-10 source, e.g. the FCVS conformance listings, which write to unit 6.
 """
 
 from conftest import run, printed, out

@@ -710,6 +710,9 @@ class P:
         return A.AcceptStmt(fmt=fmt, items=items, reread=(kw == "REREAD"))
 
     def parse_readwrite(self, kw):
+        """Parse READ/WRITE(unit ...) into an IoStmt, covering the FORTRAN-10 forms:
+        sequential vs random (u#r / u'r record number), formatted (label) / list-directed
+        (*) / unformatted (no fmt), and END=/ERR=/REC= control specs."""
         self.advance()  # READ / WRITE
         self.expect_op("(")
         unit = self.p_add()  # arithmetic only, so '#'/'\'' (rec sep) survive
@@ -1123,9 +1126,10 @@ def parse_units(statements, *, on_error=None, on_warn=None, dialect=FORTRAN10):
                 unit = A.ProgramUnit(kind="subroutine", name="?")
             continue
 
-        if unit is None:  # statements before any header begin the
-            unit = A.ProgramUnit(kind="program", name="$MAIN")  # main program (the
-            #            PROGRAM statement is optional in F66/FORTRAN-10; Adventure omits it)
+        if unit is None:
+            # A program header is optional in F66/FORTRAN-10; leading statements with no
+            # preceding header form the implicit main program.
+            unit = A.ProgramUnit(kind="program", name="$MAIN")
 
         if kw == "END" and len(toks) == 1:
             units.append(unit)

@@ -10,9 +10,13 @@ Token kinds:
   LOGIC   .TRUE. / .FALSE.                value = True / False
   OP      operator / punctuation          value = the operator text
 
-The DEC FORTRAN-10 lexical extensions it handles: symbolic relationals == # < > <= >= ;
-'^' for power (a synonym of '**'); octal "nnn ; ':' in array bounds ; '$' in FORMAT ;
-'' as an escaped quote.
+The DEC FORTRAN-10 lexical extensions it handles:
+  * symbolic relationals:  ==  #  <  >  <=  >=
+  * '^' as a power operator (a synonym of '**')
+  * octal literals:  "nnn
+  * ':' as an array-bound separator
+  * '$' in a FORMAT
+  * '' (doubled quote) as an escaped quote inside a string
 """
 
 from __future__ import annotations

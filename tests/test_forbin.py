@@ -1,4 +1,4 @@
-"""FOROTS binary record codec (interp/forbin.py) -- validated against the FORTRAN-10
+"""FOROTS binary record codec (forbin.py) -- validated against the FORTRAN-10
 V5 manual, Appendix D.5.2 (the LSCW format and its D-6 worked example).
 """
 

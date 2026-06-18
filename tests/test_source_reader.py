@@ -1,4 +1,4 @@
-"""Fixed-form source reader (interp/source.py) vs V5 manual Chapter 2 "Characters
+"""Fixed-form source reader (source.py) vs V5 manual Chapter 2 "Characters
 and Lines".  These exercise the column-oriented line handling -- comment markers,
 continuation field, multi-statement lines, debug lines -- not expression semantics.
 """
@@ -43,7 +43,7 @@ def test_bang_inside_a_string_is_not_a_remark():
 
 # ---- continuation field: V5 2.2.2 any non-blank/non-zero char in column 6 ----
 def test_ampersand_continuation():
-    # '&' (the marker the game actually uses) in column 6
+    # '&' (a common continuation marker) in column 6
     eng = run(H + "        V(1)=1\n     &       +20\n" + END)
     assert out(eng, 1) == 21
 
@@ -99,7 +99,7 @@ def _line(stmt_at7, tail_at73):
 
 def _spill_line():
     # a CALL whose closing ')' lands in column 73 (one past the 72-col field),
-    # so cols 7-72 hold an unclosed '(' -- the +2-reindented Empire spillover shape.
+    # so cols 7-72 hold an unclosed '(' -- the reindented-spillover shape.
     body = "CALL STROUT('" + "Z" * 49 + "',10)"  # 67 chars -> ')' at col 7+66 = 73
     s = "      " + body
     assert len(s) == 73 and s[72] == ")"
@@ -113,7 +113,7 @@ def test_seqfield_dropped_after_complete_statement():
 
 
 def test_spillover_kept_when_it_completes_a_cut_statement():
-    # closing paren spilled past col 72 (the +2-reindented Empire case) -> keep whole
+    # closing paren spilled past col 72 (reindented spillover) -> keep whole
     s = _spill_line()
     assert _trim_seqfield(s) == s  # kept: tail ')' closes the open paren
 
@@ -141,8 +141,8 @@ def test_strict_cols_truncates_at_72():
 
 # ---- DEC tab-format source lines (V5 2.2.2) + bare main program ------------
 def test_tab_formatted_source_lines():
-    # <TAB>stmt = initial line; <TAB><digit> = continuation (the convention Adventure
-    # uses). Built with real tabs so the reader must honor the tab field.
+    # <TAB>stmt = initial line; <TAB><digit> = continuation (the common DEC
+    # tab-format convention). Built with real tabs so the reader must honor the tab field.
     src = (
         "\tPROGRAM T\n\tIMPLICIT INTEGER(A-Z)\n\tCOMMON /OUT/ V(40)\n"
         "\tV(1)=2\n\t1\t+3\n\tEND\n"

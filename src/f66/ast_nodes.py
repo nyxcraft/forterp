@@ -10,6 +10,27 @@ into/out of "blocks" make a nested-block AST counterproductive).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Optional, Union
+
+# --- type aliases: the contracts the parser produces and the engine consumes ------
+# `from __future__ import annotations` keeps field annotations lazy (strings), so these
+# document intent for readers/tooling at no import-time cost. There is no static checker
+# in the build; they are precise documentation, not enforced types.
+Expr = Union[
+    "IntLit",
+    "RealLit",
+    "OctalLit",
+    "Complex",
+    "StrLit",
+    "LogicalLit",
+    "Var",
+    "Ref",
+    "Unary",
+    "Binary",
+]
+IoItem = Union[Expr, "ImpliedDo"]  # an I/O list element: an expression or an implied-DO
+FormatRef = Union[int, str, None]  # FORMAT label, '*' (list-directed), or None (unformatted)
+Dims = list[tuple[int, int]]  # array bounds: [(lo, hi), ...]
 
 
 # ---------------------------------------------------------------- expressions
@@ -30,8 +51,8 @@ class OctalLit:
 
 @dataclass
 class Complex:  # complex constant (re, im) -- V5 Ch4
-    re: object
-    im: object
+    re: Expr
+    im: Expr
 
 
 @dataclass
@@ -52,34 +73,34 @@ class Var:
 @dataclass
 class Ref:
     name: str  # NAME(args): array element OR function call
-    args: list  # list of expression nodes
+    args: list[Expr]
 
 
 @dataclass
 class Unary:
     op: str  # 'NOT' | '-' | '+'
-    operand: object
+    operand: Expr
 
 
 @dataclass
 class Binary:
     op: str  # OR AND EQ NE LT LE GT GE + - * / ^
-    left: object
-    right: object
+    left: Expr
+    right: Expr
 
 
 # ----------------------------------------------------------------- statements
 @dataclass
 class Stmt:
-    label: int | None = None
+    label: Optional[int] = None
     file: str = ""
     line: int = 0
 
 
 @dataclass
 class Assign(Stmt):
-    target: object = None  # Var or Ref
-    expr: object = None
+    target: Optional[Expr] = None  # Var or Ref
+    expr: Optional[Expr] = None
 
 
 @dataclass
@@ -89,8 +110,8 @@ class Goto(Stmt):
 
 @dataclass
 class CompGoto(Stmt):
-    labels: list = field(default_factory=list)
-    index: object = None
+    labels: list[int] = field(default_factory=list)
+    index: Optional[Expr] = None
 
 
 @dataclass
@@ -102,29 +123,29 @@ class AssignLabel(Stmt):  # ASSIGN <label> TO <var>  (tgt avoids Stmt.label)
 @dataclass
 class AssignedGoto(Stmt):  # GO TO <var> [,(label-list)]
     var: str = ""
-    labels: list = field(default_factory=list)
+    labels: list[int] = field(default_factory=list)
 
 
 @dataclass
 class IfLogical(Stmt):
-    cond: object = None
-    stmt: object = None  # embedded statement
+    cond: Optional[Expr] = None
+    stmt: Optional[Stmt] = None  # embedded statement
 
 
 @dataclass
 class IfBranch(Stmt):
     """Arithmetic IF (3 labels) or logical two-way IF (2 labels)."""
 
-    cond: object = None
-    labels: list = field(default_factory=list)
+    cond: Optional[Expr] = None
+    labels: list[int] = field(default_factory=list)
 
 
 @dataclass
 class Do(Stmt):
     var: str = ""
-    start: object = None
-    stop: object = None
-    step: object = None  # may be None -> 1
+    start: Optional[Expr] = None
+    stop: Optional[Expr] = None
+    step: Optional[Expr] = None  # may be None -> 1
     term_label: int = 0
 
 
@@ -136,27 +157,27 @@ class Continue(Stmt):
 @dataclass
 class EntryStmt(Stmt):  # ENTRY name(args) -- alternate subprogram entry point
     name: str = ""
-    params: list = field(default_factory=list)
+    params: list[str] = field(default_factory=list)
 
 
 @dataclass
 class EncDec(Stmt):  # ENCODE/DECODE(count, fmt, buf) iolist -- internal fmt I/O
     decode: bool = False
-    count: object = None
-    fmt: object = None
-    buf: object = None
-    items: list = field(default_factory=list)
+    count: Optional[Expr] = None
+    fmt: FormatRef = None
+    buf: Optional[Expr] = None
+    items: list[IoItem] = field(default_factory=list)
 
 
 @dataclass
 class Call(Stmt):
     name: str = ""
-    args: list = field(default_factory=list)
+    args: list[Expr] = field(default_factory=list)
 
 
 @dataclass
 class Return(Stmt):
-    expr: object = None  # RETURN e  -> alternate (multiple) return
+    expr: Optional[Expr] = None  # RETURN e  -> alternate (multiple) return
 
 
 @dataclass
@@ -166,54 +187,54 @@ class LabelArg:  # $nnn / *nnn actual arg = alternate-return target
 
 @dataclass
 class StopStmt(Stmt):
-    code: object = None
+    code: Optional[Expr] = None
 
 
 @dataclass
 class PauseStmt(Stmt):  # PAUSE [n] -- print and continue (batch behavior)
-    code: object = None
+    code: Optional[Expr] = None
 
 
 @dataclass
 class TypeStmt(Stmt):  # TYPE fmt, iolist  (terminal output)
-    fmt: object = None  # label int, or '*'
-    items: list = field(default_factory=list)
+    fmt: FormatRef = None  # label int, or '*'
+    items: list[IoItem] = field(default_factory=list)
 
 
 @dataclass
 class AcceptStmt(Stmt):  # ACCEPT fmt, iolist  (terminal input)
-    fmt: object = None
-    items: list = field(default_factory=list)
+    fmt: FormatRef = None
+    items: list[IoItem] = field(default_factory=list)
     reread: bool = False  # REREAD: re-parse the last input record
 
 
 @dataclass
 class IoStmt(Stmt):  # READ/WRITE (unit[,fmt][,specs]) iolist
     mode: str = ""  # 'READ' | 'WRITE'
-    unit: object = None
-    fmt: object = None  # label int, '*', or None (unformatted)
-    specs: dict = field(default_factory=dict)  # e.g. {'END': 450}
-    items: list = field(default_factory=list)
+    unit: Optional[Expr] = None
+    fmt: FormatRef = None  # label int, '*', or None (unformatted)
+    specs: dict[str, object] = field(default_factory=dict)  # e.g. {'END': 450}
+    items: list[IoItem] = field(default_factory=list)
 
 
 @dataclass
 class FileCtl(Stmt):  # OPEN/CLOSE/REWIND (specs...)
     verb: str = ""
-    specs: dict = field(default_factory=dict)
+    specs: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass
 class DefineFile(Stmt):  # DEFINE FILE u(m,n,U,v) [,...] (V5 10.3.5)
-    defs: list = field(default_factory=list)  # [{unit,maxrec,recsize,assoc}, ...]
+    defs: list[dict] = field(default_factory=list)  # [{unit,maxrec,recsize,assoc}, ...]
 
 
 @dataclass
 class ImpliedDo:  # io-list element: ( items, var=e1,e2[,e3] )
-    items: list
+    items: list[IoItem]
     var: str
-    start: object
-    stop: object
-    step: object
+    start: Expr
+    stop: Expr
+    step: Optional[Expr]
 
 
 # --------------------------------------------------------------- program unit
@@ -221,18 +242,18 @@ class ImpliedDo:  # io-list element: ( items, var=e1,e2[,e3] )
 class ProgramUnit:
     kind: str  # 'program' | 'subroutine' | 'function'
     name: str
-    params: list = field(default_factory=list)
-    ret_type: str | None = None  # for typed functions
-    implicit: dict = field(default_factory=dict)  # letter -> type
-    types: dict = field(default_factory=dict)  # name -> type
-    arrays: dict = field(default_factory=dict)  # name -> [(lo,hi), ...]
-    consts: dict = field(default_factory=dict)  # PARAMETER name -> value
-    commons: list = field(default_factory=list)  # (block, [(name,dims)])
-    data: list = field(default_factory=list)  # (targets, values)
-    externals: set = field(default_factory=set)
-    formats: dict = field(default_factory=dict)  # label -> raw format text
-    code: list = field(default_factory=list)  # executable Stmt list
-    labels: dict = field(default_factory=dict)  # label -> index into code
-    stmt_funcs: dict = field(default_factory=dict)  # name -> ([param,...], expr)
-    namelists: dict = field(default_factory=dict)  # NAMELIST group -> [item nodes] (V5 Ch11)
-    equivs: list = field(default_factory=list)  # EQUIVALENCE groups: [[(name,[subs]),...],...]
+    params: list[str] = field(default_factory=list)
+    ret_type: Optional[str] = None  # for typed functions
+    implicit: dict[str, str] = field(default_factory=dict)  # letter -> type
+    types: dict[str, str] = field(default_factory=dict)  # name -> type
+    arrays: dict[str, Dims] = field(default_factory=dict)  # name -> [(lo,hi), ...]
+    consts: dict[str, object] = field(default_factory=dict)  # PARAMETER name -> value
+    commons: list[tuple[str, list]] = field(default_factory=list)  # (block, [(name, dims)])
+    data: list[tuple] = field(default_factory=list)  # (targets, values)
+    externals: set[str] = field(default_factory=set)
+    formats: dict[int, str] = field(default_factory=dict)  # label -> raw format text
+    code: list[Stmt] = field(default_factory=list)  # executable Stmt list
+    labels: dict[int, int] = field(default_factory=dict)  # label -> index into code
+    stmt_funcs: dict[str, tuple] = field(default_factory=dict)  # name -> ([param, ...], expr)
+    namelists: dict[str, list] = field(default_factory=dict)  # group -> [item nodes] (V5 Ch11)
+    equivs: list[list] = field(default_factory=list)  # EQUIVALENCE groups [[(name,[subs]),...],...]

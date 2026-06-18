@@ -48,8 +48,8 @@ def test_do_loop_basic_count_and_final_index():
     body = "        N=0\n        DO 100 I=1,5\n  100   N=N+1\n        V(1)=N\n        V(2)=I\n"
     eng = run_int(body)
     assert out(eng, 1) == 5
-    # DEC FORTRAN-10 leaves the index at the LAST value executed (5), not 6.
-    # JIGGLE (7.FOR) depends on this for its loop-fell-through sentinel.
+    # DEC FORTRAN-10 leaves the index at the LAST value executed (5), not 6 -- code
+    # relies on this for loop-fell-through sentinels.
     assert out(eng, 2) == 5
 
 
@@ -80,9 +80,9 @@ def test_nested_do_shared_terminator():
 
 
 def test_do_index_left_at_last_value_when_search_fails():
-    # The semantics JIGGLE (7.FOR) depends on: a GOTO-on-match search loop that
-    # finds nothing leaves the index at the LAST value tested (9), used as a
-    # "nothing found" sentinel. (DEC FORTRAN-10 leave-at-last, not N+1.)
+    # A GOTO-on-match search loop that finds nothing leaves the index at the LAST
+    # value tested (9), which code then uses as a "nothing found" sentinel.
+    # (DEC FORTRAN-10 leave-at-last, not N+1.)
     body = (
         "        M=0\n        DO 100 I=1,9\n  100   IF(I==99) GOTO 200\n"
         "        M=I\n  200   V(1)=M\n"
