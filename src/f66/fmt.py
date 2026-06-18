@@ -31,8 +31,10 @@ def unpack_chars(word, n):
 # ---- format spec parsing ---------------------------------------------------
 class Item:
     __slots__ = ("kind", "a", "b")
+
     def __init__(self, kind, a=None, b=None):
         self.kind, self.a, self.b = kind, a, b
+
     def __repr__(self):
         return f"<{self.kind} {self.a} {self.b}>"
 
@@ -41,13 +43,14 @@ class _Fmt(list):
     """A parsed FORMAT: the flat item list plus `rev`, the index at which reversion
     restarts (the start of the LAST top-level paren group, or 0 if none) -- V5/F66
     7.2.3.4 / X3.9-1966 §7.2.3.4."""
+
     rev = 0
 
 
 def parse_format(spec: str):
     i = spec.find("(")
     j = spec.rfind(")")
-    inner = spec[i + 1:j] if (i >= 0 and j > i) else spec
+    inner = spec[i + 1 : j] if (i >= 0 and j > i) else spec
     items, _, rev = _parse_seq(inner, 0)
     fmt = _Fmt(items)
     fmt.rev = rev
@@ -56,7 +59,7 @@ def parse_format(spec: str):
 
 def _parse_seq(s, p, depth=0):
     items = []
-    rev = 0                                       # last top-level group start (depth 0)
+    rev = 0  # last top-level group start (depth 0)
     n = len(s)
     while p < n:
         c = s[p]
@@ -79,55 +82,63 @@ def _parse_seq(s, p, depth=0):
             while p < n:
                 if s[p] == "'":
                     if p + 1 < n and s[p + 1] == "'":
-                        buf.append("'"); p += 2; continue
+                        buf.append("'")
+                        p += 2
+                        continue
                     p += 1
                     break
-                buf.append(s[p]); p += 1
+                buf.append(s[p])
+                p += 1
             items.append(Item("lit", "".join(buf)))
             continue
         # optional sign (only meaningful as part of a scale factor nP)
         neg = False
         if c in "+-":
-            neg = (c == "-")
+            neg = c == "-"
             p += 1
         # optional leading integer: a repeat count, or the n of an nP scale factor
         rep = 0
-        have_rep = False
         while p < n and s[p].isdigit():
-            rep = rep * 10 + int(s[p]); have_rep = True; p += 1
-        if p < n and s[p] in "pP":              # scale factor:  [sign] n P
+            rep = rep * 10 + int(s[p])
+            p += 1
+        if p < n and s[p] in "pP":  # scale factor:  [sign] n P
             p += 1
             items.append(Item("P", -rep if neg else rep))
             continue
         if rep == 0 and not (p < n and (s[p].isalpha() or s[p] in "(")):
             rep = 1
-        if p < n and s[p] == "(":               # group repeat
-            grp = len(items)                     # where this group's expansion begins
+        if p < n and s[p] == "(":  # group repeat
+            grp = len(items)  # where this group's expansion begins
             sub, p, _ = _parse_seq(s, p + 1, depth + 1)
             for _ in range(max(rep, 1)):
                 items.extend(sub)
-            if depth == 0:                       # F66 7.2.3.4: revert to last top-level group
+            if depth == 0:  # F66 7.2.3.4: revert to last top-level group
                 rev = grp
             continue
         if p >= n:
             break
-        letter = s[p].upper(); p += 1
+        letter = s[p].upper()
+        p += 1
         w = 0
         has_w = False
         while p < n and s[p].isdigit():
-            w = w * 10 + int(s[p]); has_w = True; p += 1
+            w = w * 10 + int(s[p])
+            has_w = True
+            p += 1
         d = None
         if p < n and s[p] == ".":
             p += 1
             d = 0
             while p < n and s[p].isdigit():
-                d = d * 10 + int(s[p]); p += 1
+                d = d * 10 + int(s[p])
+                p += 1
         count = max(rep, 1)
-        if letter == "X":                        # nX = (rep) spaces
+        if letter == "X":  # nX = (rep) spaces
             items.append(Item("X", rep if rep else (w or 1)))
             continue
-        if letter == "H":                        # nH literal (rep chars)
-            text = s[p:p + rep]; p += rep
+        if letter == "H":  # nH literal (rep chars)
+            text = s[p : p + rep]
+            p += rep
             items.append(Item("lit", text))
             continue
         for _ in range(count):
@@ -140,14 +151,22 @@ _DATA_DESCRIPTORS = ("A", "I", "G", "F", "E", "D", "O", "L", "R")
 
 # V5 13.2.6 bare-descriptor default field widths (KI10/KL10): (w, d).
 _DEFAULTS = {
-    "A": (5, None), "R": (5, None), "I": (15, None), "O": (15, None),
-    "L": (15, None), "F": (15, 7), "E": (15, 7), "D": (25, 18), "G": (15, 7),
+    "A": (5, None),
+    "R": (5, None),
+    "I": (15, None),
+    "O": (15, None),
+    "L": (15, None),
+    "F": (15, 7),
+    "E": (15, 7),
+    "D": (25, 18),
+    "G": (15, 7),
 }
 
 
 class _Record:
     """One output record being built, with a write cursor so Tw can reposition
     (and overwrite) and nX can advance.  Tabbing past the end pads with blanks."""
+
     __slots__ = ("chars", "pos")
 
     def __init__(self):
@@ -156,7 +175,7 @@ class _Record:
 
     def emit(self, s):
         for ch in s:
-            while self.pos > len(self.chars):       # Tw left a gap -> blank-fill
+            while self.pos > len(self.chars):  # Tw left a gap -> blank-fill
                 self.chars.append(" ")
             if self.pos < len(self.chars):
                 self.chars[self.pos] = ch
@@ -164,7 +183,7 @@ class _Record:
                 self.chars.append(ch)
             self.pos += 1
 
-    def tab(self, col):                              # Tw: 1-based record column
+    def tab(self, col):  # Tw: 1-based record column
         self.pos = max(0, col - 1)
 
     def text(self):
@@ -184,10 +203,10 @@ def render(items, values, target=PDP10):
     rec = _Record()
     vi = 0
     suppress = False
-    scale = 0                       # nP scale factor (holds until reset, 13.2.4)
+    scale = 0  # nP scale factor (holds until reset, 13.2.4)
     n = len(values)
     rev = getattr(items, "rev", 0)  # reversion restart: last top-level group (F66 7.2.3.4)
-    start = 0                       # first pass scans the whole format
+    start = 0  # first pass scans the whole format
     while True:
         pass_start = vi
         stop = False
@@ -202,19 +221,22 @@ def render(items, values, target=PDP10):
             elif k == "P":
                 scale = it.a or 0
             elif k == "/":
-                records.append(rec.text()); rec = _Record()
+                records.append(rec.text())
+                rec = _Record()
             elif k == "$":
                 suppress = True
             elif k in _DATA_DESCRIPTORS:
-                if vi >= n:                # I/O list exhausted -> terminate record
+                if vi >= n:  # I/O list exhausted -> terminate record
                     stop = True
                     break
-                v = values[vi]; vi += 1
+                v = values[vi]
+                vi += 1
                 rec.emit(_render_one(k, it, v, scale, target))
         if stop or vi >= n or vi == pass_start:
             break
-        records.append(rec.text()); rec = _Record()   # reversion: new record
-        start = rev                                    # ... restart at last top-level group
+        records.append(rec.text())
+        rec = _Record()  # reversion: new record
+        start = rev  # ... restart at last top-level group
     records.append(rec.text())
     return "\n".join(records), suppress
 
@@ -235,13 +257,13 @@ def _render_one(k, it, v, scale, target=PDP10):
     if k == "L":
         return " " * (max(w, 1) - 1) + ("T" if target.truthy(v) else "F")
     if k == "F":
-        return _real(float(v) * (10.0 ** scale) if scale else float(v), w, d)
+        return _real(float(v) * (10.0**scale) if scale else float(v), w, d)
     if k in ("E", "D"):
         return _efmt(float(v), w, d, k, scale)
     if k == "G":
         if isinstance(v, float):
             return _gfmt(v, w, d, scale)
-        return _ifmt(int(v), w)            # G on integer -> I conversion (13.2.3)
+        return _ifmt(int(v), w)  # G on integer -> I conversion (13.2.3)
     return ""
 
 
@@ -263,7 +285,7 @@ def _rfmt(v, w, target=PDP10):
 def _ifmt(iv, w):
     s = str(int(iv))
     if w and len(s) > w:
-        return "*" * w                     # V5 Table 13-2: too wide -> asterisks
+        return "*" * w  # V5 Table 13-2: too wide -> asterisks
     return s.rjust(w) if w else " " + s
 
 
@@ -271,12 +293,12 @@ def _ofmt(iv, w, target=PDP10):
     s = format(int(iv) & target.mask, "o")  # octal of the word's bit pattern (target width)
     if w and len(s) > w:
         return "*" * w
-    return s.zfill(w) if w else s          # V5 Table 13-2: O is ZERO-padded
+    return s.zfill(w) if w else s  # V5 Table 13-2: O is ZERO-padded
 
 
 def _fit(s, w):
     if w and len(s) > w:
-        return "*" * w                     # V5: field too small -> asterisks
+        return "*" * w  # V5: field too small -> asterisks
     return s.rjust(w) if w else s
 
 
@@ -284,7 +306,7 @@ def _real(v, w, d):
     if d is None:
         s = repr(v)
     elif d == 0:
-        s = f"{v:.0f}."                    # FORTRAN Fw.0 keeps the decimal point
+        s = f"{v:.0f}."  # FORTRAN Fw.0 keeps the decimal point
     else:
         s = f"{v:.{d}f}"
     return _fit(s, w)
@@ -297,19 +319,20 @@ def _efmt(v, w, d, letter="E", scale=0):
     point n places (n integer digits for n>0) and decreases the exponent by n;
     the value is unchanged. Reproduces the manual's E15.3-of-12.493 examples."""
     import math
+
     if v == 0.0:
         frac = d if scale <= 0 else max(0, d - scale + 1)
         body = ("0." + "0" * frac) if frac > 0 else "0."
         return _fit(f"{body}{letter}+00", w)
     sign = "-" if v < 0 else ""
     av = abs(v)
-    e0 = math.floor(math.log10(av)) + 1               # av = m0 * 10^e0, m0 in [0.1,1)
-    r = round(av, (d + 1) - e0)                        # carry d+1 significant digits
+    e0 = math.floor(math.log10(av)) + 1  # av = m0 * 10^e0, m0 in [0.1,1)
+    r = round(av, (d + 1) - e0)  # carry d+1 significant digits
     if r > 0:
-        e0 = math.floor(math.log10(r)) + 1             # rounding may bump a decade
+        e0 = math.floor(math.log10(r)) + 1  # rounding may bump a decade
     frac = d if scale <= 0 else max(0, d - scale + 1)
     exp_shown = e0 - scale
-    mant = r / (10.0 ** exp_shown)
+    mant = r / (10.0**exp_shown)
     body = f"{mant:.{frac}f}"
     if frac == 0:
         body += "."
@@ -321,19 +344,20 @@ def _gfmt(v, w, d, scale=0):
     """FORTRAN G (V5 Table 13-4): fixed-point F(w-4).x,4X when 0.1<=|v|<10**d,
     else scientific Ew.d. The decimals shrink as the magnitude grows."""
     import math
+
     av = abs(v)
-    if av != 0.0 and (av < 0.1 or av >= 10.0 ** d):
-        return _efmt(v, w, d, "E", scale)              # out of F-range -> E
+    if av != 0.0 and (av < 0.1 or av >= 10.0**d):
+        return _efmt(v, w, d, "E", scale)  # out of F-range -> E
     if av == 0.0:
         decimals = d - 1
     else:
-        e = math.floor(math.log10(av))                 # av in [10**e, 10**(e+1))
+        e = math.floor(math.log10(av))  # av in [10**e, 10**(e+1))
         decimals = max(0, min(d - 1 - e, d))
-    val = v * (10.0 ** scale) if scale else v          # F-form scale: ext = int*10**n
-    body = _real(val, 0, decimals)                     # F field, no width yet
+    val = v * (10.0**scale) if scale else v  # F-form scale: ext = int*10**n
+    body = _real(val, 0, decimals)  # F field, no width yet
     if not w:
         return body + "    "
-    fw = w - 4                                          # leave 4 blanks for the E exp slot
+    fw = w - 4  # leave 4 blanks for the E exp slot
     if len(body) > fw:
         return "*" * w
     return body.rjust(fw) + "    "
@@ -346,17 +370,17 @@ def apply_carriage(text):
     So consecutive ' ' (single-space) records are single-spaced, not double; this
     matches FORTRAN-10 terminal output (e.g. Adventure's multi-line room text)."""
     if not text:
-        return ""                   # empty record -> a blank line (caller's trailing \n)
+        return ""  # empty record -> a blank line (caller's trailing \n)
     c = text[0]
     if c == "+":
-        return "\r" + text[1:]      # overprint: return to column 0
+        return "\r" + text[1:]  # overprint: return to column 0
     if c == "0":
-        return "\n" + text[1:]      # double space: one blank line before this one
+        return "\n" + text[1:]  # double space: one blank line before this one
     if c == "1":
-        return "\f" + text[1:]      # form feed: top of next page
+        return "\f" + text[1:]  # form feed: top of next page
     if c == " ":
-        return text[1:]             # single space: normal advance (the trailing \n)
-    return text                     # no recognized control char -> keep it, advance
+        return text[1:]  # single space: normal advance (the trailing \n)
+    return text  # no recognized control char -> keep it, advance
 
 
 # ---- input -----------------------------------------------------------------
@@ -366,10 +390,10 @@ def read_values(items, line, target=PDP10):
     pos = 0
     for it in items:
         if it.kind in ("A", "R"):
-            if pos < len(line) and line[pos] == "\t":   # field separator from a prior
-                pos += 1                                  # numeric field (tab-delimited data)
+            if pos < len(line) and line[pos] == "\t":  # field separator from a prior
+                pos += 1  # numeric field (tab-delimited data)
             w = it.a or target.chars_per_word
-            chunk = line[pos:pos + w]
+            chunk = line[pos : pos + w]
             pos += w
             vals.append((it.kind, target.pack(chunk.ljust(w))))
         elif it.kind in ("I", "G"):
@@ -390,10 +414,11 @@ def read_values(items, line, target=PDP10):
         elif it.kind == "L":
             w = it.a
             if w:
-                chunk = line[pos:pos + w]; pos += w
+                chunk = line[pos : pos + w]
+                pos += w
             else:
                 chunk, pos = _next_token(line, pos)
-            t = chunk.lstrip()[:1].upper()             # first non-blank: T or F
+            t = chunk.lstrip()[:1].upper()  # first non-blank: T or F
             vals.append(("L", target.from_bool(t == "T")))
         elif it.kind in ("F", "E", "D"):
             tok, pos = _next_token(line, pos)
@@ -403,7 +428,7 @@ def read_values(items, line, target=PDP10):
                 vals.append(("F", 0.0))
         elif it.kind == "X":
             pos += it.a or 1
-        elif it.kind == "T":                           # tab to 1-based column
+        elif it.kind == "T":  # tab to 1-based column
             pos = max(0, (it.a or 1) - 1)
     return vals
 

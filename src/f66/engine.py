@@ -20,7 +20,7 @@ import cmath
 import math
 
 from f66 import ast_nodes as A
-from f66.target import Target, PDP10, NATIVE
+from f66.target import PDP10, NATIVE
 
 # The default target's value model (see target.py), re-exported as module-level names:
 # forlib, the intrinsics table, the empire builtins and tests import these. The Engine
@@ -32,7 +32,7 @@ wrap36 = PDP10.wrap
 
 def trunc_div(a: int, b: int) -> int:
     if b == 0:
-        return 0          # FORTRAN-10/FOROTS warned on divide-by-zero and CONTINUED
+        return 0  # FORTRAN-10/FOROTS warned on divide-by-zero and CONTINUED
         #                   (non-fatal, quotient 0); never aborted like Python. The
         #                   exact recovery value is moot -- what matters is FOROTS-style
         #                   warn-and-continue, not crashing the interpreter.
@@ -42,14 +42,14 @@ def trunc_div(a: int, b: int) -> int:
 
 def fort_mod(a, b):
     if b == 0:
-        return a          # quotient 0 on divide-by-zero -> a - 0*b = a (non-fatal)
+        return a  # quotient 0 on divide-by-zero -> a - 0*b = a (non-fatal)
     if isinstance(a, float) or isinstance(b, float):
         return a - b * float(int(a / b))
     return a - b * trunc_div(a, b)
 
 
-truthy = PDP10.truthy          # FORTRAN-10: .TRUE. iff sign negative (-1/0)
-packword = PDP10.pack          # chars -> one signed packed word
+truthy = PDP10.truthy  # FORTRAN-10: .TRUE. iff sign negative (-1/0)
+packword = PDP10.pack  # chars -> one signed packed word
 
 
 # ----------------------------------------------------------------- references
@@ -63,7 +63,7 @@ OOB_WRITES = 0
 #: audit/checker mode for fuzzing: surfaces every OOB so program-bug edges can be told
 #: apart from interpreter bugs). "raise" = hard error (fail-fast strict checker).
 OOB_CHECK = "off"
-OOB_LOG = []                    # populated when OOB_CHECK == "log"
+OOB_LOG = []  # populated when OOB_CHECK == "log"
 
 
 class OobError(Exception):
@@ -73,6 +73,7 @@ class OobError(Exception):
 def _oob_context(idx, store_len, op):
     """Best-effort (routine, array, subscripts) for an OOB, via the eval stack."""
     import inspect
+
     routine = array = subs = None
     for fi in inspect.stack()[2:]:
         loc = fi.frame.f_locals
@@ -84,8 +85,14 @@ def _oob_context(idx, store_len, op):
             array, subs = loc.get("name"), list(loc.get("subs"))
         if routine and array is not None:
             break
-    return {"op": op, "routine": routine, "array": array, "subs": subs,
-            "idx": idx, "len": store_len}
+    return {
+        "op": op,
+        "routine": routine,
+        "array": array,
+        "subs": subs,
+        "idx": idx,
+        "len": store_len,
+    }
 
 
 def _oob_event(idx, store_len, op):
@@ -103,6 +110,7 @@ class CellRef:
     KLINE's FOO(0:3) indexed at 4/5 when an unclamped sector number is 8/9). We
     model that faithfully: OOB read -> 0 (benign garbage), OOB write -> dropped.
     Negative indices are treated as OOB too (no Python end-wrap)."""
+
     __slots__ = ("store", "idx")
 
     def __init__(self, store, idx):
@@ -129,6 +137,7 @@ class CellRef:
 
 class DictRef:
     """Reference to a named local scalar (lazily defaulting to 0)."""
+
     __slots__ = ("d", "key")
 
     def __init__(self, d, key):
@@ -143,6 +152,7 @@ class DictRef:
 
 class TempRef:
     """Reference to a pass-by-value temporary."""
+
     __slots__ = ("val",)
 
     def __init__(self, val):
@@ -159,17 +169,19 @@ class ProcRef:
     """A procedure name passed as an actual argument (F66 8.3/15.10: a dummy
     procedure). Bound to a dummy parameter, it makes CALL <dummy>(...) or a
     function reference dispatch to the named external procedure."""
+
     __slots__ = ("target",)
 
     def __init__(self, target):
         self.target = target
 
-    def read(self):                       # if used as a value, it's just the name
+    def read(self):  # if used as a value, it's just the name
         return self.target
 
 
 class ArrayView:
     """A view onto a backing store at a base offset; .loc(i) -> CellRef."""
+
     __slots__ = ("store", "base")
 
     def __init__(self, store, base):
@@ -184,25 +196,31 @@ def linidx(subs, dims):
     idx, mult = 0, 1
     for k, (lo, hi) in enumerate(dims):
         idx += (subs[k] - lo) * mult
-        mult *= (hi - lo + 1)
+        mult *= hi - lo + 1
     return idx
 
 
 def array_size(dims):
     n = 1
     for lo, hi in dims:
-        n *= (hi - lo + 1)
+        n *= hi - lo + 1
     return n
 
 
 # ------------------------------------------------------------- control signals
 class Goto:
     __slots__ = ("label",)
-    def __init__(self, label): self.label = label
+
+    def __init__(self, label):
+        self.label = label
+
 
 class Ret:
     __slots__ = ("alt",)
-    def __init__(self, alt=None): self.alt = alt    # RETURN e -> alternate return
+
+    def __init__(self, alt=None):
+        self.alt = alt  # RETURN e -> alternate return
+
 
 class Stop:
     pass
@@ -211,17 +229,19 @@ class Stop:
 # --------------------------------------------------------------------- frames
 class DoFrame:
     __slots__ = ("ref", "trips", "step", "term", "body", "term_idx")
+
     def __init__(self, ref, trips, step, term, body, term_idx):
         self.ref, self.trips, self.step, self.term = ref, trips, step, term
-        self.body = body            # pc of first statement inside the loop
-        self.term_idx = term_idx    # pc of the loop's terminal statement
+        self.body = body  # pc of first statement inside the loop
+        self.term_idx = term_idx  # pc of the loop's terminal statement
 
 
 class Frame:
     __slots__ = ("rt", "args", "pc", "do_stack")
+
     def __init__(self, rt, args):
         self.rt = rt
-        self.args = args            # dummy name -> Ref / ArrayView
+        self.args = args  # dummy name -> Ref / ArrayView
         self.pc = 0
         self.do_stack = []
 
@@ -230,11 +250,11 @@ class Frame:
 class UnitRT:
     def __init__(self, unit):
         self.unit = unit
-        self.common_map = {}        # name -> (block, offset, dims|None)
-        self.local_scalars = {}     # static
-        self.local_arrays = {}      # name -> store(list)
-        self.do_terms = set()       # labels that terminate some DO
-        self.assigned = set()       # names used as scalar lvalues -> local vars
+        self.common_map = {}  # name -> (block, offset, dims|None)
+        self.local_scalars = {}  # static
+        self.local_arrays = {}  # name -> store(list)
+        self.do_terms = set()  # labels that terminate some DO
+        self.assigned = set()  # names used as scalar lvalues -> local vars
         for s in unit.code:
             if isinstance(s, A.Do):
                 self.do_terms.add(s.term_label)
@@ -265,23 +285,33 @@ DEFAULT_CLOCK = (1979, 1, 1, 0, 0, 0, 0)
 
 
 class Engine:
-    def __init__(self, units: dict, root=".", emit=None, getch=None,
-                 readline=None, printer=None, target=None, binio=None):
+    def __init__(
+        self,
+        units: dict,
+        root=".",
+        emit=None,
+        getch=None,
+        readline=None,
+        printer=None,
+        target=None,
+        binio=None,
+    ):
         import random
+
         self.tgt = target if target is not None else NATIVE  # default value model (portable)
-        self.binio = binio          # unformatted-I/O codec (FOROTS); injected by the runtime
+        self.binio = binio  # unformatted-I/O codec (FOROTS); injected by the runtime
         self.units = units
-        self.commons = {}           # block -> list (flat store)
-        self.rts = {}               # unit name -> UnitRT
-        self.entries = {}           # ENTRY name -> (owning unit, pc, params)  (V5 15.7)
+        self.commons = {}  # block -> list (flat store)
+        self.rts = {}  # unit name -> UnitRT
+        self.entries = {}  # ENTRY name -> (owning unit, pc, params)  (V5 15.7)
         self.builtins = {}
-        self.root = root            # base dir for INCLUDE / read-only source + data
-        self.save_root = root       # base dir for OPEN file specs (NOT a sandbox -- a
-                                    # driver may point it elsewhere; see _open_path)
-        self.out = []               # captured terminal output
+        self.root = root  # base dir for INCLUDE / read-only source + data
+        self.save_root = root  # base dir for OPEN file specs (NOT a sandbox -- a
+        # driver may point it elsewhere; see _open_path)
+        self.out = []  # captured terminal output
         self.rng = random.Random(0)
         self.clock = 1
-        self.io = {}                # unit number -> open-file state
+        self.io = {}  # unit number -> open-file state
         # FORTRAN-10 V5 Table 10-1 default LOGICAL DEVICE ASSIGNMENTS: a unit that
         # is written to but never explicitly OPENed routes to its default device.
         # Units 3 and 6 default to the line printer (LPT). We model the printer as
@@ -300,7 +330,7 @@ class Engine:
         self.last_io_error = (0, 0)
         self.errset_limit = 2
         self.lib_apr_count = 0
-        self.sense_lights = set()   # SLITE/SLITET console sense lights (V5 Table 15-3)
+        self.sense_lights = set()  # SLITE/SLITET console sense lights (V5 Table 15-3)
         # Clock provider -- an ENVIRONMENT SERVICE the driver supplies. The standard
         # library TIME/DATE (forlib.py) read wall time ONLY through this hook, so the
         # language core has no ambient os-time dependency and determinism is an injected
@@ -350,8 +380,9 @@ class Engine:
         target-specific runtime, injected via f66.install_runtime; the
         generic core has none, so binary I/O without it is a clear error."""
         if self.binio is None:
-            raise RuntimeError("unformatted/binary I/O needs a FORTRAN-10 runtime "
-                               "(f66.install_runtime)")
+            raise RuntimeError(
+                "unformatted/binary I/O needs a FORTRAN-10 runtime (f66.install_runtime)"
+            )
         return self.binio
 
     # ---- setup
@@ -379,7 +410,7 @@ class Engine:
                     d = dims or u.arrays.get(mname)
                     rt.common_map[mname] = (block, off, d)
                     off += array_size(d) if d else 1
-            self._layout_equivalence(name, u, rt)   # EQUIVALENCE storage aliasing (V5 6.6)
+            self._layout_equivalence(name, u, rt)  # EQUIVALENCE storage aliasing (V5 6.6)
             self.rts[name] = rt
         # ENTRY points (V5 15.7): map each entry name to (owning unit, pc, params)
         for uname, u in self.units.items():
@@ -416,19 +447,19 @@ class Engine:
                 parent[x] = r
             return parent[x]
 
-        def union(a, b, delta):                 # constrain base(b) = base(a) + delta
+        def union(a, b, delta):  # constrain base(b) = base(a) + delta
             ra, rb = find(a), find(b)
             if ra == rb:
                 return
             parent[rb] = ra
             off[rb] = off[a] + delta - off[b]
 
-        def elem_off(name, subs):               # 0-based element offset within `name`
+        def elem_off(name, subs):  # 0-based element offset within `name`
             if name not in u.arrays or not subs:
                 return 0
             dims = u.arrays[name]
             vals = [self._const_eval_int(s, u) for s in subs]
-            if len(vals) == 1:                  # single subscript: array as 1-D
+            if len(vals) == 1:  # single subscript: array as 1-D
                 return vals[0] - dims[0][0]
             return linidx(vals, dims)
 
@@ -441,7 +472,7 @@ class Engine:
             n0, s0 = group[0]
             base0 = elem_off(n0, s0)
             find(n0)
-            for ni, si in group[1:]:            # ni coincides with n0 at one word
+            for ni, si in group[1:]:  # ni coincides with n0 at one word
                 union(n0, ni, base0 - elem_off(ni, si))
 
         comps = {}
@@ -451,17 +482,17 @@ class Engine:
         eq_block = 0
         for root, members in comps.items():
             anchor = next((m for m in members if m in rt.common_map), None)
-            if anchor is not None:              # tie the whole group into a COMMON block
+            if anchor is not None:  # tie the whole group into a COMMON block
                 block, coff, _ = rt.common_map[anchor]
                 for m in members:
                     mo = coff + (off[m] - off[anchor])
                     if mo < 0:
-                        mo = 0                  # V5: no backward common extension (clamp)
+                        mo = 0  # V5: no backward common extension (clamp)
                     rt.common_map[m] = (block, mo, u.arrays.get(m))
                     end = mo + size_of(m)
                     if end > len(self.commons[block]):
                         self.commons[block].extend([0] * (end - len(self.commons[block])))
-            else:                               # purely local group -> synthetic block
+            else:  # purely local group -> synthetic block
                 mn = min(off[m] for m in members)
                 size = max(off[m] - mn + size_of(m) for m in members)
                 key = f"$EQV.{uname}.{eq_block}"
@@ -486,8 +517,7 @@ class Engine:
                 # variables/elements: 'ABCDEFGHIJKL' -> 'ABCDE','FGHIJ','KL   '
                 if isinstance(v, A.StrLit) and len(v.value) > self.tgt.chars_per_word:
                     cw = self.tgt.chars_per_word
-                    words = [self.tgt.pack(v.value[i:i + cw])
-                             for i in range(0, len(v.value), cw)]
+                    words = [self.tgt.pack(v.value[i : i + cw]) for i in range(0, len(v.value), cw)]
                     flat.extend(words * count)
                 else:
                     flat.extend([self._const_val(v, unit)] * count)
@@ -502,13 +532,12 @@ class Engine:
         return self.tgt.pack(v) if isinstance(v, str) else v
 
     def _const_val(self, v, unit):
-        if isinstance(v, bool):                   # .TRUE./.FALSE. in DATA; bool is an
-            return self.tgt.from_bool(v)          # int subclass, so test it FIRST.
-        if isinstance(v, A.StrLit):               # FORTRAN-10: .TRUE.=-1, .FALSE.=0
+        if isinstance(v, bool):  # .TRUE./.FALSE. in DATA; bool is an
+            return self.tgt.from_bool(v)  # int subclass, so test it FIRST.
+        if isinstance(v, A.StrLit):  # FORTRAN-10: .TRUE.=-1, .FALSE.=0
             return self.tgt.pack(v.value)
-        if isinstance(v, A.Complex):              # complex constant in DATA
-            return complex(float(self._const_val(v.re, unit)),
-                           float(self._const_val(v.im, unit)))
+        if isinstance(v, A.Complex):  # complex constant in DATA
+            return complex(float(self._const_val(v.re, unit)), float(self._const_val(v.im, unit)))
         if isinstance(v, A.Var):
             return self._const_value(unit.consts.get(v.name, 0))
         if isinstance(v, float):
@@ -533,7 +562,7 @@ class Engine:
             step = self._const_eval_int(tgt.step, unit) if tgt.step else 1
             i = lo
             while (step > 0 and i <= hi) or (step < 0 and i >= hi):
-                unit.consts[tgt.var] = i          # transient loop var
+                unit.consts[tgt.var] = i  # transient loop var
                 for sub in tgt.items:
                     self._data_assign(rt, unit, sub, it)
                 i += step
@@ -552,8 +581,7 @@ class Engine:
         if isinstance(node, A.Binary):
             a = self._const_eval_int(node.left, unit)
             b = self._const_eval_int(node.right, unit)
-            return {"+": a + b, "-": a - b, "*": a * b,
-                    "/": trunc_div(a, b)}[node.op]
+            return {"+": a + b, "-": a - b, "*": a * b, "/": trunc_div(a, b)}[node.op]
         raise RuntimeError(f"bad DATA subscript {node}")
 
     def _static_array(self, rt, unit, name):
@@ -584,9 +612,13 @@ class Engine:
         raw = frame.rt.unit.arrays[name]
         for lo, hi in raw:
             if type(lo) is not int or type(hi) is not int:
-                return [(lo if type(lo) is int else int(self.eval(lo, frame)),
-                         hi if type(hi) is int else int(self.eval(hi, frame)))
-                        for lo, hi in raw]
+                return [
+                    (
+                        lo if type(lo) is int else int(self.eval(lo, frame)),
+                        hi if type(hi) is int else int(self.eval(hi, frame)),
+                    )
+                    for lo, hi in raw
+                ]
         return raw
 
     def scalar_ref(self, frame, name):
@@ -604,13 +636,12 @@ class Engine:
             return node.value
         if t is A.OctalLit:
             return self.tgt.wrap(node.value)
-        if t is A.Complex:                        # (re, im) complex constant
-            return complex(float(self.eval(node.re, frame)),
-                           float(self.eval(node.im, frame)))
+        if t is A.Complex:  # (re, im) complex constant
+            return complex(float(self.eval(node.re, frame)), float(self.eval(node.im, frame)))
         if t is A.StrLit:
             return self.tgt.pack(node.value)
         if t is A.LogicalLit:
-            return self.tgt.from_bool(node.value)   # FORTRAN-10 .TRUE.=-1, .FALSE.=0
+            return self.tgt.from_bool(node.value)  # FORTRAN-10 .TRUE.=-1, .FALSE.=0
         if t is A.Var:
             return self.eval_var(node.name, frame)
         if t is A.Ref:
@@ -618,7 +649,7 @@ class Engine:
         if t is A.Unary:
             v = self.eval(node.operand, frame)
             if node.op == "NOT":
-                return self.tgt.lnot(v)                 # PDP-10: bitwise complement (36-bit)
+                return self.tgt.lnot(v)  # PDP-10: bitwise complement (36-bit)
             if node.op == "-":
                 return self.tgt.wrap(-v) if isinstance(v, int) else -v
             return v
@@ -630,19 +661,32 @@ class Engine:
         unit = frame.rt.unit
         if name in unit.consts:
             return self._const_value(unit.consts[name])
-        if name in unit.arrays:               # bare array name (I/O / arg use)
+        if name in unit.arrays:  # bare array name (I/O / arg use)
             return self.arrayview(frame, name)
-        if (name in self.entries and name not in frame.args
-                and name not in frame.rt.common_map and name not in unit.types
-                and name not in frame.rt.assigned):
-            return self._call_entry_func(name, [], frame)   # no-arg ENTRY function ref
-        if (name != frame.rt.unit.name
-                and name in self.units and self.units[name].kind == "function"
-                and name not in frame.args and name not in frame.rt.common_map
-                and name not in unit.types and name not in frame.rt.assigned):
+        if (
+            name in self.entries
+            and name not in frame.args
+            and name not in frame.rt.common_map
+            and name not in unit.types
+            and name not in frame.rt.assigned
+        ):
+            return self._call_entry_func(name, [], frame)  # no-arg ENTRY function ref
+        if (
+            name != frame.rt.unit.name
+            and name in self.units
+            and self.units[name].kind == "function"
+            and name not in frame.args
+            and name not in frame.rt.common_map
+            and name not in unit.types
+            and name not in frame.rt.assigned
+        ):
             return self.call_function(name, [], frame)
-        if name not in frame.args and name not in frame.rt.common_map \
-                and name not in unit.types and name in self.builtins:
+        if (
+            name not in frame.args
+            and name not in frame.rt.common_map
+            and name not in unit.types
+            and name in self.builtins
+        ):
             return self.builtins[name](self, frame, [])
         return self.scalar_ref(frame, name).read()
 
@@ -654,15 +698,14 @@ class Engine:
             subs = [self.eval(a, frame) for a in node.args]
             return self.arrayview(frame, name).loc(linidx(subs, dims)).read()
         proc = frame.args.get(name)
-        if isinstance(proc, ProcRef):         # reference to a dummy procedure (function)
+        if isinstance(proc, ProcRef):  # reference to a dummy procedure (function)
             return self.call_function(proc.target, node.args, frame)
         if name in unit.stmt_funcs:
             return self._call_stmt_func(name, node.args, frame)
-        if name in self.entries:              # V5 15.7: function ENTRY reference
+        if name in self.entries:  # V5 15.7: function ENTRY reference
             return self._call_entry_func(name, node.args, frame)
-        if (name in unit.externals and name in self.units
-                and self.units[name].kind == "function"):
-            return self.call_function(name, node.args, frame)   # V5 15.3: EXTERNAL beats intrinsic
+        if name in unit.externals and name in self.units and self.units[name].kind == "function":
+            return self.call_function(name, node.args, frame)  # V5 15.3: EXTERNAL beats intrinsic
         if name in INTRINSICS:
             return self._apply_intrinsic(name, [self.eval(a, frame) for a in node.args])
         if name in self.units and self.units[name].kind == "function":
@@ -707,16 +750,16 @@ class Engine:
         (|x| for SQRT/LOG, clamp to [-1,1] for ASIN/ACOS). FORLIB's exact recovery
         value isn't specified in the V5 manual, so this is a documented
         approximation -- same class as REAL=Python double."""
-        if name == "LSH":                  # PDP-10 logical word shift: width from the target
+        if name == "LSH":  # PDP-10 logical word shift: width from the target
             return _lsh(self.tgt, args[0], args[1])
         try:
             r = INTRINSICS[name](args)
-        except ValueError:                 # math domain error (negative / out of range)
+        except ValueError:  # math domain error (negative / out of range)
             if name not in _LIB_MSG:
                 raise
             self._lib_warn(_LIB_MSG[name])
             r = _LIB_RECOVER[name](args)
-        except OverflowError:              # APR floating overflow (e.g. EXP of large arg)
+        except OverflowError:  # APR floating overflow (e.g. EXP of large arg)
             self._lib_warn("Floating Overflow")
             return math.inf if (args and args[0] > 0) else -math.inf
         # INT-family conversions take the target's integer wrap (PDP-10: 36-bit 2's-comp)
@@ -738,42 +781,51 @@ class Engine:
         b = self.eval(node.right, frame)
         cx = isinstance(a, complex) or isinstance(b, complex)
         # relational results are FORTRAN logicals (target's convention: PDP-10 -1/0)
-        if op == "EQ": return self.tgt.from_bool(a == b)
-        if op == "NE": return self.tgt.from_bool(a != b)
+        if op == "EQ":
+            return self.tgt.from_bool(a == b)
+        if op == "NE":
+            return self.tgt.from_bool(a != b)
         if op in ("LT", "LE", "GT", "GE") and cx:
-            return self.tgt.from_bool(False)      # V5 CTR: complex .LT./.GT./... undefined
-        if op == "LT": return self.tgt.from_bool(a < b)
-        if op == "LE": return self.tgt.from_bool(a <= b)
-        if op == "GT": return self.tgt.from_bool(a > b)
-        if op == "GE": return self.tgt.from_bool(a >= b)
+            return self.tgt.from_bool(False)  # V5 CTR: complex .LT./.GT./... undefined
+        if op == "LT":
+            return self.tgt.from_bool(a < b)
+        if op == "LE":
+            return self.tgt.from_bool(a <= b)
+        if op == "GT":
+            return self.tgt.from_bool(a > b)
+        if op == "GE":
+            return self.tgt.from_bool(a >= b)
         fl = isinstance(a, float) or isinstance(b, float)
-        if op == "+": return a + b if (fl or cx) else self.tgt.wrap(a + b)
-        if op == "-": return a - b if (fl or cx) else self.tgt.wrap(a - b)
-        if op == "*": return a * b if (fl or cx) else self.tgt.wrap(a * b)
+        if op == "+":
+            return a + b if (fl or cx) else self.tgt.wrap(a + b)
+        if op == "-":
+            return a - b if (fl or cx) else self.tgt.wrap(a - b)
+        if op == "*":
+            return a * b if (fl or cx) else self.tgt.wrap(a * b)
         if op == "/":
             if cx:
-                return a / b if b != 0 else 0j    # complex divide (non-fatal /0)
+                return a / b if b != 0 else 0j  # complex divide (non-fatal /0)
             if fl:
-                return a / b if b != 0 else 0.0   # FOROTS divide-by-zero: non-fatal
-            return trunc_div(a, b)                # (handles b==0 -> 0)
+                return a / b if b != 0 else 0.0  # FOROTS divide-by-zero: non-fatal
+            return trunc_div(a, b)  # (handles b==0 -> 0)
         if op == "^":
             if cx:
-                return a ** b                     # complex exponentiation
+                return a**b  # complex exponentiation
             if fl:
                 if a == 0 and b < 0:
-                    return 0.0                    # 0.0**negative: non-fatal stand-in
-                if a < 0 and b != int(b):         # F66 6.4: neg base ** real exp = undefined
+                    return 0.0  # 0.0**negative: non-fatal stand-in
+                if a < 0 and b != int(b):  # F66 6.4: neg base ** real exp = undefined
                     self._lib_warn("Negative Number to a Real Power")  # FOROTS LIB error
-                    return abs(a) ** b            # real stand-in (Python would give complex)
-                return a ** b
+                    return abs(a) ** b  # real stand-in (Python would give complex)
+                return a**b
             base, exp = int(a), int(b)
-            if exp < 0:                       # FORTRAN integer**negative truncates
+            if exp < 0:  # FORTRAN integer**negative truncates
                 if base == 1:
                     return 1
                 if base == -1:
                     return 1 if exp % 2 == 0 else -1
-                return 0                      # |base|>1 -> 0; base 0 -> 0 (no crash)
-            return self.tgt.wrap(base ** exp)
+                return 0  # |base|>1 -> 0; base 0 -> 0 (no crash)
+            return self.tgt.wrap(base**exp)
         raise RuntimeError(f"bad operator {op}")
 
     # ---- argument passing
@@ -790,8 +842,7 @@ class Engine:
             # or a dummy procedure being passed down another level
             if isinstance(frame.args.get(name), ProcRef):
                 return frame.args[name]
-            if (name in unit.externals
-                    and (name in self.units or name in self.builtins)):
+            if name in unit.externals and (name in self.units or name in self.builtins):
                 return ProcRef(name)
             return self.scalar_ref(frame, name)
         if isinstance(node, A.Ref) and node.name in frame.rt.unit.arrays:
@@ -813,28 +864,32 @@ class Engine:
         actuals, alt_labels = [], []
         for a in arg_nodes:
             if isinstance(a, A.LabelArg):
-                alt_labels.append(a.label); actuals.append(None)
+                alt_labels.append(a.label)
+                actuals.append(None)
             else:
                 actuals.append(self.arg_ref(a, frame))
-        binding = {p: actuals[i] for i, p in enumerate(eparams)
-                   if p != "*" and i < len(actuals) and actuals[i] is not None}
+        binding = {
+            p: actuals[i]
+            for i, p in enumerate(eparams)
+            if p != "*" and i < len(actuals) and actuals[i] is not None
+        }
         f = Frame(crt, binding)
-        f.pc = epc                          # begin at the ENTRY (a no-op) -> next stmt
+        f.pc = epc  # begin at the ENTRY (a no-op) -> next stmt
         return f, crt, alt_labels
 
     def _call_entry_func(self, name, arg_nodes, frame):
         f, crt, _ = self._entry_frame(name, arg_nodes, frame)
         self.run(f)
-        return crt.local_scalars.get(name, 0)   # value returned via the entry name
+        return crt.local_scalars.get(name, 0)  # value returned via the entry name
 
     def call_sub(self, name, arg_nodes, frame):
         proc = frame.args.get(name)
-        if isinstance(proc, ProcRef):              # CALL <dummy procedure>(...)
+        if isinstance(proc, ProcRef):  # CALL <dummy procedure>(...)
             return self.call_sub(proc.target, arg_nodes, frame)
         if name in self.builtins:
             self.builtins[name](self, frame, arg_nodes)
             return None
-        if name in self.entries:                   # CALL of an ENTRY point (V5 15.7)
+        if name in self.entries:  # CALL of an ENTRY point (V5 15.7)
             f, crt, alt_labels = self._entry_frame(name, arg_nodes, frame)
             alt = self.run(f)
             if alt and 1 <= alt <= len(alt_labels):
@@ -854,15 +909,17 @@ class Engine:
                 actuals.append(None)
             else:
                 actuals.append(self.arg_ref(a, frame))
-        binding = {p: actuals[i] for i, p in enumerate(params)
-                   if p != "*" and i < len(actuals) and actuals[i] is not None}
-        alt = self.run(Frame(crt, binding))           # RETURN e -> e, else None
+        binding = {
+            p: actuals[i]
+            for i, p in enumerate(params)
+            if p != "*" and i < len(actuals) and actuals[i] is not None
+        }
+        alt = self.run(Frame(crt, binding))  # RETURN e -> e, else None
         if alt and 1 <= alt <= len(alt_labels):
-            return Goto(alt_labels[alt - 1])           # jump in the CALLER
+            return Goto(alt_labels[alt - 1])  # jump in the CALLER
         return None
 
     def call_function(self, name, arg_nodes, frame):
-        callee = self.units[name]
         actuals = [self.arg_ref(a, frame) for a in arg_nodes]
         crt = self.rts[name]
         f = Frame(crt, self.bind_args(crt, actuals))
@@ -877,14 +934,14 @@ class Engine:
             return None
         if t is A.Continue:
             return None
-        if t is A.EntryStmt:                      # V5 15.7: nonexecutable -> no-op
+        if t is A.EntryStmt:  # V5 15.7: nonexecutable -> no-op
             return None
         if t is A.Goto:
             return Goto(s.target)
-        if t is A.AssignLabel:                    # ASSIGN <label> TO <var>
+        if t is A.AssignLabel:  # ASSIGN <label> TO <var>
             self.scalar_ref(frame, s.var).write(self.tgt.wrap(s.tgt))
             return None
-        if t is A.AssignedGoto:                   # GO TO <var>  -> jump to stored label
+        if t is A.AssignedGoto:  # GO TO <var>  -> jump to stored label
             return Goto(int(self.eval_var(s.var, frame)))
         if t is A.CompGoto:
             i = self.eval(s.index, frame)
@@ -908,12 +965,12 @@ class Engine:
         if t is A.Return:
             return Ret(self.eval(s.expr, frame) if s.expr is not None else None)
         if t is A.StopStmt:
-            if s.code is not None:           # V5 9.6: STOP 'msg' / STOP n prints, then halts
+            if s.code is not None:  # V5 9.6: STOP 'msg' / STOP n prints, then halts
                 self.emit((s.code if isinstance(s.code, str) else str(s.code)) + "\n")
             return Stop()
         if t is A.PauseStmt:
             msg = "PAUSE" + (f" {s.code}" if s.code is not None else "")
-            self.emit(msg + "\n")        # F66 PAUSE: print and continue (batch mode)
+            self.emit(msg + "\n")  # F66 PAUSE: print and continue (batch mode)
             return None
         if t is A.TypeStmt:
             self.do_type(s, frame)
@@ -938,10 +995,10 @@ class Engine:
         ttype = self.type_of(frame.rt.unit, tgt.name)
         if isinstance(val, bool) or isinstance(s.expr, A.StrLit):
             pass
-        elif ttype == "COMPLEX":                  # real/int -> complex(x, 0)
+        elif ttype == "COMPLEX":  # real/int -> complex(x, 0)
             if not isinstance(val, complex):
                 val = complex(float(val), 0.0)
-        elif isinstance(val, complex):            # complex -> scalar uses the real part
+        elif isinstance(val, complex):  # complex -> scalar uses the real part
             val = self.tgt.wrap(int(val.real)) if ttype == "INTEGER" else val.real
         elif ttype in ("REAL", "DOUBLE PRECISION") and isinstance(val, int):
             val = float(val)
@@ -965,12 +1022,11 @@ class Engine:
         else:
             trips = trunc_div(stop - start + step, step)
         if trips < 1:
-            trips = 1            # DEC FORTRAN-10 V5/V6 (F66): the body always runs
+            trips = 1  # DEC FORTRAN-10 V5/V6 (F66): the body always runs
             #                      at least once -- e.g. DO I=1,0 executes once with
             #                      I=1, then exits. (F77 zero-trip is a later compiler.)
         term_idx = frame.rt.unit.labels[s.term_label]
-        frame.do_stack.append(
-            DoFrame(ref, trips, step, s.term_label, frame.pc + 1, term_idx))
+        frame.do_stack.append(DoFrame(ref, trips, step, s.term_label, frame.pc + 1, term_idx))
         return None
 
     # ---- the per-unit run loop
@@ -987,24 +1043,28 @@ class Engine:
                     f"step budget exceeded in {u.name} pc={frame.pc} "
                     f"line={code[frame.pc].line}: "
                     f"{type(code[frame.pc]).__name__} | "
-                    f"do_stack={[(d.term, d.trips) for d in frame.do_stack]}")
+                    f"do_stack={[(d.term, d.trips) for d in frame.do_stack]}"
+                )
             s = code[frame.pc]
             ctrl = self.exec_stmt(s, frame)
             if ctrl is None:
-                if s.label is not None and s.label in do_terms \
-                        and self._do_bookkeep(frame, s.label):
+                if (
+                    s.label is not None
+                    and s.label in do_terms
+                    and self._do_bookkeep(frame, s.label)
+                ):
                     continue
                 frame.pc += 1
             elif type(ctrl) is Goto:
                 tgt = ctrl.label
-                if isinstance(tgt, tuple):           # skip-to-after-terminal
+                if isinstance(tgt, tuple):  # skip-to-after-terminal
                     newpc = labels[tgt[1]] + 1
                 else:
                     newpc = labels[tgt]
                 # leaving any DO loop that no longer contains the PC: abandon it
                 while frame.do_stack and not (
-                        frame.do_stack[-1].body <= newpc
-                        <= frame.do_stack[-1].term_idx):
+                    frame.do_stack[-1].body <= newpc <= frame.do_stack[-1].term_idx
+                ):
                     frame.do_stack.pop()
                 frame.pc = newpc
             elif type(ctrl) is Ret:
@@ -1035,7 +1095,7 @@ class Engine:
         parts = []
         for v in values:
             if isinstance(v, complex):
-                parts.append(f" ({v.real},{v.imag})")     # complex -> (re,im)
+                parts.append(f" ({v.real},{v.imag})")  # complex -> (re,im)
             else:
                 parts.append(" " + (repr(v) if isinstance(v, float) else str(int(v))))
         return "".join(parts)
@@ -1046,7 +1106,8 @@ class Engine:
         out = []
         for v in values:
             if isinstance(v, complex):
-                out.append(v.real); out.append(v.imag)
+                out.append(v.real)
+                out.append(v.imag)
             else:
                 out.append(v)
         return out
@@ -1054,6 +1115,7 @@ class Engine:
     def _ld_in(self, line, refs):
         """List-directed input: split on blanks/commas, convert by token form."""
         import re
+
         toks = [t for t in re.split(r"[ ,\t]+", line.strip()) if t]
         for ref, tok in zip(refs, toks):
             try:
@@ -1062,22 +1124,23 @@ class Engine:
                 try:
                     v = float(tok)
                 except ValueError:
-                    v = self.tgt.pack(tok)       # non-numeric -> packed char
+                    v = self.tgt.pack(tok)  # non-numeric -> packed char
             ref.write(v)
 
     def do_type(self, s, frame):
         from f66.fmt import parse_format, render, apply_carriage
+
         nml = self._nml_name(s.fmt, frame)
-        if nml is not None:                       # TYPE/PRINT of a NAMELIST group
+        if nml is not None:  # TYPE/PRINT of a NAMELIST group
             self.emit(self._nml_write(nml, frame))
             return
         values = self._unf_values(s.items, frame)
-        if s.fmt == "*":                          # list-directed output
+        if s.fmt == "*":  # list-directed output
             self.emit(self._ld_out(values) + "\n")
             return
         spec = frame.rt.unit.formats.get(s.fmt)
         items = parse_format(spec) if spec else []
-        text, suppress = render(items, self._cx_expand(values), self.tgt)   # complex -> 2 reals
+        text, suppress = render(items, self._cx_expand(values), self.tgt)  # complex -> 2 reals
         text = apply_carriage(text)
         if not suppress:
             text += "\n"
@@ -1085,13 +1148,13 @@ class Engine:
 
     def do_accept(self, s, frame):
         if getattr(s, "reread", False):
-            line = getattr(self, "_last_input", "")   # REREAD: the last record again
+            line = getattr(self, "_last_input", "")  # REREAD: the last record again
         else:
-            line = self.readline().rstrip("\r\n")   # the line terminator isn't record data
+            line = self.readline().rstrip("\r\n")  # the line terminator isn't record data
             self._last_input = line
-        if "\x1a" in line:                  # CONTROL-Z = end-of-file (V5 terminal input)
+        if "\x1a" in line:  # CONTROL-Z = end-of-file (V5 terminal input)
             self.last_io_error = (24, 308)
-            raise StopExecution()           # EOF on ACCEPT (no END=) ends the program
+            raise StopExecution()  # EOF on ACCEPT (no END=) ends the program
         self._apply_read_line(s, frame, line)
 
     def _apply_read_line(self, s, frame, line):
@@ -1099,17 +1162,18 @@ class Engine:
         input (`*`), or under a FORMAT. Shared by ACCEPT / terminal READ and by an
         unopened unit-READ that auto-connects to the terminal (V5 unit 5)."""
         from f66.fmt import parse_format, read_values
+
         nml = self._nml_name(s.fmt, frame)
-        if nml is not None:                       # NAMELIST group
+        if nml is not None:  # NAMELIST group
             self._nml_read(nml, line, frame)
             return
-        if s.fmt == "*":                          # list-directed input
+        if s.fmt == "*":  # list-directed input
             self._ld_in(line, self._unf_refs(s.items, frame))
             return
         spec = frame.rt.unit.formats.get(s.fmt)
         items = parse_format(spec) if spec else []
         reads = read_values(items, line, self.tgt)
-        self._assign_reads(s.items, reads, frame)   # COMPLEX consumes 2 real fields
+        self._assign_reads(s.items, reads, frame)  # COMPLEX consumes 2 real fields
 
     def do_encdec(self, s, frame):
         """ENCODE/DECODE (V5 10.15): internal formatted I/O to a packed-ASCII buffer.
@@ -1117,6 +1181,7 @@ class Engine:
         buffer per the FORMAT into the list. No carriage control (it's not a record
         to a device) -- render() output goes straight to the buffer."""
         from f66.fmt import parse_format, render, read_values
+
         count = int(self.eval(s.count, frame))
         spec = frame.rt.unit.formats.get(s.fmt) if s.fmt != "*" else None
         items = parse_format(spec) if spec else []
@@ -1124,9 +1189,12 @@ class Engine:
         cw = self.tgt.chars_per_word
         if s.decode:
             nwords = (count + cw - 1) // cw
-            chunks = [self.tgt.unpack(buf.loc(i).read() if hasattr(buf, "loc")
-                                      else (buf.read() if i == 0 else 0), cw)
-                      for i in range(nwords)]
+            chunks = [
+                self.tgt.unpack(
+                    buf.loc(i).read() if hasattr(buf, "loc") else (buf.read() if i == 0 else 0), cw
+                )
+                for i in range(nwords)
+            ]
             text = "".join(chunks)[:count]
             refs = self._unf_refs(s.items, frame)
             if s.fmt == "*":
@@ -1136,14 +1204,14 @@ class Engine:
                     ref.write(v)
         else:
             values = self._unf_values(s.items, frame)
-            text = (self._ld_out(values) if s.fmt == "*" else render(items, values, self.tgt)[0])
-            text = text[:count].ljust(count)               # fill the buffer to `count`
-            words = [self.tgt.pack(text[i:i + cw].ljust(cw)) for i in range(0, count, cw)]
+            text = self._ld_out(values) if s.fmt == "*" else render(items, values, self.tgt)[0]
+            text = text[:count].ljust(count)  # fill the buffer to `count`
+            words = [self.tgt.pack(text[i : i + cw].ljust(cw)) for i in range(0, count, cw)]
             if hasattr(buf, "loc"):
                 for i, w in enumerate(words):
                     buf.loc(i).write(w)
             elif words:
-                buf.write(words[0])                        # scalar buffer: first word only
+                buf.write(words[0])  # scalar buffer: first word only
 
     # ---- NAMELIST-controlled I/O (V5 Ch11) ---------------------------------
     def _nml_name(self, fmt, frame):
@@ -1159,8 +1227,7 @@ class Engine:
         for it in frame.rt.unit.namelists[gname]:
             vname = it.name if isinstance(it, (A.Var, A.Ref)) else str(it)
             vals = self._unf_values([it], frame)
-            body = ", ".join(repr(v) if isinstance(v, float) else str(int(v))
-                             for v in vals)
+            body = ", ".join(repr(v) if isinstance(v, float) else str(int(v)) for v in vals)
             out.append(f" {vname}= {body},\n")
         out.append(" $END\n")
         return "".join(out)
@@ -1168,16 +1235,18 @@ class Engine:
     def _nml_read(self, gname, line, frame):
         """Parse a NAMELIST input record ($NAME V=vals,... $) and assign (V5 11.2.1)."""
         import re
-        refmap = {(it.name if isinstance(it, (A.Var, A.Ref)) else str(it)):
-                  self._item_refs(it, frame)
-                  for it in frame.rt.unit.namelists[gname]}
+
+        refmap = {
+            (it.name if isinstance(it, (A.Var, A.Ref)) else str(it)): self._item_refs(it, frame)
+            for it in frame.rt.unit.namelists[gname]
+        }
         body = line
-        m = re.search(r"[$&]\s*[A-Za-z][A-Za-z0-9]*", body)    # skip past the $NAME
+        m = re.search(r"[$&]\s*[A-Za-z][A-Za-z0-9]*", body)  # skip past the $NAME
         if m:
-            body = body[m.end():]
-        e = re.search(r"[$&]", body)                           # stop at the closing $
+            body = body[m.end() :]
+        e = re.search(r"[$&]", body)  # stop at the closing $
         if e:
-            body = body[:e.start()]
+            body = body[: e.start()]
         parts = re.split(r"([A-Za-z][A-Za-z0-9]*(?:\s*\([^)]*\))?)\s*=", body)
         i = 1
         while i + 1 < len(parts):
@@ -1186,8 +1255,8 @@ class Engine:
             refs = refmap.get(base)
             if refs:
                 off = 0
-                if "(" in target:                     # A(2,3)= -> start at that element
-                    sub = target[target.index("(") + 1:target.rindex(")")]
+                if "(" in target:  # A(2,3)= -> start at that element
+                    sub = target[target.index("(") + 1 : target.rindex(")")]
                     off = self._nml_offset(base, sub, frame)
                 self._nml_store(parts[i + 1], refs[off:])
             i += 2
@@ -1209,7 +1278,7 @@ class Engine:
             tok = tok.strip()
             if not tok:
                 continue
-            if "*" in tok:                       # V5: repetition factor  n*k
+            if "*" in tok:  # V5: repetition factor  n*k
                 n, _, k = tok.partition("*")
                 try:
                     vals.extend([self._nml_const(k)] * int(n))
@@ -1223,7 +1292,7 @@ class Engine:
     def _nml_const(self, tok):
         t = tok.strip().upper()
         if t in ("T", ".TRUE."):
-            return self.tgt.from_bool(True)      # logical .TRUE.
+            return self.tgt.from_bool(True)  # logical .TRUE.
         if t in ("F", ".FALSE."):
             return self.tgt.from_bool(False)
         try:
@@ -1232,20 +1301,21 @@ class Engine:
             try:
                 return float(t)
             except ValueError:
-                return self.tgt.pack(tok.strip())   # character constant
+                return self.tgt.pack(tok.strip())  # character constant
 
     def _formatted_write(self, s, frame, sink=None):
         """Formatted WRITE(unit,fmt) to a character device. `sink` is where the
         rendered text goes -- the terminal (default) or the line printer."""
         from f66.fmt import parse_format, render, apply_carriage
+
         sink = sink or self.emit
         values = self._unf_values(s.items, frame)
-        if s.fmt == "*":                          # list-directed output
+        if s.fmt == "*":  # list-directed output
             sink(self._ld_out(values) + "\n")
             return
         spec = frame.rt.unit.formats.get(s.fmt)
         items = parse_format(spec) if spec else []
-        text, suppress = render(items, self._cx_expand(values), self.tgt)   # complex -> 2 reals
+        text, suppress = render(items, self._cx_expand(values), self.tgt)  # complex -> 2 reals
         text = apply_carriage(text)
         if not suppress:
             text += "\n"
@@ -1260,7 +1330,7 @@ class Engine:
             st["mode"] = "random"
             st["assoc"] = d["assoc"]
             st["pos"] = st.get("pos", 0)
-            self._set_assoc(st, frame, 1)        # associated var starts at record 1
+            self._set_assoc(st, frame, 1)  # associated var starts at record 1
         return None
 
     def _set_assoc(self, st, frame, nextrec):
@@ -1273,6 +1343,7 @@ class Engine:
         """Parsed FORMAT items if this random I/O is formatted (a label), else None
         (unformatted or list-directed -> raw value-list record)."""
         from f66.fmt import parse_format
+
         if s.fmt is None or s.fmt == "*":
             return None
         spec = frame.rt.unit.formats.get(s.fmt)
@@ -1285,13 +1356,14 @@ class Engine:
         associated variable (DEFINE FILE / OPEN) is updated to the next record number.
         Auto-opens an in-memory unit."""
         from f66.fmt import render, read_values
+
         st = self.io.get(unit)
         if st is None:
             st = self.io[unit] = {"recs": [], "pos": 0, "mode": "random"}
         recs = st.setdefault("recs", [])
-        rec = int(self._spec(s.specs.get("REC", 1), frame))     # 1-based record number
-        items = self._fmt_items(s, frame)                       # None => unformatted
-        binmode = st.get("binary")                              # OPEN MODE='BINARY'
+        rec = int(self._spec(s.specs.get("REC", 1), frame))  # 1-based record number
+        items = self._fmt_items(s, frame)  # None => unformatted
+        binmode = st.get("binary")  # OPEN MODE='BINARY'
         if s.mode == "FIND":
             st["pos"] = max(0, rec - 1)
             self._set_assoc(st, frame, rec)
@@ -1299,9 +1371,9 @@ class Engine:
         if s.mode == "WRITE":
             while len(recs) < rec:
                 recs.append(None)
-            if binmode:                                         # FOROTS LSCW word record
+            if binmode:  # FOROTS LSCW word record
                 recs[rec - 1] = self._binio().encode_record(self._bin_words(s.items, frame))
-            elif items is not None:                             # formatted -> text record
+            elif items is not None:  # formatted -> text record
                 vals = self._cx_expand(self._unf_values(s.items, frame))
                 recs[rec - 1] = render(items, vals, self.tgt)[0]
             else:
@@ -1310,7 +1382,7 @@ class Engine:
             self._set_assoc(st, frame, rec + 1)
             return None
         cell = recs[rec - 1] if 1 <= rec <= len(recs) else None
-        if cell is not None and cell != []:                     # READ an existing record
+        if cell is not None and cell != []:  # READ an existing record
             if binmode and isinstance(cell, list):
                 self._assign_words(s.items, self._binio().decode_record(cell, 0)[0], frame)
             elif items is not None and isinstance(cell, str):
@@ -1321,7 +1393,7 @@ class Engine:
             st["pos"] = rec
             self._set_assoc(st, frame, rec + 1)
         else:
-            self.last_io_error = (25, 302)                       # invalid/unwritten record
+            self.last_io_error = (25, 302)  # invalid/unwritten record
             if "END" in s.specs:
                 return Goto(s.specs["END"])
         return None
@@ -1332,28 +1404,28 @@ class Engine:
         if isinstance(s, A.FileCtl):
             return self._file_ctl(s, frame)
         nml = self._nml_name(s.fmt, frame)
-        if nml is not None:                     # READ/WRITE(unit, NAMELIST)
+        if nml is not None:  # READ/WRITE(unit, NAMELIST)
             st = self.io.get(self.eval(s.unit, frame))
             if s.mode == "WRITE":
                 text = self._nml_write(nml, frame)
-                if st and st.get("mode") == "w":      # file: store as a text record
+                if st and st.get("mode") == "w":  # file: store as a text record
                     st["recs"].append(text)
                 elif st and st.get("mode") == "lpt":
                     self.printer(text)
                 else:
-                    self.emit(text)                   # terminal / default
-            else:                                     # READ
+                    self.emit(text)  # terminal / default
+            else:  # READ
                 if st and st.get("mode") == "r" and st.get("recs") is not None:
                     pos = st.get("pos", 0)
                     rec = st["recs"][pos] if pos < len(st["recs"]) else ""
                     st["pos"] = pos + 1
                     line = rec if isinstance(rec, str) else ""
                 else:
-                    line = self.readline()            # terminal / default
+                    line = self.readline()  # terminal / default
                 self._nml_read(nml, line, frame)
             return None
         unit = self.eval(s.unit, frame)
-        if s.mode == "FIND" or "REC" in s.specs:   # random-access (V5 10.3.5/10.14)
+        if s.mode == "FIND" or "REC" in s.specs:  # random-access (V5 10.3.5/10.14)
             return self._random_io(s, frame, unit)
         st = self.io.get(unit)
         if st is None:
@@ -1362,10 +1434,10 @@ class Engine:
             if dev is None:
                 return None
             st = self.io[unit] = {"mode": dev}
-        if s.mode == "READ" and st.get("mode") == "term":   # terminal input (e.g. unit 5)
+        if s.mode == "READ" and st.get("mode") == "term":  # terminal input (e.g. unit 5)
             line = self.readline().rstrip("\r\n")
             self._last_input = line
-            if "\x1a" in line:                              # CONTROL-Z = EOF
+            if "\x1a" in line:  # CONTROL-Z = EOF
                 self.last_io_error = (24, 308)
                 if "END" in s.specs:
                     return Goto(s.specs["END"])
@@ -1373,7 +1445,7 @@ class Engine:
             self._apply_read_line(s, frame, line)
             self.last_io_error = (0, 0)
             return None
-        if s.mode == "READ" and st.get("text"):       # formatted read from a text file
+        if s.mode == "READ" and st.get("text"):  # formatted read from a text file
             return self._read_text(s, st, frame)
         if s.mode == "WRITE":
             mode = st.get("mode")
@@ -1397,15 +1469,15 @@ class Engine:
         st["pos"] += 1
         for ref, w in zip(self._unf_refs(s.items, frame), rec):
             ref.write(w)
-        self.last_io_error = (0, 0)        # successful read clears the status
+        self.last_io_error = (0, 0)  # successful read clears the status
         return None
 
     def _spec(self, v, frame):
         return v if (v is None or isinstance(v, (int, str))) else self.eval(v, frame)
 
     def _file_ctl(self, s, frame):
-        import os
         import json
+
         specs = s.specs
         unit = self._spec(specs.get("UNIT", 1), frame)
         if s.verb == "OPEN":
@@ -1414,16 +1486,20 @@ class Engine:
                 devname = dev or ""
             else:
                 dv = self.eval(dev, frame)
-                devname = (self.tgt.unpack(dv, self.tgt.chars_per_word).strip() if isinstance(dv, int)
-                           else str(dv).strip())
+                devname = self.tgt.unpack(dv).strip() if isinstance(dv, int) else str(dv).strip()
             access = specs.get("ACCESS")
             assoc = specs.get("ASSOCIATEVARIABLE")
-            assoc_name = (assoc.name if isinstance(assoc, A.Var)
-                          else assoc if isinstance(assoc, str) else None)
-            if access == "RANDOM" or assoc_name is not None:     # random-access (V5 10.3.5)
+            assoc_name = (
+                assoc.name
+                if isinstance(assoc, A.Var)
+                else assoc
+                if isinstance(assoc, str)
+                else None
+            )
+            if access == "RANDOM" or assoc_name is not None:  # random-access (V5 10.3.5)
                 st = self.io.setdefault(unit, {"recs": [], "pos": 0, "mode": "random"})
                 st["mode"] = "random"
-                mode_kw = specs.get("MODE")                       # 'BINARY' -> FOROTS words
+                mode_kw = specs.get("MODE")  # 'BINARY' -> FOROTS words
                 if isinstance(mode_kw, str) and mode_kw.upper() == "BINARY":
                     st["binary"] = True
                 if assoc_name:
@@ -1431,26 +1507,30 @@ class Engine:
                     self._set_assoc(st, frame, 1)
                 return None
             handler = self.device_handlers.get(devname)
-            if handler is not None:                   # a registered device (e.g. GAM:)
+            if handler is not None:  # a registered device (e.g. GAM:)
                 handler(self, unit, specs, frame)
             elif devname == "TTY":
-                self.io[unit] = {"mode": "term"}      # block printout -> terminal
+                self.io[unit] = {"mode": "term"}  # block printout -> terminal
             else:
-                fname = self._spec(specs.get("FILE") or specs.get("NAME")
-                                   or "EMPIRE.DAT", frame)
+                fname = self._spec(specs.get("FILE") or specs.get("NAME") or "EMPIRE.DAT", frame)
                 path = self._open_path(str(fname))
                 if access == "SEQOUT":
                     self.io[unit] = {"recs": [], "pos": 0, "mode": "w", "path": path}
                 else:
-                    try:                              # our binary save is a JSON record list
+                    try:  # our binary save is a JSON record list
                         with open(path) as fh:
                             recs = json.load(fh)
                         self.io[unit] = {"recs": recs, "pos": 0, "mode": "r", "path": path}
-                    except ValueError:                # not JSON -> a formatted text data
-                        with open(path, errors="replace") as fh:    # file (e.g. advent.dat)
-                            self.io[unit] = {"lines": fh.read().splitlines(),
-                                             "pos": 0, "mode": "r", "text": True, "path": path}
-                    except OSError:                   # missing/empty
+                    except ValueError:  # not JSON -> a formatted text data
+                        with open(path, errors="replace") as fh:  # file (e.g. advent.dat)
+                            self.io[unit] = {
+                                "lines": fh.read().splitlines(),
+                                "pos": 0,
+                                "mode": "r",
+                                "text": True,
+                                "path": path,
+                            }
+                    except OSError:  # missing/empty
                         self.io[unit] = {"recs": [], "pos": 0, "mode": "r", "path": path}
             return None
         if s.verb == "CLOSE":
@@ -1468,7 +1548,7 @@ class Engine:
             elif s.verb == "BACKSPACE":
                 st["pos"] = max(0, st["pos"] - 1)
             elif s.verb == "ENDFILE":
-                del recs[st["pos"]:]                 # write end-of-file at current pos
+                del recs[st["pos"] :]  # write end-of-file at current pos
             elif s.verb == "SKIPREC":
                 st["pos"] = min(len(recs), st["pos"] + 1)
             elif s.verb == "SKIPFILE":
@@ -1484,6 +1564,7 @@ class Engine:
         or one with `..` reaches outside save_root. f66 is an interpreter, not a sandbox;
         do not run untrusted source expecting containment."""
         import os
+
         cand = os.path.join(self.save_root, name)
         if os.path.exists(cand):
             return cand
@@ -1502,9 +1583,10 @@ class Engine:
         """Formatted/list-directed READ from a text file unit (e.g. advent.dat): read
         the next line and parse it per the FORMAT (or by tokens if list-directed)."""
         from .fmt import parse_format, read_values
+
         lines = st["lines"]
         if st["pos"] >= len(lines):
-            self.last_io_error = (24, 308)            # EOF
+            self.last_io_error = (24, 308)  # EOF
             return Goto(s.specs["END"]) if "END" in s.specs else None
         line = lines[st["pos"]]
         st["pos"] += 1
@@ -1531,8 +1613,7 @@ class Engine:
         if isinstance(it, A.Var) and it.name in unit.arrays:
             cx = self.type_of(unit, it.name) == "COMPLEX"
             view = self.arrayview(frame, it.name)
-            return [(view.loc(i), cx)
-                    for i in range(array_size(unit.arrays[it.name]))]
+            return [(view.loc(i), cx) for i in range(array_size(unit.arrays[it.name]))]
         if isinstance(it, A.ImpliedDo):
             out = []
             lo = self.eval(it.start, frame)
@@ -1546,8 +1627,7 @@ class Engine:
                     out.extend(self._item_refs_cx(sub, frame))
                 i += step
             return out
-        cx = (isinstance(it, (A.Var, A.Ref))
-              and self.type_of(unit, it.name) == "COMPLEX")
+        cx = isinstance(it, (A.Var, A.Ref)) and self.type_of(unit, it.name) == "COMPLEX"
         return [(self.arg_ref(it, frame), cx)]
 
     def _item_refs_typed(self, items, frame):
@@ -1590,7 +1670,7 @@ class Engine:
             elif ty in ("REAL", "DOUBLE PRECISION"):
                 ref.write(dec2d(w))
             else:
-                ref.write(self.tgt.wrap(w))           # integer/logical: 2's-complement value
+                ref.write(self.tgt.wrap(w))  # integer/logical: 2's-complement value
 
     def _assign_reads(self, items, reads, frame):
         """Write formatted-input values to the I/O list. A COMPLEX target consumes
@@ -1610,8 +1690,7 @@ class Engine:
         expand to all elements; implied-DO expands its range)."""
         if isinstance(it, A.Var) and it.name in frame.rt.unit.arrays:
             view = self.arrayview(frame, it.name)
-            return [view.loc(i)
-                    for i in range(array_size(frame.rt.unit.arrays[it.name]))]
+            return [view.loc(i) for i in range(array_size(frame.rt.unit.arrays[it.name]))]
         if isinstance(it, A.ImpliedDo):
             refs = []
             lo = self.eval(it.start, frame)
@@ -1645,25 +1724,25 @@ def _lsh(tgt, v, n):
     return tgt.wrap(u)
 
 
-def _anint(x):                         # round to nearest whole, halves away from zero
+def _anint(x):  # round to nearest whole, halves away from zero
     return float(math.floor(x + 0.5)) if x >= 0 else float(math.ceil(x - 0.5))
 
 
 # FORTRAN-10 V5 Appendix H, Table H-2: exact FOROTS message text for the math
 # LIB domain errors, plus the recovery value each returns after the warning.
 _LIB_MSG = {
-    "SQRT":   "Attempt to take SQRT of Negative Arg.",
-    "DSQRT":  "Attempt to take DSQRT of Negative Arg.",
-    "ALOG":   "Attempt to take LOG of Negative Arg.",
+    "SQRT": "Attempt to take SQRT of Negative Arg.",
+    "DSQRT": "Attempt to take DSQRT of Negative Arg.",
+    "ALOG": "Attempt to take LOG of Negative Arg.",
     "ALOG10": "Attempt to take LOG of Negative Arg.",
-    "DLOG":   "Attempt to take DLOG of Negative Arg.",
+    "DLOG": "Attempt to take DLOG of Negative Arg.",
     "DLOG10": "Attempt to take DLOG of Negative Arg.",
-    "ASIN":   "ASIN of Arg. > 1.0 in Magnitude",
-    "ACOS":   "ACOS of Arg. > 1.0 in Magnitude",
+    "ASIN": "ASIN of Arg. > 1.0 in Magnitude",
+    "ACOS": "ACOS of Arg. > 1.0 in Magnitude",
 }
 
 
-def _rec_log(a):                       # log on |x|; log of 0 -> 0.0 (avoid -inf)
+def _rec_log(a):  # log on |x|; log of 0 -> 0.0 (avoid -inf)
     x = abs(a[0])
     return math.log(x) if x > 0 else 0.0
 
@@ -1674,22 +1753,22 @@ def _rec_log10(a):
 
 
 _LIB_RECOVER = {
-    "SQRT":   lambda a: math.sqrt(abs(a[0])),
-    "DSQRT":  lambda a: math.sqrt(abs(a[0])),
-    "ALOG":   _rec_log,
+    "SQRT": lambda a: math.sqrt(abs(a[0])),
+    "DSQRT": lambda a: math.sqrt(abs(a[0])),
+    "ALOG": _rec_log,
     "ALOG10": _rec_log10,
-    "DLOG":   _rec_log,
+    "DLOG": _rec_log,
     "DLOG10": _rec_log10,
-    "ASIN":   lambda a: math.asin(max(-1.0, min(1.0, a[0]))),
-    "ACOS":   lambda a: math.acos(max(-1.0, min(1.0, a[0]))),
+    "ASIN": lambda a: math.asin(max(-1.0, min(1.0, a[0]))),
+    "ACOS": lambda a: math.acos(max(-1.0, min(1.0, a[0]))),
 }
 
 
-_INT_RESULT = frozenset({"INT", "IFIX", "IDINT", "NINT"})   # results take the target's integer wrap
+_INT_RESULT = frozenset({"INT", "IFIX", "IDINT", "NINT"})  # results take the target's integer wrap
 
 INTRINSICS = {
     # ---- DEC extensions ----
-    "LSH": lambda a: _lsh(PDP10, a[0], a[1]),   # width-dependent; _apply_intrinsic re-routes via self.tgt
+    "LSH": lambda a: _lsh(PDP10, a[0], a[1]),  # width-dependent; routed via self.tgt
     # ---- type conversion (INT-family wrap applied target-aware in _apply_intrinsic) ----
     "INT": lambda a: int(a[0]),
     "IFIX": lambda a: int(a[0]),
@@ -1697,7 +1776,7 @@ INTRINSICS = {
     "FLOAT": lambda a: float(a[0]),
     "FLOATR": lambda a: float(a[0]),
     "SNGL": lambda a: float(a[0]),
-    "REAL": lambda a: (a[0].real if isinstance(a[0], complex) else float(a[0])),
+    "REAL": lambda a: a[0].real if isinstance(a[0], complex) else float(a[0]),
     # ---- COMPLEX (V5 Ch4/Table 15-1; values are Python complex) ----
     "CMPLX": lambda a: complex(a[0], a[1] if len(a) > 1 else 0.0),
     "DCMPLX": lambda a: complex(a[0], a[1] if len(a) > 1 else 0.0),
@@ -1709,9 +1788,9 @@ INTRINSICS = {
     "CLOG": lambda a: cmath.log(a[0]),
     "CSIN": lambda a: cmath.sin(a[0]),
     "CCOS": lambda a: cmath.cos(a[0]),
-    "TIM2GO": lambda a: 1.0e9,           # CPU time remaining (V5 Table 15-2): effectively unlimited
+    "TIM2GO": lambda a: 1.0e9,  # CPU time remaining (V5 Table 15-2): effectively unlimited
     "DBLE": lambda a: float(a[0]),
-    "AINT": lambda a: float(int(a[0])),                 # truncate toward zero
+    "AINT": lambda a: float(int(a[0])),  # truncate toward zero
     "ANINT": lambda a: _anint(a[0]),
     "NINT": lambda a: int(_anint(a[0])),
     # ---- absolute value / sign / difference ----
@@ -1760,12 +1839,12 @@ INTRINSICS = {
     "SINH": lambda a: math.sinh(a[0]),
     "COSH": lambda a: math.cosh(a[0]),
     "TANH": lambda a: math.tanh(a[0]),
-    "SIND": lambda a: math.sin(math.radians(a[0])),     # sine of degrees
-    "COSD": lambda a: math.cos(math.radians(a[0])),     # cosine of degrees
+    "SIND": lambda a: math.sin(math.radians(a[0])),  # sine of degrees
+    "COSD": lambda a: math.cos(math.radians(a[0])),  # cosine of degrees
     "ASIN": lambda a: math.asin(a[0]),
     "ACOS": lambda a: math.acos(a[0]),
     # ---- double-precision variants (we model double as Python float) ----
-    "DFLOAT": lambda a: float(a[0]),                    # integer -> double
+    "DFLOAT": lambda a: float(a[0]),  # integer -> double
     "DMAX1": lambda a: max(float(x) for x in a),
     "DMIN1": lambda a: min(float(x) for x in a),
 }

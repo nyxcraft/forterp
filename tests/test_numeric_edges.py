@@ -28,19 +28,19 @@ def test_integer_mul_overflow_wraps():
 def test_most_negative_stays_in_range():
     eng = run_int("        V(1)=-2^35\n        V(2)=-2^35-1\n")
     assert out(eng, 1) == -P35
-    assert out(eng, 2) == P35 - 1            # wraps around to most-positive
+    assert out(eng, 2) == P35 - 1  # wraps around to most-positive
 
 
 # ---- divide-by-zero is NON-FATAL (FOROTS warned + continued; never aborted) ----
 def test_integer_divide_by_zero_is_zero_not_crash():
     eng = run_int("        V(1)=7/0\n        V(2)=42\n")
     assert out(eng, 1) == 0
-    assert out(eng, 2) == 42                 # execution continued past the divide
+    assert out(eng, 2) == 42  # execution continued past the divide
 
 
 def test_integer_mod_by_zero_returns_dividend():
     eng = run_int("        V(1)=MOD(7,0)\n")
-    assert out(eng, 1) == 7                  # quotient 0 -> 7 - 0*0 = 7
+    assert out(eng, 1) == 7  # quotient 0 -> 7 - 0*0 = 7
 
 
 def test_real_divide_by_zero_is_zero_not_crash():
@@ -73,5 +73,5 @@ def test_real_range_exceeds_pdp10_known_divergence():
     # model therefore computes values the real machine would have trapped on. The
     # game never approaches this, so we accept (and pin) the divergence here.
     eng = run(REAL + "        V(1)=1.E60\n        V(2)=1.E300\n" + END)
-    assert out(eng, 1) == 1.0e60             # would have overflowed on a real PDP-10
+    assert out(eng, 1) == 1.0e60  # would have overflowed on a real PDP-10
     assert out(eng, 2) == 1.0e300

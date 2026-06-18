@@ -33,17 +33,27 @@ class LexError(Exception):
     def __init__(self, msg, col, mnemonic="IAC"):
         super().__init__(msg)
         self.col = col
-        self.mnemonic = mnemonic            # FORTRAN-10 App-F diagnostic mnemonic
+        self.mnemonic = mnemonic  # FORTRAN-10 App-F diagnostic mnemonic
 
 
 DOTOPS = {
-    ".AND.", ".OR.", ".NOT.", ".EQ.", ".NE.", ".LT.", ".LE.",
-    ".GT.", ".GE.", ".EQV.", ".NEQV.", ".XOR.",
+    ".AND.",
+    ".OR.",
+    ".NOT.",
+    ".EQ.",
+    ".NE.",
+    ".LT.",
+    ".LE.",
+    ".GT.",
+    ".GE.",
+    ".EQV.",
+    ".NEQV.",
+    ".XOR.",
 }
 
 # multi-char operators, longest first
 MULTI_OPS = ("==", "<=", ">=")
-SINGLE_OPS = set("+-*/^()=,<>#:$&")   # '&' = alt-return label prefix (V5 3.2.8: $n or &n)
+SINGLE_OPS = set("+-*/^()=,<>#:$&")  # '&' = alt-return label prefix (V5 3.2.8: $n or &n)
 
 _OCTAL = set("01234567")
 _DIGIT = set("0123456789")
@@ -79,16 +89,16 @@ def _read_number(s: str, i: int):
         # FORTRAN parses 1000.EQ.2 as 1000 .EQ. 2, not 1000.<exponent> (.EQ. starts
         # with 'E', which would otherwise look like an exponent letter).
         if _match_dot(s, i) is not None:
-            pass                                  # dotted operator -> the integer ends here
+            pass  # dotted operator -> the integer ends here
         else:
             nxt = s[i + 1] if i + 1 < n else ""
             if nxt.isalpha():
-                if nxt in "eEdD":                 # exponent letter -> real; consume the '.'
+                if nxt in "eEdD":  # exponent letter -> real; consume the '.'
                     is_real = True
                     i += 1
                 # else: a stray letter -> leave the dot for the operator scanner
             else:
-                is_real = True                    # decimal point
+                is_real = True  # decimal point
                 i += 1
                 while i < n and s[i] in _DIGIT:
                     i += 1
@@ -108,9 +118,9 @@ def _read_number(s: str, i: int):
     # Hollerith nH literal: an integer immediately followed by H (no space) is a
     # count of the following raw characters, e.g. 5HHELLO -> "HELLO". Same token as
     # an apostrophe string. (A space before H, as in "DO 5 H", is not Hollerith.)
-    if i < n and s[i] in "Hh":                 # nH or nh -- FORTRAN is case-insensitive
+    if i < n and s[i] in "Hh":  # nH or nh -- FORTRAN is case-insensitive
         count = int(text)
-        return Token("STR", s[i + 1:i + 1 + count], start), i + 1 + count
+        return Token("STR", s[i + 1 : i + 1 + count], start), i + 1 + count
     return Token("INT", int(text), start), i
 
 
@@ -128,9 +138,9 @@ def tokenize(s: str, dialect=FORTRAN10) -> list[Token]:
             # be a FORMAT descriptor (I3'TEXT') or a keyword (STOP 'msg'), where the
             # "'" really does start a string. Variable units use the u#r form instead.
             prev = toks[-1] if toks else None
-            if (prev is not None and prev.kind in ("INT", "OCTAL")
-                    and dialect.random_access_quote):
-                toks.append(Token("OP", "'", i)); i += 1
+            if prev is not None and prev.kind in ("INT", "OCTAL") and dialect.random_access_quote:
+                toks.append(Token("OP", "'", i))
+                i += 1
                 continue
             val, i2 = _read_string(s, i)
             toks.append(Token("STR", val, i))
@@ -142,7 +152,7 @@ def tokenize(s: str, dialect=FORTRAN10) -> list[Token]:
                 j += 1
             if j == i + 1:
                 raise LexError('octal literal with no digits after "', i)
-            toks.append(Token("OCTAL", int(s[i + 1:j], 8), i))
+            toks.append(Token("OCTAL", int(s[i + 1 : j], 8), i))
             i = j
             continue
         if c in _DIGIT:
@@ -175,8 +185,8 @@ def tokenize(s: str, dialect=FORTRAN10) -> list[Token]:
             i = j
             continue
         # operators
-        two = s[i:i + 2]
-        if two == "**":                       # standard FORTRAN power == DEC's '^'
+        two = s[i : i + 2]
+        if two == "**":  # standard FORTRAN power == DEC's '^'
             toks.append(Token("OP", "^", i))
             i += 2
             continue
@@ -199,7 +209,7 @@ def _match_dot(s: str, i: int):
     while j < n and s[j].isalpha():
         j += 1
     if j < n and s[j] == "." and j > i + 1:
-        word = s[i:j + 1].upper()
+        word = s[i : j + 1].upper()
         if word in DOTOPS or word in (".TRUE.", ".FALSE."):
             return word, j + 1
     return None

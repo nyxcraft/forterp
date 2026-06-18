@@ -29,14 +29,18 @@ def test_caret_is_the_power_operator():
 
 def test_parenless_parameter_is_accepted():
     # DEC/F66 style used by the game: PARAMETER X=val (no parentheses)
-    src = ("        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n        PARAMETER K=5\n"
-           "        COMMON /OUT/ V(40)\n        V(1)=K*2\n" + END)
+    src = (
+        "        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n        PARAMETER K=5\n"
+        "        COMMON /OUT/ V(40)\n        V(1)=K*2\n" + END
+    )
     assert out(run(src), 1) == 10
 
 
 def test_parenthesized_parameter_also_accepted():
-    src = ("        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n        PARAMETER (K=5)\n"
-           "        COMMON /OUT/ V(40)\n        V(1)=K*2\n" + END)
+    src = (
+        "        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n        PARAMETER (K=5)\n"
+        "        COMMON /OUT/ V(40)\n        V(1)=K*2\n" + END
+    )
     assert out(run(src), 1) == 10
 
 
@@ -60,15 +64,15 @@ def test_do_while_is_rejected():
 # now emits the same power token for both so general F66 code works too.
 def test_double_star_is_power_synonym_for_caret():
     assert out(run_int("        V(1)=2**10\n"), 1) == 1024
-    assert out(run_int("        V(1)=2**3*2\n"), 1) == 16     # binds tighter than *
-    assert out(run_int("        V(1)=2^10\n"), 1) == 1024     # ^ still works
+    assert out(run_int("        V(1)=2**3*2\n"), 1) == 16  # binds tighter than *
+    assert out(run_int("        V(1)=2^10\n"), 1) == 1024  # ^ still works
 
 
 # ---- the dialect AXIS: the same source under FORTRAN10 vs STRICT_F66 ----
 def test_dec_octal_literal_is_gated_by_the_dialect():
     # "nnn is a DEC octal literal under FORTRAN-10 (-> 511); ANSI F66 has no such form,
     # so STRICT_F66 rejects the SAME source. Exercises the dialect axis through the harness.
-    assert out(run_int('        V(1) = "777\n'), 1) == 511                 # FORTRAN10 (default)
+    assert out(run_int('        V(1) = "777\n'), 1) == 511  # FORTRAN10 (default)
     assert _rejected(H + '        V(1) = "777\n' + END, dialect=STRICT_F66)  # ANSI: no octal-"
 
 

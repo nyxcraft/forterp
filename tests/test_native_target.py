@@ -22,16 +22,16 @@ def test_library_default_target_is_native():
 # ---- axis 1: integers are 64-bit, not 36-bit -------------------------------------
 def test_native_wrap_is_64bit():
     assert NATIVE.wrap(2**63 - 1) == 2**63 - 1
-    assert NATIVE.wrap(2**63) == -(2**63)            # two's-complement wrap at 64 bits
-    assert NATIVE.wrap(2**40) == 2**40               # no 36-bit wrap ...
-    assert PDP10.wrap(2**40) != 2**40                # ... which PDP-10 does
+    assert NATIVE.wrap(2**63) == -(2**63)  # two's-complement wrap at 64 bits
+    assert NATIVE.wrap(2**40) == 2**40  # no 36-bit wrap ...
+    assert PDP10.wrap(2**40) != 2**40  # ... which PDP-10 does
 
 
 def test_native_program_no_36bit_overflow():
     # 1_000_000 * 1_000_000 = 1e12 overflows 36 bits (PDP-10 wraps negative) but fits 64.
     body = "        V(1) = 1000000 * 1000000\n"
     assert out(run_int(body, target=NATIVE), 1) == 1_000_000_000_000
-    assert out(run_int(body, target=PDP10), 1) != 1_000_000_000_000   # PDP-10 wraps
+    assert out(run_int(body, target=PDP10), 1) != 1_000_000_000_000  # PDP-10 wraps
 
 
 # ---- axis 2: logicals are 1/0 with boolean (not bitwise) operators ---------------
@@ -66,9 +66,11 @@ def test_native_char_comparison_is_ascii_monotonic():
 def test_native_hollerith_parameter_matches_literal():
     # A Hollerith PARAMETER must compare equal to a literal of the same text: the
     # constant is packed by the engine's target, not hard-coded PDP-10 at parse time.
-    src = ("        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n"
-           "        COMMON /OUT/ V(40)\n        PARAMETER (C = 'X')\n"
-           "        V(1) = 0\n        IF (C .EQ. 'X') V(1) = 1\n        END\n")
+    src = (
+        "        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n"
+        "        COMMON /OUT/ V(40)\n        PARAMETER (C = 'X')\n"
+        "        V(1) = 0\n        IF (C .EQ. 'X') V(1) = 1\n        END\n"
+    )
     assert out(run(src, target=NATIVE), 1) == 1
     assert out(run(src, target=PDP10), 1) == 1
 
@@ -91,16 +93,18 @@ def test_native_eqv_xor_are_boolean():
 # ---- pin fix: the O (octal) descriptor width follows the target word -------------
 def test_native_o_format_width_follows_target():
     items = fmt.parse_format("(O24)")
-    assert fmt.render(items, [-1], PDP10)[0] == "000000000000777777777777"    # 36-bit word
-    assert fmt.render(items, [-1], NATIVE)[0] == "001777777777777777777777"   # 64-bit word
+    assert fmt.render(items, [-1], PDP10)[0] == "000000000000777777777777"  # 36-bit word
+    assert fmt.render(items, [-1], NATIVE)[0] == "001777777777777777777777"  # 64-bit word
 
 
 # ---- pin fix: formatted L input stores the target's truth value ------------------
 def test_native_l_format_input_uses_target_truth():
     # FORMAT(L1) read of 'T' stores the TARGET's .TRUE.: 1 on NATIVE, -1 on PDP-10
     # (was hardcoded -1 -- wrong under the default NATIVE).
-    src = ("        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n        LOGICAL B\n"
-           "        COMMON /OUT/ V(40)\n        ACCEPT 5, B\n"
-           "    5 FORMAT(L1)\n        V(1) = B\n        END\n")
+    src = (
+        "        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n        LOGICAL B\n"
+        "        COMMON /OUT/ V(40)\n        ACCEPT 5, B\n"
+        "    5 FORMAT(L1)\n        V(1) = B\n        END\n"
+    )
     assert out(run(src, inputs=["T"], target=NATIVE), 1) == 1
     assert out(run(src, inputs=["T"], target=PDP10), 1) == -1

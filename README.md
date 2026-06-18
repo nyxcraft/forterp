@@ -69,11 +69,13 @@ unformatted I/O with the complete `FORMAT` edit-descriptor set, `ENCODE`/`DECODE
 the DEC FORTRAN-10 extensions (octal literals, Hollerith, `IAND`/`IOR`/shift intrinsics,
 tab-format source, random-access `READ(u'r)`). See [`docs/`](docs/).
 
-## Tests
+## Tests & lint
 
 ```sh
 pip install -e ".[dev]"
 pytest
+ruff check           # lint (config in pyproject.toml)
+ruff format --check  # formatting — run `ruff format` to apply
 ```
 
 The suite is the interpreter's unit tests plus the **FCVS** (FORTRAN Compiler Validation

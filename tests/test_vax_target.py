@@ -14,29 +14,30 @@ from conftest import run_int, out
 
 def test_vax_integer_is_32bit():
     assert VAX.wrap(2**31 - 1) == 2**31 - 1
-    assert VAX.wrap(2**31) == -(2**31)               # two's-complement wrap at 32 bits
+    assert VAX.wrap(2**31) == -(2**31)  # two's-complement wrap at 32 bits
 
 
 def test_vax_char_packing_is_little_endian():
     # round-trips, but the first char in the low byte breaks ASCII ordering under
     # arithmetic comparison -- the documented VAX quirk vs PDP-10's big-endian packing.
     assert VAX.unpack(VAX.pack("ABCD"), 4) == "ABCD"
-    assert VAX.pack("AZ") > VAX.pack("BA")           # little-endian: NOT string order
-    assert PDP10.pack("AZ") < PDP10.pack("BA")       # big-endian PDP-10 IS string order
+    assert VAX.pack("AZ") > VAX.pack("BA")  # little-endian: NOT string order
+    assert PDP10.pack("AZ") < PDP10.pack("BA")  # big-endian PDP-10 IS string order
 
 
 def test_vax_truth_is_low_order_bit():
     assert VAX.from_bool(True) == -1 and VAX.from_bool(False) == 0
     assert VAX.truthy(-1) and not VAX.truthy(0)
-    assert VAX.truthy(1) and not VAX.truthy(2)       # odd = true, even = false (bit 0)
-    assert not VAX.truthy(-2)                        # even -> false; PDP-10's sign test says true
-    assert PDP10.truthy(-2)                          # ... the distinguishing case
+    assert VAX.truthy(1) and not VAX.truthy(2)  # odd = true, even = false (bit 0)
+    assert not VAX.truthy(-2)  # even -> false; PDP-10's sign test says true
+    assert PDP10.truthy(-2)  # ... the distinguishing case
 
 
 def test_vax_program_runs_end_to_end():
     # smoke: a small program executes under VAX with 32-bit arithmetic and low-bit logic.
-    eng = run_int("        V(1) = 50000 + 50000\n"
-                  "        V(2) = 0\n"
-                  "        IF (7 .GT. 3) V(2) = 1\n", target=VAX)
-    assert out(eng, 1) == 100000                     # fits 32 bits, no wrap
-    assert out(eng, 2) == 1                          # relational true -> stored, low-bit true
+    eng = run_int(
+        "        V(1) = 50000 + 50000\n        V(2) = 0\n        IF (7 .GT. 3) V(2) = 1\n",
+        target=VAX,
+    )
+    assert out(eng, 1) == 100000  # fits 32 bits, no wrap
+    assert out(eng, 2) == 1  # relational true -> stored, low-bit true

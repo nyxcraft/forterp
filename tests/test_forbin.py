@@ -3,24 +3,23 @@ V5 manual, Appendix D.5.2 (the LSCW format and its D-6 worked example).
 """
 
 import math
-from f66.forbin import (double_to_dec10, dec10_to_double,
-                                     encode_record, decode_record)
+from f66.forbin import double_to_dec10, dec10_to_double, encode_record, decode_record
 
 
 # ---- the manual's D-6 worked example (GROUND TRUTH) ------------------------
 def test_lscw_matches_manual_example():
     # WRITE(1'1) (I, J=1,100) with I=5 -> START, 100 data words (=5), END
     rec = encode_record([5] * 100)
-    assert rec[0] == 0o001000000145          # START: code 001, count 0o145 = 101
-    assert rec[-1] == 0o003000000146         # END:   code 003, count 0o146 = 102
-    assert rec[1:-1] == [5] * 100            # the 100 data words
-    assert len(rec) == 102                   # START + 100 + END
+    assert rec[0] == 0o001000000145  # START: code 001, count 0o145 = 101
+    assert rec[-1] == 0o003000000146  # END:   code 003, count 0o146 = 102
+    assert rec[1:-1] == [5] * 100  # the 100 data words
+    assert len(rec) == 102  # START + 100 + END
 
 
 def test_lscw_count_fields():
     # START count = words following it through END; END count = total incl. LSCWs
     rec = encode_record([0] * 3)
-    assert (rec[0] >> 27) == 0o1 and (rec[0] & ((1 << 27) - 1)) == 4   # 3 data + END
+    assert (rec[0] >> 27) == 0o1 and (rec[0] & ((1 << 27) - 1)) == 4  # 3 data + END
     assert (rec[-1] >> 27) == 0o3 and (rec[-1] & ((1 << 27) - 1)) == 5  # 3+2 total
 
 
@@ -40,7 +39,7 @@ def test_decode_two_consecutive_records():
 
 # ---- DECsystem-10 single-precision floating point --------------------------
 def test_dec10_one_is_documented_constant():
-    assert double_to_dec10(1.0) == 0o201400000000     # the canonical PDP-10 1.0
+    assert double_to_dec10(1.0) == 0o201400000000  # the canonical PDP-10 1.0
 
 
 def test_dec10_zero():

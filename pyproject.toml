@@ -21,7 +21,7 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest"]
+dev = ["pytest", "ruff"]
 
 [project.urls]
 Homepage = "https://github.com/nkissebe/pyf66"
@@ -33,3 +33,13 @@ where = ["src"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+
+# Formatting follows `ruff format` (the Black-compatible standard); run it before commit.
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+# pyflakes (F) catches real defects; pycodestyle E/W catch genuine issues. No ignores:
+# the codebase was normalized with `ruff format` and the few ambiguous names renamed,
+# so the full standard set passes clean.
+select = ["E", "F", "W"]

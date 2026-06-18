@@ -15,21 +15,23 @@ from fcvs_runner import run_corpus
 from f66.target import NATIVE
 from f66.dialect import STRICT_F66
 
-R = run_corpus()                                   # default: FORTRAN10 dialect, PDP10 target
-R_NATIVE = run_corpus(target=NATIVE)               # value-model axis
-R_STRICT = run_corpus(dialect=STRICT_F66)          # front-end dialect axis (ANSI, DEC ext off)
+R = run_corpus()  # default: FORTRAN10 dialect, PDP10 target
+R_NATIVE = run_corpus(target=NATIVE)  # value-model axis
+R_STRICT = run_corpus(dialect=STRICT_F66)  # front-end dialect axis (ANSI, DEC ext off)
 
 
 def test_curated_corpus_all_parses_and_runs():
     # Every file in the curated corpus must parse clean and run -- a parse failure is a
     # regression, not "out of scope" (the F77 routines were removed). 52 routines today;
     # this guards against re-introducing non-runnable source.
-    import glob, os
+    import glob
+    import os
     from fcvs_runner import CORPUS_DIR
+
     n_files = len(glob.glob(os.path.join(CORPUS_DIR, "FM*.FOR")))
-    assert R["n_gap"] == 0                       # nothing fails to parse
-    assert R["n_run"] == n_files                 # every file ran
-    assert R["n_run"] == 52                       # the current curated count
+    assert R["n_gap"] == 0  # nothing fails to parse
+    assert R["n_run"] == n_files  # every file ran
+    assert R["n_run"] == 52  # the current curated count
 
 
 def test_blanks_insignificance_files_run_and_pass():

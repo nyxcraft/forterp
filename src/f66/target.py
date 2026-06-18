@@ -9,18 +9,27 @@ core itself is representation-agnostic. Shipped targets: NATIVE (the default -- 
 64-bit host), PDP10 (faithful DEC FORTRAN-10: 36-bit words, 5x7-bit packing, .TRUE.=-1),
 and VAX (provisional, unvalidated).
 """
+
 from __future__ import annotations
 
 
 class Target:
-    def __init__(self, word_bits=36, chars_per_word=5, logical_true=-1,
-                 bitwise_logic=True, bits_per_char=7, little_endian=False, truth=None):
+    def __init__(
+        self,
+        word_bits=36,
+        chars_per_word=5,
+        logical_true=-1,
+        bitwise_logic=True,
+        bits_per_char=7,
+        little_endian=False,
+        truth=None,
+    ):
         self.word_bits = word_bits
         self.chars_per_word = chars_per_word
-        self.bits_per_char = bits_per_char    # PDP-10: 7-bit ASCII, 5 to a 36-bit word
-        self.little_endian = little_endian    # char 0 in the LOW byte (VAX) vs high (PDP-10)
+        self.bits_per_char = bits_per_char  # PDP-10: 7-bit ASCII, 5 to a 36-bit word
+        self.little_endian = little_endian  # char 0 in the LOW byte (VAX) vs high (PDP-10)
         self.logical_true = logical_true
-        self.bitwise_logic = bitwise_logic    # PDP-10 .AND./.OR. act on the word's bits
+        self.bitwise_logic = bitwise_logic  # PDP-10 .AND./.OR. act on the word's bits
         # truth test: "sign" (v<0), "nonzero" (v!=0), "low_bit" (v&1); None = derive from
         # logical_true's sign (PDP-10 -> sign, a positive logical_true -> nonzero).
         self.truth = truth
@@ -60,21 +69,33 @@ class Target:
     def lnot(self, v):
         return self.wrap(~int(v)) if self.bitwise_logic else self.from_bool(not self.truthy(v))
 
-    def land(self, l, r):
-        return (self.wrap(int(l) & int(r)) if self.bitwise_logic
-                else self.from_bool(self.truthy(l) and self.truthy(r)))
+    def land(self, lhs, rhs):
+        return (
+            self.wrap(int(lhs) & int(rhs))
+            if self.bitwise_logic
+            else self.from_bool(self.truthy(lhs) and self.truthy(rhs))
+        )
 
-    def lor(self, l, r):
-        return (self.wrap(int(l) | int(r)) if self.bitwise_logic
-                else self.from_bool(self.truthy(l) or self.truthy(r)))
+    def lor(self, lhs, rhs):
+        return (
+            self.wrap(int(lhs) | int(rhs))
+            if self.bitwise_logic
+            else self.from_bool(self.truthy(lhs) or self.truthy(rhs))
+        )
 
-    def lxor(self, l, r):
-        return (self.wrap(int(l) ^ int(r)) if self.bitwise_logic
-                else self.from_bool(self.truthy(l) != self.truthy(r)))
+    def lxor(self, lhs, rhs):
+        return (
+            self.wrap(int(lhs) ^ int(rhs))
+            if self.bitwise_logic
+            else self.from_bool(self.truthy(lhs) != self.truthy(rhs))
+        )
 
-    def leqv(self, l, r):
-        return (self.wrap(~(int(l) ^ int(r))) if self.bitwise_logic
-                else self.from_bool(self.truthy(l) == self.truthy(r)))
+    def leqv(self, lhs, rhs):
+        return (
+            self.wrap(~(int(lhs) ^ int(rhs)))
+            if self.bitwise_logic
+            else self.from_bool(self.truthy(lhs) == self.truthy(rhs))
+        )
 
     def pack(self, s: str) -> int:
         """Pack up to chars_per_word characters left-justified, blank-padded, into one
@@ -102,13 +123,14 @@ class Target:
         return "".join(out)
 
 
-PDP10 = Target()          # faithful DEC PDP-10: 36-bit, 5x7-bit packed ASCII, .TRUE.=-1
+PDP10 = Target()  # faithful DEC PDP-10: 36-bit, 5x7-bit packed ASCII, .TRUE.=-1
 
 # The portable host-native target and the default: a clean 64-bit machine for running
 # standard FORTRAN-66 without PDP-10 quirks -- 64-bit two's-complement integers, 8-bit
 # ASCII (8 chars/word), .TRUE.=1 with boolean (not bitwise) logical operators.
-NATIVE = Target(word_bits=64, chars_per_word=8, bits_per_char=8,
-                logical_true=1, bitwise_logic=False)
+NATIVE = Target(
+    word_bits=64, chars_per_word=8, bits_per_char=8, logical_true=1, bitwise_logic=False
+)
 
 # PROVISIONAL, UNVALIDATED guess at the VAX-11 / VAX FORTRAN value model -- no driver or
 # real compiler/manual has been checked against this yet. Best current understanding:
@@ -119,5 +141,12 @@ NATIVE = Target(word_bits=64, chars_per_word=8, bits_per_char=8,
 # same approximation as PDP10/NATIVE). Things to verify against a VAX FORTRAN reference:
 # the .TRUE. constant value, the exact truth test, byte order for A-format, and whether
 # logical ops are bit-wise.
-VAX = Target(word_bits=32, chars_per_word=4, bits_per_char=8, logical_true=-1,
-             bitwise_logic=True, little_endian=True, truth="low_bit")
+VAX = Target(
+    word_bits=32,
+    chars_per_word=4,
+    bits_per_char=8,
+    logical_true=-1,
+    bitwise_logic=True,
+    little_endian=True,
+    truth="low_bit",
+)

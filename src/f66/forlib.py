@@ -17,19 +17,18 @@ from __future__ import annotations
 
 from f66.engine import StopExecution
 
-_MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun",
-           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+_MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
 
 def _store_words(eng, ref, text):
     """Write `text` as consecutive packed-ASCII words (chars_per_word, left-justified)
     into a target that may be a scalar ref (.write) or an array view (.loc(i))."""
     cw = eng.tgt.chars_per_word
-    words = [eng.tgt.pack(text[i:i + cw].ljust(cw)) for i in range(0, max(len(text), 1), cw)]
-    if hasattr(ref, "loc"):                 # array argument (e.g. DATE's 2-word array)
+    words = [eng.tgt.pack(text[i : i + cw].ljust(cw)) for i in range(0, max(len(text), 1), cw)]
+    if hasattr(ref, "loc"):  # array argument (e.g. DATE's 2-word array)
         for i, w in enumerate(words):
             ref.loc(i).write(w)
-    else:                                   # scalar argument (e.g. TIME's 1 word)
+    else:  # scalar argument (e.g. TIME's 1 word)
         ref.write(words[0])
 
 
@@ -148,10 +147,17 @@ _NOOP_LIB = (
 
 
 STDLIB = {
-    "TIME": b_TIME, "DATE": b_DATE, "EXIT": b_EXIT,
-    "ERRSNS": b_ERRSNS, "ERRSET": b_ERRSET,
-    "SLITE": b_SLITE, "SLITET": b_SLITET, "SSWTCH": b_SSWTCH,
-    "RELEAS": b_RELEAS, "SAVRAN": b_SAVRAN,
-    "RAN": b_RAN, "SETRAN": b_SETRAN,
+    "TIME": b_TIME,
+    "DATE": b_DATE,
+    "EXIT": b_EXIT,
+    "ERRSNS": b_ERRSNS,
+    "ERRSET": b_ERRSET,
+    "SLITE": b_SLITE,
+    "SLITET": b_SLITET,
+    "SSWTCH": b_SSWTCH,
+    "RELEAS": b_RELEAS,
+    "SAVRAN": b_SAVRAN,
+    "RAN": b_RAN,
+    "SETRAN": b_SETRAN,
     **{nm: _noop for nm in _NOOP_LIB},
 }

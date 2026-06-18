@@ -19,15 +19,25 @@ from f66 import ast_nodes as A
 
 # normalize relational/logical operator tokens -> canonical Binary op codes
 _REL_OP = {"==": "EQ", "#": "NE", "<": "LT", ">": "GT", "<=": "LE", ">=": "GE"}
-_REL_DOT = {".EQ.": "EQ", ".NE.": "NE", ".LT.": "LT", ".LE.": "LE",
-            ".GT.": "GT", ".GE.": "GE"}
+_REL_DOT = {".EQ.": "EQ", ".NE.": "NE", ".LT.": "LT", ".LE.": "LE", ".GT.": "GT", ".GE.": "GE"}
 # V5 Table 4-7 operator hierarchy: .OR. is level 8, .EQV./.NEQV./.XOR. are level 9
 # (looser than .OR.).  They are therefore parsed at separate precedence levels.
 _OR_DOT = {".OR.": "OR"}
 _EQV_DOT = {".EQV.": "EQV", ".NEQV.": "NEQV", ".XOR.": "XOR"}
 
-DECL_KW = {"INTEGER", "REAL", "LOGICAL", "DOUBLE", "COMPLEX", "DIMENSION", "COMMON",
-           "PARAMETER", "DATA", "IMPLICIT", "EXTERNAL"}
+DECL_KW = {
+    "INTEGER",
+    "REAL",
+    "LOGICAL",
+    "DOUBLE",
+    "COMPLEX",
+    "DIMENSION",
+    "COMMON",
+    "PARAMETER",
+    "DATA",
+    "IMPLICIT",
+    "EXTERNAL",
+}
 TYPE_KW = {"INTEGER", "REAL", "LOGICAL", "DOUBLE", "COMPLEX"}
 
 
@@ -39,13 +49,15 @@ def _apply_size(base, size):
     if base == "REAL" and size == 8:
         return "DOUBLE PRECISION"
     return base
+
+
 IO_SPEC_KEYS = {"END", "ERR", "FMT", "UNIT", "REC", "IOSTAT"}
 
 
 class ParseError(Exception):
     def __init__(self, detail, mnemonic="NRC"):
         super().__init__(detail)
-        self.mnemonic = mnemonic            # FORTRAN-10 App-F diagnostic mnemonic
+        self.mnemonic = mnemonic  # FORTRAN-10 App-F diagnostic mnemonic
 
 
 def fix_tokens(toks: list[Token]) -> list[Token]:
@@ -57,8 +69,12 @@ def fix_tokens(toks: list[Token]) -> list[Token]:
     """
     out = []
     for t in toks:
-        if (t.kind == "ID" and len(t.value) > 4 and t.value.startswith("GOTO")
-                and t.value[4:].isdigit()):
+        if (
+            t.kind == "ID"
+            and len(t.value) > 4
+            and t.value.startswith("GOTO")
+            and t.value[4:].isdigit()
+        ):
             out.append(Token("ID", "GOTO", t.col))
             out.append(Token("INT", int(t.value[4:]), t.col))
         else:
@@ -75,8 +91,19 @@ def fix_tokens(toks: list[Token]) -> list[Token]:
 # keyword re-spaced off its glued operand. Well-formatted source never fails the normal
 # parse, so it never takes this path.
 
-_RESPACE_KW = ("DOUBLEPRECISION", "DIMENSION", "EQUIVALENCE", "EXTERNAL",
-               "COMPLEX", "INTEGER", "LOGICAL", "COMMON", "DOUBLE", "REAL", "DATA")
+_RESPACE_KW = (
+    "DOUBLEPRECISION",
+    "DIMENSION",
+    "EQUIVALENCE",
+    "EXTERNAL",
+    "COMPLEX",
+    "INTEGER",
+    "LOGICAL",
+    "COMMON",
+    "DOUBLE",
+    "REAL",
+    "DATA",
+)
 
 
 def _strip_blanks(text: str) -> str:
@@ -86,12 +113,12 @@ def _strip_blanks(text: str) -> str:
     i, n = 0, len(text)
     while i < n:
         c = text[i]
-        if c == "'":                                   # string: copy verbatim
+        if c == "'":  # string: copy verbatim
             out.append(c)
             i += 1
             while i < n:
                 if text[i] == "'":
-                    if i + 1 < n and text[i + 1] == "'":   # escaped ''
+                    if i + 1 < n and text[i + 1] == "'":  # escaped ''
                         out.append("''")
                         i += 2
                         continue
@@ -104,13 +131,13 @@ def _strip_blanks(text: str) -> str:
         if c in " \t":
             i += 1
             continue
-        if c.isdigit():                                # number, or nH Hollerith
+        if c.isdigit():  # number, or nH Hollerith
             j = i
             while j < n and text[j].isdigit():
                 j += 1
-            if j < n and text[j] in "Hh":              # nH<count chars verbatim>
+            if j < n and text[j] in "Hh":  # nH<count chars verbatim>
                 cnt = int(text[i:j])
-                out.append(text[i:j + 1] + text[j + 1:j + 1 + cnt])
+                out.append(text[i : j + 1] + text[j + 1 : j + 1 + cnt])
                 i = j + 1 + cnt
                 continue
             out.append(text[i:j])
@@ -152,18 +179,18 @@ def _respace_stmt(s: str) -> str:
     up = s.upper()
     for kw in _RESPACE_KW:
         if up.startswith(kw):
-            rest = s[len(kw):]
+            rest = s[len(kw) :]
             # a declaration is keyword + name-list with NO top-level '='. (REALLY=5
             # keeps its '=', so it is NOT respaced -> stays an assignment.)
             if rest[:1].isalpha() and _top_index(rest, "=") < 0:
                 return kw + " " + rest
             return s
     if up.startswith("DO") and s[2:3].isdigit():
-        rest = s[2:]                                   # after 'DO'
-        eq = _top_index(rest, "=")                     # DO<label><var> = e1,e2[,e3]
-        if eq >= 0 and _top_index(rest[eq + 1:], ",") >= 0:
-            return "DO " + rest                        # a real DO loop (has the comma)
-    return s                                            # else assignment to var DO...
+        rest = s[2:]  # after 'DO'
+        eq = _top_index(rest, "=")  # DO<label><var> = e1,e2[,e3]
+        if eq >= 0 and _top_index(rest[eq + 1 :], ",") >= 0:
+            return "DO " + rest  # a real DO loop (has the comma)
+    return s  # else assignment to var DO...
 
 
 def pack5(s: str) -> int:
@@ -184,9 +211,9 @@ class P:
     def __init__(self, toks: list[Token]):
         self.toks = toks
         self.pos = 0
-        self._no_div = False        # in a dimension bound, '/' is a delimiter, not divide
-        self.namelists = ()         # known NAMELIST group names (for I/O dispatch)
-        self.warn = None            # optional callable(full_name) -> %FTNLID warning
+        self._no_div = False  # in a dimension bound, '/' is a delimiter, not divide
+        self.namelists = ()  # known NAMELIST group names (for I/O dispatch)
+        self.warn = None  # optional callable(full_name) -> %FTNLID warning
 
     def _name6(self, name):
         """Truncate a symbolic name to 6 chars (V5 3.3). If chars are dropped, fire a
@@ -236,7 +263,7 @@ class P:
         if t is None or t.kind != "ID":
             raise ParseError(f"FOUND {show(t)} WHEN EXPECTING AN IDENTIFIER", "FWE")
         self.advance()
-        return self._name6(t.value)   # V5 3.3: symbolic names are limited to 6 chars
+        return self._name6(t.value)  # V5 3.3: symbolic names are limited to 6 chars
 
     def expect_int(self):
         t = self.cur()
@@ -249,14 +276,14 @@ class P:
     def parse_expr(self):
         return self.p_equiv()
 
-    def p_equiv(self):           # level 9 (lowest): .EQV. / .NEQV. / .XOR.
+    def p_equiv(self):  # level 9 (lowest): .EQV. / .NEQV. / .XOR.
         n = self.p_or()
         while self.cur() and self.cur().kind == "DOTOP" and self.cur().value in _EQV_DOT:
             op = _EQV_DOT[self.advance().value]
             n = A.Binary(op, n, self.p_or())
         return n
 
-    def p_or(self):              # level 8: .OR.
+    def p_or(self):  # level 8: .OR.
         n = self.p_and()
         while self.cur() and self.cur().kind == "DOTOP" and self.cur().value in _OR_DOT:
             op = _OR_DOT[self.advance().value]
@@ -296,7 +323,7 @@ class P:
         return n
 
     def p_mul(self):
-        ops = ("*",) if self._no_div else ("*", "/")   # '/' is a bound delimiter in dims
+        ops = ("*",) if self._no_div else ("*", "/")  # '/' is a bound delimiter in dims
         n = self.p_unary()
         while self.cur() and self.cur().kind == "OP" and self.cur().value in ops:
             op = self.advance().value
@@ -321,24 +348,29 @@ class P:
         if t is None:
             raise ParseError("unexpected end of expression")
         if t.kind == "INT":
-            self.advance(); return A.IntLit(t.value)
+            self.advance()
+            return A.IntLit(t.value)
         if t.kind == "REAL":
-            self.advance(); return A.RealLit(t.value)
+            self.advance()
+            return A.RealLit(t.value)
         if t.kind == "OCTAL":
-            self.advance(); return A.OctalLit(t.value)
+            self.advance()
+            return A.OctalLit(t.value)
         if t.kind == "STR":
-            self.advance(); return A.StrLit(t.value)
+            self.advance()
+            return A.StrLit(t.value)
         if t.kind == "LOGIC":
-            self.advance(); return A.LogicalLit(t.value)
+            self.advance()
+            return A.LogicalLit(t.value)
         if t.kind == "ID":
-            name = self._name6(self.advance().value)   # V5 3.3: 6-char name limit
+            name = self._name6(self.advance().value)  # V5 3.3: 6-char name limit
             if self.is_op("("):
                 return A.Ref(name, self.parse_args())
             return A.Var(name)
         if t.kind == "OP" and t.value == "(":
             self.advance()
             e = self.parse_expr()
-            if self.accept_op(","):              # complex constant (re, im) -- V5 Ch4
+            if self.accept_op(","):  # complex constant (re, im) -- V5 Ch4
                 im = self.parse_expr()
                 self.expect_op(")")
                 return A.Complex(e, im)
@@ -403,8 +435,8 @@ class P:
 
     def _parse_implied(self, info):
         close, eq_idx, cc = info
-        body = self.toks[self.pos + 1:cc]
-        ctrl = self.toks[cc + 1:close]
+        body = self.toks[self.pos + 1 : cc]
+        ctrl = self.toks[cc + 1 : close]
         items = P(body).parse_iolist()
         cp = P(ctrl)
         var = cp.expect_id()
@@ -427,13 +459,13 @@ class P:
             return self.parse_do()
         if kw == "GOTO" or (kw == "GO" and nx and nx.kind == "ID" and nx.value == "TO"):
             return self.parse_goto()
-        if kw == "ASSIGN" and nx and nx.kind == "INT":     # ASSIGN <label> TO <var>
+        if kw == "ASSIGN" and nx and nx.kind == "INT":  # ASSIGN <label> TO <var>
             self.advance()
             label = self.expect_int()
             if self.is_id("TO"):
                 self.advance()
             return A.AssignLabel(tgt=label, var=self.expect_id())
-        if kw == "ENTRY":                      # V5 15.7: alternate entry point
+        if kw == "ENTRY":  # V5 15.7: alternate entry point
             self.advance()
             ename = self.expect_id()
             eparams = []
@@ -441,15 +473,16 @@ class P:
                 self.advance()
                 if not self.is_op(")"):
                     while True:
-                        if self.is_op("*"):    # alternate-return placeholder dummy
-                            self.advance(); eparams.append("*")
+                        if self.is_op("*"):  # alternate-return placeholder dummy
+                            self.advance()
+                            eparams.append("*")
                         else:
                             eparams.append(self.expect_id())
                         if not self.accept_op(","):
                             break
                 self.expect_op(")")
             return A.EntryStmt(name=ename, params=eparams)
-        if kw in ("ENCODE", "DECODE"):         # V5 10.15: internal formatted I/O
+        if kw in ("ENCODE", "DECODE"):  # V5 10.15: internal formatted I/O
             return self.parse_encode_decode(kw)
         if kw == "CALL":
             return self.parse_call()
@@ -466,27 +499,40 @@ class P:
                     code = self.advance().value
             return A.StopStmt(code=code) if kw == "STOP" else A.PauseStmt(code=code)
         if kw == "CONTINUE":
-            self.advance(); return A.Continue()
-        if kw in ("TYPE", "ACCEPT", "PRINT", "PUNCH") and nx and (
-                nx.kind in ("INT", "OCTAL") or (nx.kind == "OP" and nx.value == "*")
-                or (nx.kind == "ID" and nx.value[:6] in self.namelists)):
+            self.advance()
+            return A.Continue()
+        if (
+            kw in ("TYPE", "ACCEPT", "PRINT", "PUNCH")
+            and nx
+            and (
+                nx.kind in ("INT", "OCTAL")
+                or (nx.kind == "OP" and nx.value == "*")
+                or (nx.kind == "ID" and nx.value[:6] in self.namelists)
+            )
+        ):
             return self.parse_type_io(kw)
         if kw in ("READ", "WRITE") and nx and nx.kind == "OP" and nx.value == "(":
             return self.parse_readwrite(kw)
         if kw == "FIND" and nx and nx.kind == "OP" and nx.value == "(":
             return self.parse_find()
-        if kw in ("READ", "WRITE", "REREAD") and nx and (         # default-device form
-                nx.kind in ("INT", "OCTAL") or (nx.kind == "OP" and nx.value == "*")
-                or (nx.kind == "ID" and nx.value[:6] in self.namelists)):
+        if (
+            kw in ("READ", "WRITE", "REREAD")
+            and nx
+            and (  # default-device form
+                nx.kind in ("INT", "OCTAL")
+                or (nx.kind == "OP" and nx.value == "*")
+                or (nx.kind == "ID" and nx.value[:6] in self.namelists)
+            )
+        ):
             return self.parse_default_io(kw)
         if kw == "DEFINE" and nx and nx.kind == "ID" and nx.value == "FILE":
             return self.parse_define_file()
         if kw in ("OPEN", "CLOSE") and nx and nx.kind == "OP" and nx.value == "(":
             return self.parse_filectl(kw)
-        if kw in ("REWIND", "BACKSPACE", "ENDFILE"):     # bare unit or (specs)
+        if kw in ("REWIND", "BACKSPACE", "ENDFILE"):  # bare unit or (specs)
             return self.parse_filectl(kw)
         if kw == "SKIP" and nx and nx.kind == "ID" and nx.value in ("RECORD", "FILE"):
-            self.advance()                               # SKIP
+            self.advance()  # SKIP
             verb = "SKIPREC" if self.advance().value == "RECORD" else "SKIPFILE"
             specs = {} if self.at_end() else {"UNIT": self.parse_expr()}
             return A.FileCtl(verb=verb, specs=specs)
@@ -494,15 +540,18 @@ class P:
 
     def _looks_like_do(self):
         # DO <label> <var> = ...
-        return (self.nxt() and self.nxt().kind in ("INT", "OCTAL")
-                and self.pos + 2 < len(self.toks)
-                and self.toks[self.pos + 2].kind == "ID"
-                and self.pos + 3 < len(self.toks)
-                and self.toks[self.pos + 3].kind == "OP"
-                and self.toks[self.pos + 3].value == "=")
+        return (
+            self.nxt()
+            and self.nxt().kind in ("INT", "OCTAL")
+            and self.pos + 2 < len(self.toks)
+            and self.toks[self.pos + 2].kind == "ID"
+            and self.pos + 3 < len(self.toks)
+            and self.toks[self.pos + 3].kind == "OP"
+            and self.toks[self.pos + 3].value == "="
+        )
 
     def parse_if(self):
-        self.advance()                      # IF
+        self.advance()  # IF
         self.expect_op("(")
         cond = self.parse_expr()
         self.expect_op(")")
@@ -515,7 +564,7 @@ class P:
         return A.IfLogical(cond=cond, stmt=self.parse_exec())
 
     def parse_do(self):
-        self.advance()                      # DO
+        self.advance()  # DO
         term = self.expect_int()
         var = self.expect_id()
         self.expect_op("=")
@@ -527,9 +576,10 @@ class P:
 
     def parse_goto(self):
         if self.is_id("GO"):
-            self.advance(); self.advance()  # GO TO
+            self.advance()
+            self.advance()  # GO TO
         else:
-            self.advance()                  # GOTO
+            self.advance()  # GOTO
         if self.is_op("("):
             self.advance()
             labels = [self.expect_int()]
@@ -539,7 +589,7 @@ class P:
             self.accept_op(",")
             return A.CompGoto(labels=labels, index=self.parse_expr())
         t = self.cur()
-        if t and t.kind == "ID":                    # assigned GOTO: GO TO N [,(...)]
+        if t and t.kind == "ID":  # assigned GOTO: GO TO N [,(...)]
             var = self.expect_id()
             labels = []
             if self.accept_op(","):
@@ -552,7 +602,7 @@ class P:
         return A.Goto(target=self.expect_int())
 
     def parse_call(self):
-        self.advance()                      # CALL
+        self.advance()  # CALL
         name = self.expect_id()
         args = []
         if self.is_op("("):
@@ -570,7 +620,7 @@ class P:
         if t and t.kind == "OP" and t.value in ("$", "*", "&"):
             nx = self.nxt()
             if nx and nx.kind == "INT":
-                self.advance()              # $ / * / &
+                self.advance()  # $ / * / &
                 return A.LabelArg(label=self.advance().value)
         return self.parse_expr()
 
@@ -578,14 +628,14 @@ class P:
         """EQUIVALENCE (v1,v2,...),(w1,...),... -- storage sharing (V5 6.6). Each
         entity is name or name(subscripts); subscripts are integer constants, kept
         as expr nodes and const-evaluated at layout time."""
-        self.advance()                          # EQUIVALENCE
+        self.advance()  # EQUIVALENCE
         while self.is_op("("):
             self.advance()
             group = []
             while True:
                 name = self.expect_id()
                 subs = []
-                if self.is_op("("):             # array element with constant subscripts
+                if self.is_op("("):  # array element with constant subscripts
                     self.advance()
                     while True:
                         subs.append(self.parse_expr())
@@ -597,15 +647,15 @@ class P:
                     break
             self.expect_op(")")
             unit.equivs.append(group)
-            self.accept_op(",")                 # optional comma between groups
+            self.accept_op(",")  # optional comma between groups
 
     def parse_namelist(self, unit):
         """NAMELIST/N1/A1,A2,.../N2/.../ -- declare named I/O lists (V5 Ch11)."""
-        self.advance()                          # NAMELIST
+        self.advance()  # NAMELIST
         while self.is_op("/"):
-            self.advance()                      # opening slash
+            self.advance()  # opening slash
             gname = self.expect_id()
-            self.expect_op("/")                 # closing slash of the group name
+            self.expect_op("/")  # closing slash of the group name
             items = []
             while not self.at_end() and not self.is_op("/"):
                 items.append(self.parse_io_item())
@@ -625,55 +675,59 @@ class P:
     def parse_encode_decode(self, kw):
         """ENCODE(count, fmt, buf) iolist / DECODE(...) -- internal formatted I/O
         to a packed-ASCII buffer (V5 10.15)."""
-        self.advance()                      # ENCODE / DECODE
+        self.advance()  # ENCODE / DECODE
         self.expect_op("(")
         count = self.parse_expr()
         self.expect_op(",")
         if self.cur() and self.cur().kind in ("INT", "OCTAL"):
-            fmt = self.advance().value      # FORMAT statement label
+            fmt = self.advance().value  # FORMAT statement label
         elif self.accept_op("*"):
             fmt = "*"
         else:
-            fmt = self.parse_expr()         # (runtime format held in a variable)
+            fmt = self.parse_expr()  # (runtime format held in a variable)
         self.expect_op(",")
-        buf = self.parse_io_item()          # the character buffer (variable / array)
+        buf = self.parse_io_item()  # the character buffer (variable / array)
         self.expect_op(")")
         items = self.parse_iolist() if not self.at_end() else []
         return A.EncDec(decode=(kw == "DECODE"), count=count, fmt=fmt, buf=buf, items=items)
 
     def parse_type_io(self, kw):
-        self.advance()                      # TYPE / ACCEPT / PRINT
-        fmt = self._io_fmt()                 # '*' | label | NAMELIST name
+        self.advance()  # TYPE / ACCEPT / PRINT
+        fmt = self._io_fmt()  # '*' | label | NAMELIST name
         items = self.parse_iolist() if self.accept_op(",") else []
-        if kw == "ACCEPT":                   # input; TYPE/PRINT/PUNCH are output
+        if kw == "ACCEPT":  # input; TYPE/PRINT/PUNCH are output
             return A.AcceptStmt(fmt=fmt, items=items)
         return A.TypeStmt(fmt=fmt, items=items)
 
     def parse_default_io(self, kw):
         """READ/WRITE/REREAD without a (unit): default device (card reader / line
         printer) -- routed to the terminal in our model."""
-        self.advance()                      # READ / WRITE / REREAD
-        fmt = self._io_fmt()                 # '*' | label | NAMELIST name
+        self.advance()  # READ / WRITE / REREAD
+        fmt = self._io_fmt()  # '*' | label | NAMELIST name
         items = self.parse_iolist() if self.accept_op(",") else []
         if kw == "WRITE":
             return A.TypeStmt(fmt=fmt, items=items)
         return A.AcceptStmt(fmt=fmt, items=items, reread=(kw == "REREAD"))
 
     def parse_readwrite(self, kw):
-        self.advance()                      # READ / WRITE
+        self.advance()  # READ / WRITE
         self.expect_op("(")
-        unit = self.p_add()                 # arithmetic only, so '#'/'\'' (rec sep) survive
+        unit = self.p_add()  # arithmetic only, so '#'/'\'' (rec sep) survive
         fmt = None
         specs = {}
-        if self.is_op("#") or self.is_op("'"):       # V5 10.3.5: random record  u#r / u'r
+        if self.is_op("#") or self.is_op("'"):  # V5 10.3.5: random record  u#r / u'r
             self.advance()
             specs["REC"] = self.p_add()
         while self.accept_op(","):
-            if (self.is_id() and self.cur().value in IO_SPEC_KEYS
-                    and self.nxt() and self.nxt().kind == "OP"
-                    and self.nxt().value == "="):
+            if (
+                self.is_id()
+                and self.cur().value in IO_SPEC_KEYS
+                and self.nxt()
+                and self.nxt().kind == "OP"
+                and self.nxt().value == "="
+            ):
                 key = self.advance().value
-                self.advance()              # '='
+                self.advance()  # '='
                 if self.cur() and self.cur().kind in ("INT", "OCTAL"):
                     specs[key] = self.advance().value
                 else:
@@ -691,8 +745,8 @@ class P:
     def parse_define_file(self):
         """DEFINE FILE u(m,n,U,v) [,u2(...)...] (V5 10.3.5): declare random-access
         units -- m records of n words, access-mode letter U/E/L, associated variable v."""
-        self.advance()                      # DEFINE
-        self.advance()                      # FILE
+        self.advance()  # DEFINE
+        self.advance()  # FILE
         defs = []
         while True:
             unit = self.p_add()
@@ -701,19 +755,18 @@ class P:
             self.expect_op(",")
             recsize = self.parse_expr()
             self.expect_op(",")
-            self.expect_id()                # access-mode letter (U/E/L) -- not modeled
+            self.expect_id()  # access-mode letter (U/E/L) -- not modeled
             self.expect_op(",")
-            assoc = self.expect_id()        # associated variable (next-record pointer)
+            assoc = self.expect_id()  # associated variable (next-record pointer)
             self.expect_op(")")
-            defs.append({"unit": unit, "maxrec": maxrec,
-                         "recsize": recsize, "assoc": assoc})
+            defs.append({"unit": unit, "maxrec": maxrec, "recsize": recsize, "assoc": assoc})
             if not self.accept_op(","):
                 break
         return A.DefineFile(defs=defs)
 
     def parse_find(self):
         """FIND(u#r) / FIND(u'r) -- position a random-access file (V5 10.14)."""
-        self.advance()                      # FIND
+        self.advance()  # FIND
         self.expect_op("(")
         unit = self.p_add()
         specs = {}
@@ -724,7 +777,7 @@ class P:
         return A.IoStmt(mode="FIND", unit=unit, fmt=None, specs=specs, items=[])
 
     def parse_filectl(self, kw):
-        self.advance()                      # OPEN / CLOSE / REWIND / BACKSPACE / ENDFILE
+        self.advance()  # OPEN / CLOSE / REWIND / BACKSPACE / ENDFILE
         specs = {}
         if self.is_op("("):
             self.advance()
@@ -732,7 +785,7 @@ class P:
             if not (self.is_id() and self.nxt() and self.nxt().value == "="):
                 specs["UNIT"] = self.parse_expr()
             while not self.is_op(")"):
-                kt = self.cur()                 # OPEN keyword: NOT a 6-char symbolic name
+                kt = self.cur()  # OPEN keyword: NOT a 6-char symbolic name
                 if kt is None or kt.kind != "ID":
                     raise ParseError(f"FOUND {show(kt)} WHEN EXPECTING AN IDENTIFIER", "FWE")
                 key = self.advance().value
@@ -745,15 +798,15 @@ class P:
                 if not self.accept_op(","):
                     break
             self.expect_op(")")
-        elif not self.at_end():             # bare unit form: REWIND 1
+        elif not self.at_end():  # bare unit form: REWIND 1
             specs["UNIT"] = self.parse_expr()
         return A.FileCtl(verb=kw, specs=specs)
 
     def parse_assign(self):
         name = self.expect_id()
-        while self.is_id():                 # blanks-insignificant: merge id run
+        while self.is_id():  # blanks-insignificant: merge id run
             name += self.advance().value
-        name = self._name6(name)            # V5 3.3: 6-char name limit (after merge)
+        name = self._name6(name)  # V5 3.3: 6-char name limit (after merge)
         if self.is_op("("):
             target = A.Ref(name, self.parse_args())
         else:
@@ -765,7 +818,7 @@ class P:
     def parse_dims(self, consts):
         self.expect_op("(")
         dims = []
-        saved, self._no_div = self._no_div, True   # V5 6.2: ':' OR '/' delimits bounds
+        saved, self._no_div = self._no_div, True  # V5 6.2: ':' OR '/' delimits bounds
         try:
             while True:
                 lo_n = self.parse_expr()
@@ -794,7 +847,7 @@ class P:
         # `base` is the bare keyword (REAL/INTEGER/...) for per-variable *n overrides.
         while not self.at_end():
             name = self.expect_id()
-            size = self.opt_size()                # per-variable size, e.g. B*8
+            size = self.opt_size()  # per-variable size, e.g. B*8
             unit.types[name] = _apply_size(base, size) if size else default_type
             if self.is_op("("):
                 unit.arrays[name] = self.parse_dims(unit.consts)
@@ -802,7 +855,7 @@ class P:
                 break
 
     def parse_dimension(self, unit):
-        self.advance()                      # DIMENSION
+        self.advance()  # DIMENSION
         while not self.at_end():
             name = self.expect_id()
             unit.arrays[name] = self.parse_dims(unit.consts)
@@ -810,14 +863,14 @@ class P:
                 break
 
     def parse_common(self, unit):
-        self.advance()                      # COMMON
+        self.advance()  # COMMON
         while not self.at_end():
             if self.is_op("/"):
                 self.advance()
-                block = self.expect_id() if self.is_id() else ""   # /name/ or // (blank)
+                block = self.expect_id() if self.is_id() else ""  # /name/ or // (blank)
                 self.expect_op("/")
             else:
-                block = ""                  # COMMON list  ->  blank (unlabeled) common
+                block = ""  # COMMON list  ->  blank (unlabeled) common
             members = []
             while True:
                 name = self.expect_id()
@@ -832,7 +885,7 @@ class P:
             unit.commons.append((block, members))
 
     def parse_parameter(self, unit):
-        self.advance()                      # PARAMETER
+        self.advance()  # PARAMETER
         paren = self.accept_op("(")
         while not self.at_end():
             name = self.expect_id()
@@ -844,11 +897,12 @@ class P:
             self.accept_op(")")
 
     def parse_implicit(self, unit):
-        self.advance()                      # IMPLICIT
+        self.advance()  # IMPLICIT
         while not self.at_end():
-            typ = self.advance().value      # INTEGER/REAL/...
+            typ = self.advance().value  # INTEGER/REAL/...
             if typ == "DOUBLE" and self.is_id("PRECISION"):
-                self.advance(); typ = "DOUBLE PRECISION"
+                self.advance()
+                typ = "DOUBLE PRECISION"
             self.expect_op("(")
             while True:
                 a = self.expect_id()
@@ -865,14 +919,14 @@ class P:
                 break
 
     def parse_data(self, unit):
-        self.advance()                      # DATA
+        self.advance()  # DATA
         while not self.at_end():
             # target list, '/'-delimited -- must NOT run through parse_expr,
             # since '/' is also the division operator
             targets = []
             while True:
                 if self.is_op("("):
-                    targets.append(self.parse_io_item())   # implied-DO target
+                    targets.append(self.parse_io_item())  # implied-DO target
                 else:
                     name = self.expect_id()
                     if self.is_op("("):
@@ -886,7 +940,7 @@ class P:
             while not self.is_op("/"):
                 count = 1
                 v = self.parse_data_value()
-                if self.is_op("*"):            # n*value repeat
+                if self.is_op("*"):  # n*value repeat
                     self.advance()
                     count = v
                     v = self.parse_data_value()
@@ -903,7 +957,7 @@ class P:
             neg = True
         elif self.accept_op("+"):
             pass
-        if self.is_op("("):                     # complex constant (re, im) in DATA
+        if self.is_op("("):  # complex constant (re, im) in DATA
             self.advance()
             re = self.parse_data_value()
             self.expect_op(",")
@@ -914,13 +968,17 @@ class P:
         if t is None:
             raise ParseError("expected DATA value")
         if t.kind in ("INT", "OCTAL"):
-            self.advance(); return -t.value if neg else t.value
+            self.advance()
+            return -t.value if neg else t.value
         if t.kind == "REAL":
-            self.advance(); return -t.value if neg else t.value
+            self.advance()
+            return -t.value if neg else t.value
         if t.kind == "STR":
-            self.advance(); return A.StrLit(t.value)
+            self.advance()
+            return A.StrLit(t.value)
         if t.kind == "LOGIC":
-            self.advance(); return t.value
+            self.advance()
+            return t.value
         if t.kind == "ID":
             return A.Var(self._name6(self.advance().value))  # PARAMETER ref (V5 3.3: 6-char)
         raise ParseError(f"bad DATA value: {t}")
@@ -943,8 +1001,8 @@ def const_eval(node, consts):
     if isinstance(node, A.RealLit):
         return node.value
     if isinstance(node, A.StrLit):
-        return node.value          # kept raw: the engine packs it via its Target (no
-                                   # target at parse time). See Engine._const_value.
+        return node.value  # kept raw: the engine packs it via its Target (no
+        # target at parse time). See Engine._const_value.
     if isinstance(node, A.Var):
         if node.name in consts:
             return consts[node.name]
@@ -955,11 +1013,16 @@ def const_eval(node, consts):
     if isinstance(node, A.Binary):
         a = const_eval(node.left, consts)
         b = const_eval(node.right, consts)
-        if node.op == "+": return a + b
-        if node.op == "-": return a - b
-        if node.op == "*": return a * b
-        if node.op == "/": return int(a / b) if (isinstance(a, float) or isinstance(b, float)) else a // b
-        if node.op == "^": return a ** b
+        if node.op == "+":
+            return a + b
+        if node.op == "-":
+            return a - b
+        if node.op == "*":
+            return a * b
+        if node.op == "/":
+            return int(a / b) if isinstance(a, float) or isinstance(b, float) else a // b
+        if node.op == "^":
+            return a**b
     raise ParseError(f"non-constant expression: {node}")
 
 
@@ -970,9 +1033,10 @@ def _is_header(toks):
     v0 = toks[0].value if toks[0].kind == "ID" else None
     if v0 in ("SUBROUTINE", "PROGRAM", "FUNCTION"):
         return True
-    if v0 == "BLOCKDATA" or (v0 == "BLOCK" and len(toks) > 1
-                             and toks[1].kind == "ID" and toks[1].value == "DATA"):
-        return True                          # BLOCK DATA [name]  (V5 Ch16)
+    if v0 == "BLOCKDATA" or (
+        v0 == "BLOCK" and len(toks) > 1 and toks[1].kind == "ID" and toks[1].value == "DATA"
+    ):
+        return True  # BLOCK DATA [name]  (V5 Ch16)
     if v0 in TYPE_KW:
         for t in toks[1:4]:
             if t.kind == "ID" and t.value == "FUNCTION":
@@ -984,33 +1048,34 @@ def _parse_header(toks):
     p = P(toks)
     ret_type = None
     v0 = toks[0].value if toks[0].kind == "ID" else None
-    if v0 == "BLOCKDATA" or v0 == "BLOCK":          # BLOCK DATA [name] (V5 Ch16)
-        p.advance()                                 # BLOCK / BLOCKDATA
+    if v0 == "BLOCKDATA" or v0 == "BLOCK":  # BLOCK DATA [name] (V5 Ch16)
+        p.advance()  # BLOCK / BLOCKDATA
         if v0 == "BLOCK":
-            p.expect_id()                           # DATA
-        name = p.expect_id() if p.is_id() else "$BLOCKDATA"   # name is optional
+            p.expect_id()  # DATA
+        name = p.expect_id() if p.is_id() else "$BLOCKDATA"  # name is optional
         return A.ProgramUnit(kind="blockdata", name=name)
-    if p.is_id() and p.cur().value in TYPE_KW and not (p.cur().value in ("SUBROUTINE", "PROGRAM")):
+    if p.is_id() and p.cur().value in TYPE_KW and p.cur().value not in ("SUBROUTINE", "PROGRAM"):
         # could be a typed FUNCTION header
         typ = p.advance().value
         if typ == "DOUBLE" and p.is_id("PRECISION"):
-            p.advance(); typ = "DOUBLE PRECISION"
+            p.advance()
+            typ = "DOUBLE PRECISION"
         ret_type = typ
         # now expect FUNCTION
-        p.expect_id()                       # 'FUNCTION'
+        p.expect_id()  # 'FUNCTION'
         kind = "function"
     else:
         kw = p.advance().value
-        kind = {"SUBROUTINE": "subroutine", "PROGRAM": "program",
-                "FUNCTION": "function"}[kw]
+        kind = {"SUBROUTINE": "subroutine", "PROGRAM": "program", "FUNCTION": "function"}[kw]
     name = p.expect_id()
     params = []
     if p.is_op("("):
         p.advance()
         if not p.is_op(")"):
             while True:
-                if p.is_op("*"):            # alternate-return placeholder dummy
-                    p.advance(); params.append("*")
+                if p.is_op("*"):  # alternate-return placeholder dummy
+                    p.advance()
+                    params.append("*")
                 else:
                     params.append(p.expect_id())
                 if not p.accept_op(","):
@@ -1058,8 +1123,8 @@ def parse_units(statements, *, on_error=None, on_warn=None, dialect=FORTRAN10):
                 unit = A.ProgramUnit(kind="subroutine", name="?")
             continue
 
-        if unit is None:                    # statements before any header begin the
-            unit = A.ProgramUnit(kind="program", name="$MAIN")   # main program (the
+        if unit is None:  # statements before any header begin the
+            unit = A.ProgramUnit(kind="program", name="$MAIN")  # main program (the
             #            PROGRAM statement is optional in F66/FORTRAN-10; Adventure omits it)
 
         if kw == "END" and len(toks) == 1:
@@ -1072,7 +1137,7 @@ def parse_units(statements, *, on_error=None, on_warn=None, dialect=FORTRAN10):
             _route(unit, st, toks, on_warn)
         except (ParseError, LexError) as e:
             # F66 3.1.6 blanks-insignificance retry (well-formed source never reaches here).
-            del unit.data[n_data:]              # undo any partial append before retry
+            del unit.data[n_data:]  # undo any partial append before retry
             del unit.code[n_code:]
             norm = _respace_stmt(_strip_blanks(st.text))
             if norm != st.text:
@@ -1093,10 +1158,11 @@ def parse_units(statements, *, on_error=None, on_warn=None, dialect=FORTRAN10):
 def _route(unit, st, toks, on_warn=None):
     kw = toks[0].value if toks[0].kind == "ID" else None
     p = P(toks)
-    p.namelists = unit.namelists        # so ACCEPT/TYPE/READ <namelist> dispatches right
-    if on_warn is not None:             # %FTNLID: 6-char-name truncation (V5 3.3)
-        p.warn = lambda nm: on_warn(st, diag(
-            "LID", f"NAME '{nm}' TRUNCATED TO '{nm[:6]}'", st.line))
+    p.namelists = unit.namelists  # so ACCEPT/TYPE/READ <namelist> dispatches right
+    if on_warn is not None:  # %FTNLID: 6-char-name truncation (V5 3.3)
+        p.warn = lambda nm: on_warn(
+            st, diag("LID", f"NAME '{nm}' TRUNCATED TO '{nm[:6]}'", st.line)
+        )
 
     if kw == "FORMAT":
         if st.label is None:
@@ -1104,32 +1170,39 @@ def _route(unit, st, toks, on_warn=None):
         unit.formats[st.label] = _format_body(st.text)
         return
     if kw == "IMPLICIT":
-        p.parse_implicit(unit); return
+        p.parse_implicit(unit)
+        return
     if kw == "DIMENSION":
-        p.parse_dimension(unit); return
+        p.parse_dimension(unit)
+        return
     if kw == "COMMON":
-        p.parse_common(unit); return
+        p.parse_common(unit)
+        return
     if kw == "PARAMETER":
-        p.parse_parameter(unit); return
+        p.parse_parameter(unit)
+        return
     if kw == "DATA":
-        p.parse_data(unit); return
+        p.parse_data(unit)
+        return
     if kw == "EXTERNAL":
         p.advance()
         while not p.at_end():
-            p.accept_op("*") or p.accept_op("&")   # V5 15.3: */& overrides an intrinsic name
+            p.accept_op("*") or p.accept_op("&")  # V5 15.3: */& overrides an intrinsic name
             unit.externals.add(p.expect_id())
             if not p.accept_op(","):
                 break
         return
     if kw == "NAMELIST":
-        p.parse_namelist(unit); return
+        p.parse_namelist(unit)
+        return
     if kw == "EQUIVALENCE":
-        p.parse_equivalence(unit); return
+        p.parse_equivalence(unit)
+        return
     if kw in TYPE_KW and not _is_header(toks):
         base = p.advance().value
         if base == "DOUBLE" and p.is_id("PRECISION"):
             p.advance()
-        size = p.opt_size()                       # REAL*8 etc. on the type keyword
+        size = p.opt_size()  # REAL*8 etc. on the type keyword
         p.parse_type_decl(unit, base, _apply_size(base, size))
         return
 
@@ -1139,13 +1212,16 @@ def _route(unit, st, toks, on_warn=None):
     # executable statement, where `name` is NOT a declared array and the subscripts
     # are plain dummy names. (Distinct from an array-element assignment, whose name
     # is dimensioned; the array guard keeps the two cases unambiguous.)
-    if (isinstance(stmt, A.Assign) and isinstance(stmt.target, A.Ref)
-            and stmt.target.name not in unit.arrays
-            and st.label is None and not unit.code
-            and stmt.target.args
-            and all(isinstance(a, A.Var) for a in stmt.target.args)):
-        unit.stmt_funcs[stmt.target.name] = (
-            [a.name for a in stmt.target.args], stmt.expr)
+    if (
+        isinstance(stmt, A.Assign)
+        and isinstance(stmt.target, A.Ref)
+        and stmt.target.name not in unit.arrays
+        and st.label is None
+        and not unit.code
+        and stmt.target.args
+        and all(isinstance(a, A.Var) for a in stmt.target.args)
+    ):
+        unit.stmt_funcs[stmt.target.name] = ([a.name for a in stmt.target.args], stmt.expr)
         return
     stmt.label = st.label
     stmt.file = st.file
@@ -1156,8 +1232,7 @@ def _route(unit, st, toks, on_warn=None):
 
 
 def parse_file(path):
-    stmts = expand_includes(scan_file(path).statements,
-                            os.path.dirname(os.path.abspath(path)))
+    stmts = expand_includes(scan_file(path).statements, os.path.dirname(os.path.abspath(path)))
     errors = []
     units = parse_units(stmts, on_error=lambda st, msg: errors.append((st, msg)))
     return units, errors
@@ -1167,8 +1242,11 @@ def parse_program(root):
     # PATH.FOR is a stale prototype: its PATH (3-entry OK) shadows the canonical
     # PATH.MAC built-in, and its TEST3/TEST4 collide with the real ones in 2.FOR.
     # Exclude it -- PATH is a built-in; TEST3/TEST4 live in 2.FOR.
-    files = sorted(f for f in glob.glob(os.path.join(root, "*.FOR"))
-                   if os.path.basename(f).upper() != "PATH.FOR")
+    files = sorted(
+        f
+        for f in glob.glob(os.path.join(root, "*.FOR"))
+        if os.path.basename(f).upper() != "PATH.FOR"
+    )
     all_units = {}
     all_errors = []
     per_file = {}

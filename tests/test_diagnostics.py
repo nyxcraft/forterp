@@ -6,8 +6,7 @@ These fire only on INVALID source; valid programs (the game) emit none.
 from conftest import run
 from f66.diagnostics import diag
 
-PROG = ("        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n"
-        "        COMMON /OUT/ V(40)\n")
+PROG = "        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n        COMMON /OUT/ V(40)\n"
 END = "        END\n"
 
 
@@ -22,11 +21,10 @@ def errmsg(src):
 
 # ---- the renderer ----------------------------------------------------------
 def test_diag_format_fatal_and_warning():
-    assert diag("NRC", "STATEMENT NOT RECOGNIZED", 42) == \
-        "?FTNNRC LINE:42 STATEMENT NOT RECOGNIZED"
+    assert diag("NRC", "STATEMENT NOT RECOGNIZED", 42) == "?FTNNRC LINE:42 STATEMENT NOT RECOGNIZED"
     assert diag("CQL", line=7) == "?FTNCQL LINE:7 NO CLOSING QUOTE IN LITERAL"
     assert diag("LID", "IDENTIFIER 'X' MORE THAN SIX CHARACTERS", 3).startswith("%FTNLID")
-    assert diag("NNF") == "?FTNNNF NO STATEMENT NUMBER ON FORMAT"   # no LINE when absent
+    assert diag("NNF") == "?FTNNNF NO STATEMENT NUMBER ON FORMAT"  # no LINE when absent
 
 
 # ---- lexical diagnostics ---------------------------------------------------
@@ -53,36 +51,43 @@ def test_unlabeled_format_is_nnf():
 
 def test_diagnostics_carry_line_numbers():
     m = errmsg(PROG + "        FORMAT(I5)\n" + END)
-    assert "LINE:4" in m            # the FORMAT is the 4th source line
+    assert "LINE:4" in m  # the FORMAT is the 4th source line
 
 
 # ---- %FTNLID warning channel (V5 3.3: >6-char names truncated, non-fatal) --
 def test_ftnlid_warning_on_long_name_truncation():
-    import tempfile, os
+    import tempfile
+    import os
     from f66.source import scan_file, expand_includes
     from f66.parser import parse_units
+
     src = "        PROGRAM T\n        LONGNAME12 = 5\n        END\n"
     with tempfile.NamedTemporaryFile("w", suffix=".FOR", delete=False) as f:
-        f.write(src); path = f.name
+        f.write(src)
+        path = f.name
     try:
         stmts = expand_includes(scan_file(path).statements, os.path.dirname(path))
         errs, warns = [], []
-        parse_units(stmts, on_error=lambda st, m: errs.append(m),
-                    on_warn=lambda st, m: warns.append(m))
+        parse_units(
+            stmts, on_error=lambda st, m: errs.append(m), on_warn=lambda st, m: warns.append(m)
+        )
     finally:
         os.unlink(path)
-    assert errs == []                                    # truncation is non-fatal
-    assert any(w.startswith("%FTNLID") for w in warns)   # warning was emitted
-    assert any("LONGNA" in w for w in warns)             # truncated to 6 chars
+    assert errs == []  # truncation is non-fatal
+    assert any(w.startswith("%FTNLID") for w in warns)  # warning was emitted
+    assert any("LONGNA" in w for w in warns)  # truncated to 6 chars
 
 
 def test_no_warning_for_six_char_or_shorter_names():
-    import tempfile, os
+    import tempfile
+    import os
     from f66.source import scan_file, expand_includes
     from f66.parser import parse_units
+
     src = "        PROGRAM T\n        SIXCHR = 5\n        END\n"
     with tempfile.NamedTemporaryFile("w", suffix=".FOR", delete=False) as f:
-        f.write(src); path = f.name
+        f.write(src)
+        path = f.name
     try:
         stmts = expand_includes(scan_file(path).statements, os.path.dirname(path))
         warns = []
@@ -97,6 +102,7 @@ def test_parse_source_raises_on_invalid_statement():
     # and hand back a runnable truncated unit. Default = raise ParseError; on_error=
     # opts into collect-and-continue.
     import f66
+
     bad = "      PROGRAM T\n      X = = 5\n      Y = 1\n      END\n"
     raised = False
     try:

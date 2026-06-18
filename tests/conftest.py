@@ -7,6 +7,7 @@ results out of COMMON. By convention test programs are named `T` and write resul
 
 (src/ is on sys.path via pyproject's [tool.pytest.ini_options] pythonpath.)
 """
+
 from __future__ import annotations
 
 import os
@@ -31,24 +32,30 @@ def run(src, program="T", inputs=None, setup=None, target=None, dialect=None):
     try:
         stmts = expand_includes(scan_file(path, dialect=dlc).statements, os.path.dirname(path))
         errs = []
-        units = parse_units(stmts, dialect=dlc,
-                            on_error=lambda st, m: errs.append((st.line, m, st.text)))
+        units = parse_units(
+            stmts, dialect=dlc, on_error=lambda st, m: errs.append((st.line, m, st.text))
+        )
         if errs:
-            raise AssertionError("parse errors: " + "; ".join(f"L{l}: {m} | {t}"
-                                                              for l, m, t in errs))
+            raise AssertionError(
+                "parse errors: " + "; ".join(f"L{ln}: {m} | {t}" for ln, m, t in errs)
+            )
         feed = iter(inputs or [])
         rl = (lambda: next(feed, "")) if inputs is not None else None
-        printout = []                          # line-printer (LPT) capture buffer
-        eng = Engine({u.name: u for u in units}, readline=rl, printer=printout.append,
-                     target=target or f66.PDP10)  # default: validate the PDP-10 target
-        eng.printout = printout                # tests read it via printed(eng)
-        f66.install_runtime(eng)               # STDLIB + FOROTS binary-I/O codec
+        printout = []  # line-printer (LPT) capture buffer
+        eng = Engine(
+            {u.name: u for u in units},
+            readline=rl,
+            printer=printout.append,
+            target=target or f66.PDP10,
+        )  # default: validate the PDP-10 target
+        eng.printout = printout  # tests read it via printed(eng)
+        f66.install_runtime(eng)  # STDLIB + FOROTS binary-I/O codec
         if setup is not None:
             setup(eng)
         try:
             eng.run(Frame(eng.rts[program], {}))
         except StopExecution:
-            pass                      # explicit STOP is normal program termination
+            pass  # explicit STOP is normal program termination
         return eng
     finally:
         os.unlink(path)

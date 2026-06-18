@@ -21,7 +21,7 @@ def test_parse_basic_descriptors():
     assert sig("(I5)") == [("I", 5, None)]
     assert sig("(A4)") == [("A", 4, None)]
     assert sig("(F6.2)") == [("F", 6, 2)]
-    assert sig("(I)") == [("I", None, None)]          # bare I, no width
+    assert sig("(I)") == [("I", None, None)]  # bare I, no width
 
 
 def test_parse_repeat_counts():
@@ -40,8 +40,7 @@ def test_parse_slash_and_dollar():
 
 
 def test_parse_group_repeat():
-    assert sig("(2(I2,X))") == [("I", 2, None), ("X", 1, None),
-                                 ("I", 2, None), ("X", 1, None)]
+    assert sig("(2(I2,X))") == [("I", 2, None), ("X", 1, None), ("I", 2, None), ("X", 1, None)]
 
 
 def test_parse_hollerith_and_quote_escape():
@@ -64,7 +63,7 @@ def test_render_bare_integer_uses_v5_default_width_i15():
 def test_render_integer_overflow_yields_asterisks():
     # FORTRAN-10 V5 (AA-0944E-TB Table 13-2): a value too wide for Iw becomes '*'s.
     assert render(parse_format("(I2)"), [12345]) == ("**", False)
-    assert render(parse_format("(I4)"), [42]) == ("  42", False)     # fits -> normal
+    assert render(parse_format("(I4)"), [42]) == ("  42", False)  # fits -> normal
 
 
 def test_render_real_overflow_yields_asterisks():
@@ -100,14 +99,14 @@ def test_render_d_format_uses_d_exponent():
 
 
 def test_render_g_format_f_or_e_by_magnitude():
-    assert render(parse_format("(G12.4)"), [12.493]) == ("   12.49    ", False)   # F range
-    assert render(parse_format("(G12.4)"), [5.0e6]) == ("  0.5000E+07", False)    # E range
+    assert render(parse_format("(G12.4)"), [12.493]) == ("   12.49    ", False)  # F range
+    assert render(parse_format("(G12.4)"), [5.0e6]) == ("  0.5000E+07", False)  # E range
 
 
 # ---- output rendering: characters ------------------------------------------
 def test_render_char_exact_and_padded():
     assert render(parse_format("(A2)"), [pack5("HI")]) == ("HI", False)
-    assert render(parse_format("(A5)"), [pack5("HI")]) == ("HI   ", False)   # packed -> left, blank-pad
+    assert render(parse_format("(A5)"), [pack5("HI")]) == ("HI   ", False)  # left-justified
     assert render(parse_format("(A)"), [pack5("HELLO")]) == ("HELLO", False)
 
 
@@ -146,12 +145,12 @@ def test_format_terminates_when_list_exhausted_no_zero_pad():
 # trailing '\n' the I/O layer (do_type/do_write) appends. So a ' ' single-space
 # record carries no extra newline -> consecutive records are single-spaced.
 def test_carriage_control_translations():
-    assert apply_carriage(" ABC") == "ABC"            # space -> single advance (trailing \n)
-    assert apply_carriage("+ABC") == "\rABC"          # +    -> overprint (no advance)
-    assert apply_carriage("0ABC") == "\nABC"          # 0    -> double space (one blank before)
-    assert apply_carriage("1ABC") == "\fABC"          # 1    -> form feed
-    assert apply_carriage("") == ""                   # empty record -> blank line via trailing \n
-    assert apply_carriage("XYZ") == "XYZ"             # non-control char kept, advance
+    assert apply_carriage(" ABC") == "ABC"  # space -> single advance (trailing \n)
+    assert apply_carriage("+ABC") == "\rABC"  # +    -> overprint (no advance)
+    assert apply_carriage("0ABC") == "\nABC"  # 0    -> double space (one blank before)
+    assert apply_carriage("1ABC") == "\fABC"  # 1    -> form feed
+    assert apply_carriage("") == ""  # empty record -> blank line via trailing \n
+    assert apply_carriage("XYZ") == "XYZ"  # non-control char kept, advance
 
 
 # ---- input parsing (ACCEPT/READ side) --------------------------------------
@@ -177,13 +176,11 @@ def test_read_x_skips_columns():
 
 # ---- end-to-end through TYPE (render -> carriage -> emit) -------------------
 def test_type_emits_with_carriage_control():
-    src = ("        PROGRAM T\n        TYPE 100, 42\n"
-           "  100   FORMAT(' N=',I4)\n        END\n")
+    src = "        PROGRAM T\n        TYPE 100, 42\n  100   FORMAT(' N=',I4)\n        END\n"
     # leading space -> single advance (consumed); record terminated by the trailing newline
     assert "".join(run(src).out) == "N=  42\n"
 
 
 def test_type_overprint_carriage():
-    src = ("        PROGRAM T\n        TYPE 100\n"
-           "  100   FORMAT('+DONE')\n        END\n")
+    src = "        PROGRAM T\n        TYPE 100\n  100   FORMAT('+DONE')\n        END\n"
     assert "".join(run(src).out) == "\rDONE\n"

@@ -36,18 +36,18 @@ from dataclasses import dataclass, field
 from f66.dialect import FORTRAN10
 
 
-COMMENT_COL1 = set("Cc*!$/")   # V5 manual 2.3.3 comment-line markers
+COMMENT_COL1 = set("Cc*!$/")  # V5 manual 2.3.3 comment-line markers
 DEBUG_COL1 = set("Dd")
 
 
 @dataclass
 class Statement:
-    label: int | None          # statement label, or None
-    text: str                  # statement source text (comments/labels stripped)
-    file: str                  # originating file
-    line: int                  # physical line number of the statement's first line
-    kind: str = "stmt"         # 'stmt' or 'include'
-    include_name: str = ""     # for kind == 'include'
+    label: int | None  # statement label, or None
+    text: str  # statement source text (comments/labels stripped)
+    file: str  # originating file
+    line: int  # physical line number of the statement's first line
+    kind: str = "stmt"  # 'stmt' or 'include'
+    include_name: str = ""  # for kind == 'include'
 
 
 @dataclass
@@ -129,10 +129,10 @@ def _tab_split(raw: str):
     tab = raw[:6].find("\t")
     if tab < 0:
         return None
-    label, after = raw[:tab], raw[tab + 1:]
+    label, after = raw[:tab], raw[tab + 1 :]
     if after[:1] in "123456789":
-        return label, True, after[1:]          # <TAB><digit> -> continuation
-    return label, False, after                  # <TAB> (or label<TAB>) -> initial line
+        return label, True, after[1:]  # <TAB><digit> -> continuation
+    return label, False, after  # <TAB> (or label<TAB>) -> initial line
 
 
 def _statement_cut_midway(text: str) -> bool:
@@ -150,7 +150,7 @@ def _statement_cut_midway(text: str) -> bool:
                 continue
             in_str = not in_str
         elif not in_str:
-            if c == "!":          # inline comment: the rest is not statement text
+            if c == "!":  # inline comment: the rest is not statement text
                 break
             if c == "(":
                 depth += 1
@@ -168,7 +168,7 @@ def _trim_seqfield(raw: str) -> str:
     sequence field follows a complete, balanced statement and is dropped as usual.
     See the module docstring (lenient cols-73+ handling)."""
     if len(raw) <= 72 or not raw[72:].strip():
-        return raw                                   # nothing meaningful past col 72
+        return raw  # nothing meaningful past col 72
     # Keep the tail only if it COMPLETES the statement: cols 7-72 are cut mid-way
     # AND including cols 73+ makes them whole. A continued statement (closing paren
     # on the next physical line) or a real sequence field stays incomplete with the
@@ -178,13 +178,17 @@ def _trim_seqfield(raw: str) -> str:
     return raw[:72]
 
 
-def scan_file(path: str, debug: bool = False, strict_cols: bool = False,
-              dialect=FORTRAN10) -> FileScan:
+def scan_file(
+    path: str, debug: bool = False, strict_cols: bool = False, dialect=FORTRAN10
+) -> FileScan:
     fs = FileScan(path=path)
     strict = strict_cols or dialect.strict_cols
     # gate the DEC inline-'!' comment on the dialect (ANSI F66 has no inline comments)
-    strip_comment = ((lambda b, instr: _split_inline_comment(b, instr))
-                     if dialect.inline_comment else (lambda b, instr: (b, instr)))
+    strip_comment = (
+        (lambda b, instr: _split_inline_comment(b, instr))
+        if dialect.inline_comment
+        else (lambda b, instr: (b, instr))
+    )
     with open(path, "r", errors="replace") as fh:
         rawlines = fh.read().splitlines()
 
@@ -192,14 +196,14 @@ def scan_file(path: str, debug: bool = False, strict_cols: bool = False,
     pending_label: int | None = None
     pending_frags: list[str] = []
     pending_line = 0
-    pending_instr = False      # open-string state carried across continuation lines
+    pending_instr = False  # open-string state carried across continuation lines
 
     def flush():
         nonlocal pending_label, pending_frags, pending_line, pending_instr
         pending_instr = False
         if not pending_frags and pending_label is None:
             return
-        joined = "".join(pending_frags)   # inline '!' comments already stripped per line
+        joined = "".join(pending_frags)  # inline '!' comments already stripped per line
         for k, part in enumerate(_split_semicolons(joined)):
             part = part.strip()
             if part == "":
@@ -209,8 +213,8 @@ def scan_file(path: str, debug: bool = False, strict_cols: bool = False,
             if up.startswith("INCLUDE"):
                 name = _include_name(part)
                 fs.statements.append(
-                    Statement(lab, part, path, pending_line,
-                              kind="include", include_name=name))
+                    Statement(lab, part, path, pending_line, kind="include", include_name=name)
+                )
             else:
                 fs.statements.append(Statement(lab, part, path, pending_line))
         pending_label = None
@@ -226,7 +230,7 @@ def scan_file(path: str, debug: bool = False, strict_cols: bool = False,
         if stripped == "":
             fs.n_blank += 1
             continue
-        if stripped == ".":           # 1979 download EOF artifact
+        if stripped == ".":  # 1979 download EOF artifact
             fs.n_blank += 1
             continue
 
@@ -241,7 +245,7 @@ def scan_file(path: str, debug: bool = False, strict_cols: bool = False,
             # treat as a normal statement when debugging is on
             raw = " " + raw[1:]
 
-        ts = _tab_split(raw) if dialect.tab_format else None   # DEC tab-format (V5 2.2.2)
+        ts = _tab_split(raw) if dialect.tab_format else None  # DEC tab-format (V5 2.2.2)
         if ts is not None:
             label_field, is_cont, body = ts
             # strip each physical line's trailing '!' comment BEFORE joining, so an
@@ -284,7 +288,7 @@ def _include_name(text: str) -> str:
     q2 = text.find("'", q1 + 1)
     if q1 < 0 or q2 < 0:
         return ""
-    inner = text[q1 + 1:q2]
+    inner = text[q1 + 1 : q2]
     return inner.split("/")[0]
 
 
@@ -311,9 +315,12 @@ def _resolve_include(include_dir: str, name: str) -> str | None:
     return None
 
 
-def expand_includes(statements: list[Statement], include_dir: str,
-                    debug: bool = False, _stack: frozenset = frozenset()
-                    ) -> list[Statement]:
+def expand_includes(
+    statements: list[Statement],
+    include_dir: str,
+    debug: bool = False,
+    _stack: frozenset = frozenset(),
+) -> list[Statement]:
     """Expand INCLUDE statements in place.
 
     Cycle protection is a path *stack* (ancestors only), not a global seen-set,
@@ -325,18 +332,18 @@ def expand_includes(statements: list[Statement], include_dir: str,
         if st.kind == "include":
             inc_path = _resolve_include(include_dir, st.include_name)
             if inc_path is None or inc_path in _stack:
-                out.append(st)          # unresolved / cyclic: leave visible
+                out.append(st)  # unresolved / cyclic: leave visible
                 continue
             inc = scan_file(inc_path, debug=debug).statements
-            out.extend(expand_includes(inc, include_dir, debug,
-                                       _stack | {inc_path}))
+            out.extend(expand_includes(inc, include_dir, debug, _stack | {inc_path}))
         else:
             out.append(st)
     return out
 
 
-def load_statements(path: str, debug: bool = False,
-                    include_dir: str | None = None) -> list[Statement]:
+def load_statements(
+    path: str, debug: bool = False, include_dir: str | None = None
+) -> list[Statement]:
     """Load statements from a file, expanding INCLUDE directives in place."""
     if include_dir is None:
         include_dir = os.path.dirname(os.path.abspath(path))

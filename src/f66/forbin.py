@@ -43,13 +43,13 @@ def double_to_dec10(x: float) -> int:
     if x == 0.0:
         return 0
     neg = x < 0
-    m, e = math.frexp(abs(x))          # abs(x) = m * 2**e, 0.5 <= m < 1.0
+    m, e = math.frexp(abs(x))  # abs(x) = m * 2**e, 0.5 <= m < 1.0
     frac = int(round(m * (1 << 27)))
-    if frac > MASK27:                  # rounding carried into 1.0
+    if frac > MASK27:  # rounding carried into 1.0
         frac >>= 1
         e += 1
-    word = (((e + 128) & 0o377) << 27) | (frac & MASK27)   # bit0=0 (positive)
-    return (-word) & MASK36 if neg else word               # negate the whole word
+    word = (((e + 128) & 0o377) << 27) | (frac & MASK27)  # bit0=0 (positive)
+    return (-word) & MASK36 if neg else word  # negate the whole word
 
 
 def dec10_to_double(word: int) -> float:
@@ -59,7 +59,7 @@ def dec10_to_double(word: int) -> float:
         return 0.0
     neg = (word >> 35) & 1
     if neg:
-        word = (-word) & MASK36        # undo two's complement -> magnitude form
+        word = (-word) & MASK36  # undo two's complement -> magnitude form
     expfield = (word >> 27) & 0o377
     frac = (word & MASK27) / (1 << 27)
     val = math.ldexp(frac, expfield - 128)
@@ -71,8 +71,8 @@ def encode_record(data_words) -> list:
     """Frame a list of 36-bit data words as a FOROTS binary record."""
     data = [w & MASK36 for w in data_words]
     n = len(data)
-    start = (START << 27) | ((n + 1) & MASK27)   # words following START thru END
-    end = (END << 27) | ((n + 2) & MASK27)       # total words incl. both LSCWs
+    start = (START << 27) | ((n + 1) & MASK27)  # words following START thru END
+    end = (END << 27) | ((n + 2) & MASK27)  # total words incl. both LSCWs
     return [start] + data + [end]
 
 
@@ -82,6 +82,6 @@ def decode_record(words, pos: int = 0):
     start = words[pos] & MASK36
     if (start >> 27) != START:
         raise ValueError(f"expected START LSCW at {pos}, got {start:012o}")
-    cnt = start & MASK27                  # words following START up to+incl END
-    data = [w & MASK36 for w in words[pos + 1:pos + cnt]]   # cnt-1 data + drop END
+    cnt = start & MASK27  # words following START up to+incl END
+    data = [w & MASK36 for w in words[pos + 1 : pos + cnt]]  # cnt-1 data + drop END
     return data, pos + 1 + cnt

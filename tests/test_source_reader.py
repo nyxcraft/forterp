@@ -12,21 +12,21 @@ END = "        END\n"
 # ---- comment lines: V5 2.3.3 markers are C/c, $, /, *, ! in column 1 ----
 def test_all_column1_comment_markers_are_skipped():
     # one comment line per legal marker; none must affect the program
-    body = ("C a classic comment\n"
-            "c lower-case c too\n"
-            "* asterisk comment\n"
-            "! bang comment\n"
-            "$ dollar comment\n"
-            "/ slash comment\n"
-            "        V(1)=7\n")
+    body = (
+        "C a classic comment\n"
+        "c lower-case c too\n"
+        "* asterisk comment\n"
+        "! bang comment\n"
+        "$ dollar comment\n"
+        "/ slash comment\n"
+        "        V(1)=7\n"
+    )
     assert out(run(H + body + END), 1) == 7
 
 
 def test_dollar_and_slash_comments_do_not_become_statements():
     # a line that WOULD be a syntax error if not treated as a comment
-    body = ("$ this = is ( not ) valid fortran\n"
-            "/ neither // is ) this (\n"
-            "        V(1)=3\n")
+    body = "$ this = is ( not ) valid fortran\n/ neither // is ) this (\n        V(1)=3\n"
     assert out(run(H + body + END), 1) == 3
 
 
@@ -37,30 +37,26 @@ def test_inline_bang_remark_is_stripped():
 
 def test_bang_inside_a_string_is_not_a_remark():
     # the '!' lives inside a Hollerith/literal and must survive
-    eng = run(H + "        V(1)=0\n"
-              "        IF('A!B'=='A!B') V(1)=1\n" + END)
+    eng = run(H + "        V(1)=0\n        IF('A!B'=='A!B') V(1)=1\n" + END)
     assert out(eng, 1) == 1
 
 
 # ---- continuation field: V5 2.2.2 any non-blank/non-zero char in column 6 ----
 def test_ampersand_continuation():
     # '&' (the marker the game actually uses) in column 6
-    eng = run(H + "        V(1)=1\n"
-              "     &       +20\n" + END)
+    eng = run(H + "        V(1)=1\n     &       +20\n" + END)
     assert out(eng, 1) == 21
 
 
 def test_digit_continuation():
     # the INTRO-8 rule: a digit 1-9 in column 6 is a continuation line
-    eng = run(H + "        V(1)=1\n"
-              "     2       +40\n" + END)
+    eng = run(H + "        V(1)=1\n     2       +40\n" + END)
     assert out(eng, 1) == 41
 
 
 def test_zero_in_column6_is_not_a_continuation():
     # '0' in column 6 is an initial line, not a continuation
-    eng = run(H + "        V(1)=1\n"
-              "0       V(2)=9\n" + END)
+    eng = run(H + "        V(1)=1\n0       V(2)=9\n" + END)
     assert out(eng, 1) == 1
     assert out(eng, 2) == 9
 
@@ -72,30 +68,27 @@ def test_semicolon_multistatement_line():
 
 
 def test_semicolon_inside_string_is_not_a_separator():
-    eng = run(H + "        V(1)=0\n"
-              "        IF('A;B'=='A;B') V(1)=1\n" + END)
+    eng = run(H + "        V(1)=0\n        IF('A;B'=='A;B') V(1)=1\n" + END)
     assert out(eng, 1) == 1
 
 
 # ---- debug lines: V5 2.3.4 'D'/'d' in column 1 = comment unless /DEBUG ----
 def test_debug_line_skipped_by_default():
-    eng = run(H + "        V(1)=1\n"
-              "D       V(1)=99\n" + END)
-    assert out(eng, 1) == 1            # the debug line did not execute
+    eng = run(H + "        V(1)=1\nD       V(1)=99\n" + END)
+    assert out(eng, 1) == 1  # the debug line did not execute
 
 
 # ---- statement labels: V5 2.2.1 leading zeros/blanks ignored (00105 == 105) ----
 def test_label_leading_zeros_ignored():
-    src = (H + "        GOTO 105\n"
-           "        V(1)=99\n"
-           "00105   V(1)=7\n" + END)
+    src = H + "        GOTO 105\n        V(1)=99\n00105   V(1)=7\n" + END
     assert out(run(src), 1) == 7
 
 
 # ---- cols 73+ field (V5 2.2.4): lenient default keeps spillover only when col-72
 #      truncation would cut a statement in half; strict_cols hard-truncates at 72.
-from f66.source import _trim_seqfield, scan_file   # noqa: E402
-import tempfile, os                                    # noqa: E402
+from f66.source import _trim_seqfield, scan_file  # noqa: E402
+import tempfile  # noqa: E402
+import os  # noqa: E402
 
 
 def _line(stmt_at7, tail_at73):
@@ -107,7 +100,7 @@ def _line(stmt_at7, tail_at73):
 def _spill_line():
     # a CALL whose closing ')' lands in column 73 (one past the 72-col field),
     # so cols 7-72 hold an unclosed '(' -- the +2-reindented Empire spillover shape.
-    body = "CALL STROUT('" + "Z" * 49 + "',10)"   # 67 chars -> ')' at col 7+66 = 73
+    body = "CALL STROUT('" + "Z" * 49 + "',10)"  # 67 chars -> ')' at col 7+66 = 73
     s = "      " + body
     assert len(s) == 73 and s[72] == ")"
     return s
@@ -122,7 +115,7 @@ def test_seqfield_dropped_after_complete_statement():
 def test_spillover_kept_when_it_completes_a_cut_statement():
     # closing paren spilled past col 72 (the +2-reindented Empire case) -> keep whole
     s = _spill_line()
-    assert _trim_seqfield(s) == s            # kept: tail ')' closes the open paren
+    assert _trim_seqfield(s) == s  # kept: tail ')' closes the open paren
 
 
 def test_continued_statement_seqfield_still_dropped():
@@ -142,32 +135,37 @@ def test_strict_cols_truncates_at_72():
         lenient = scan_file(path).statements[0].text
     finally:
         os.unlink(path)
-    assert strict.endswith("10")             # ')' in col 73 dropped -> unbalanced
-    assert lenient.endswith("10)")           # lenient keeps the spilled ')'
+    assert strict.endswith("10")  # ')' in col 73 dropped -> unbalanced
+    assert lenient.endswith("10)")  # lenient keeps the spilled ')'
 
 
 # ---- DEC tab-format source lines (V5 2.2.2) + bare main program ------------
 def test_tab_formatted_source_lines():
     # <TAB>stmt = initial line; <TAB><digit> = continuation (the convention Adventure
     # uses). Built with real tabs so the reader must honor the tab field.
-    src = ("\tPROGRAM T\n\tIMPLICIT INTEGER(A-Z)\n\tCOMMON /OUT/ V(40)\n"
-           "\tV(1)=2\n\t1\t+3\n\tEND\n")               # the '\t1\t+3' line continues V(1)=2
+    src = (
+        "\tPROGRAM T\n\tIMPLICIT INTEGER(A-Z)\n\tCOMMON /OUT/ V(40)\n"
+        "\tV(1)=2\n\t1\t+3\n\tEND\n"
+    )  # the '\t1\t+3' line continues V(1)=2
     eng = run(src)
     assert out(eng, 1) == 5
 
 
 def test_tab_label_field():
     # label before the tab:  100<TAB>CONTINUE
-    src = ("\tPROGRAM T\n\tIMPLICIT INTEGER(A-Z)\n\tCOMMON /OUT/ V(40)\n"
-           "\tGOTO 100\n\tV(1)=9\n100\tV(1)=7\n\tEND\n")
+    src = (
+        "\tPROGRAM T\n\tIMPLICIT INTEGER(A-Z)\n\tCOMMON /OUT/ V(40)\n"
+        "\tGOTO 100\n\tV(1)=9\n100\tV(1)=7\n\tEND\n"
+    )
     assert out(run(src), 1) == 7
 
 
 def test_bare_main_program_without_program_statement():
     # the PROGRAM statement is optional (F66/FORTRAN-10); a file may start with the
     # main program body. The implicit main is named $MAIN.
-    src = ("        IMPLICIT INTEGER(A-Z)\n        COMMON /OUT/ V(40)\n"
-           "        V(1)=42\n        END\n")
+    src = (
+        "        IMPLICIT INTEGER(A-Z)\n        COMMON /OUT/ V(40)\n        V(1)=42\n        END\n"
+    )
     eng = run(src, program="$MAIN")
     assert out(eng, 1) == 42
 
@@ -178,6 +176,7 @@ def test_dialect_gates_dec_lexer_extensions():
     import pytest
     from f66.lexer import tokenize, LexError
     from f66.dialect import FORTRAN10, STRICT_F66
-    assert tokenize('"101', FORTRAN10)[0].kind == "OCTAL"      # DEC octal literal -> 65
+
+    assert tokenize('"101', FORTRAN10)[0].kind == "OCTAL"  # DEC octal literal -> 65
     with pytest.raises(LexError):
-        tokenize('"101', STRICT_F66)                           # not an ANSI F66 literal
+        tokenize('"101', STRICT_F66)  # not an ANSI F66 literal

@@ -18,14 +18,14 @@ are added as each is implemented.
 
 # mnemonic -> severity character (? = fatal, % = warning)
 SEVERITY = {
-    "NRC": "?",   # statement not recognized          (generic fatal default)
-    "FWE": "?",   # found X when expecting Y
-    "CQL": "?",   # no closing quote in literal
-    "IAC": "?",   # illegal ASCII character in source
-    "NEX": "?",   # no exponent after D or E constant
-    "NNF": "?",   # no statement number on FORMAT
-    "UMP": "?",   # unmatched parentheses
-    "LID": "%",   # identifier more than six characters (warning)
+    "NRC": "?",  # statement not recognized          (generic fatal default)
+    "FWE": "?",  # found X when expecting Y
+    "CQL": "?",  # no closing quote in literal
+    "IAC": "?",  # illegal ASCII character in source
+    "NEX": "?",  # no exponent after D or E constant
+    "NNF": "?",  # no statement number on FORMAT
+    "UMP": "?",  # unmatched parentheses
+    "LID": "%",  # identifier more than six characters (warning)
 }
 
 # canonical App-F message text for the parameterless mnemonics

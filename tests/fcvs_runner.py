@@ -47,11 +47,16 @@ def _run_one(path, target=PDP10, dialect=FORTRAN10):
     if errs:
         return ("gap", 0, 0)
 
-    listing = []                                   # the line-printer (LPT) buffer
-    eng = Engine({u.name: u for u in units}, emit=lambda s: None,
-                 readline=lambda: "", printer=listing.append, target=target)
-    install_runtime(eng)                           # STDLIB + FOROTS binary-I/O codec
-    eng.io[5] = {"recs": [], "pos": 0, "mode": "r"}   # I01 card reader (unused by audits)
+    listing = []  # the line-printer (LPT) buffer
+    eng = Engine(
+        {u.name: u for u in units},
+        emit=lambda s: None,
+        readline=lambda: "",
+        printer=listing.append,
+        target=target,
+    )
+    install_runtime(eng)  # STDLIB + FOROTS binary-I/O codec
+    eng.io[5] = {"recs": [], "pos": 0, "mode": "r"}  # I01 card reader (unused by audits)
     eng.max_steps = 50_000_000
     main = next((u.name for u in units if u.kind == "program"), None)
     if main is None:
@@ -73,33 +78,40 @@ def run_corpus(corpus_dir=CORPUS_DIR, target=PDP10, dialect=FORTRAN10):
     for path in sorted(glob.glob(os.path.join(corpus_dir, "FM*.FOR"))):
         name = os.path.basename(path)
         status, p, e = _run_one(path, target, dialect)
-        if status == "gap":                    # parse failure -> regression (curated F66)
+        if status == "gap":  # parse failure -> regression (curated F66)
             gap.append(name)
         else:
             run[name] = (p, e)
             total_pass += p
             total_err += e
             if p == 0 and e == 0:
-                nosummary.append(name)         # ran, but printed no PASS/ERR summary
+                nosummary.append(name)  # ran, but printed no PASS/ERR summary
     return {
-        "run": run, "gap": gap, "nosummary": nosummary,
-        "n_run": len(run), "n_gap": len(gap),
-        "total_pass": total_pass, "total_err": total_err,
+        "run": run,
+        "gap": gap,
+        "nosummary": nosummary,
+        "n_run": len(run),
+        "n_gap": len(gap),
+        "total_pass": total_pass,
+        "total_err": total_err,
     }
 
 
 def main(argv=None):
     import sys
+
     verbose = "--verbose" in (argv or sys.argv[1:])
     r = run_corpus()
-    print(f"FCVS F66 corpus: {r['n_run']} routines run, "
-          f"{r['n_gap']} parse-failure(s) (should be 0)")
+    print(
+        f"FCVS F66 corpus: {r['n_run']} routines run, {r['n_gap']} parse-failure(s) (should be 0)"
+    )
     print(f"  conformance TESTS PASSED: {r['total_pass']}")
-    print(f"  ERRORS ENCOUNTERED:       {r['total_err']}  "
-          f"(FM001 forces one FAIL by design: 'FORCE FAIL CODE TO BE EXECUTED')")
+    print(
+        f"  ERRORS ENCOUNTERED:       {r['total_err']}  "
+        f"(FM001 forces one FAIL by design: 'FORCE FAIL CODE TO BE EXECUTED')"
+    )
     if r["nosummary"]:
-        print(f"  ran w/o a PASS/ERR summary (print-and-eyeball FORMAT tests): "
-              f"{r['nosummary']}")
+        print(f"  ran w/o a PASS/ERR summary (print-and-eyeball FORMAT tests): {r['nosummary']}")
     if verbose:
         for name, (p, e) in sorted(r["run"].items()):
             flag = "  <-- FAIL" if e else ""
