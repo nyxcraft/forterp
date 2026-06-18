@@ -27,6 +27,7 @@ from f66.source import scan_file, expand_includes
 from f66.parser import parse_units
 from f66.engine import Engine, Frame, StopExecution
 from f66 import install_runtime
+from f66.target import PDP10
 
 
 CORPUS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fcvs")
@@ -43,7 +44,7 @@ def _has_char_decl(src):
                if l[:1] not in "Cc*!Dd/")           # skip comment/debug lines
 
 
-def _run_one(path):
+def _run_one(path, target=PDP10):
     """Run a single audit routine. Returns (status, passed, errors):
     status in {"run", "f77", "gap"}. passed/errors are 0 unless status=="run".
     Parse failures split into "f77" (CHARACTER -- beyond our F66+DEC target) and
@@ -57,7 +58,7 @@ def _run_one(path):
 
     listing = []                                   # the line-printer (LPT) buffer
     eng = Engine({u.name: u for u in units}, emit=lambda s: None,
-                 readline=lambda: "", printer=listing.append)
+                 readline=lambda: "", printer=listing.append, target=target)
     install_runtime(eng)                           # STDLIB + FOROTS binary-I/O codec
     eng.io[5] = {"recs": [], "pos": 0, "mode": "r"}   # I01 card reader (unused by audits)
     eng.max_steps = 50_000_000
@@ -73,14 +74,14 @@ def _run_one(path):
     return ("run", int(mp.group(1)) if mp else 0, int(me.group(1)) if me else 0)
 
 
-def run_corpus(corpus_dir=CORPUS_DIR):
+def run_corpus(corpus_dir=CORPUS_DIR, target=PDP10):
     """Run every FM*.FOR. Returns a dict with the aggregate + per-file detail."""
     run = {}
     f77, gap, nosummary = [], [], []
     total_pass = total_err = 0
     for path in sorted(glob.glob(os.path.join(corpus_dir, "FM*.FOR"))):
         name = os.path.basename(path)
-        status, p, e = _run_one(path)
+        status, p, e = _run_one(path, target)
         if status == "f77":
             f77.append(name)
         elif status == "gap":

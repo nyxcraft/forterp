@@ -8,19 +8,26 @@ someone modifying the interpreter, not someone writing FORTRAN.
 
 ## 1. What f66 is, and the one decision everything follows from
 
-`f66` is a **tree-walking interpreter** for FORTRAN-66 / DEC FORTRAN-10. It parses `.FOR`
-source to an AST and executes the AST directly — it does not compile to bytecode or
-transpile to Python. The design priority is **faithfulness**: run 1970s PDP-10 FORTRAN
-the way the machine ran it, quirks included, rather than the way a modern language would.
+`f66` is a **tree-walking interpreter** for FORTRAN-66. It parses `.FOR` source to an AST
+and executes the AST directly — it does not compile to bytecode or transpile to Python.
 
-That priority forces the load-bearing decision: **a real machine value model.** A word is
-a Python `int` held in *signed 36-bit two's-complement range*; `REAL` is a Python `float`,
-`COMPLEX` a Python `complex`. Character/Hollerith data is packed 5×7-bit per word and then
-read back as a *signed* 36-bit int (so character comparisons match PDP-10 `CAM`
-arithmetic). `.TRUE.` is −1, `.FALSE.` is 0, and "true" is tested as *sign-negative*.
+The load-bearing decision is that **the machine value model is pluggable**, owned by a
+`Target` the engine routes every value through: the integer word width and overflow, the
+logical-truth convention, and how characters pack into words. The core is
+representation-agnostic; a `Target` makes it concrete. Two ship:
 
-Everything else in the design is in service of running real code against that model
-without the model leaking into places it shouldn't.
+- **`NATIVE`** (the default) — a clean 64-bit host machine for running standard
+  FORTRAN-66: 64-bit two's-complement integers, 8-bit ASCII packed into words, `.TRUE.`=1
+  tested as *nonzero*, with *boolean* logical operators.
+- **`PDP10`** — a *faithful* DEC FORTRAN-10 model, whose priority is to run 1970s PDP-10
+  code the way the machine ran it, quirks included: a word is a *signed 36-bit
+  two's-complement* int, character/Hollerith data packs 5×7-bit per word and reads back as
+  a signed 36-bit int (so comparisons match PDP-10 `CAM` arithmetic), `.TRUE.` is −1 tested
+  as *sign-negative*, and `.AND./.OR.` are *bit-wise* on the word.
+
+In both, `REAL` is a Python `float` and `COMPLEX` a Python `complex`. Everything else in
+the design serves running real code against the chosen model without that model leaking
+into places it shouldn't — see §6 on the `Target` seam.
 
 ---
 
@@ -160,7 +167,7 @@ retargeted:
 
 | Seam | Mechanism | Default |
 |------|-----------|---------|
-| **Machine value model** | `Engine(target=…)`, a `Target` object; the engine routes its ~26 wrap/pack/truthy sites through `self.tgt` | `PDP10` (36-bit, 5 char/word, `.TRUE.`=−1) |
+| **Machine value model** | `Engine(target=…)`, a `Target` object; the engine routes its wrap / pack / truthy / logical sites through `self.tgt` | `NATIVE` (64-bit, 8-bit ASCII, boolean logicals) default; `PDP10` (36-bit, 5×7-bit, `.TRUE.`=−1, bit-wise) for faithfulness |
 | **Front-end dialect** | `Dialect` threaded through `scan_file`/`tokenize`/`parse_units` | `FORTRAN10` (DEC ext on) vs `STRICT_F66` |
 | **OPEN devices** | `eng.register_device(name, fn)`; the core knows only TTY + ordinary files | empty (games register e.g. `GAM:`) |
 | **Unformatted-I/O codec** | `eng.binio`, installed by `install_runtime`; engine calls `self._binio()` (clear error if absent) | `f66.forbin` (FOROTS records + DEC-10 float) |
@@ -188,12 +195,12 @@ Two distinct tables:
   `register_builtins`. These take `(eng, frame, arg_nodes)` so they can touch engine state
   and write back through references.
 
-> **Known wrinkle / open work (breakup step 4b):** the `INTRINSICS` table is still inline
-> in `engine.py` and uses the *module-level* PDP-10 `wrap36` (`INT`/`IFIX`/`NINT`/`LSH`),
-> so it is not yet `Target`-aware. Fully generalizing the core means making intrinsics
-> registrable and target-aware (the lambdas take `args`, not the engine/target). It's a
-> deliberate, delicate refactor left for its own session — see `package-breakup-plan` in
-> the memory archive.
+> **Target-awareness (done):** the integer-valued intrinsics now follow the engine's
+> `Target` — `_apply_intrinsic` re-applies `self.tgt.wrap` to `INT`/`IFIX`/`IDINT`/`NINT`
+> results, and `_lsh` takes the target (shift width from `tgt.mask`). The math/`C*`
+> intrinsics are pure value→value and target-neutral. Two minor PDP-10 pins remain, noted
+> in code: `parser.const_eval` packs a Hollerith-as-constant at *parse* time (no target in
+> scope), and `fmt._ofmt`'s `O` octal width uses a 36-bit mask.
 
 ---
 
@@ -224,4 +231,7 @@ hand back the `Engine` to inspect COMMON). Conformance is the **FCVS** corpus
 (`tests/fcvs/`, driven by `tests/fcvs_runner.py`): each audit routine is self-checking and
 prints a PASS/ERROR tally to the line printer, which the runner captures and parses. FCVS
 triage is **dynamic, by parse result** — a file that parses clean is run; one needing F77
-`CHARACTER` is kept but not run — never classified by keyword. 293 tests pass standalone.
+`CHARACTER` is kept but not run — never classified by keyword. The corpus is run under
+**both** targets: pinned to `PDP10` (the faithful target the unit suite asserts) and again
+under the default `NATIVE`, which produces the identical conformance aggregate. 300 tests
+pass standalone.

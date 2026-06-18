@@ -15,7 +15,8 @@ Quick start::
 
 Public API:
     Engine, Frame, StopExecution    -- the execution engine
-    Target, PDP10                   -- the machine value model (36-bit + SIXBIT default)
+    Target, PDP10, NATIVE           -- the machine value model (NATIVE 64-bit is the
+                                       default; PDP10 is the faithful 36-bit DEC target)
     Dialect, FORTRAN10, STRICT_F66  -- front-end dialect selection
     STDLIB                          -- the standard FORTRAN-10 intrinsic/library table
     install_runtime(eng)            -- wire the FORTRAN-10 runtime (STDLIB + FOROTS I/O)
@@ -24,7 +25,7 @@ Public API:
     run_source(text, ...)           -- parse + run a source string, return the Engine
 """
 from f66.engine import Engine, Frame, StopExecution
-from f66.target import Target, PDP10
+from f66.target import Target, PDP10, NATIVE
 from f66.dialect import Dialect, FORTRAN10, STRICT_F66
 from f66.forlib import STDLIB
 from f66 import forbin
@@ -32,7 +33,7 @@ from f66 import forbin
 __version__ = "0.1.0"
 
 __all__ = [
-    "Engine", "Frame", "StopExecution", "Target", "PDP10",
+    "Engine", "Frame", "StopExecution", "Target", "PDP10", "NATIVE",
     "Dialect", "FORTRAN10", "STRICT_F66", "STDLIB", "forbin",
     "install_runtime", "make_engine", "parse_source", "run_source",
 ]

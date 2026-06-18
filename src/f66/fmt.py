@@ -11,6 +11,8 @@ Edit descriptors supported (V5 Ch13, Table 13-1):
 
 from __future__ import annotations
 
+from f66.target import PDP10
+
 MASK36 = (1 << 36) - 1
 
 
@@ -169,7 +171,7 @@ class _Record:
         return "".join(self.chars)
 
 
-def render(items, values):
+def render(items, values, target=PDP10):
     """Render an output record list. Returns (text, suppress_newline).
 
     Implements V5 FORMAT control (13.2.2/13.2.10): when the I/O list outlasts the
@@ -208,7 +210,7 @@ def render(items, values):
                     stop = True
                     break
                 v = values[vi]; vi += 1
-                rec.emit(_render_one(k, it, v, scale))
+                rec.emit(_render_one(k, it, v, scale, target))
         if stop or vi >= n or vi == pass_start:
             break
         records.append(rec.text()); rec = _Record()   # reversion: new record
@@ -217,21 +219,21 @@ def render(items, values):
     return "\n".join(records), suppress
 
 
-def _render_one(k, it, v, scale):
+def _render_one(k, it, v, scale, target=PDP10):
     """Render one value under data descriptor `k` (with the current scale factor)."""
     dw, dd = _DEFAULTS[k]
     w = it.a if it.a is not None else dw
     d = it.b if it.b is not None else dd
     if k == "A":
-        return _afmt(v, w)
+        return _afmt(v, w, target)
     if k == "R":
-        return _rfmt(v, w)
+        return _rfmt(v, w, target)
     if k == "I":
         return _ifmt(int(v), w)
     if k == "O":
         return _ofmt(int(v), w)
     if k == "L":
-        return " " * (max(w, 1) - 1) + ("T" if int(v) < 0 else "F")
+        return " " * (max(w, 1) - 1) + ("T" if target.truthy(v) else "F")
     if k == "F":
         return _real(float(v) * (10.0 ** scale) if scale else float(v), w, d)
     if k in ("E", "D"):
@@ -243,18 +245,18 @@ def _render_one(k, it, v, scale):
     return ""
 
 
-def _afmt(v, w):
+def _afmt(v, w, target=PDP10):
     """A descriptor: w>=m -> m chars right-justified, blank-filled; w<m -> leftmost w."""
-    s = v if isinstance(v, str) else unpack_chars(v, w if w else 5)
+    s = v if isinstance(v, str) else target.unpack(v, w if w else target.chars_per_word)
     if w:
         s = s[-w:].rjust(w) if len(s) < w else s[:w]
     return s
 
 
-def _rfmt(v, w):
+def _rfmt(v, w, target=PDP10):
     """R descriptor: like A, but w<m takes the RIGHTMOST w chars (vs A's leftmost)."""
-    full = v if isinstance(v, str) else unpack_chars(v, 5)
-    w = w or 5
+    full = v if isinstance(v, str) else target.unpack(v, target.chars_per_word)
+    w = w or target.chars_per_word
     return full.rjust(w) if w >= len(full) else full[-w:]
 
 
@@ -358,7 +360,7 @@ def apply_carriage(text):
 
 
 # ---- input -----------------------------------------------------------------
-def read_values(items, line):
+def read_values(items, line, target=PDP10):
     """Parse `line` per the format; return a list of (kind, value) reads."""
     vals = []
     pos = 0
@@ -366,11 +368,10 @@ def read_values(items, line):
         if it.kind in ("A", "R"):
             if pos < len(line) and line[pos] == "\t":   # field separator from a prior
                 pos += 1                                  # numeric field (tab-delimited data)
-            w = it.a or (5 if it.kind == "A" else 5)
+            w = it.a or target.chars_per_word
             chunk = line[pos:pos + w]
             pos += w
-            from f66.parser import pack5
-            vals.append((it.kind, pack5(chunk.ljust(w))))
+            vals.append((it.kind, target.pack(chunk.ljust(w))))
         elif it.kind in ("I", "G"):
             tok, pos = _next_token(line, pos)
             try:

@@ -9,8 +9,10 @@ These numbers are the locked-in baseline; a change means real behavior moved.
 """
 
 from fcvs_runner import run_corpus
+from f66.target import NATIVE
 
 R = run_corpus()
+R_NATIVE = run_corpus(target=NATIVE)
 
 
 def test_f66_subset_size_is_stable():
@@ -52,3 +54,14 @@ def test_f77_corpus_is_kept_but_not_run():
     # beyond our F66+DEC target, so they are not executed.
     assert R["n_f77"] > 0
     assert "FM001.FOR" not in R["f77"]
+
+
+def test_native_target_runs_the_corpus_identically():
+    # The portable NATIVE target (the library default) runs the same ANSI F66 audit
+    # corpus with the identical aggregate -- standard-conformance assertions do not
+    # depend on PDP-10 quirks (36-bit wrap, .TRUE.=-1, 5x7-bit packing). This gives the
+    # DEFAULT target real, independent conformance coverage.
+    assert R_NATIVE["n_run"] == R["n_run"]
+    assert R_NATIVE["total_pass"] == R["total_pass"]
+    assert R_NATIVE["total_err"] == R["total_err"]
+    assert set(R_NATIVE["nosummary"]) == set(R["nosummary"])

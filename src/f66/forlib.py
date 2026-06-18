@@ -16,16 +16,17 @@ engine's FOROTS error state). Each has the builtin signature (eng, frame, arg_no
 
 from __future__ import annotations
 
-from f66.engine import wrap36, packword, StopExecution
+from f66.engine import StopExecution
 
 _MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun",
            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
 
-def _store_words(ref, text):
-    """Write `text` as consecutive packed-ASCII words (5 chars/word, left-justified)
+def _store_words(eng, ref, text):
+    """Write `text` as consecutive packed-ASCII words (chars_per_word, left-justified)
     into a target that may be a scalar ref (.write) or an array view (.loc(i))."""
-    words = [packword(text[i:i + 5].ljust(5)) for i in range(0, max(len(text), 1), 5)]
+    cw = eng.tgt.chars_per_word
+    words = [eng.tgt.pack(text[i:i + cw].ljust(cw)) for i in range(0, max(len(text), 1), cw)]
     if hasattr(ref, "loc"):                 # array argument (e.g. DATE's 2-word array)
         for i, w in enumerate(words):
             ref.loc(i).write(w)
@@ -54,14 +55,14 @@ def _fmt_time2(t):
 def b_TIME(eng, frame, n):
     """CALL TIME(X[,Y]) -- X gets 'hh:mm'; optional Y gets 'bss.t'."""
     t = eng.now()
-    _store_words(eng.arg_ref(n[0], frame), _fmt_time(t))
+    _store_words(eng, eng.arg_ref(n[0], frame), _fmt_time(t))
     if len(n) > 1:
-        _store_words(eng.arg_ref(n[1], frame), _fmt_time2(t))
+        _store_words(eng, eng.arg_ref(n[1], frame), _fmt_time2(t))
 
 
 def b_DATE(eng, frame, n):
     """CALL DATE(array) -- today's date as 'dd-mmm-yy', left-justified in 2 words."""
-    _store_words(eng.arg_ref(n[0], frame), _fmt_date(eng.now()))
+    _store_words(eng, eng.arg_ref(n[0], frame), _fmt_date(eng.now()))
 
 
 def b_EXIT(eng, frame, n):
@@ -73,9 +74,9 @@ def b_ERRSNS(eng, frame, n):
     """CALL ERRSNS(I[,J]) -- return the (first[,second]) status code of the last
     I/O operation (V5 App H Table H-1). The second argument is optional."""
     first, second = eng.last_io_error
-    eng.arg_ref(n[0], frame).write(wrap36(int(first)))
+    eng.arg_ref(n[0], frame).write(eng.tgt.wrap(int(first)))
     if len(n) > 1:
-        eng.arg_ref(n[1], frame).write(wrap36(int(second)))
+        eng.arg_ref(n[1], frame).write(eng.tgt.wrap(int(second)))
 
 
 def b_ERRSET(eng, frame, n):

@@ -1,0 +1,53 @@
+"""The portable NATIVE target -- the library default. Standard FORTRAN-66 on a clean
+64-bit host machine: 64-bit two's-complement integers, .TRUE.=1 with BOOLEAN logical
+operators, and 8-bit ASCII packed into integers. These check the three value-model axes
+where NATIVE deliberately differs from the faithful PDP-10 target (which the rest of the
+suite validates). Broad conformance under NATIVE is covered by the FCVS corpus run
+(test_fcvs_conformance.test_native_target_runs_the_corpus_identically)."""
+
+from f66.target import PDP10, NATIVE
+from conftest import run_int, out
+
+
+# ---- axis 1: integers are 64-bit, not 36-bit -------------------------------------
+def test_native_wrap_is_64bit():
+    assert NATIVE.wrap(2**63 - 1) == 2**63 - 1
+    assert NATIVE.wrap(2**63) == -(2**63)            # two's-complement wrap at 64 bits
+    assert NATIVE.wrap(2**40) == 2**40               # no 36-bit wrap ...
+    assert PDP10.wrap(2**40) != 2**40                # ... which PDP-10 does
+
+
+def test_native_program_no_36bit_overflow():
+    # 1_000_000 * 1_000_000 = 1e12 overflows 36 bits (PDP-10 wraps negative) but fits 64.
+    body = "        V(1) = 1000000 * 1000000\n"
+    assert out(run_int(body, target=NATIVE), 1) == 1_000_000_000_000
+    assert out(run_int(body, target=PDP10), 1) != 1_000_000_000_000   # PDP-10 wraps
+
+
+# ---- axis 2: logicals are 1/0 with boolean (not bitwise) operators ---------------
+def test_native_logical_values_and_ops():
+    assert NATIVE.from_bool(True) == 1 and NATIVE.from_bool(False) == 0
+    assert NATIVE.truthy(1) and NATIVE.truthy(5) and not NATIVE.truthy(0)
+    assert NATIVE.lnot(1) == 0 and NATIVE.lnot(0) == 1
+    assert NATIVE.land(1, 0) == 0 and NATIVE.lor(0, 1) == 1
+
+
+def test_native_program_true_is_one():
+    # a relational result stored into an integer slot: NATIVE 1, PDP-10 -1.
+    body = "        V(1) = (3 .GT. 2)\n"
+    assert out(run_int(body, target=NATIVE), 1) == 1
+    assert out(run_int(body, target=PDP10), 1) == -1
+
+
+# ---- axis 3: 8-bit ASCII packed into integers ------------------------------------
+def test_native_char_8bit_roundtrip():
+    assert NATIVE.unpack(NATIVE.pack("Hi!"), 3) == "Hi!"
+    # an 8th-bit (high) byte survives under NATIVE; PDP-10's 7 bits mask it away.
+    assert NATIVE.unpack(NATIVE.pack(chr(0xC9)), 1) == chr(0xC9)
+    assert PDP10.unpack(PDP10.pack(chr(0xC9)), 1) == chr(0xC9 & 0x7F)
+
+
+def test_native_char_comparison_is_ascii_monotonic():
+    # packed chars compare in ASCII order (left-justified big-endian), like PDP-10.
+    assert NATIVE.pack("A") < NATIVE.pack("B")
+    assert NATIVE.pack("AA") < NATIVE.pack("AB")

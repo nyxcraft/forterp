@@ -3,6 +3,7 @@
 from f66.engine import wrap36, trunc_div, fort_mod, packword, linidx, _lsh
 from f66.parser import pack5
 from f66.fmt import unpack_chars
+from f66.target import PDP10
 
 WORD = 1 << 36
 P35 = 1 << 35
@@ -52,17 +53,17 @@ def test_fort_mod_real():
 
 # ---- LSH: logical (unsigned) shift of a 36-bit word ----
 def test_lsh_left_right():
-    assert _lsh(1, 4) == 16
-    assert _lsh(16, -4) == 1
-    assert _lsh(0o777, 0) == 0o777
+    assert _lsh(PDP10, 1, 4) == 16
+    assert _lsh(PDP10, 16, -4) == 1
+    assert _lsh(PDP10, 0o777, 0) == 0o777
 
 def test_lsh_into_sign_bit():
-    assert _lsh(1, 35) == -P35                   # shifted into the sign bit
+    assert _lsh(PDP10, 1, 35) == -P35            # shifted into the sign bit
 
 def test_lsh_right_is_logical_not_arithmetic():
     # -1 is all 36 ones; a logical >>1 fills with 0 -> 2^35-1, not -1
-    assert _lsh(-1, -1) == P35 - 1
-    assert _lsh(-P35, -35) == 1
+    assert _lsh(PDP10, -1, -1) == P35 - 1
+    assert _lsh(PDP10, -P35, -35) == 1
 
 
 # ---- packed ASCII (7-bit, left-justified, blank-padded, signed) ----

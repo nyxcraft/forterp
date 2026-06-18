@@ -20,8 +20,7 @@ import cmath
 import math
 
 from f66 import ast_nodes as A
-from f66.parser import pack5
-from f66.target import Target, PDP10
+from f66.target import Target, PDP10, NATIVE
 
 # The default target's value model (see target.py), re-exported as module-level names:
 # forlib, the intrinsics table, the empire builtins and tests import these. The Engine
@@ -270,7 +269,7 @@ class Engine:
     def __init__(self, units: dict, root=".", emit=None, getch=None,
                  readline=None, printer=None, target=None, binio=None):
         import random
-        self.tgt = target if target is not None else PDP10   # the machine value model
+        self.tgt = target if target is not None else NATIVE  # default value model (portable)
         self.binio = binio          # unformatted-I/O codec (FOROTS); injected by the runtime
         self.units = units
         self.commons = {}           # block -> list (flat store)
@@ -335,7 +334,7 @@ class Engine:
         (self._printer or self.emit)(s)
 
     def seed_rng(self, n):
-        self.rng.seed(n & MASK36)
+        self.rng.seed(n & self.tgt.mask)
 
     def register_builtins(self, table):
         self.builtins.update(table)
@@ -484,9 +483,10 @@ class Engine:
             for count, v in values:
                 # a literal longer than one word (5 chars) spans consecutive
                 # variables/elements: 'ABCDEFGHIJKL' -> 'ABCDE','FGHIJ','KL   '
-                if isinstance(v, A.StrLit) and len(v.value) > 5:
-                    words = [self.tgt.pack(v.value[i:i + 5])
-                             for i in range(0, len(v.value), 5)]
+                if isinstance(v, A.StrLit) and len(v.value) > self.tgt.chars_per_word:
+                    cw = self.tgt.chars_per_word
+                    words = [self.tgt.pack(v.value[i:i + cw])
+                             for i in range(0, len(v.value), cw)]
                     flat.extend(words * count)
                 else:
                     flat.extend([self._const_val(v, unit)] * count)
@@ -496,7 +496,7 @@ class Engine:
 
     def _const_val(self, v, unit):
         if isinstance(v, bool):                   # .TRUE./.FALSE. in DATA; bool is an
-            return -1 if v else 0                 # int subclass, so test it FIRST.
+            return self.tgt.from_bool(v)          # int subclass, so test it FIRST.
         if isinstance(v, A.StrLit):               # FORTRAN-10: .TRUE.=-1, .FALSE.=0
             return self.tgt.pack(v.value)
         if isinstance(v, A.Complex):              # complex constant in DATA
@@ -603,7 +603,7 @@ class Engine:
         if t is A.StrLit:
             return self.tgt.pack(node.value)
         if t is A.LogicalLit:
-            return -1 if node.value else 0      # FORTRAN-10 .TRUE.=-1, .FALSE.=0
+            return self.tgt.from_bool(node.value)   # FORTRAN-10 .TRUE.=-1, .FALSE.=0
         if t is A.Var:
             return self.eval_var(node.name, frame)
         if t is A.Ref:
@@ -611,7 +611,7 @@ class Engine:
         if t is A.Unary:
             v = self.eval(node.operand, frame)
             if node.op == "NOT":
-                return self.tgt.wrap(~int(v))          # .NOT. = bitwise complement (36-bit)
+                return self.tgt.lnot(v)                 # PDP-10: bitwise complement (36-bit)
             if node.op == "-":
                 return self.tgt.wrap(-v) if isinstance(v, int) else -v
             return v
@@ -701,41 +701,45 @@ class Engine:
         value isn't specified in the V5 manual, so this is a documented
         approximation -- same class as REAL=Python double. The game triggers none
         of these (it calls no SQRT/LOG/ASIN/ACOS)."""
+        if name == "LSH":                  # PDP-10 logical word shift: width from the target
+            return _lsh(self.tgt, args[0], args[1])
         try:
-            return INTRINSICS[name](args)
+            r = INTRINSICS[name](args)
         except ValueError:                 # math domain error (negative / out of range)
-            if name in _LIB_MSG:
-                self._lib_warn(_LIB_MSG[name])
-                return _LIB_RECOVER[name](args)
-            raise
+            if name not in _LIB_MSG:
+                raise
+            self._lib_warn(_LIB_MSG[name])
+            r = _LIB_RECOVER[name](args)
         except OverflowError:              # APR floating overflow (e.g. EXP of large arg)
             self._lib_warn("Floating Overflow")
             return math.inf if (args and args[0] > 0) else -math.inf
+        # INT-family conversions take the target's integer wrap (PDP-10: 36-bit 2's-comp)
+        return self.tgt.wrap(int(r)) if name in _INT_RESULT else r
 
     def eval_binary(self, node, frame):
         op = node.op
-        # FORTRAN-10 logical operators are BITWISE on the full 36-bit word (Ch 4,
-        # p4-7), not boolean. Operands are -1/0 for logical/relational results.
+        # Logical connectives go through the target: PDP-10 acts BITWISE on the full
+        # 36-bit word (Ch 4, p4-7, operands -1/0); a portable target is boolean.
         if op == "AND":
-            return self.tgt.wrap(int(self.eval(node.left, frame)) & int(self.eval(node.right, frame)))
+            return self.tgt.land(self.eval(node.left, frame), self.eval(node.right, frame))
         if op == "OR":
-            return self.tgt.wrap(int(self.eval(node.left, frame)) | int(self.eval(node.right, frame)))
+            return self.tgt.lor(self.eval(node.left, frame), self.eval(node.right, frame))
         if op in ("XOR", "NEQV"):
-            return self.tgt.wrap(int(self.eval(node.left, frame)) ^ int(self.eval(node.right, frame)))
+            return self.tgt.lxor(self.eval(node.left, frame), self.eval(node.right, frame))
         if op == "EQV":
-            return self.tgt.wrap(~(int(self.eval(node.left, frame)) ^ int(self.eval(node.right, frame))))
+            return self.tgt.leqv(self.eval(node.left, frame), self.eval(node.right, frame))
         a = self.eval(node.left, frame)
         b = self.eval(node.right, frame)
         cx = isinstance(a, complex) or isinstance(b, complex)
-        # relational results are FORTRAN logicals: .TRUE.=-1, .FALSE.=0
-        if op == "EQ": return -1 if a == b else 0
-        if op == "NE": return -1 if a != b else 0
+        # relational results are FORTRAN logicals (target's convention: PDP-10 -1/0)
+        if op == "EQ": return self.tgt.from_bool(a == b)
+        if op == "NE": return self.tgt.from_bool(a != b)
         if op in ("LT", "LE", "GT", "GE") and cx:
-            return 0                              # V5 CTR: complex .LT./.GT./... undefined
-        if op == "LT": return -1 if a < b else 0
-        if op == "LE": return -1 if a <= b else 0
-        if op == "GT": return -1 if a > b else 0
-        if op == "GE": return -1 if a >= b else 0
+            return self.tgt.from_bool(False)      # V5 CTR: complex .LT./.GT./... undefined
+        if op == "LT": return self.tgt.from_bool(a < b)
+        if op == "LE": return self.tgt.from_bool(a <= b)
+        if op == "GT": return self.tgt.from_bool(a > b)
+        if op == "GE": return self.tgt.from_bool(a >= b)
         fl = isinstance(a, float) or isinstance(b, float)
         if op == "+": return a + b if (fl or cx) else self.tgt.wrap(a + b)
         if op == "-": return a - b if (fl or cx) else self.tgt.wrap(a - b)
@@ -1041,8 +1045,7 @@ class Engine:
                 out.append(v)
         return out
 
-    @staticmethod
-    def _ld_in(line, refs):
+    def _ld_in(self, line, refs):
         """List-directed input: split on blanks/commas, convert by token form."""
         import re
         toks = [t for t in re.split(r"[ ,\t]+", line.strip()) if t]
@@ -1053,7 +1056,7 @@ class Engine:
                 try:
                     v = float(tok)
                 except ValueError:
-                    v = pack5(tok)               # non-numeric -> packed char
+                    v = self.tgt.pack(tok)       # non-numeric -> packed char
             ref.write(v)
 
     def do_type(self, s, frame):
@@ -1068,7 +1071,7 @@ class Engine:
             return
         spec = frame.rt.unit.formats.get(s.fmt)
         items = parse_format(spec) if spec else []
-        text, suppress = render(items, self._cx_expand(values))   # complex -> 2 reals
+        text, suppress = render(items, self._cx_expand(values), self.tgt)   # complex -> 2 reals
         text = apply_carriage(text)
         if not suppress:
             text += "\n"
@@ -1094,7 +1097,7 @@ class Engine:
             return
         spec = frame.rt.unit.formats.get(s.fmt)
         items = parse_format(spec) if spec else []
-        reads = read_values(items, line)
+        reads = read_values(items, line, self.tgt)
         self._assign_reads(s.items, reads, frame)   # COMPLEX consumes 2 real fields
 
     def do_encdec(self, s, frame):
@@ -1102,28 +1105,29 @@ class Engine:
         ENCODE renders the list per the FORMAT into the buffer; DECODE parses the
         buffer per the FORMAT into the list. No carriage control (it's not a record
         to a device) -- render() output goes straight to the buffer."""
-        from f66.fmt import parse_format, render, read_values, unpack_chars
+        from f66.fmt import parse_format, render, read_values
         count = int(self.eval(s.count, frame))
         spec = frame.rt.unit.formats.get(s.fmt) if s.fmt != "*" else None
         items = parse_format(spec) if spec else []
         buf = self.arg_ref(s.buf, frame)
+        cw = self.tgt.chars_per_word
         if s.decode:
-            nwords = (count + 4) // 5
-            chunks = [unpack_chars(buf.loc(i).read() if hasattr(buf, "loc")
-                                   else (buf.read() if i == 0 else 0), 5)
+            nwords = (count + cw - 1) // cw
+            chunks = [self.tgt.unpack(buf.loc(i).read() if hasattr(buf, "loc")
+                                      else (buf.read() if i == 0 else 0), cw)
                       for i in range(nwords)]
             text = "".join(chunks)[:count]
             refs = self._unf_refs(s.items, frame)
             if s.fmt == "*":
                 self._ld_in(text, refs)
             else:
-                for ref, (_, v) in zip(refs, read_values(items, text)):
+                for ref, (_, v) in zip(refs, read_values(items, text, self.tgt)):
                     ref.write(v)
         else:
             values = self._unf_values(s.items, frame)
-            text = (self._ld_out(values) if s.fmt == "*" else render(items, values)[0])
+            text = (self._ld_out(values) if s.fmt == "*" else render(items, values, self.tgt)[0])
             text = text[:count].ljust(count)               # fill the buffer to `count`
-            words = [self.tgt.pack(text[i:i + 5].ljust(5)) for i in range(0, count, 5)]
+            words = [self.tgt.pack(text[i:i + cw].ljust(cw)) for i in range(0, count, cw)]
             if hasattr(buf, "loc"):
                 for i, w in enumerate(words):
                     buf.loc(i).write(w)
@@ -1205,20 +1209,19 @@ class Engine:
         for ref, v in zip(refs, vals):
             ref.write(v)
 
-    @staticmethod
-    def _nml_const(tok):
+    def _nml_const(self, tok):
         t = tok.strip().upper()
         if t in ("T", ".TRUE."):
-            return -1                            # logical .TRUE. = -1
+            return self.tgt.from_bool(True)      # logical .TRUE.
         if t in ("F", ".FALSE."):
-            return 0
+            return self.tgt.from_bool(False)
         try:
-            return wrap36(int(t))                # staticmethod: module-level (PDP-10) wrap
+            return self.tgt.wrap(int(t))
         except ValueError:
             try:
                 return float(t)
             except ValueError:
-                return pack5(tok.strip())        # character constant
+                return self.tgt.pack(tok.strip())   # character constant
 
     def _formatted_write(self, s, frame, sink=None):
         """Formatted WRITE(unit,fmt) to a character device. `sink` is where the
@@ -1231,7 +1234,7 @@ class Engine:
             return
         spec = frame.rt.unit.formats.get(s.fmt)
         items = parse_format(spec) if spec else []
-        text, suppress = render(items, self._cx_expand(values))   # complex -> 2 reals
+        text, suppress = render(items, self._cx_expand(values), self.tgt)   # complex -> 2 reals
         text = apply_carriage(text)
         if not suppress:
             text += "\n"
@@ -1289,7 +1292,7 @@ class Engine:
                 recs[rec - 1] = self._binio().encode_record(self._bin_words(s.items, frame))
             elif items is not None:                             # formatted -> text record
                 vals = self._cx_expand(self._unf_values(s.items, frame))
-                recs[rec - 1] = render(items, vals)[0]
+                recs[rec - 1] = render(items, vals, self.tgt)[0]
             else:
                 recs[rec - 1] = self._unf_values(s.items, frame)
             st["pos"] = rec
@@ -1300,7 +1303,7 @@ class Engine:
             if binmode and isinstance(cell, list):
                 self._assign_words(s.items, self._binio().decode_record(cell, 0)[0], frame)
             elif items is not None and isinstance(cell, str):
-                self._assign_reads(s.items, read_values(items, cell), frame)
+                self._assign_reads(s.items, read_values(items, cell, self.tgt), frame)
             else:
                 for ref, w in zip(self._unf_refs(s.items, frame), cell):
                     ref.write(w)
@@ -1384,13 +1387,12 @@ class Engine:
         specs = s.specs
         unit = self._spec(specs.get("UNIT", 1), frame)
         if s.verb == "OPEN":
-            from f66.fmt import unpack_chars
             dev = specs.get("DEVICE")
             if isinstance(dev, str) or dev is None:
                 devname = dev or ""
             else:
                 dv = self.eval(dev, frame)
-                devname = (unpack_chars(dv, 5).strip() if isinstance(dv, int)
+                devname = (self.tgt.unpack(dv, self.tgt.chars_per_word).strip() if isinstance(dv, int)
                            else str(dv).strip())
             access = specs.get("ACCESS")
             assoc = specs.get("ASSOCIATEVARIABLE")
@@ -1484,7 +1486,7 @@ class Engine:
         else:
             spec = frame.rt.unit.formats.get(s.fmt)
             items = parse_format(spec) if spec else []
-            self._assign_reads(s.items, read_values(items, line), frame)
+            self._assign_reads(s.items, read_values(items, line, self.tgt), frame)
         self.last_io_error = (0, 0)
         return None
 
@@ -1603,11 +1605,17 @@ class Engine:
         return str(v)
 
 
-def _lsh(v, n):
-    """PDP-10 LSH: logical (unsigned) shift of a 36-bit word; n<0 shifts right."""
-    u = int(v) & MASK36
-    u = (u << n) & MASK36 if n >= 0 else u >> (-n)
-    return wrap36(u)
+def _lsh(tgt, v, n):
+    """Logical (unsigned) word shift; n<0 shifts right. The word width is the
+    target's (PDP-10: 36-bit two's-complement); a target with no fixed width
+    (mask falsy) does an unmasked Python shift."""
+    u = int(v)
+    if tgt.mask:
+        u &= tgt.mask
+    u = (u << n) if n >= 0 else (u >> -n)
+    if tgt.mask:
+        u &= tgt.mask
+    return tgt.wrap(u)
 
 
 def _anint(x):                         # round to nearest whole, halves away from zero
@@ -1650,13 +1658,15 @@ _LIB_RECOVER = {
 }
 
 
+_INT_RESULT = frozenset({"INT", "IFIX", "IDINT", "NINT"})   # results take the target's integer wrap
+
 INTRINSICS = {
     # ---- DEC / Empire ----
-    "LSH": lambda a: _lsh(a[0], a[1]),
-    # ---- type conversion ----
-    "INT": lambda a: wrap36(int(a[0])),
-    "IFIX": lambda a: wrap36(int(a[0])),
-    "IDINT": lambda a: wrap36(int(a[0])),
+    "LSH": lambda a: _lsh(PDP10, a[0], a[1]),   # width-dependent; _apply_intrinsic re-routes via self.tgt
+    # ---- type conversion (INT-family wrap applied target-aware in _apply_intrinsic) ----
+    "INT": lambda a: int(a[0]),
+    "IFIX": lambda a: int(a[0]),
+    "IDINT": lambda a: int(a[0]),
     "FLOAT": lambda a: float(a[0]),
     "FLOATR": lambda a: float(a[0]),
     "SNGL": lambda a: float(a[0]),
@@ -1676,7 +1686,7 @@ INTRINSICS = {
     "DBLE": lambda a: float(a[0]),
     "AINT": lambda a: float(int(a[0])),                 # truncate toward zero
     "ANINT": lambda a: _anint(a[0]),
-    "NINT": lambda a: wrap36(int(_anint(a[0]))),
+    "NINT": lambda a: int(_anint(a[0])),
     # ---- absolute value / sign / difference ----
     "ABS": lambda a: abs(a[0]),
     "IABS": lambda a: abs(int(a[0])),

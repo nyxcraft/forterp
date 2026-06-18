@@ -18,10 +18,11 @@ from f66.parser import parse_units
 from f66.engine import Engine, Frame, StopExecution
 
 
-def run(src, program="T", inputs=None, setup=None):
+def run(src, program="T", inputs=None, setup=None, target=None):
     """Compile+run a FORTRAN snippet; return the Engine. Raises on parse error.
     `inputs` is an optional list of lines fed to READ/ACCEPT (one per call).
-    `setup(eng)` is an optional hook to tweak the engine before the program runs."""
+    `setup(eng)` is an optional hook to tweak the engine before the program runs.
+    `target` selects the value model; defaults to PDP10 (the unit suite asserts it)."""
     with tempfile.NamedTemporaryFile("w", suffix=".FOR", delete=False) as f:
         f.write(src)
         path = f.name
@@ -35,7 +36,8 @@ def run(src, program="T", inputs=None, setup=None):
         feed = iter(inputs or [])
         rl = (lambda: next(feed, "")) if inputs is not None else None
         printout = []                          # line-printer (LPT) capture buffer
-        eng = Engine({u.name: u for u in units}, readline=rl, printer=printout.append)
+        eng = Engine({u.name: u for u in units}, readline=rl, printer=printout.append,
+                     target=target or f66.PDP10)  # default: validate the PDP-10 target
         eng.printout = printout                # tests read it via printed(eng)
         f66.install_runtime(eng)               # STDLIB + FOROTS binary-I/O codec
         if setup is not None:
@@ -64,6 +66,6 @@ HEAD = "        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n        COMMON /OUT/ V
 TAIL = "        END\n"
 
 
-def run_int(body):
+def run_int(body, target=None):
     """Run an integer program: HEAD + body (assignments to V(n)) + END."""
-    return run(HEAD + body + TAIL)
+    return run(HEAD + body + TAIL, target=target)

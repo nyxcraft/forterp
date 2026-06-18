@@ -46,10 +46,13 @@ Fixed-form, card-image, 72 columns significant:
 **[DEC] Octal constants**: `"777`, or `O"777` / `"777` in data contexts — a literal in
 base 8, stored as a 36-bit value. Used heavily for bit masks.
 
-**The 36-bit value model.** Integers are 36-bit two's-complement (`.TRUE.` is the
-all-relevant-bits value −1; `.FALSE.` is 0). Characters pack 5 seven-bit ASCII per word
-(or 6 SIXBIT). This representation is configurable through `f66.Target`; `f66.PDP10` is
-the default.
+**The value model is configurable** through `f66.Target`. The default, `f66.NATIVE`, is
+a portable 64-bit host machine (64-bit two's-complement integers, 8-bit ASCII, `.TRUE.`=1
+with boolean logicals) for running standard FORTRAN-66. The **36-bit PDP-10 model** —
+integers 36-bit two's-complement (`.TRUE.` the all-bits value −1, `.FALSE.` 0), characters
+packed 5 seven-bit ASCII per word, `.AND./.OR.` bit-wise on the word — is `f66.PDP10`,
+selected with `Engine(..., target=f66.PDP10)`. The constant forms above (octal, Hollerith)
+are the same in either; only the stored representation differs.
 
 ---
 
@@ -215,12 +218,17 @@ the format, control reverts to the last open group.
 
 ## 8. Where DEC FORTRAN-10 diverges from ANSI X3.9-1966
 
-The features tagged **[DEC]** above are the practical divergences `pyf66` carries by
-default (octal/Hollerith literals, `!` and quoted FORMAT text, tab-format source,
-`IMPLICIT`, `ENTRY`, `.XOR.`/`.EQV.`, the bit intrinsics, `ACCEPT`/`TYPE`/`PRINT`,
-random-access I/O, `ENCODE`/`DECODE`). The 36-bit word size, `.TRUE.` = −1, and the
-character packing are properties of the **target** (`f66.PDP10`) rather than the
-language, and are likewise configurable.
+The features tagged **[DEC]** above are front-end **dialect** divergences (octal/Hollerith
+literals, `!` and quoted FORMAT text, tab-format source, `IMPLICIT`, `ENTRY`,
+`.XOR.`/`.EQV.`, the bit intrinsics, `ACCEPT`/`TYPE`/`PRINT`, random-access I/O,
+`ENCODE`/`DECODE`). The dialect is selected independently of the target and still defaults
+to `FORTRAN10` (these extensions on); set `f66.STRICT_F66` for ANSI.
+
+The 36-bit word size, `.TRUE.` = −1, and the 5×7-bit character packing are properties of
+the **target**, not the language — they belong to `f66.PDP10`. The default target is
+`f66.NATIVE`, a portable 64-bit model (`.TRUE.`=1, boolean logicals). Target and dialect
+are orthogonal: you can run the ANSI dialect on the PDP-10 target, or the DEC dialect on
+NATIVE.
 
 For anything not covered here, the ANSI X3.9-1966 standard is authoritative for the
 base language, and the DECsystem-10 FORTRAN-10 Language Manual (V5) for the extensions.
