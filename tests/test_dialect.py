@@ -6,15 +6,17 @@ correctly do NOT parse -- a regression here would mean we drifted toward F77.
 """
 
 from conftest import run, run_int, out
+from f66.dialect import STRICT_F66
 
 H = "        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n        COMMON /OUT/ V(40)\n"
 END = "        END\n"
 
 
-def _rejected(src):
-    """True if the snippet fails to parse (raises from the harness)."""
+def _rejected(src, **kw):
+    """True if the snippet fails to parse/run (raises from the harness). Extra kwargs
+    (e.g. dialect=) pass through to run()."""
     try:
-        run(src)
+        run(src, **kw)
         return False
     except Exception:
         return True
@@ -60,3 +62,17 @@ def test_double_star_is_power_synonym_for_caret():
     assert out(run_int("        V(1)=2**10\n"), 1) == 1024
     assert out(run_int("        V(1)=2**3*2\n"), 1) == 16     # binds tighter than *
     assert out(run_int("        V(1)=2^10\n"), 1) == 1024     # ^ still works
+
+
+# ---- the dialect AXIS: the same source under FORTRAN10 vs STRICT_F66 ----
+def test_dec_octal_literal_is_gated_by_the_dialect():
+    # "nnn is a DEC octal literal under FORTRAN-10 (-> 511); ANSI F66 has no such form,
+    # so STRICT_F66 rejects the SAME source. Exercises the dialect axis through the harness.
+    assert out(run_int('        V(1) = "777\n'), 1) == 511                 # FORTRAN10 (default)
+    assert _rejected(H + '        V(1) = "777\n' + END, dialect=STRICT_F66)  # ANSI: no octal-"
+
+
+def test_strict_f66_still_runs_plain_ansi_source():
+    # ... while ordinary ANSI F66 (no DEC features) runs the same under STRICT_F66.
+    src = H + "        V(1) = 6 * 7\n" + END
+    assert out(run(src, dialect=STRICT_F66), 1) == 42

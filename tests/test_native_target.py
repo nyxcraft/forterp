@@ -5,8 +5,18 @@ where NATIVE deliberately differs from the faithful PDP-10 target (which the res
 suite validates). Broad conformance under NATIVE is covered by the FCVS corpus run
 (test_fcvs_conformance.test_native_target_runs_the_corpus_identically)."""
 
+import f66
+from f66 import fmt
 from f66.target import PDP10, NATIVE
 from conftest import run, run_int, out
+
+
+# ---- the library default IS NATIVE (the headline of the value-model work) --------
+def test_library_default_target_is_native():
+    # `import f66; run_source(...)` must use NATIVE, not the PDP-10 quirk model. Checked
+    # via the public API (conftest pins PDP10 for the unit suite, so it can't see this).
+    assert f66.Engine({}).tgt is f66.NATIVE
+    assert f66.run_source("      PROGRAM T\n      END\n").tgt is f66.NATIVE
 
 
 # ---- axis 1: integers are 64-bit, not 36-bit -------------------------------------
@@ -61,3 +71,25 @@ def test_native_hollerith_parameter_matches_literal():
            "        V(1) = 0\n        IF (C .EQ. 'X') V(1) = 1\n        END\n")
     assert out(run(src, target=NATIVE), 1) == 1
     assert out(run(src, target=PDP10), 1) == 1
+
+
+# ---- step 1: INT-family + LSH intrinsics follow the engine's target --------------
+def test_native_int_and_lsh_intrinsics_follow_target():
+    # INT() and LSH() wrap in the target's word: INT(2.0**40) and LSH(1,40) keep full
+    # width on NATIVE (64-bit) but vanish to 0 on PDP-10 (2**40 is a multiple of 2**36).
+    for body in ("        V(1) = INT(2.0E0 ** 40)\n", "        V(1) = LSH(1, 40)\n"):
+        assert out(run_int(body, target=NATIVE), 1) == 2**40
+        assert out(run_int(body, target=PDP10), 1) == 0
+
+
+# ---- step 2: .EQV./.XOR. are boolean (not bitwise) under NATIVE ------------------
+def test_native_eqv_xor_are_boolean():
+    assert NATIVE.lxor(1, 0) == 1 and NATIVE.lxor(1, 1) == 0
+    assert NATIVE.leqv(1, 1) == 1 and NATIVE.leqv(1, 0) == 0
+
+
+# ---- pin fix: the O (octal) descriptor width follows the target word -------------
+def test_native_o_format_width_follows_target():
+    items = fmt.parse_format("(O24)")
+    assert fmt.render(items, [-1], PDP10)[0] == "000000000000777777777777"    # 36-bit word
+    assert fmt.render(items, [-1], NATIVE)[0] == "001777777777777777777777"   # 64-bit word

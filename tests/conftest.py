@@ -18,18 +18,21 @@ from f66.parser import parse_units
 from f66.engine import Engine, Frame, StopExecution
 
 
-def run(src, program="T", inputs=None, setup=None, target=None):
+def run(src, program="T", inputs=None, setup=None, target=None, dialect=None):
     """Compile+run a FORTRAN snippet; return the Engine. Raises on parse error.
     `inputs` is an optional list of lines fed to READ/ACCEPT (one per call).
     `setup(eng)` is an optional hook to tweak the engine before the program runs.
-    `target` selects the value model; defaults to PDP10 (the unit suite asserts it)."""
+    `target` selects the value model; defaults to PDP10 (the unit suite asserts it).
+    `dialect` selects the front-end; defaults to FORTRAN10 (DEC extensions on)."""
+    dlc = dialect or f66.FORTRAN10
     with tempfile.NamedTemporaryFile("w", suffix=".FOR", delete=False) as f:
         f.write(src)
         path = f.name
     try:
-        stmts = expand_includes(scan_file(path).statements, os.path.dirname(path))
+        stmts = expand_includes(scan_file(path, dialect=dlc).statements, os.path.dirname(path))
         errs = []
-        units = parse_units(stmts, on_error=lambda st, m: errs.append((st.line, m, st.text)))
+        units = parse_units(stmts, dialect=dlc,
+                            on_error=lambda st, m: errs.append((st.line, m, st.text)))
         if errs:
             raise AssertionError("parse errors: " + "; ".join(f"L{l}: {m} | {t}"
                                                               for l, m, t in errs))
@@ -66,6 +69,6 @@ HEAD = "        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n        COMMON /OUT/ V
 TAIL = "        END\n"
 
 
-def run_int(body, target=None):
+def run_int(body, target=None, dialect=None):
     """Run an integer program: HEAD + body (assignments to V(n)) + END."""
-    return run(HEAD + body + TAIL, target=target)
+    return run(HEAD + body + TAIL, target=target, dialect=dialect)

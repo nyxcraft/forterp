@@ -28,6 +28,7 @@ from f66.parser import parse_units
 from f66.engine import Engine, Frame, StopExecution
 from f66 import install_runtime
 from f66.target import PDP10
+from f66.dialect import FORTRAN10
 
 
 CORPUS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fcvs")
@@ -44,15 +45,15 @@ def _has_char_decl(src):
                if l[:1] not in "Cc*!Dd/")           # skip comment/debug lines
 
 
-def _run_one(path, target=PDP10):
+def _run_one(path, target=PDP10, dialect=FORTRAN10):
     """Run a single audit routine. Returns (status, passed, errors):
     status in {"run", "f77", "gap"}. passed/errors are 0 unless status=="run".
     Parse failures split into "f77" (CHARACTER -- beyond our F66+DEC target) and
     "gap" (F66-valid but unimplemented, i.e. blanks-insignificance: FM010/11/21)."""
     src = open(path, errors="replace").read()
-    stmts = expand_includes(scan_file(path).statements, os.path.dirname(path))
+    stmts = expand_includes(scan_file(path, dialect=dialect).statements, os.path.dirname(path))
     errs = []
-    units = parse_units(stmts, on_error=lambda st, m: errs.append(m))
+    units = parse_units(stmts, on_error=lambda st, m: errs.append(m), dialect=dialect)
     if errs:
         return ("f77" if _has_char_decl(src) else "gap", 0, 0)
 
@@ -74,14 +75,14 @@ def _run_one(path, target=PDP10):
     return ("run", int(mp.group(1)) if mp else 0, int(me.group(1)) if me else 0)
 
 
-def run_corpus(corpus_dir=CORPUS_DIR, target=PDP10):
+def run_corpus(corpus_dir=CORPUS_DIR, target=PDP10, dialect=FORTRAN10):
     """Run every FM*.FOR. Returns a dict with the aggregate + per-file detail."""
     run = {}
     f77, gap, nosummary = [], [], []
     total_pass = total_err = 0
     for path in sorted(glob.glob(os.path.join(corpus_dir, "FM*.FOR"))):
         name = os.path.basename(path)
-        status, p, e = _run_one(path, target)
+        status, p, e = _run_one(path, target, dialect)
         if status == "f77":
             f77.append(name)
         elif status == "gap":
