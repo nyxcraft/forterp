@@ -234,11 +234,12 @@ Tests run through the **real pipeline** (source reader → lexer → parser → 
 against internal mocks — see `tests/conftest.py` (`run()`/`run_int()` compile a snippet and
 hand back the `Engine` to inspect COMMON). Conformance is the **FCVS** corpus
 (`tests/fcvs/`, driven by `tests/fcvs_runner.py`): each audit routine is self-checking and
-prints a PASS/ERROR tally to the line printer, which the runner captures and parses. FCVS
-triage is **dynamic, by parse result** — a file that parses clean is run; one needing F77
-`CHARACTER` is kept but not run — never classified by keyword. The corpus is run across
-**both seams**: the value-model axis (pinned to `PDP10`, the faithful target the unit suite
-asserts, and again under the default `NATIVE`) and the front-end-dialect axis (again under
-`STRICT_F66`, since the audits are pure ANSI). All three runs produce the identical
-conformance aggregate — independent evidence both seams preserve standard behavior. 312
-tests pass standalone.
+prints a PASS/ERROR tally to the line printer, which the runner captures and parses. The
+corpus is **curated F66**: the F77 audit routines (those using the `CHARACTER` type, absent
+from F66) were removed from the original 192-file FCVS set, so every file in `tests/fcvs/`
+parses and runs — a parse failure is now a regression, not "out of scope." The corpus is
+run across **both seams**: the value-model axis (pinned to `PDP10`, the faithful target the
+unit suite asserts, and again under the default `NATIVE`) and the front-end-dialect axis
+(again under `STRICT_F66`, since the audits are pure ANSI). All three runs produce the
+identical conformance aggregate — independent evidence both seams preserve standard
+behavior. 311 tests pass standalone.

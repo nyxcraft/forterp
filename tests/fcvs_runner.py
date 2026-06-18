@@ -7,11 +7,11 @@ printer (unit 6). We capture that printer listing (engine.printer sink) and pars
 the summary -- the report IS line-printer output, not terminal I/O, so it is read
 from a dedicated buffer, separate from any terminal stream.
 
-Triage is DYNAMIC, by parse result -- never by keyword. A file that parses clean is
-F66-compatible and is RUN (even if the word CHARACTER appears in a comment/Hollerith).
-A file that fails to parse is classified: F77 (uses a CHARACTER declaration etc.,
-beyond our F66+DEC target) -> kept in the corpus but NOT run; otherwise a known F66
-feature gap (e.g. blanks-insignificance within tokens) -> also not run, logged.
+This is a CURATED F66 corpus: it holds only the FCVS audit routines that are valid
+FORTRAN-66 and run on this interpreter. The F77 routines (those using the CHARACTER
+type -- which does not exist in F66) were removed from the original 192-file set, so
+that what sits in tests/fcvs/ is exactly what runs. Every file here must parse clean;
+a parse failure is therefore a real regression (status "gap"), not "out of scope."
 
 Run as a module:  python -m fcvs_runner [--verbose]
 or import run_corpus() for the regression test.
@@ -35,27 +35,17 @@ CORPUS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fcvs")
 
 _PASS = re.compile(r"(\d+)\s+TESTS?\s+PASSED")
 _ERRS = re.compile(r"(\d+)\s+ERRORS?\s+ENCOUNTERED")
-# F77 CHARACTER, as a plain decl OR via IMPLICIT CHARACTER / CHARACTER*n. Matched only
-# on code lines (comments often mention "BLANK CHARACTER" etc., which must not count).
-_CHAR_DECL = re.compile(r"^\s*(?:IMPLICIT\s+)?CHARACTER\b|\bCHARACTER\s*\*", re.I)
-
-
-def _has_char_decl(src):
-    return any(_CHAR_DECL.search(l) for l in src.splitlines()
-               if l[:1] not in "Cc*!Dd/")           # skip comment/debug lines
 
 
 def _run_one(path, target=PDP10, dialect=FORTRAN10):
-    """Run a single audit routine. Returns (status, passed, errors):
-    status in {"run", "f77", "gap"}. passed/errors are 0 unless status=="run".
-    Parse failures split into "f77" (CHARACTER -- beyond our F66+DEC target) and
-    "gap" (F66-valid but unimplemented, i.e. blanks-insignificance: FM010/11/21)."""
-    src = open(path, errors="replace").read()
+    """Run a single audit routine. Returns (status, passed, errors): status in
+    {"run", "gap"}, passed/errors 0 unless status=="run". The corpus is curated F66,
+    so a parse failure ("gap") is a regression, not an out-of-scope file."""
     stmts = expand_includes(scan_file(path, dialect=dialect).statements, os.path.dirname(path))
     errs = []
     units = parse_units(stmts, on_error=lambda st, m: errs.append(m), dialect=dialect)
     if errs:
-        return ("f77" if _has_char_decl(src) else "gap", 0, 0)
+        return ("gap", 0, 0)
 
     listing = []                                   # the line-printer (LPT) buffer
     eng = Engine({u.name: u for u in units}, emit=lambda s: None,
@@ -78,14 +68,12 @@ def _run_one(path, target=PDP10, dialect=FORTRAN10):
 def run_corpus(corpus_dir=CORPUS_DIR, target=PDP10, dialect=FORTRAN10):
     """Run every FM*.FOR. Returns a dict with the aggregate + per-file detail."""
     run = {}
-    f77, gap, nosummary = [], [], []
+    gap, nosummary = [], []
     total_pass = total_err = 0
     for path in sorted(glob.glob(os.path.join(corpus_dir, "FM*.FOR"))):
         name = os.path.basename(path)
         status, p, e = _run_one(path, target, dialect)
-        if status == "f77":
-            f77.append(name)
-        elif status == "gap":
+        if status == "gap":                    # parse failure -> regression (curated F66)
             gap.append(name)
         else:
             run[name] = (p, e)
@@ -94,8 +82,8 @@ def run_corpus(corpus_dir=CORPUS_DIR, target=PDP10, dialect=FORTRAN10):
             if p == 0 and e == 0:
                 nosummary.append(name)         # ran, but printed no PASS/ERR summary
     return {
-        "run": run, "f77": f77, "gap": gap, "nosummary": nosummary,
-        "n_run": len(run), "n_f77": len(f77), "n_gap": len(gap),
+        "run": run, "gap": gap, "nosummary": nosummary,
+        "n_run": len(run), "n_gap": len(gap),
         "total_pass": total_pass, "total_err": total_err,
     }
 
@@ -104,8 +92,8 @@ def main(argv=None):
     import sys
     verbose = "--verbose" in (argv or sys.argv[1:])
     r = run_corpus()
-    print(f"FCVS corpus: {r['n_run']} F66-runnable, {r['n_f77']} F77 (kept, not run), "
-          f"{r['n_gap']} F66 feature-gap (not run)")
+    print(f"FCVS F66 corpus: {r['n_run']} routines run, "
+          f"{r['n_gap']} parse-failure(s) (should be 0)")
     print(f"  conformance TESTS PASSED: {r['total_pass']}")
     print(f"  ERRORS ENCOUNTERED:       {r['total_err']}  "
           f"(FM001 forces one FAIL by design: 'FORCE FAIL CODE TO BE EXECUTED')")
@@ -116,8 +104,8 @@ def main(argv=None):
         for name, (p, e) in sorted(r["run"].items()):
             flag = "  <-- FAIL" if e else ""
             print(f"    {name}: {p} passed, {e} errors{flag}")
-        print(f"  F77 (not run): {r['f77']}")
-        print(f"  F66 gap (not run): {r['gap']}")
+        if r["gap"]:
+            print(f"  parse failures (regressions!): {r['gap']}")
     return r
 
 

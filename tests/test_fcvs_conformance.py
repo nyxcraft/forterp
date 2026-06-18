@@ -1,9 +1,12 @@
-"""Regression over the vendored FCVS corpus (tests/fcvs/, see its NOTICE).
+"""Regression over the curated F66 FCVS corpus (tests/fcvs/).
 
-Runs the F66-compatible audit routines through the interpreter and pins the
-aggregate result. FCVS is independent of our own assumptions (it predates this
-project by ~40 years), so a regression here catches conformance drift our own
-hand-written tests (test_f66_conformance.py) might share a blind spot with.
+Runs the FORTRAN-66 audit routines through the interpreter and pins the aggregate
+result. The corpus is curated: only the FCVS routines that are valid F66 and run on
+this interpreter are kept -- the F77 (CHARACTER) routines were removed from the
+original 192-file set, so every file here parses and runs. FCVS is independent of our
+own assumptions (it predates this project by ~40 years), so a regression here catches
+conformance drift our own hand-written tests (test_f66_conformance.py) might share a
+blind spot with.
 
 These numbers are the locked-in baseline; a change means real behavior moved.
 """
@@ -17,12 +20,16 @@ R_NATIVE = run_corpus(target=NATIVE)               # value-model axis
 R_STRICT = run_corpus(dialect=STRICT_F66)          # front-end dialect axis (ANSI, DEC ext off)
 
 
-def test_f66_subset_size_is_stable():
-    # 52 routines parse clean under our F66+DEC front end and are executed. (Was 49;
-    # FM010/FM011/FM021 -- the section-3.1.6 blank-insignificance audit routines --
-    # joined once blanks-within-tokens was supported on the parse-retry path.)
-    assert R["n_run"] == 52
-    assert R["n_gap"] == 0                       # no F66-valid file left unparsed
+def test_curated_corpus_all_parses_and_runs():
+    # Every file in the curated corpus must parse clean and run -- a parse failure is a
+    # regression, not "out of scope" (the F77 routines were removed). 52 routines today;
+    # this guards against re-introducing non-runnable source.
+    import glob, os
+    from fcvs_runner import CORPUS_DIR
+    n_files = len(glob.glob(os.path.join(CORPUS_DIR, "FM*.FOR")))
+    assert R["n_gap"] == 0                       # nothing fails to parse
+    assert R["n_run"] == n_files                 # every file ran
+    assert R["n_run"] == 52                       # the current curated count
 
 
 def test_blanks_insignificance_files_run_and_pass():
@@ -51,13 +58,6 @@ def test_print_and_eyeball_files_have_no_autocheck():
     assert set(R["nosummary"]) == {"FM005.FOR", "FM109.FOR"}
 
 
-def test_f77_corpus_is_kept_but_not_run():
-    # The F77 routines (CHARACTER, etc.) are vendored for completeness but are
-    # beyond our F66+DEC target, so they are not executed.
-    assert R["n_f77"] > 0
-    assert "FM001.FOR" not in R["f77"]
-
-
 def test_native_target_runs_the_corpus_identically():
     # The portable NATIVE target (the library default) runs the same ANSI F66 audit
     # corpus with the identical aggregate -- standard-conformance assertions do not
@@ -75,7 +75,6 @@ def test_strict_f66_dialect_runs_the_corpus_identically():
     # lenient 72-col) must not change what parses or passes. This is the dialect-axis
     # analog of the NATIVE-target run, and validates STRICT_F66 against real ANSI code.
     assert R_STRICT["n_run"] == R["n_run"]
-    assert R_STRICT["n_f77"] == R["n_f77"]
     assert R_STRICT["total_pass"] == R["total_pass"]
     assert R_STRICT["total_err"] == R["total_err"]
     assert set(R_STRICT["nosummary"]) == set(R["nosummary"])
