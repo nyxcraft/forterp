@@ -211,20 +211,22 @@ Two distinct tables:
 
 ## 8. Module map
 
-| Module | Lines | Role |
-|--------|------:|------|
-| `engine.py` | ~1740 | execution engine, value model wiring, memory layout, I/O, intrinsics |
-| `parser.py` | ~1180 | recursive-descent parser, blanks-insignificance retry, `pack5` |
-| `fmt.py` | ~420 | FORMAT parse + render + read, carriage control |
-| `source.py` | ~345 | fixed-form card reader, continuation, tab-format, INCLUDE |
-| `ast_nodes.py` | ~205 | AST dataclasses |
-| `lexer.py` | ~205 | tokenizer (dialect-gated) |
-| `forlib.py` | ~155 | `STDLIB` library subroutines |
-| `forbin.py` | ~85 | FOROTS unformatted-record codec + DEC-10 float (the `binio` default) |
-| `diagnostics.py` | ~55 | V5 compiler-message rendering |
-| `target.py` | ~45 | the `Target` value-model seam |
-| `dialect.py` | ~25 | the `Dialect` front-end seam |
-| `__init__.py` | ~85 | public API + `install_runtime`/`make_engine`/`run_source` |
+What each module **owns** (responsibilities age better than line counts):
+
+| Module | Owns |
+|--------|------|
+| `engine.py` | tree-walking execution; storage layout in `_build` (COMMON/EQUIVALENCE/DATA, label + DO-terminal tables, ENTRY); expression eval + control flow; terminal/file/random/NAMELIST/ENCODE-DECODE I/O; the inline intrinsic table; routing the value model through `self.tgt` |
+| `parser.py` | recursive-descent parse → AST; statement + spec-statement dispatch; blanks-insignificance parse-retry; 6-char name truncation; `pack5` |
+| `fmt.py` | the FORMAT engine: `parse_format` → items, `render` (output), `read_values` (input), carriage control |
+| `source.py` | fixed-form card reader: column fields, continuation, tab-format, inline `!`, `;`-split, `INCLUDE` (`scan_file`/`scan_text`) |
+| `ast_nodes.py` | the AST dataclasses + the `Expr`/`IoItem`/`FormatRef`/`Dims` contract aliases |
+| `lexer.py` | tokenizer; gates the DEC lexical extensions on the `Dialect` |
+| `forlib.py` | `STDLIB` — the FORTRAN-10 library subroutines (TIME/DATE/EXIT/ERRSNS/RAN/…) |
+| `forbin.py` | FOROTS unformatted-record framing (LSCW) + DEC-10 float — the `binio` codec |
+| `diagnostics.py` | V5 Appendix-F message rendering (`?FTNxxx` / `%FTNxxx`) |
+| `target.py` | the `Target` value-model seam (`PDP10` / `NATIVE` / `VAX`) |
+| `dialect.py` | the `Dialect` front-end seam (`FORTRAN10` / `STRICT_F66`) |
+| `__init__.py` | public API + `install_runtime` / `make_engine` / `parse_source` / `run_source` |
 
 ---
 
@@ -243,3 +245,62 @@ unit suite asserts, and again under the default `NATIVE`) and the front-end-dial
 (again under `STRICT_F66`, since the audits are pure ANSI). All three runs produce the
 identical conformance aggregate — independent evidence both seams preserve standard
 behavior. 315 tests pass standalone.
+
+---
+
+## 10. Engine runtime state (reference)
+
+What an `Engine` carries while running — the things `_file_ctl`, `do_io`, `eval`, and
+`call_*` operate on:
+
+- **`self.units`** — `{name: ProgramUnit}`, the parsed AST (one per PROGRAM / SUBROUTINE /
+  FUNCTION / BLOCK DATA).
+- **`self.rts`** — `{name: UnitRT}`, the compiled per-unit runtime built by `_build`: the
+  executable `code` list, the label→PC table, the DO-terminator label set, the
+  `common_map` (name → block + offset), and **static** `local_scalars` / `local_arrays`.
+  FORTRAN-10 locals persist across calls, so they live here, *not* in the frame.
+- **`Frame`** — one call activation: its `UnitRT`, the actual-argument bindings (`args`:
+  dummy name → reference), a program counter `pc`, and a `do_stack` of `DoFrame`s.
+  `run(frame)` is the fetch-execute loop.
+- **`self.commons`** — `{block: [word, ...]}`, flat per-block stores; storage association
+  maps each unit's variables onto offsets here (`EQUIVALENCE` extends/aliases a block).
+- **`self.io`** — `{unit: state}`; the state shape depends on its `"mode"`: `term`
+  (terminal), `lpt` (line printer), `r` / `w` (sequential records `{recs, pos, path}`,
+  `+ "text": True` for a formatted text file), `random` (record-indexed `{recs, pos,
+  assoc}`). Unformatted records are plain value-lists; the FOROTS `binio` codec encodes
+  them only when writing a real file — there is no separate "binary" mode.
+- **References** (the by-reference argument abstraction): `CellRef` (a slot in an
+  array/COMMON store), `DictRef` (a local scalar), `TempRef` (an expression result with
+  nowhere to write back), `ProcRef` (a passed subprogram name), `ArrayView` (a based view
+  over an array argument, resolving adjustable dimensions per call).
+
+---
+
+## 11. How to change things (maintainer recipes)
+
+Each entry is the trail to follow. Add a test through the **real pipeline**
+(`tests/`, via `conftest.run` / `run_int`), plus an FCVS-grade check for conformance.
+
+- **Add a syntax form** — recognize the token in `lexer.py` (gate it on the `Dialect`
+  if it's an extension), parse it in `parser.py` (a `parse_*` method + a branch in the
+  statement dispatch), and execute it in `engine.exec_stmt`. A new node shape goes in
+  `ast_nodes.py`.
+- **Add a statement node** — a dataclass in `ast_nodes.py` (subclass `Stmt`), produced by
+  `parser.py`, handled in `engine.exec_stmt`.
+- **Add an intrinsic** — a pure value→value entry in `engine.INTRINSICS` (the lambda takes
+  the arg-value list `a`). If it returns an integer that must wrap to the target word, add
+  its name to `_INT_RESULT`; a width-dependent op (like `LSH`) routes through `self.tgt`
+  in `_apply_intrinsic`.
+- **Add a library subroutine** — a `b_NAME(eng, frame, arg_nodes)` function in `forlib.py`,
+  listed in the `STDLIB` table; it may touch engine state and write back via
+  `eng.arg_ref(...)`. `install_runtime` registers `STDLIB`.
+- **Add a FORMAT descriptor** — extend `fmt.parse_format` (emit an `Item`), render it in
+  `_render_one`, read it in `read_values`. The `target` is already threaded in for cases
+  where width/packing/logical-truth matters.
+- **Add a target or dialect knob** — a value-model property goes on `Target` (`target.py`)
+  and must be routed through `self.tgt` in the engine, never hardcoded; a front-end option
+  goes on `Dialect` (`dialect.py`), gated in `source.py` / `lexer.py` and threaded via
+  `parse_units`.
+- **Where tests go** — `tests/test_*.py` exercise the full pipeline; value-model behavior
+  belongs in `test_native_target.py` (NATIVE vs PDP10), dialect gating in `test_dialect.py`,
+  and conformance through the FCVS corpus.
