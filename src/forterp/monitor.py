@@ -31,6 +31,11 @@ Commands (case-insensitive):
   START                       run the loaded program
   RESET                       drop the loaded program
   IMMEDIATE                   interactive FORTRAN (a REPL)      (alias REPL)
+  BREAK [line]                set a breakpoint (no arg = list); UNBREAK to remove
+  STEP                        next RUN stops at the first statement (then step/next/cont)
+  TRACE [on|off]              echo each statement as it runs
+  PROFILE [on|off]            collect per-line counts; no arg = show the report
+  COVERAGE                    show which lines the last run reached
   SET STD f66|fortran10       switch dialect
   SET TARGET native|pdp10|vax switch the machine value model
   SET PROGRAM [name]          choose the main unit (blank = first)
@@ -66,6 +71,7 @@ class Monitor:
         self.errwrite = errwrite or sys.stderr.write
         self.readline = readline or sys.stdin.readline
         self._running = False
+        self._dbg = None  # lazily built Tracer (debug/profile config persists across runs)
         self._commands = {
             "RUN": self.cmd_run,
             "EXECUTE": self.cmd_run,
@@ -76,6 +82,12 @@ class Monitor:
             "RESET": self.cmd_reset,
             "IMMEDIATE": self.cmd_immediate,
             "REPL": self.cmd_immediate,
+            "BREAK": self.cmd_break,
+            "UNBREAK": self.cmd_unbreak,
+            "STEP": self.cmd_step,
+            "TRACE": self.cmd_trace,
+            "PROFILE": self.cmd_profile,
+            "COVERAGE": self.cmd_coverage,
             "SET": self.cmd_set,
             "SHOW": self.cmd_show,
             "HELP": self.cmd_help,
@@ -178,6 +190,40 @@ class Monitor:
             errwrite=self.errwrite,
             readline=self.readline,
         ).run()
+
+    # ---- commands: debug / profile (a Tracer, installed by _execute on the next RUN) ----
+    def _debugger(self):
+        """The session Tracer, built on first use (holds breakpoints + profile config)."""
+        if self._dbg is None:
+            from forterp.debug import Tracer
+
+            self._dbg = Tracer(write=self.write, readline=self.readline, errwrite=self.errwrite)
+        return self._dbg
+
+    def cmd_break(self, arg):
+        self._debugger().add_break(arg.strip())  # blank arg lists breakpoints
+
+    def cmd_unbreak(self, arg):
+        self._debugger().remove_break(arg.strip())  # blank arg clears all
+
+    def cmd_step(self, arg):
+        self._debugger().stepping = True
+        self.write("[step armed -- the next RUN/START stops at the first statement]\n")
+
+    def cmd_trace(self, arg):
+        self._debugger().tracing = arg.strip().lower() != "off"
+        self.write(f"[trace {'on' if self._debugger().tracing else 'off'}]\n")
+
+    def cmd_profile(self, arg):
+        a = arg.strip().lower()
+        if a in ("on", "off"):
+            self._debugger().profiling = a == "on"
+            self.write(f"[profile {a}]\n")
+        else:  # no arg -> show the last run's hot lines
+            self.write(self._debugger().profile_report() + "\n")
+
+    def cmd_coverage(self, arg):
+        self.write(self._debugger().coverage_report() + "\n")
 
     # ---- commands: set / show ----
     def cmd_set(self, arg):
@@ -293,9 +339,16 @@ class Monitor:
         if name not in eng.rts:
             return self._err(f"no such program unit: {name}")
         self.last_engine = eng
+        if self._dbg is not None and self._dbg.active:  # install debug/profile hook
+            self._dbg.dialect = dlc
+            self._dbg.start_run(eng, units)
+            eng.tracer = self._dbg
         try:
             eng.run(forterp.Frame(eng.rts[name], {}))
         except forterp.StopExecution:
             pass
         except Exception as e:  # a program fault returns to the prompt, not a crash
             self._err(f"?runtime error: {e}")
+        finally:
+            if self._dbg is not None:
+                self._dbg.stepping = False  # one-shot; breakpoints persist across runs

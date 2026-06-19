@@ -28,15 +28,12 @@ import sys
 
 import forterp
 from forterp import ast_nodes as A
+from forterp.debug import format_value
 
 _TARGETS = forterp.TARGETS
 _DIALECTS = forterp.DIALECTS
 
 SESS = "$REPL"  # name of the session program unit
-
-# Operators whose result is a FORTRAN logical -- so a top-level expression using one is
-# shown as .TRUE./.FALSE. rather than the target's raw truth integer (1 / -1).
-_LOGICAL_OPS = {"AND", "OR", "XOR", "NEQV", "EQV", "EQ", "NE", "LT", "LE", "GT", "GE"}
 
 # A REPL line is free-form-ish; map it to fixed form so the scanner sees it correctly:
 # an optional leading statement label goes in columns 1-5, the statement body in 7+.
@@ -181,10 +178,7 @@ class Immediate:
         except Exception as e:
             self._err(f"?{e}")
             return
-        if self._is_logical(node):  # show a truth value as .TRUE./.FALSE.
-            self.write((".TRUE." if self.eng.tgt.truthy(val) else ".FALSE.") + "\n")
-        else:
-            self.write(self._format(val) + "\n")
+        self.write(format_value(val, node, self.eng.tgt) + "\n")
 
     # ---- session build / store carry-over ----
     def _rebuild(self):
@@ -236,14 +230,6 @@ class Immediate:
         return False
 
     @staticmethod
-    def _is_logical(node):
-        if isinstance(node, A.Binary):
-            return node.op in _LOGICAL_OPS
-        if isinstance(node, A.Unary):
-            return node.op == "NOT"
-        return False
-
-    @staticmethod
     def _has_decl(u):
         return bool(
             u.types
@@ -258,15 +244,6 @@ class Immediate:
             or u.equivs
             or u.namelists
         )
-
-    def _format(self, v):
-        if isinstance(v, bool):
-            return ".TRUE." if v else ".FALSE."
-        if isinstance(v, complex):
-            return f"({v.real:g},{v.imag:g})"
-        if isinstance(v, float):
-            return repr(v)
-        return str(v)
 
     def _tag(self):
         return "f10" if self.std == "fortran10" else "f66"

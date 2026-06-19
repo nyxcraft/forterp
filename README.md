@@ -99,6 +99,23 @@ f66* 2 + 3 * 4               # calculator -> 14
 F66 has no incremental model for control flow, so the unit of work is a statement or a
 DO block, never a bare `GOTO`.)
 
+The monitor also debugs and profiles a `RUN`/`START`. `BREAK <line>` + `STEP` drop into
+a `(dbg)` prompt where you step (`step`/`next`/`cont`), backtrace (`where`), and inspect
+any expression by typing it; `TRACE` echoes each statement; `PROFILE`/`COVERAGE` report
+per-line execution counts and which lines were reached. The profiler counts *statements*
+(deterministic), not wall-clock seconds. All of it rides one off-by-default hook, so a
+plain run pays nothing:
+
+```text
+f66> BREAK 6
+f66> RUN fac.for
+-- stopped at FAC:6 (Assign)
+(dbg) NF                     # inspect a variable by name -> 1
+(dbg) where                  # backtrace -> #0 FAC:6
+(dbg) cont
+f66> PROFILE                 #    5  FAC:6   (the loop body ran 5 times)
+```
+
 ## What's pluggable
 
 - **Machine target** — `forterp.Target(word_bits, chars_per_word, logical_true, bitwise_logic,

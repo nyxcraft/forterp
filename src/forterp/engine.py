@@ -288,6 +288,14 @@ DEFAULT_CLOCK = (1979, 1, 1, 0, 0, 0, 0)
 
 
 class Engine:
+    # Debug/profile seam, kept as CLASS defaults so a normal engine's instance __dict__ is
+    # unchanged (adding these in __init__ measurably slowed every self.* access in the hot
+    # loop -- ~8% on a tight loop). `tracer`, if set on an instance, is called per statement
+    # (see forterp.debug); `frames` is the active call chain, materialized to a list on the
+    # instance only when a debugged/profiled run starts (run()). A plain run never sets either.
+    tracer = None
+    frames = ()
+
     def __init__(
         self,
         units: dict,
@@ -356,6 +364,8 @@ class Engine:
         self.device_handlers = {}
         self.steps = 0
         self.max_steps = 50_000_000
+        # (tracer / frames are class-level defaults -- see the top of the class -- so a
+        # normal run leaves the instance __dict__ identical to the pre-debug engine.)
         # Parsed FORMATs, memoized by spec text. Reusing one parsed object per spec lets
         # an nH/'...' field read on input persist its replacement chars to a later WRITE
         # of the same FORMAT (F66 7.2.3.8) -- and saves re-parsing a hot format each I/O.
@@ -1054,6 +1064,18 @@ class Engine:
 
     # ---- the per-unit run loop
     def run(self, frame):
+        """Run `frame`'s unit to completion. The fast path is this method's inline loop,
+        unchanged from the original; only a debugged/profiled run (tracer installed) takes
+        the _run_traced twin, which also maintains the active-frame stack (for backtrace /
+        step-over depth) and fires the per-statement hook. Keep the two loops in sync."""
+        if self.tracer is not None:
+            if type(self.frames) is tuple:  # first traced run -> a real per-instance stack
+                self.frames = []
+            self.frames.append(frame)
+            try:
+                return self._run_traced(frame)
+            finally:
+                self.frames.pop()
         code = frame.rt.unit.code
         labels = frame.rt.unit.labels
         do_terms = frame.rt.do_terms
@@ -1061,13 +1083,7 @@ class Engine:
         while 0 <= frame.pc < n:
             self.steps += 1
             if self.steps > self.max_steps:
-                u = frame.rt.unit
-                raise RuntimeError(
-                    f"step budget exceeded in {u.name} pc={frame.pc} "
-                    f"line={code[frame.pc].line}: "
-                    f"{type(code[frame.pc]).__name__} | "
-                    f"do_stack={[(d.term, d.trips) for d in frame.do_stack]}"
-                )
+                self._budget_error(frame)
             s = code[frame.pc]
             ctrl = self.exec_stmt(s, frame)
             if ctrl is None:
@@ -1079,30 +1095,78 @@ class Engine:
                     continue
                 frame.pc += 1
             elif type(ctrl) is Goto:
-                tgt = ctrl.label
-                if isinstance(tgt, tuple):  # skip-to-after-terminal
-                    newpc = labels[tgt[1]] + 1
-                else:
-                    newpc = labels[tgt]
-                # A GO TO may leave the range of active DO loops. Suspend (don't discard)
-                # them: F66 7.1.2.8.2 lets control jump out of a DO and back in (an
-                # "extended range"), so a loop whose range we re-enter must resume its
-                # iteration. A loop never returned to just stays suspended (harmless)
-                # until the unit returns or exec_do redefines it.
-                while frame.do_stack and not (
-                    frame.do_stack[-1].body <= newpc <= frame.do_stack[-1].term_idx
+                self._apply_goto(frame, ctrl.label, labels)
+            elif type(ctrl) is Ret:
+                return ctrl.alt
+            elif type(ctrl) is Stop:
+                raise StopExecution()
+
+    def backtrace(self):
+        """The active call chain as [(unit_name, current_line), ...], outermost first
+        (populated only during a traced / debugged run)."""
+        out = []
+        for f in self.frames:
+            code = f.rt.unit.code
+            line = code[f.pc].line if 0 <= f.pc < len(code) else None
+            out.append((f.rt.unit.name, line))
+        return out
+
+    def _budget_error(self, frame):
+        code, u = frame.rt.unit.code, frame.rt.unit
+        raise RuntimeError(
+            f"step budget exceeded in {u.name} pc={frame.pc} "
+            f"line={code[frame.pc].line}: "
+            f"{type(code[frame.pc]).__name__} | "
+            f"do_stack={[(d.term, d.trips) for d in frame.do_stack]}"
+        )
+
+    def _apply_goto(self, frame, tgt, labels):
+        """Resolve a GO TO target and adjust the DO stack for F66 7.1.2.8.2 extended
+        range: suspend (don't discard) loops we leave, and resume any whose range we
+        re-enter. Rare at run time -- not on the per-statement path -- so both run loops
+        share it."""
+        if isinstance(tgt, tuple):  # skip-to-after-terminal
+            newpc = labels[tgt[1]] + 1
+        else:
+            newpc = labels[tgt]
+        while frame.do_stack and not (
+            frame.do_stack[-1].body <= newpc <= frame.do_stack[-1].term_idx
+        ):
+            frame.do_suspended.append(frame.do_stack.pop())
+        reentered = [d for d in frame.do_suspended if d.body <= newpc <= d.term_idx]
+        if reentered:
+            frame.do_suspended = [
+                d for d in frame.do_suspended if not (d.body <= newpc <= d.term_idx)
+            ]
+            reentered.sort(key=lambda d: d.body)
+            frame.do_stack.extend(reentered)
+        frame.pc = newpc
+
+    def _run_traced(self, frame):
+        """The run() loop plus the per-statement debug/profile hook (self.tracer). Keep
+        in sync with run()'s inline loop; the sole difference is the tracer(s, frame) call."""
+        tracer = self.tracer
+        code = frame.rt.unit.code
+        labels = frame.rt.unit.labels
+        do_terms = frame.rt.do_terms
+        n = len(code)
+        while 0 <= frame.pc < n:
+            self.steps += 1
+            if self.steps > self.max_steps:
+                self._budget_error(frame)
+            s = code[frame.pc]
+            tracer(s, frame)  # pauses BEFORE the statement runs
+            ctrl = self.exec_stmt(s, frame)
+            if ctrl is None:
+                if (
+                    s.label is not None
+                    and s.label in do_terms
+                    and self._do_bookkeep(frame, s.label)
                 ):
-                    frame.do_suspended.append(frame.do_stack.pop())
-                # Re-entering a suspended loop's range reactivates it (outer loops, with
-                # the widest range, go deepest in the stack).
-                reentered = [d for d in frame.do_suspended if d.body <= newpc <= d.term_idx]
-                if reentered:
-                    frame.do_suspended = [
-                        d for d in frame.do_suspended if not (d.body <= newpc <= d.term_idx)
-                    ]
-                    reentered.sort(key=lambda d: d.body)
-                    frame.do_stack.extend(reentered)
-                frame.pc = newpc
+                    continue
+                frame.pc += 1
+            elif type(ctrl) is Goto:
+                self._apply_goto(frame, ctrl.label, labels)
             elif type(ctrl) is Ret:
                 return ctrl.alt
             elif type(ctrl) is Stop:
