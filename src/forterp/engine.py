@@ -1,4 +1,4 @@
-"""Execution engine + value model for the f66 FORTRAN-66 / DEC FORTRAN-10 interpreter.
+"""Execution engine + value model for the forterp FORTRAN-66 / DEC FORTRAN-10 interpreter.
 
 Value model (configurable via the Engine's Target; the PDP10 target is described here):
   * every word is a Python int held in signed 36-bit range, or a float for REAL.
@@ -19,8 +19,8 @@ from __future__ import annotations
 import cmath
 import math
 
-from f66 import ast_nodes as A
-from f66.target import PDP10, NATIVE
+from forterp import ast_nodes as A
+from forterp.target import PDP10, NATIVE
 
 # The default target's value model (see target.py), re-exported as module-level names:
 # forlib, the intrinsics table, the empire builtins and tests import these. The Engine
@@ -237,13 +237,16 @@ class DoFrame:
 
 
 class Frame:
-    __slots__ = ("rt", "args", "pc", "do_stack")
+    __slots__ = ("rt", "args", "pc", "do_stack", "do_suspended")
 
     def __init__(self, rt, args):
         self.rt = rt
         self.args = args  # dummy name -> Ref / ArrayView
         self.pc = 0
         self.do_stack = []
+        # DO loops left via a GO TO out of their range, kept in case control jumps back
+        # in -- F66 7.1.2.8.2 "extended range". See run()'s GO TO handling.
+        self.do_suspended = []
 
 
 # --------------------------------------------------------------- unit runtime
@@ -295,11 +298,15 @@ class Engine:
         printer=None,
         target=None,
         binio=None,
+        free_form_input=False,
     ):
         import random
 
         self.tgt = target if target is not None else NATIVE  # default value model (portable)
         self.binio = binio  # unformatted-I/O codec (FOROTS); injected by the runtime
+        # Widthless formatted-input fields read free-form (FORTRAN-10) vs by column (F66).
+        # Set from the dialect; the engine itself stays dialect-agnostic otherwise.
+        self.free_form_input = free_form_input
         self.units = units
         self.commons = {}  # block -> list (flat store)
         self.rts = {}  # unit name -> UnitRT
@@ -345,6 +352,10 @@ class Engine:
         self.device_handlers = {}
         self.steps = 0
         self.max_steps = 50_000_000
+        # Parsed FORMATs, memoized by spec text. Reusing one parsed object per spec lets
+        # an nH/'...' field read on input persist its replacement chars to a later WRITE
+        # of the same FORMAT (F66 7.2.3.8) -- and saves re-parsing a hot format each I/O.
+        self._fmt_cache = {}
         self._emit = emit or (lambda s: self.out.append(s))
         self._getch = getch
         self._readline = readline
@@ -379,11 +390,11 @@ class Engine:
 
     def _binio(self):
         """The unformatted-I/O codec (FOROTS record + DEC-10 float layout). It's a
-        target-specific runtime, injected via f66.install_runtime; the
+        target-specific runtime, injected via forterp.install_runtime; the
         generic core has none, so binary I/O without it is a clear error."""
         if self.binio is None:
             raise RuntimeError(
-                "unformatted/binary I/O needs a FORTRAN-10 runtime (f66.install_runtime)"
+                "unformatted/binary I/O needs a FORTRAN-10 runtime (forterp.install_runtime)"
             )
         return self.binio
 
@@ -1028,6 +1039,10 @@ class Engine:
         if trips < 1:
             trips = 1
         term_idx = frame.rt.unit.labels[s.term_label]
+        # Starting this loop fresh invalidates any earlier instance left suspended by a
+        # jump-out (extended range), so it can't later reactivate by mistake.
+        if frame.do_suspended:
+            frame.do_suspended = [d for d in frame.do_suspended if d.term_idx != term_idx]
         frame.do_stack.append(DoFrame(ref, trips, step, s.term_label, frame.pc + 1, term_idx))
         return None
 
@@ -1063,11 +1078,24 @@ class Engine:
                     newpc = labels[tgt[1]] + 1
                 else:
                     newpc = labels[tgt]
-                # leaving any DO loop that no longer contains the PC: abandon it
+                # A GO TO may leave the range of active DO loops. Suspend (don't discard)
+                # them: F66 7.1.2.8.2 lets control jump out of a DO and back in (an
+                # "extended range"), so a loop whose range we re-enter must resume its
+                # iteration. A loop never returned to just stays suspended (harmless)
+                # until the unit returns or exec_do redefines it.
                 while frame.do_stack and not (
                     frame.do_stack[-1].body <= newpc <= frame.do_stack[-1].term_idx
                 ):
-                    frame.do_stack.pop()
+                    frame.do_suspended.append(frame.do_stack.pop())
+                # Re-entering a suspended loop's range reactivates it (outer loops, with
+                # the widest range, go deepest in the stack).
+                reentered = [d for d in frame.do_suspended if d.body <= newpc <= d.term_idx]
+                if reentered:
+                    frame.do_suspended = [
+                        d for d in frame.do_suspended if not (d.body <= newpc <= d.term_idx)
+                    ]
+                    reentered.sort(key=lambda d: d.body)
+                    frame.do_stack.extend(reentered)
                 frame.pc = newpc
             elif type(ctrl) is Ret:
                 return ctrl.alt
@@ -1129,7 +1157,7 @@ class Engine:
             ref.write(v)
 
     def do_type(self, s, frame):
-        from f66.fmt import parse_format, render, apply_carriage
+        from forterp.fmt import render, apply_carriage
 
         nml = self._nml_name(s.fmt, frame)
         if nml is not None:  # TYPE/PRINT of a NAMELIST group
@@ -1139,8 +1167,8 @@ class Engine:
         if s.fmt == "*":  # list-directed output
             self.emit(self._ld_out(values) + "\n")
             return
-        spec = frame.rt.unit.formats.get(s.fmt)
-        items = parse_format(spec) if spec else []
+        spec = self._fmt_spec(s.fmt, frame)
+        items = self._parsed(spec)
         text, suppress = render(items, self._cx_expand(values), self.tgt)  # complex -> 2 reals
         text = apply_carriage(text)
         if not suppress:
@@ -1162,7 +1190,7 @@ class Engine:
         """Distribute one input record to the io-list: a NAMELIST group, list-directed
         input (`*`), or under a FORMAT. Shared by ACCEPT / terminal READ and by an
         unopened unit-READ that auto-connects to the terminal (V5 unit 5)."""
-        from f66.fmt import parse_format, read_values
+        from forterp.fmt import read_values
 
         nml = self._nml_name(s.fmt, frame)
         if nml is not None:  # NAMELIST group
@@ -1171,9 +1199,9 @@ class Engine:
         if s.fmt == "*":  # list-directed input
             self._ld_in(line, self._unf_refs(s.items, frame))
             return
-        spec = frame.rt.unit.formats.get(s.fmt)
-        items = parse_format(spec) if spec else []
-        reads = read_values(items, line, self.tgt)
+        spec = self._fmt_spec(s.fmt, frame)
+        items = self._parsed(spec)
+        reads = read_values(items, line, self.tgt, self.free_form_input)
         self._assign_reads(s.items, reads, frame)  # COMPLEX consumes 2 real fields
 
     def do_encdec(self, s, frame):
@@ -1181,11 +1209,11 @@ class Engine:
         ENCODE renders the list per the FORMAT into the buffer; DECODE parses the
         buffer per the FORMAT into the list. No carriage control (it's not a record
         to a device) -- render() output goes straight to the buffer."""
-        from f66.fmt import parse_format, render, read_values
+        from forterp.fmt import render, read_values
 
         count = int(self.eval(s.count, frame))
-        spec = frame.rt.unit.formats.get(s.fmt) if s.fmt != "*" else None
-        items = parse_format(spec) if spec else []
+        spec = self._fmt_spec(s.fmt, frame)
+        items = self._parsed(spec)
         buf = self.arg_ref(s.buf, frame)
         cw = self.tgt.chars_per_word
         if s.decode:
@@ -1201,7 +1229,9 @@ class Engine:
             if s.fmt == "*":
                 self._ld_in(text, refs)
             else:
-                for ref, (_, v) in zip(refs, read_values(items, text, self.tgt)):
+                for ref, (_, v) in zip(
+                    refs, read_values(items, text, self.tgt, self.free_form_input)
+                ):
                     ref.write(v)
         else:
             values = self._unf_values(s.items, frame)
@@ -1219,6 +1249,45 @@ class Engine:
         """If `fmt` names a NAMELIST group in this unit, return that name, else None."""
         nm = fmt.name if isinstance(fmt, A.Var) else fmt
         return nm if (isinstance(nm, str) and nm in frame.rt.unit.namelists) else None
+
+    def _fmt_spec(self, fmt, frame):
+        """Resolve a FORMAT reference to its spec text. An integer is a statement label
+        -> the FORMAT statement's text. A variable or array name is a RUN-TIME format
+        (F66 7.2.3.10): the Hollerith characters it holds, read from its first element
+        until the format's parentheses balance. '*' or None -> None (list-directed /
+        unformatted)."""
+        if fmt is None or fmt == "*":
+            return None
+        if isinstance(fmt, int):
+            return frame.rt.unit.formats.get(fmt)
+        # a Hollerith array/variable holding the format text, referenced by name
+        out, depth, started = [], 0, False
+        for ref in self._item_refs(fmt, frame):
+            for c in self.tgt.unpack(ref.read()):
+                if not started:
+                    if c == "(":
+                        started = True
+                        depth = 1
+                        out.append(c)
+                    continue
+                out.append(c)
+                depth += 1 if c == "(" else (-1 if c == ")" else 0)
+            if started and depth <= 0:
+                break
+        return "".join(out) if started else None
+
+    def _parsed(self, spec):
+        """A parsed FORMAT for `spec`, memoized by its text (see self._fmt_cache).
+        Falsy spec (list-directed / unformatted) -> empty item list."""
+        if not spec:
+            return []
+        fmt = self._fmt_cache.get(spec)
+        if fmt is None:
+            from forterp.fmt import parse_format
+
+            fmt = parse_format(spec)
+            self._fmt_cache[spec] = fmt
+        return fmt
 
     def _nml_write(self, gname, frame):
         """Build a re-readable NAMELIST output record: ` $NAME V= vals, ... $END`.
@@ -1307,15 +1376,15 @@ class Engine:
     def _formatted_write(self, s, frame, sink=None):
         """Formatted WRITE(unit,fmt) to a character device. `sink` is where the
         rendered text goes -- the terminal (default) or the line printer."""
-        from f66.fmt import parse_format, render, apply_carriage
+        from forterp.fmt import render, apply_carriage
 
         sink = sink or self.emit
         values = self._unf_values(s.items, frame)
         if s.fmt == "*":  # list-directed output
             sink(self._ld_out(values) + "\n")
             return
-        spec = frame.rt.unit.formats.get(s.fmt)
-        items = parse_format(spec) if spec else []
+        spec = self._fmt_spec(s.fmt, frame)
+        items = self._parsed(spec)
         text, suppress = render(items, self._cx_expand(values), self.tgt)  # complex -> 2 reals
         text = apply_carriage(text)
         if not suppress:
@@ -1343,12 +1412,11 @@ class Engine:
     def _fmt_items(self, s, frame):
         """Parsed FORMAT items if this random I/O is formatted (a label), else None
         (unformatted or list-directed -> raw value-list record)."""
-        from f66.fmt import parse_format
 
         if s.fmt is None or s.fmt == "*":
             return None
-        spec = frame.rt.unit.formats.get(s.fmt)
-        return parse_format(spec) if spec else None
+        spec = self._fmt_spec(s.fmt, frame)
+        return self._parsed(spec) or None
 
     def _random_io(self, s, frame, unit):
         """Random-access READ/WRITE(u#r) and FIND(u#r) (V5 10.3.5/10.14): index the
@@ -1356,7 +1424,7 @@ class Engine:
         or a rendered text line (formatted, when the statement carries a FORMAT). The
         associated variable (DEFINE FILE / OPEN) is updated to the next record number.
         Auto-opens an in-memory unit."""
-        from f66.fmt import render, read_values
+        from forterp.fmt import render, read_values
 
         st = self.io.get(unit)
         if st is None:
@@ -1387,7 +1455,9 @@ class Engine:
             if binmode and isinstance(cell, list):
                 self._assign_words(s.items, self._binio().decode_record(cell, 0)[0], frame)
             elif items is not None and isinstance(cell, str):
-                self._assign_reads(s.items, read_values(items, cell, self.tgt), frame)
+                self._assign_reads(
+                    s.items, read_values(items, cell, self.tgt, self.free_form_input), frame
+                )
             else:
                 for ref, w in zip(self._unf_refs(s.items, frame), cell):
                     ref.write(w)
@@ -1563,8 +1633,8 @@ class Engine:
         as given, then a .DAT default (TOPS-10), then a case-insensitive match.
 
         NOTE: save_root is a BASE DIRECTORY for relative names, not a security boundary.
-        f66 runs the program's file I/O against the real filesystem -- an absolute path
-        or one with `..` reaches outside save_root. f66 is an interpreter, not a sandbox;
+        forterp runs the program's file I/O against the real filesystem -- an absolute path
+        or one with `..` reaches outside save_root. forterp is an interpreter, not a sandbox;
         do not run untrusted source expecting containment."""
         import os
 
@@ -1585,7 +1655,7 @@ class Engine:
     def _read_text(self, s, st, frame):
         """Formatted/list-directed READ from a text file unit: read
         the next line and parse it per the FORMAT (or by tokens if list-directed)."""
-        from .fmt import parse_format, read_values
+        from .fmt import read_values
 
         lines = st["lines"]
         if st["pos"] >= len(lines):
@@ -1596,9 +1666,11 @@ class Engine:
         if s.fmt is None or s.fmt == "*":
             self._ld_in(line, self._unf_refs(s.items, frame))
         else:
-            spec = frame.rt.unit.formats.get(s.fmt)
-            items = parse_format(spec) if spec else []
-            self._assign_reads(s.items, read_values(items, line, self.tgt), frame)
+            spec = self._fmt_spec(s.fmt, frame)
+            items = self._parsed(spec)
+            self._assign_reads(
+                s.items, read_values(items, line, self.tgt, self.free_form_input), frame
+            )
         self.last_io_error = (0, 0)
         return None
 

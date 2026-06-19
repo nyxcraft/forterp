@@ -10,11 +10,11 @@ from __future__ import annotations
 import glob
 import os
 
-from f66.lexer import tokenize, Token, LexError
-from f66.dialect import FORTRAN10
-from f66.source import scan_file, expand_includes
-from f66.diagnostics import diag, show
-from f66 import ast_nodes as A
+from forterp.lexer import tokenize, Token, LexError
+from forterp.dialect import F66
+from forterp.source import scan_file, expand_includes
+from forterp.diagnostics import diag, show
+from forterp import ast_nodes as A
 
 
 # normalize relational/logical operator tokens -> canonical Binary op codes
@@ -208,12 +208,15 @@ def pack5(s: str) -> int:
 class P:
     """A cursor over one statement's tokens, with expression + statement rules."""
 
-    def __init__(self, toks: list[Token]):
+    def __init__(self, toks: list[Token], dialect=F66):
         self.toks = toks
         self.pos = 0
         self._no_div = False  # in a dimension bound, '/' is a delimiter, not divide
         self.namelists = ()  # known NAMELIST group names (for I/O dispatch)
         self.warn = None  # optional callable(full_name) -> %FTNLID warning
+        self.dialect = dialect  # gates the strict-F66 vs FORTRAN-10 statement rules
+        self.arrays = {}  # unit's declared arrays (for the F66 subscript-form check)
+        self.types = {}  # unit's declared types (for the F66 complex-assignment check)
 
     def _name6(self, name):
         """Truncate a symbolic name to 6 chars (V5 3.3). If chars are dropped, fire a
@@ -221,6 +224,32 @@ class P:
         if len(name) > 6 and self.warn is not None:
             self.warn(name)
         return name[:6]
+
+    def _ref(self, name):
+        """Build NAME(args). Under strict F66, if NAME is a declared array, validate that
+        each subscript is a legal form (F66 5.1.3.3: k, v, v±k, c*v, c*v±k)."""
+        args = self.parse_args()
+        if not self.dialect.expr_subscripts and name in self.arrays:
+            for sub in args:
+                if not _f66_subscript(sub):
+                    raise ParseError("F66 array subscript must be of the form c*v+k", "NRC")
+        return A.Ref(name, args)
+
+    def _expr_is_complex(self, e):
+        """Best-effort: does `e` yield a COMPLEX value? Conservative -- an unknown name is
+        treated as non-complex, so the F66 complex-assignment check never rejects valid
+        code (it may miss a violation it can't prove, never invent one)."""
+        if isinstance(e, A.Complex):
+            return True
+        if isinstance(e, A.Var):
+            return self.types.get(e.name) == "COMPLEX"
+        if isinstance(e, A.Ref):
+            return e.name in _COMPLEX_FUNCS or self.types.get(e.name) == "COMPLEX"
+        if isinstance(e, A.Binary):
+            return self._expr_is_complex(e.left) or self._expr_is_complex(e.right)
+        if isinstance(e, A.Unary):
+            return self._expr_is_complex(e.operand)
+        return False
 
     # -- low level
     def cur(self):
@@ -365,7 +394,7 @@ class P:
         if t.kind == "ID":
             name = self._name6(self.advance().value)  # V5 3.3: 6-char name limit
             if self.is_op("("):
-                return A.Ref(name, self.parse_args())
+                return self._ref(name)
             return A.Var(name)
         if t.kind == "OP" and t.value == "(":
             self.advance()
@@ -572,6 +601,12 @@ class P:
         self.expect_op(",")
         e2 = self.parse_expr()
         e3 = self.parse_expr() if self.accept_op(",") else None
+        if not self.dialect.expr_subscripts:  # F66 7.1.2.8: params are constant or variable
+            for m in (e1, e2, e3):
+                if m is not None and not isinstance(m, (A.IntLit, A.Var)):
+                    raise ParseError(
+                        "F66 DO parameter must be an integer constant or variable", "NRC"
+                    )
         return A.Do(var=var, start=e1, stop=e2, step=e3, term_label=term)
 
     def parse_goto(self):
@@ -811,11 +846,16 @@ class P:
             name += self.advance().value
         name = self._name6(name)  # V5 3.3: 6-char name limit (after merge)
         if self.is_op("("):
-            target = A.Ref(name, self.parse_args())
+            target = self._ref(name)
         else:
             target = A.Var(name)
         self.expect_op("=")
-        return A.Assign(target=target, expr=self.parse_expr())
+        expr = self.parse_expr()
+        if not self.dialect.mixed_complex_assign:
+            # F66 Table 1: COMPLEX may only be assigned to/from COMPLEX.
+            if (self.types.get(name) == "COMPLEX") != self._expr_is_complex(expr):
+                raise ParseError("F66 prohibits COMPLEX <-> numeric assignment", "NRC")
+        return A.Assign(target=target, expr=expr)
 
     # -- declarations (each parses a full statement into `unit`)
     def parse_dims(self, consts):
@@ -933,7 +973,7 @@ class P:
                 else:
                     name = self.expect_id()
                     if self.is_op("("):
-                        targets.append(A.Ref(name, self.parse_args()))
+                        targets.append(self._ref(name))
                     else:
                         targets.append(A.Var(name))
                 if not self.accept_op(","):
@@ -1095,10 +1135,10 @@ def _format_body(text):
     return text[i:]
 
 
-def parse_units(statements, *, on_error=None, on_warn=None, dialect=FORTRAN10):
+def parse_units(statements, *, on_error=None, on_warn=None, dialect=F66):
     """Group expanded statements into ProgramUnits and parse each one. on_warn(st, msg)
     receives non-fatal diagnostics (e.g. %FTNLID, 6-char-name truncation). `dialect`
-    selects the front-end extensions (default DEC FORTRAN-10)."""
+    selects the front-end extensions (default F66; FORTRAN10 for the DEC superset)."""
     units = []
     unit = None
     for st in statements:
@@ -1138,7 +1178,7 @@ def parse_units(statements, *, on_error=None, on_warn=None, dialect=FORTRAN10):
 
         n_data, n_code = len(unit.data), len(unit.code)
         try:
-            _route(unit, st, toks, on_warn)
+            _route(unit, st, toks, on_warn, dialect)
         except (ParseError, LexError) as e:
             # F66 3.1.6 blanks-insignificance retry (well-formed source never reaches here).
             del unit.data[n_data:]  # undo any partial append before retry
@@ -1146,7 +1186,7 @@ def parse_units(statements, *, on_error=None, on_warn=None, dialect=FORTRAN10):
             norm = _respace_stmt(_strip_blanks(st.text))
             if norm != st.text:
                 try:
-                    _route(unit, st, fix_tokens(tokenize(norm, dialect)), on_warn)
+                    _route(unit, st, fix_tokens(tokenize(norm, dialect)), on_warn, dialect)
                     continue
                 except (ParseError, LexError):
                     del unit.data[n_data:]
@@ -1159,10 +1199,48 @@ def parse_units(statements, *, on_error=None, on_warn=None, dialect=FORTRAN10):
     return units
 
 
-def _route(unit, st, toks, on_warn=None):
+# Intrinsics that yield a COMPLEX result (for the F66 complex-assignment check).
+_COMPLEX_FUNCS = {"CMPLX", "DCMPLX", "CONJG", "CEXP", "CLOG", "CSIN", "CCOS", "CSQRT"}
+
+
+def _is_c_times_v(e):
+    """c*v: an integer constant times an integer variable, in either order."""
+    return (
+        isinstance(e, A.Binary)
+        and e.op == "*"
+        and (
+            (isinstance(e.left, A.IntLit) and isinstance(e.right, A.Var))
+            or (isinstance(e.left, A.Var) and isinstance(e.right, A.IntLit))
+        )
+    )
+
+
+def _f66_subscript(e):
+    """True if `e` is a legal F66 subscript form (5.1.3.3): k, v, v±k, c*v, or c*v±k --
+    integer constants c, k and an integer variable v."""
+    if isinstance(e, (A.IntLit, A.Var)):  # k, v
+        return True
+    if isinstance(e, A.Binary):
+        if e.op in ("+", "-"):  # (v or c*v) ± k  [and, for +, the commuted k + (v or c*v)]
+            lhs = isinstance(e.left, A.Var) or _is_c_times_v(e.left)
+            if isinstance(e.right, A.IntLit) and lhs:
+                return True
+            return (
+                e.op == "+"
+                and isinstance(e.left, A.IntLit)
+                and (isinstance(e.right, A.Var) or _is_c_times_v(e.right))
+            )
+        if e.op == "*":  # c*v
+            return _is_c_times_v(e)
+    return False
+
+
+def _route(unit, st, toks, on_warn=None, dialect=F66):
     kw = toks[0].value if toks[0].kind == "ID" else None
-    p = P(toks)
+    p = P(toks, dialect)
     p.namelists = unit.namelists  # so ACCEPT/TYPE/READ <namelist> dispatches right
+    p.arrays = unit.arrays  # declared so far (F66 requires specs before executables)
+    p.types = unit.types
     if on_warn is not None:  # %FTNLID: 6-char-name truncation (V5 3.3)
         p.warn = lambda nm: on_warn(
             st, diag("LID", f"NAME '{nm}' TRUNCATED TO '{nm[:6]}'", st.line)
@@ -1174,6 +1252,8 @@ def _route(unit, st, toks, on_warn=None):
         unit.formats[st.label] = _format_body(st.text)
         return
     if kw == "IMPLICIT":
+        if not p.dialect.implicit_stmt:  # F66 has no IMPLICIT statement (only the I-N rule)
+            raise ParseError("IMPLICIT is a FORTRAN-10 extension", "NRC")
         p.parse_implicit(unit)
         return
     if kw == "DIMENSION":

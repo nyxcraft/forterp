@@ -12,12 +12,12 @@ These numbers are the locked-in baseline; a change means real behavior moved.
 """
 
 from fcvs_runner import run_corpus
-from f66.target import NATIVE
-from f66.dialect import STRICT_F66
+from forterp.target import NATIVE
+from forterp.dialect import F66
 
 R = run_corpus()  # default: FORTRAN10 dialect, PDP10 target
 R_NATIVE = run_corpus(target=NATIVE)  # value-model axis
-R_STRICT = run_corpus(dialect=STRICT_F66)  # front-end dialect axis (ANSI, DEC ext off)
+R_STRICT = run_corpus(dialect=F66)  # front-end dialect axis (ANSI, DEC ext off)
 
 
 def test_curated_corpus_all_parses_and_runs():
@@ -73,9 +73,9 @@ def test_native_target_runs_the_corpus_identically():
 
 def test_strict_f66_dialect_runs_the_corpus_identically():
     # The FCVS audits are pure ANSI X3.9-1966 (they predate the DEC extensions), so
-    # turning the DEC front-end off (STRICT_F66: no octal "nnn, tab-format, inline !,
+    # turning the DEC front-end off (F66: no octal "nnn, tab-format, inline !,
     # lenient 72-col) must not change what parses or passes. This is the dialect-axis
-    # analog of the NATIVE-target run, and validates STRICT_F66 against real ANSI code.
+    # analog of the NATIVE-target run, and validates F66 against real ANSI code.
     assert R_STRICT["n_run"] == R["n_run"]
     assert R_STRICT["total_pass"] == R["total_pass"]
     assert R_STRICT["total_err"] == R["total_err"]

@@ -1,9 +1,9 @@
 """Direct unit tests of the interpreter's core numeric/word primitives."""
 
-from f66.engine import wrap36, trunc_div, fort_mod, packword, linidx, _lsh
-from f66.parser import pack5
-from f66.fmt import unpack_chars
-from f66.target import PDP10
+from forterp.engine import wrap36, trunc_div, fort_mod, packword, linidx, _lsh
+from forterp.parser import pack5
+from forterp.fmt import unpack_chars
+from forterp.target import PDP10
 
 WORD = 1 << 36
 P35 = 1 << 35
@@ -137,7 +137,7 @@ def test_engine_value_model_is_target_pluggable():
     # core is representation-agnostic: a 16-bit target wraps arithmetic differently than
     # the PDP-10's 36 -- proof the seam is real, not cosmetic.
     from conftest import run, out, HEAD, TAIL
-    from f66.target import Target
+    from forterp.target import Target
 
     src = HEAD + "        V(1) = 50000 + 50000\n" + TAIL
     assert out(run(src), 1) == 100000  # default PDP-10 (36-bit)

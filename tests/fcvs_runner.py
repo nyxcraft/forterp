@@ -23,12 +23,12 @@ import os
 import re
 import glob
 
-from f66.source import scan_file, expand_includes
-from f66.parser import parse_units
-from f66.engine import Engine, Frame, StopExecution
-from f66 import install_runtime
-from f66.target import PDP10
-from f66.dialect import FORTRAN10
+from forterp.source import scan_file, expand_includes
+from forterp.parser import parse_units
+from forterp.engine import Engine, Frame, StopExecution
+from forterp import install_runtime
+from forterp.target import PDP10
+from forterp.dialect import FORTRAN10
 
 
 CORPUS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fcvs")

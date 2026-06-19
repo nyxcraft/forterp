@@ -15,17 +15,19 @@ handling the fixed-form rules and the DEC extensions gated by the Dialect:
   * a lone '.' line              -> end-of-file artifact from the 1979 download
   * INCLUDE 'FILE/SWITCH'        -> reported (and optionally expanded)
 
-Columns 73-80 are the identification/sequence field, which FORTRAN-10 (V5 2.2.4)
-and F66 (3.3) treat as an automatic remark (ignored). scan_file has two modes:
-  * strict_cols=True  -- faithful F10/F66: statement is cols 7-72, 73+ dropped
-    unconditionally (what the real compiler did).
-  * strict_cols=False (default) -- lenient: drop the cols 73+ field UNLESS truncating
-    at column 72 would obviously cut a statement in half, i.e. cols 7-72 are left with
-    an unclosed '(' or an unterminated string. This recovers source whose statement
-    text was nudged past col 72 (e.g. period source re-indented from its col-7 original,
-    so a long statement spills its closing ')' into cols 73-74) without keeping genuine
-    sequence fields -- those sit after a self-contained, balanced statement, so they are
-    still dropped. Best-effort: it relaxes the obvious mid-statement cases, not every one.
+Columns 73-80 are the identification/sequence field, which BOTH FORTRAN-10 (V5 2.2.4)
+and F66 (3.3) treat as an automatic remark and drop unconditionally -- so the statement
+is cols 7-72, full stop. That faithful behavior is the default.
+
+`SourceOptions(recover_shifted_cols=True)` turns on a SOURCE-RECOVERY heuristic that is
+NOT a language feature: drop cols 73+ as usual UNLESS truncating at column 72 would
+obviously cut a statement in half (cols 7-72 left with an unclosed '(' or an unterminated
+string) AND including cols 73+ makes it whole. This recovers source whose statement text
+was nudged past col 72 -- e.g. period decks mechanically re-indented from their col-7
+original, so a long statement spills its closing ')' into cols 73-74. It is orthogonal to
+the `Dialect` (it copes with imperfect *input*, not with a dialect of the *language*), so
+it lives here, off the dialect axis. Best-effort: it relaxes the obvious mid-statement
+cases, not every one.
 """
 
 from __future__ import annotations
@@ -33,11 +35,25 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 
-from f66.dialect import FORTRAN10
+from forterp.dialect import F66
 
 
 COMMENT_COL1 = set("Cc*!$/")  # V5 manual 2.3.3 comment-line markers
 DEBUG_COL1 = set("Dd")
+
+
+@dataclass(frozen=True)
+class SourceOptions:
+    """Source-recovery knobs -- ORTHOGONAL to the language `Dialect`. These cope with
+    imperfect *input* (mechanically re-indented decks, download artifacts), not with
+    FORTRAN language features, so they are kept off the dialect axis. Default = faithful,
+    no recovery (statement is cols 7-72, the sequence field is dropped)."""
+
+    recover_shifted_cols: bool = False  # keep statement text nudged into cols 73-80
+    # (period source re-indented past its col-7 origin); see _trim_seqfield.
+
+
+DEFAULT_OPTIONS = SourceOptions()
 
 
 @dataclass
@@ -178,25 +194,23 @@ def _trim_seqfield(raw: str) -> str:
     return raw[:72]
 
 
-def scan_file(
-    path: str, debug: bool = False, strict_cols: bool = False, dialect=FORTRAN10
-) -> FileScan:
+def scan_file(path: str, debug: bool = False, dialect=F66, options=DEFAULT_OPTIONS) -> FileScan:
     """Scan a fixed-form source FILE into logical statements."""
     with open(path, "r", errors="replace") as fh:
-        return scan_text(fh.read(), path, debug, strict_cols, dialect)
+        return scan_text(fh.read(), path, debug, dialect, options)
 
 
 def scan_text(
     text: str,
     path: str = "<string>",
     debug: bool = False,
-    strict_cols: bool = False,
-    dialect=FORTRAN10,
+    dialect=F66,
+    options=DEFAULT_OPTIONS,
 ) -> FileScan:
     """Scan fixed-form source TEXT into logical statements (no filesystem access).
     `path` only labels the produced statements for diagnostics."""
     fs = FileScan(path=path)
-    strict = strict_cols or dialect.strict_cols
+    strict = not options.recover_shifted_cols  # faithful 72-col cut unless recovering
     # ANSI F66 has no inline comments; only the DEC dialect strips a trailing '!'.
     if dialect.inline_comment:
         strip_comment = _split_inline_comment

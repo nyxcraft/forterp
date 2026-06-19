@@ -6,8 +6,10 @@ Direct tests pin exact behavior; a few end-to-end TYPE tests confirm the wiring
 (I-field overflow, E as fixed-point) we document it.
 """
 
-from f66.fmt import parse_format, render, apply_carriage, read_values
-from f66.parser import pack5
+from pytest import approx
+
+from forterp.fmt import parse_format, render, apply_carriage, read_values
+from forterp.parser import pack5
 from conftest import run
 
 
@@ -154,8 +156,35 @@ def test_carriage_control_translations():
 
 
 # ---- input parsing (ACCEPT/READ side) --------------------------------------
-def test_read_integers_whitespace_separated():
-    assert read_values(parse_format("(I,I)"), "12 34") == [("I", 12), ("I", 34)]
+def test_read_widthd_fields_by_column():
+    # F66 7.2.3.6: a WIDTH'D numeric field is read by COLUMN width, so packed digits
+    # split by field width ...
+    assert read_values(parse_format("(I2,I3)"), "12345") == [("I", 12), ("I", 345)]
+    # ... leading blanks are insignificant, embedded/trailing blanks are zeros ...
+    assert read_values(parse_format("(I5)"), "  420") == [("I", 420)]
+    assert read_values(parse_format("(I5)"), "4 2  ") == [("I", 40200)]
+    # ... and an all-blank field is zero.
+    assert read_values(parse_format("(I5)"), "     ") == [("I", 0)]
+
+
+def test_read_widthless_descriptors_are_free_form():
+    # With the FORTRAN-10 free-form input extension (free_form=True), a WIDTHLESS
+    # descriptor ([DEC]; F66 requires a width) reads one free-form, space/comma/TAB-
+    # delimited token -- the ADVENT-database idiom. (Under F66 it would read by column.)
+    assert read_values(parse_format("(I,I)"), "12 34", free_form=True) == [("I", 12), ("I", 34)]
+    assert read_values(parse_format("(4G)"), "1\t2\t44\t29", free_form=True) == [
+        ("I", 1),
+        ("I", 2),
+        ("I", 44),
+        ("I", 29),
+    ]
+
+
+def test_read_real_implied_decimal():
+    # F66 7.2.3.6.2: an F/E/D field with no decimal point places it d digits from the
+    # right; an explicit point in the field overrides d.
+    assert read_values(parse_format("(F5.2)"), "12345") == [("F", approx(123.45))]
+    assert read_values(parse_format("(F7.2)"), "  12.5") == [("F", approx(12.5))]
 
 
 def test_read_char_field_packs():
@@ -164,6 +193,28 @@ def test_read_char_field_packs():
 
 def test_read_real():
     assert read_values(parse_format("(F)"), "3.14") == [("F", 3.14)]
+
+
+def test_read_real_d_exponent():
+    # Dw.d / Ew.d input: FORTRAN's D and E exponent letters are interchangeable
+    assert read_values(parse_format("(D10.3)"), " 1.250D+01") == [("F", 12.5)]
+    assert read_values(parse_format("(E10.3)"), " 1.250E+01") == [("F", 12.5)]
+    assert read_values(parse_format("(F10.3)"), "1.5d-3") == [("F", 0.0015)]
+
+
+def test_read_scale_factor():
+    # F66 7.2.3.5.1: external = internal * 10**scale, so input divides by 10**scale ...
+    assert read_values(parse_format("(1PF6.2)"), " 31.40") == [("F", approx(3.14))]
+    assert read_values(parse_format("(-1PF6.1)"), "  3.14") == [("F", approx(31.4))]
+    # ... but the scale is suspended when the field carries its own exponent
+    assert read_values(parse_format("(2PE12.3)"), " 314.0E-01") == [("F", approx(31.4))]
+
+
+def test_read_hollerith_field_takes_input_chars():
+    # F66 7.2.3.8: an nH field reads its characters FROM the record, mutated in place
+    fmt = parse_format("(5Hxxxxx)")
+    read_values(fmt, "HELLO")
+    assert fmt[0].kind == "lit" and fmt[0].a == "HELLO"
 
 
 def test_read_nonnumeric_integer_is_zero():

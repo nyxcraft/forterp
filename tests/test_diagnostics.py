@@ -4,7 +4,7 @@ These fire only on INVALID source; valid programs emit none.
 """
 
 from conftest import run
-from f66.diagnostics import diag
+from forterp.diagnostics import diag
 
 PROG = "        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n        COMMON /OUT/ V(40)\n"
 END = "        END\n"
@@ -58,8 +58,8 @@ def test_diagnostics_carry_line_numbers():
 def test_ftnlid_warning_on_long_name_truncation():
     import tempfile
     import os
-    from f66.source import scan_file, expand_includes
-    from f66.parser import parse_units
+    from forterp.source import scan_file, expand_includes
+    from forterp.parser import parse_units
 
     src = "        PROGRAM T\n        LONGNAME12 = 5\n        END\n"
     with tempfile.NamedTemporaryFile("w", suffix=".FOR", delete=False) as f:
@@ -81,8 +81,8 @@ def test_ftnlid_warning_on_long_name_truncation():
 def test_no_warning_for_six_char_or_shorter_names():
     import tempfile
     import os
-    from f66.source import scan_file, expand_includes
-    from f66.parser import parse_units
+    from forterp.source import scan_file, expand_includes
+    from forterp.parser import parse_units
 
     src = "        PROGRAM T\n        SIXCHR = 5\n        END\n"
     with tempfile.NamedTemporaryFile("w", suffix=".FOR", delete=False) as f:
@@ -101,15 +101,15 @@ def test_parse_source_raises_on_invalid_statement():
     # The public parse_source must SURFACE a malformed statement, not silently drop it
     # and hand back a runnable truncated unit. Default = raise ParseError; on_error=
     # opts into collect-and-continue.
-    import f66
+    import forterp
 
     bad = "      PROGRAM T\n      X = = 5\n      Y = 1\n      END\n"
     raised = False
     try:
-        f66.parse_source(bad)
-    except f66.ParseError:
+        forterp.parse_source(bad)
+    except forterp.ParseError:
         raised = True
     assert raised, "parse_source must raise on malformed source"
     errs = []
-    f66.parse_source(bad, on_error=lambda st, m: errs.append(m))
+    forterp.parse_source(bad, on_error=lambda st, m: errs.append(m))
     assert len(errs) == 1

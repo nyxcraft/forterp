@@ -84,9 +84,10 @@ def test_label_leading_zeros_ignored():
     assert out(run(src), 1) == 7
 
 
-# ---- cols 73+ field (V5 2.2.4): lenient default keeps spillover only when col-72
-#      truncation would cut a statement in half; strict_cols hard-truncates at 72.
-from f66.source import _trim_seqfield, scan_file  # noqa: E402
+# ---- cols 73+ field (V5 2.2.4): faithfully dropped by default (both dialects); the
+#      SourceOptions recovery heuristic keeps spillover only when col-72 truncation would
+#      cut a statement in half. This is source recovery, NOT a dialect feature.
+from forterp.source import _trim_seqfield, scan_file, SourceOptions  # noqa: E402
 import tempfile  # noqa: E402
 import os  # noqa: E402
 
@@ -125,14 +126,18 @@ def test_continued_statement_seqfield_still_dropped():
     assert _trim_seqfield(s) == s[:72]
 
 
-def test_strict_cols_truncates_at_72():
+def test_seqfield_dropped_by_default_recovery_keeps_spillover():
     s = _spill_line()
     with tempfile.NamedTemporaryFile("w", suffix=".FOR", delete=False) as f:
         f.write(s + "\n        END\n")
         path = f.name
     try:
-        strict = scan_file(path, strict_cols=True).statements[0].text
-        lenient = scan_file(path).statements[0].text
+        # Default (both dialects): faithful hard 72-col cut. SourceOptions recovery (a
+        # source-handling option, NOT a dialect) keeps the balanced spillover.
+        strict = scan_file(path).statements[0].text
+        lenient = (
+            scan_file(path, options=SourceOptions(recover_shifted_cols=True)).statements[0].text
+        )
     finally:
         os.unlink(path)
     assert strict.endswith("10")  # ')' in col 73 dropped -> unbalanced
@@ -174,9 +179,9 @@ def test_dialect_gates_dec_lexer_extensions():
     # The front-end dialect is selectable: DEC FORTRAN-10 accepts the octal "nnn literal;
     # strict ANSI F66 rejects it -- proof the dialect param is wired, not cosmetic.
     import pytest
-    from f66.lexer import tokenize, LexError
-    from f66.dialect import FORTRAN10, STRICT_F66
+    from forterp.lexer import tokenize, LexError
+    from forterp.dialect import FORTRAN10, F66
 
     assert tokenize('"101', FORTRAN10)[0].kind == "OCTAL"  # DEC octal literal -> 65
     with pytest.raises(LexError):
-        tokenize('"101', STRICT_F66)  # not an ANSI F66 literal
+        tokenize('"101', F66)  # not an ANSI F66 literal

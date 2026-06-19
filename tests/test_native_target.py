@@ -5,18 +5,18 @@ where NATIVE deliberately differs from the faithful PDP-10 target (which the res
 suite validates). Broad conformance under NATIVE is covered by the FCVS corpus run
 (test_fcvs_conformance.test_native_target_runs_the_corpus_identically)."""
 
-import f66
-from f66 import fmt
-from f66.target import PDP10, NATIVE
+import forterp
+from forterp import fmt
+from forterp.target import PDP10, NATIVE
 from conftest import run, run_int, out
 
 
 # ---- the library default IS NATIVE (the headline of the value-model work) --------
 def test_library_default_target_is_native():
-    # `import f66; run_source(...)` must use NATIVE, not the PDP-10 quirk model. Checked
+    # `import forterp; run_source(...)` must use NATIVE, not the PDP-10 quirk model. Checked
     # via the public API (conftest pins PDP10 for the unit suite, so it can't see this).
-    assert f66.Engine({}).tgt is f66.NATIVE
-    assert f66.run_source("      PROGRAM T\n      END\n").tgt is f66.NATIVE
+    assert forterp.Engine({}).tgt is forterp.NATIVE
+    assert forterp.run_source("      PROGRAM T\n      END\n").tgt is forterp.NATIVE
 
 
 # ---- axis 1: integers are 64-bit, not 36-bit -------------------------------------

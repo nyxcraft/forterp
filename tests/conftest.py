@@ -1,4 +1,4 @@
-"""Shared pytest harness for the f66 interpreter.
+"""Shared pytest harness for the forterp interpreter.
 
 `run(src)` compiles and runs a small FORTRAN program through the real pipeline
 (source reader -> lexer -> parser -> engine) and returns the Engine so tests can read
@@ -13,10 +13,10 @@ from __future__ import annotations
 import os
 import tempfile
 
-import f66
-from f66.source import scan_file, expand_includes
-from f66.parser import parse_units
-from f66.engine import Engine, Frame, StopExecution
+import forterp
+from forterp.source import scan_file, expand_includes
+from forterp.parser import parse_units
+from forterp.engine import Engine, Frame, StopExecution
 
 
 def run(src, program="T", inputs=None, setup=None, target=None, dialect=None):
@@ -24,8 +24,10 @@ def run(src, program="T", inputs=None, setup=None, target=None, dialect=None):
     `inputs` is an optional list of lines fed to READ/ACCEPT (one per call).
     `setup(eng)` is an optional hook to tweak the engine before the program runs.
     `target` selects the value model; defaults to PDP10 (the unit suite asserts it).
-    `dialect` selects the front-end; defaults to FORTRAN10 (DEC extensions on)."""
-    dlc = dialect or f66.FORTRAN10
+    `dialect` selects the front-end. The library default is F66 (ANSI), but this harness
+    defaults to FORTRAN10 so test snippets may use the DEC extensions (octal, tab-format,
+    `!`, free-form input) freely; dialect-specific tests pass an explicit dialect."""
+    dlc = dialect or forterp.FORTRAN10
     with tempfile.NamedTemporaryFile("w", suffix=".FOR", delete=False) as f:
         f.write(src)
         path = f.name
@@ -46,10 +48,11 @@ def run(src, program="T", inputs=None, setup=None, target=None, dialect=None):
             {u.name: u for u in units},
             readline=rl,
             printer=printout.append,
-            target=target or f66.PDP10,
-        )  # default: validate the PDP-10 target
+            target=target or forterp.PDP10,  # default: validate the PDP-10 target
+            free_form_input=dlc.free_form_input,  # F66 column vs FORTRAN-10 free-form input
+        )
         eng.printout = printout  # tests read it via printed(eng)
-        f66.install_runtime(eng)  # STDLIB + FOROTS binary-I/O codec
+        forterp.install_runtime(eng)  # STDLIB + FOROTS binary-I/O codec
         if setup is not None:
             setup(eng)
         try:

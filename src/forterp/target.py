@@ -1,4 +1,4 @@
-"""The machine value model an f66 program runs against -- the seam between the generic
+"""The machine value model an forterp program runs against -- the seam between the generic
 FORTRAN-66 core and a specific machine.
 
 A Target fixes what makes values machine-dependent: the word width + signed-integer

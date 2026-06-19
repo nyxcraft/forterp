@@ -57,7 +57,7 @@ def test_hollerith_assignment_not_numerically_converted():
         "        COMMON /OUT/ V(40)\n        X='AB'\n        V(1)=0\n"
         "        IF(X=='AB') V(1)=1\n        V(2)=X\n        END\n"
     )
-    from f66.parser import pack5
+    from forterp.parser import pack5
 
     assert out(eng, 1) == 1
     assert out(eng, 2) == pack5("AB")

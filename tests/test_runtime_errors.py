@@ -9,9 +9,9 @@ domain warnings get printed. This is general FORTRAN-10 V5 runtime/library cover
 
 import math
 from conftest import run, run_int, out
-import f66.ast_nodes as A
-from f66.engine import Engine
-from f66.fmt import unpack_chars
+import forterp.ast_nodes as A
+from forterp.engine import Engine
+from forterp.fmt import unpack_chars
 
 REAL = "        PROGRAM T\n        COMMON /OUT/ V(40)\n        REAL V\n        REAL X\n"
 END = "        END\n"

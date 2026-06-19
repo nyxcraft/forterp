@@ -1,7 +1,7 @@
 """Character/Hollerith handling end-to-end: DATA char arrays, comparisons."""
 
 from conftest import run, out
-from f66.parser import pack5
+from forterp.parser import pack5
 
 CHARHEAD = (
     "        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n"

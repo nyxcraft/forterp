@@ -6,7 +6,7 @@ construct now parses AND runs correctly.
 """
 
 from conftest import run, out
-from f66.fmt import unpack_chars
+from forterp.fmt import unpack_chars
 
 
 # ---- BLOCK DATA (V5 Ch16): declare-only unit that initializes labeled COMMON --
@@ -254,7 +254,7 @@ def test_open_associatevariable_tracks_next_record():
 
 def test_binary_mode_record_is_genuine_forots_lscw():
     # OPEN MODE='BINARY' stores records in the real FOROTS LSCW word form (V5 D.5.2)
-    from f66.forbin import encode_record
+    from forterp.forbin import encode_record
 
     src = (
         _RHEAD + "        OPEN(UNIT=5,ACCESS='RANDOM',MODE='BINARY')\n"

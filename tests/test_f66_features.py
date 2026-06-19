@@ -3,8 +3,8 @@ faithful F66 interpreter should support them): statement functions, PAUSE, ASSIG
 assigned GOTO, type size modifiers, blank common, Hollerith nH literals, multiple
 RETURN."""
 
-from conftest import run, run_int, out
-from f66.parser import pack5
+from conftest import run, run_int, out, printed
+from forterp.parser import pack5
 
 IH = "        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n        COMMON /OUT/ V(40)\n"
 END = "        END\n"
@@ -197,6 +197,42 @@ def test_list_directed_input():
     assert [out(eng, i) for i in range(1, 4)] == [10, 20, 30]
 
 
+# ---- run-time FORMAT held in an array (F66 7.2.3.10) -----------------------
+# A FORMAT identifier may be an array (or variable) holding the format text as
+# Hollerith characters, read when the I/O statement executes. The format text is
+# taken from the first element onward until its parentheses balance.
+def test_format_held_in_array():
+    eng = run(
+        "        PROGRAM T\n        DIMENSION IFMT(2)\n"
+        "        DATA IFMT /4H(I5),4H    /\n"
+        "        WRITE(6,IFMT) 42\n" + END
+    )
+    # I5 of 42 is '   42'; its leading blank is the carriage control (consumed)
+    assert printed(eng) == "  42\n"
+
+
+def test_format_assembled_across_array_elements():
+    # the spec spans two Hollerith words: '(I5,' + 'I3)'
+    eng = run(
+        "        PROGRAM T\n        DIMENSION IFMT(2)\n"
+        "        DATA IFMT /4H(I5,,3HI3)/\n"
+        "        WRITE(6,IFMT) 42, 7\n" + END
+    )
+    assert printed(eng) == "  42  7\n"
+
+
+# ---- Hollerith field read on input persists into the FORMAT (F66 7.2.3.8) --
+# Reading into an nH field overwrites its text; re-using the same FORMAT on a later
+# WRITE echoes what was read (the classic "variable heading" idiom).
+def test_hollerith_field_read_then_echoed():
+    eng = run(
+        "        PROGRAM T\n        READ(5,20)\n        WRITE(6,20)\n"
+        "  20    FORMAT(1H ,4Hwxyz)\n" + END,
+        inputs=[" ABCD"],
+    )
+    assert printed(eng) == "ABCD\n"  # leading-blank carriage control consumed
+
+
 # ---- adjustable (dummy-arg) array dimensions -------------------------------
 def test_adjustable_dimensions():
     src = (
@@ -214,7 +250,7 @@ def test_adjustable_dimensions():
 
 # ---- literal-spanning DATA -------------------------------------------------
 def test_literal_spanning_data():
-    from f66.fmt import unpack_chars
+    from forterp.fmt import unpack_chars
 
     eng = run(
         IH + "        DATA X,Y,Z/'ABCDEFGHIJKL'/\n"
@@ -225,8 +261,8 @@ def test_literal_spanning_data():
 
 # ---- device control --------------------------------------------------------
 def test_device_control_record_positioning():
-    import f66.ast_nodes as A
-    from f66.engine import Engine
+    import forterp.ast_nodes as A
+    from forterp.engine import Engine
 
     eng = Engine({})
     eng.io[1] = {"recs": [10, 20, 30], "pos": 2, "mode": "r"}

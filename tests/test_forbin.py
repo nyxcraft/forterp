@@ -3,7 +3,7 @@ V5 manual, Appendix D.5.2 (the LSCW format and its D-6 worked example).
 """
 
 import math
-from f66.forbin import double_to_dec10, dec10_to_double, encode_record, decode_record
+from forterp.forbin import double_to_dec10, dec10_to_double, encode_record, decode_record
 
 
 # ---- the manual's D-6 worked example (GROUND TRUTH) ------------------------

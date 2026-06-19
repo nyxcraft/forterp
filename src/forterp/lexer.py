@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from f66.dialect import FORTRAN10
+from forterp.dialect import F66
 
 
 @dataclass
@@ -128,7 +128,7 @@ def _read_number(s: str, i: int):
     return Token("INT", int(text), start), i
 
 
-def tokenize(s: str, dialect=FORTRAN10) -> list[Token]:
+def tokenize(s: str, dialect=F66) -> list[Token]:
     toks: list[Token] = []
     i, n = 0, len(s)
     while i < n:
@@ -146,6 +146,8 @@ def tokenize(s: str, dialect=FORTRAN10) -> list[Token]:
                 toks.append(Token("OP", "'", i))
                 i += 1
                 continue
+            if not dialect.apostrophe_string:  # F66 5.1.1.6: strings are Hollerith nH only
+                raise LexError("apostrophe string literal is a FORTRAN-10 extension", i)
             val, i2 = _read_string(s, i)
             toks.append(Token("STR", val, i))
             i = i2

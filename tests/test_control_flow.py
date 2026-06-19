@@ -99,3 +99,25 @@ def test_goto_out_of_loop_abandons_remaining_iterations():
     eng = run_int(body)
     assert out(eng, 1) == 3
     assert out(eng, 2) == 3
+
+
+def test_do_extended_range():
+    # F66 7.1.2.8.2: a GO TO may leave a DO's range and later jump back in; the loop
+    # resumes. Each trip jumps out (S+=100) then back to label 20 (S+=I).
+    body = (
+        "        S=0\n        DO 10 I=1,3\n        GOTO 50\n"
+        "  20    S=S+I\n  10    CONTINUE\n        V(1)=S\n        GOTO 99\n"
+        "  50    S=S+100\n        GOTO 20\n  99    CONTINUE\n"
+    )
+    assert out(run_int(body), 1) == 306  # 3*100 + (1+2+3)
+
+
+def test_inner_loop_early_exit_keeps_outer_iterating():
+    # the suspend/reactivate that enables extended range must NOT resurrect a loop that
+    # was genuinely abandoned: exiting the inner DO to the outer's terminal still lets
+    # the outer run all its trips.
+    body = (
+        "        K=0\n        DO 20 J=1,3\n        DO 10 I=1,3\n        K=K+1\n"
+        "        IF(I==2) GOTO 20\n  10    CONTINUE\n  20    CONTINUE\n        V(1)=K\n"
+    )
+    assert out(run_int(body), 1) == 6  # 3 outer trips * 2 inner trips each

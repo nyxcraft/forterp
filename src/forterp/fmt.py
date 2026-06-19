@@ -11,7 +11,7 @@ Edit descriptors supported (V5 Ch13, Table 13-1):
 
 from __future__ import annotations
 
-from f66.target import PDP10
+from forterp.target import PDP10
 
 MASK36 = (1 << 36) - 1
 
@@ -384,56 +384,77 @@ def apply_carriage(text):
 
 
 # ---- input -----------------------------------------------------------------
-def read_values(items, line, target=PDP10):
-    """Parse `line` per the format; return a list of (kind, value) reads."""
+def read_values(items, line, target=PDP10, free_form=False):
+    """Parse `line` per the format (F66 7.2.3); return a list of (kind, value) reads.
+
+    By default (F66) every numeric/logical field is read by COLUMN: leading blanks are
+    insignificant, embedded/trailing blanks are zeros (7.2.3.6(1)); an F/E/G/D field
+    with no decimal point gets the implied decimal d digits from the right (7.2.3.6.2);
+    a kP scale divides an exponent-free field (7.2.3.5.1). A widthless descriptor uses
+    its V5 default width as the column width.
+
+    With `free_form=True` (the FORTRAN-10 input extension), a WIDTHLESS descriptor
+    (`I`, `G`, ...) instead reads one free-form, whitespace/comma/tab-delimited token --
+    the idiom ADVENT-style tab-delimited databases depend on. Width'd fields are always
+    read by column.
+
+    An nH / '...' field reads its chars FROM the record and is mutated in place
+    (7.2.3.8). A record shorter than a field supplies only the columns it has."""
     vals = []
     pos = 0
+    scale = 0  # current P scale factor (F66 7.2.3.5)
     for it in items:
-        if it.kind in ("A", "R"):
-            if pos < len(line) and line[pos] == "\t":  # field separator from a prior
-                pos += 1  # numeric field (tab-delimited data)
+        k = it.kind
+        if k in ("A", "R"):
+            if pos < len(line) and line[pos] == "\t":  # legacy tab field-separator
+                pos += 1
             w = it.a or target.chars_per_word
-            chunk = line[pos : pos + w]
+            vals.append((k, target.pack(line[pos : pos + w].ljust(w))))
             pos += w
-            vals.append((it.kind, target.pack(chunk.ljust(w))))
-        elif it.kind in ("I", "G"):
-            tok, pos = _next_token(line, pos)
-            try:
-                vals.append(("I", int(tok)))
-            except ValueError:
-                try:
-                    vals.append(("I", int(float(tok))))
-                except ValueError:
-                    vals.append(("I", 0))
-        elif it.kind == "O":
-            tok, pos = _next_token(line, pos)
-            try:
-                vals.append(("O", int(tok, 8)))
-            except ValueError:
-                vals.append(("O", 0))
-        elif it.kind == "L":
-            w = it.a
-            if w:
-                chunk = line[pos : pos + w]
-                pos += w
-            else:
-                chunk, pos = _next_token(line, pos)
-            t = chunk.lstrip()[:1].upper()  # first non-blank: T or F
-            vals.append(("L", target.from_bool(t == "T")))
-        elif it.kind in ("F", "E", "D"):
-            tok, pos = _next_token(line, pos)
-            try:
-                vals.append(("F", float(tok)))
-            except ValueError:
-                vals.append(("F", 0.0))
-        elif it.kind == "X":
+        elif k == "G":
+            chunk, pos, tok = _grab(it, line, pos, free_form)
+            if tok:  # widthless [DEC] G in free-form mode: integer token (V5/ADVENT)
+                vals.append(("I", _to_int(chunk, 10)))
+            else:  # Gw.d reads as for F (7.2.3.6.2)
+                vals.append(("F", _read_real(chunk, it.b if it.a is not None else None, scale)))
+        elif k in ("I", "O"):
+            chunk, pos, tok = _grab(it, line, pos, free_form)
+            if not tok:  # column field: embedded/trailing blanks are zeros
+                chunk = _blank_fill(chunk)
+            vals.append((k, _to_int(chunk, 8 if k == "O" else 10)))
+        elif k in ("F", "E", "D"):
+            chunk, pos, _tok = _grab(it, line, pos, free_form)
+            vals.append(("F", _read_real(chunk, it.b if it.a is not None else None, scale)))
+        elif k == "L":
+            chunk, pos, _tok = _grab(it, line, pos, free_form)
+            vals.append(("L", target.from_bool(chunk.lstrip()[:1].upper() == "T")))
+        elif k == "P":  # scale factor; holds until reset (7.2.3.5)
+            scale = it.a or 0
+        elif k == "lit":  # nH / '...' field: input chars replace the literal
+            w = len(it.a)
+            it.a = line[pos : pos + w].ljust(w)
+            pos += w
+        elif k == "X":
             pos += it.a or 1
-        elif it.kind == "T":  # tab to 1-based column
+        elif k == "T":  # tab to 1-based column
             pos = max(0, (it.a or 1) - 1)
     return vals
 
 
+def _grab(it, line, pos, free_form):
+    """Extract one field's raw text -> (chunk, newpos, is_token). A widthless descriptor
+    in free-form mode reads the next whitespace/comma/tab token (is_token=True); any
+    width'd field, or any field in F66 column mode, is a column slice (is_token=False) of
+    the field width -- the V5 default width when the descriptor is widthless."""
+    if it.a is None and free_form:
+        tok, pos = _next_token(line, pos)
+        return tok, pos, True
+    w = it.a if it.a is not None else _DEFAULTS[it.kind][0]
+    return line[pos : pos + w], pos + w, False
+
+
 def _next_token(line, pos):
+    """The next whitespace/comma-delimited token and the position after it."""
     n = len(line)
     while pos < n and line[pos] in " ,\t":
         pos += 1
@@ -441,3 +462,51 @@ def _next_token(line, pos):
     while pos < n and line[pos] not in " ,\t":
         pos += 1
     return line[start:pos], pos
+
+
+def _to_int(s, base):
+    """Parse an integer field/token; a blank or unreadable field reads as zero. A real
+    written into a base-10 integer field is truncated toward zero."""
+    try:
+        return int(s, base)
+    except ValueError:
+        if base == 10:
+            try:
+                return int(float(s.replace("D", "E").replace("d", "e")))
+            except ValueError:
+                pass
+        return 0
+
+
+def _blank_fill(field):
+    """F66 7.2.3.6(1) blank handling for a width'd numeric field: leading blanks are
+    insignificant; embedded and trailing blanks are zeros (all-blank field -> "")."""
+    return field.lstrip(" ").replace(" ", "0")
+
+
+def _read_real(field, d, scale):
+    """Convert a real input field (Fw.d / Ew.d / Dw.d / Gw.d). The D and E exponent
+    letters are interchangeable; a field with no decimal point places it `d` digits
+    from the right (implied decimal); a kP scale factor divides an exponent-free field
+    by 10**k. An unreadable field reads as zero."""
+    s = _blank_fill(field).replace("D", "E").replace("d", "e")
+    if not s or s in ("+", "-"):
+        return 0.0
+    try:
+        v = float(s)
+    except ValueError:
+        return 0.0
+    if d and "." not in field:  # implied decimal: rightmost d digits are fractional
+        v /= 10.0**d
+    if scale and not _has_exponent(field):  # external = internal * 10**scale
+        v /= 10.0**scale
+    return v
+
+
+def _has_exponent(field):
+    """True if a real input field carries its own exponent -- an E/D letter or a signed
+    power after the mantissa -- which suspends the scale factor (F66 7.2.3.5.1(2))."""
+    body = field.strip()
+    if body[:1] in "+-":
+        body = body[1:]
+    return any(c in "eEdD+-" for c in body)

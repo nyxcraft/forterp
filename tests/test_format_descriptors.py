@@ -7,8 +7,8 @@ The scale-factor cases reproduce the manual's worked example (E15.3 of 12.493,
 p13-9) exactly, which serves as the spec oracle.
 """
 
-from f66.fmt import parse_format, render
-from f66.parser import pack5
+from forterp.fmt import parse_format, render
+from forterp.parser import pack5
 
 
 def r(spec, values):

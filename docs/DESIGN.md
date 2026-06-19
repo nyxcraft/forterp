@@ -1,14 +1,14 @@
-# f66 — design document
+# forterp — design document
 
-How the `f66` interpreter is built and why it's built that way. This is the architecture
+How the `forterp` interpreter is built and why it's built that way. This is the architecture
 companion to the user-facing [FORTRAN66.md](FORTRAN66.md); it's for
 someone modifying the interpreter, not someone writing FORTRAN.
 
 ---
 
-## 1. What f66 is, and the one decision everything follows from
+## 1. What forterp is, and the one decision everything follows from
 
-`f66` is a **tree-walking interpreter** for FORTRAN-66. It parses `.FOR` source to an AST
+`forterp` is a **tree-walking interpreter** for FORTRAN-66. It parses `.FOR` source to an AST
 and executes the AST directly — it does not compile to bytecode or transpile to Python.
 
 The load-bearing decision is that **the machine value model is pluggable**, owned by a
@@ -58,15 +58,20 @@ Fixed-form is genuinely a *card* format, so this stage is its own pass, not part
 lexer. It turns column-oriented text into a list of `Statement(label, text, line)`:
 
 - Column 1 `C`/`*` → comment; columns 1–5 label; column 6 non-blank → continuation
-  (joined onto the previous statement); 7–72 body; 73–80 sequence field trimmed.
-- **DEC extensions, gated by the `Dialect`:** TAB-format lines (`_tab_split`), trailing
-  `!` inline comments (`_split_inline_comment`), and lenient vs. strict 72-column cutting
-  (`strict_cols`). `;` statement separation is handled here too (`_split_semicolons`).
+  (joined onto the previous statement); 7–72 body; 73–80 sequence field dropped
+  unconditionally (faithful F10/F66 — both real compilers do this).
+- **DEC extensions, gated by the `Dialect`:** TAB-format lines (`_tab_split`) and trailing
+  `!` inline comments (`_split_inline_comment`). `;` statement separation is handled here
+  too (`_split_semicolons`).
+- **Source recovery, via `SourceOptions` (NOT the dialect):** `recover_shifted_cols` keeps
+  statement text that spilled past col 72 in re-indented decks (`_trim_seqfield`). It copes
+  with imperfect *input*, not a dialect of the *language*, so it sits off the dialect axis;
+  default is faithful (drop 73+).
 - `INCLUDE`/related directives are resolved by `expand_includes` after the scan.
 
 ### 2.2 Lexer — `lexer.py`
 
-`tokenize(text, dialect=FORTRAN10)` produces `Token(kind, value)` for the statement body.
+`tokenize(text, dialect=F66)` produces `Token(kind, value)` for the statement body.
 The `Dialect` gates the DEC lexical extensions — octal `"nnn` literals and the `READ(u'r)`
 random-access apostrophe. Numbers (`_read_number`), strings/Hollerith (`_read_string`),
 and the dotted operators `.EQ./.AND./.TRUE.` (`_match_dot`) are recognized here.
@@ -96,14 +101,14 @@ and the **execution** machinery.
 
 ## 3. The memory model
 
-FORTRAN-66 has no stack-allocated locals and no heap. f66 mirrors that:
+FORTRAN-66 has no stack-allocated locals and no heap. forterp mirrors that:
 
 - **COMMON blocks are flat word arrays** (`self.commons[block] = [...]`). Storage
   association is real: each unit's variables are mapped onto *offsets* into the block, so
   two units with different variable layouts overlay the same words. `EQUIVALENCE` is laid
   out by `_layout_equivalence`, which also extends/aliases COMMON.
 - **Locals are static per unit.** FORTRAN-10 allocated locals statically, so they *persist
-  across calls* — f66 keeps them in the `UnitRT`, not in the call frame. This is faithful
+  across calls* — forterp keeps them in the `UnitRT`, not in the call frame. This is faithful
   behavior programs sometimes depend on.
 - **Arguments are passed by reference.** The engine never copies a value into a callee; it
   passes a *reference cell* so the callee can write back. The reference abstraction has
@@ -163,18 +168,18 @@ functions (`_call_stmt_func`) are supported.
 
 ---
 
-## 6. The four seams (why f66 is standalone and composable)
+## 6. The four seams (why forterp is standalone and composable)
 
 The whole point of the package breakup was to push the PDP-10/DEC/host specifics out of
-the core through explicit seams, so `f66` imports **no** sibling package and can be
+the core through explicit seams, so `forterp` imports **no** sibling package and can be
 retargeted:
 
 | Seam | Mechanism | Default |
 |------|-----------|---------|
 | **Machine value model** | `Engine(target=…)`, a `Target` object; the engine routes its wrap / pack / truthy / logical sites through `self.tgt` | `NATIVE` (64-bit, 8-bit ASCII, boolean logicals) default; `PDP10` (36-bit, 5×7-bit, `.TRUE.`=−1, bit-wise) for faithfulness |
-| **Front-end dialect** | `Dialect` threaded through `scan_file`/`tokenize`/`parse_units` | `FORTRAN10` (DEC ext on) vs `STRICT_F66` |
+| **Front-end dialect** | `Dialect` threaded through `scan_file`/`tokenize`/`parse_units` (and `free_form_input` to the engine) | `F66` (default, ANSI) vs `FORTRAN10` (DEC superset) |
 | **OPEN devices** | `eng.register_device(name, fn)`; the core knows only TTY + ordinary files | empty (games register e.g. `GAM:`) |
-| **Unformatted-I/O codec** | `eng.binio`, installed by `install_runtime`; engine calls `self._binio()` (clear error if absent) | `f66.forbin` (FOROTS records + DEC-10 float) |
+| **Unformatted-I/O codec** | `eng.binio`, installed by `install_runtime`; engine calls `self._binio()` (clear error if absent) | `forterp.forbin` (FOROTS records + DEC-10 float) |
 
 Beyond those four, the core takes **environment services** as injected callables rather
 than reaching for the OS: `emit` (terminal out), `readline` / `getch` (terminal in),
@@ -225,7 +230,7 @@ What each module **owns** (responsibilities age better than line counts):
 | `forbin.py` | FOROTS unformatted-record framing (LSCW) + DEC-10 float — the `binio` codec |
 | `diagnostics.py` | V5 Appendix-F message rendering (`?FTNxxx` / `%FTNxxx`) |
 | `target.py` | the `Target` value-model seam (`PDP10` / `NATIVE` / `VAX`) |
-| `dialect.py` | the `Dialect` front-end seam (`FORTRAN10` / `STRICT_F66`) |
+| `dialect.py` | the `Dialect` front-end seam (`F66` default / `FORTRAN10` superset) |
 | `__init__.py` | public API + `install_runtime` / `make_engine` / `parse_source` / `run_source` |
 
 ---
@@ -242,9 +247,9 @@ from F66) were removed from the original 192-file FCVS set, so every file in `te
 parses and runs — a parse failure is now a regression, not "out of scope." The corpus is
 run across **both seams**: the value-model axis (pinned to `PDP10`, the faithful target the
 unit suite asserts, and again under the default `NATIVE`) and the front-end-dialect axis
-(again under `STRICT_F66`, since the audits are pure ANSI). All three runs produce the
-identical conformance aggregate — independent evidence both seams preserve standard
-behavior. 315 tests pass standalone.
+(under `F66`, since the audits are pure ANSI). All runs produce the identical conformance
+aggregate — independent evidence both seams preserve standard behavior. 325 tests pass
+standalone.
 
 ---
 

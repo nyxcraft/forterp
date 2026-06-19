@@ -1,12 +1,13 @@
 # FORTRAN-66 / DEC FORTRAN-10 language reference
 
-A working reference for the dialect `pyf66` implements: **ANSI X3.9-1966** ("FORTRAN
+A working reference for the dialect `forterp` implements: **ANSI X3.9-1966** ("FORTRAN
 66") as the base language, plus the **DEC FORTRAN-10** extensions that the interpreter
 reproduces. The authoritative base document is the ANSI X3.9-1966 standard; this file summarizes it as implemented and
 calls out where the DEC dialect diverges or extends.
 
 > Notation: items marked **[DEC]** are FORTRAN-10 extensions, not part of ANSI X3.9-1966.
-> Set the dialect to `STRICT_F66` to turn the front-end extensions off.
+> The default dialect is `forterp.F66` (ANSI); select `forterp.FORTRAN10` to turn these extensions
+> on.
 
 ---
 
@@ -44,14 +45,20 @@ Fixed-form, card-image, 72 columns significant:
 | Hollerith | packed, 5 chars/word | `5HHELLO`, `4HABCD` |
 
 **[DEC] Octal constants**: `"777`, or `O"777` / `"777` in data contexts — a literal in
-base 8, stored as a 36-bit value. Used heavily for bit masks.
+base 8, stored as a 36-bit value. Used heavily for bit masks. (ANSI X3.9-1966 has *no*
+octal constant; its only octal use is the `STOP`/`PAUSE` code, §7.1.2.7.)
 
-**The value model is configurable** through `f66.Target`. The default, `f66.NATIVE`, is
+**[DEC] Apostrophe string literal**: `'HELLO'`. ANSI X3.9-1966 has no quoted-string
+constant — its sole character literal is the Hollerith form `nH...` (§5.1.1.6). Under
+`FORTRAN10`, `forterp` accepts `'...'` as a Hollerith-equivalent literal (in `DATA`,
+expressions, and FORMAT text); `F66` rejects it.
+
+**The value model is configurable** through `forterp.Target`. The default, `forterp.NATIVE`, is
 a portable 64-bit host machine (64-bit two's-complement integers, 8-bit ASCII, `.TRUE.`=1
 with boolean logicals) for running standard FORTRAN-66. The **36-bit PDP-10 model** —
 integers 36-bit two's-complement (`.TRUE.` the all-bits value −1, `.FALSE.` 0), characters
-packed 5 seven-bit ASCII per word, `.AND./.OR.` bit-wise on the word — is `f66.PDP10`,
-selected with `Engine(..., target=f66.PDP10)`. The constant forms above (octal, Hollerith)
+packed 5 seven-bit ASCII per word, `.AND./.OR.` bit-wise on the word — is `forterp.PDP10`,
+selected with `Engine(..., target=forterp.PDP10)`. The constant forms above (octal, Hollerith)
 are the same in either; only the stored representation differs.
 
 ---
@@ -115,11 +122,17 @@ END
 
 > **DO-loop semantics (F66, not F77).** The body executes **at least once** even when the
 > initial value already exceeds the limit (the "one-trip DO"). On normal exit the index
-> variable retains the value it had on the last iteration — it is *not* reset. `pyf66`
+> variable retains the value it had on the last iteration — it is *not* reset. `forterp`
 > reproduces this faithfully; it is a real behavioral difference from FORTRAN-77.
+> A GO TO may also leave a DO's range and later jump back into it (the F66 §7.1.2.8.2
+> "extended range"); the loop resumes its iteration when control returns.
 
 > **No block IF.** FORTRAN-66 has no `IF ... THEN / ELSE / ENDIF`. Branching is done with
 > arithmetic IF, logical IF (single statement), and the GO TO family.
+
+> **STOP / PAUSE codes.** In F66 the optional code on `STOP n` / `PAUSE n` is an *octal*
+> digit string of one to five digits (§7.1.2.7). **[DEC]** the quoted-message forms
+> `STOP 'msg'` / `PAUSE 'msg'` are FORTRAN-10 extensions.
 
 ### Specification statements
 ```
@@ -130,6 +143,9 @@ DATA A,B,C /1.0, 2.0, 3*0.0/   ! compile-time initialization, with repeat counts
 EXTERNAL FUNC              ! pass a subprogram name as an argument
 ```
 Arrays are column-major and may have up to 3 dimensions (ANSI); the lower bound is 1.
+F66 restricts an array subscript to the forms `c*v±k`, `c*v`, `v±k`, `v`, or `k` —
+integer constants `c`, `k` and an integer variable `v` (§5.1.3.3); **[DEC]** `FORTRAN10`
+accepts any integer expression, but `F66` enforces these forms.
 
 ### Subprograms
 ```
@@ -159,7 +175,7 @@ arguments. Arrays may be passed with adjustable dimensions.
 
 > **Not a sandbox.** `OPEN`/`READ`/`WRITE` access the host filesystem. Relative file
 > names resolve under the engine's `save_root` (default `.`), but absolute paths and
-> `..` reach outside it — `pyf66` runs a program's I/O against the real filesystem and
+> `..` reach outside it — `forterp` runs a program's I/O against the real filesystem and
 > does not contain it. Don't run untrusted source expecting isolation. Default unit
 > assignments (V5 Table 10-1): units 3/6 → line printer, unit 5 → terminal input.
 
@@ -169,12 +185,26 @@ READ  (u, f) list          ! formatted, unit u, FORMAT label f
 WRITE (u, f) list
 READ  (u) list             ! unformatted (binary record)
 WRITE (u) list
-READ  f, list              ! read from the standard input unit
-PRINT f, list              ! write to the standard output unit
+READ  f, list              ! [DEC] read from the standard input unit (no unit designator)
+PRINT f, list              ! [DEC] write to the standard output unit
 ACCEPT f, list             ! [DEC] read from the terminal
 TYPE   f, list             ! [DEC] write to the terminal
 ```
-List-directed I/O uses `*` in place of a FORMAT label: `READ (5,*) A,B,C`.
+F66's input/output statements (§7.1.3) are `READ`/`WRITE` with a unit designator, plus
+the auxiliary `BACKSPACE`/`REWIND`/`ENDFILE`; `PRINT`, the unit-less `READ`, `ACCEPT`,
+and `TYPE` are FORTRAN-10 extensions.
+
+**Run-time (array) FORMAT.** The format reference `f` may be a statement label *or* the
+name of an array holding the format text as Hollerith characters (F66 §7.2.3.10),
+interpreted when the I/O statement executes:
+```
+DIMENSION IFMT(2)
+DATA IFMT /4H(I5),4H    /
+WRITE (6, IFMT) N          ! format taken from IFMT at run time
+```
+
+**[DEC] List-directed I/O** uses `*` in place of a FORMAT label: `READ (5,*) A,B,C`.
+ANSI X3.9-1966 has no list-directed I/O.
 
 Control statements: `BACKSPACE u`, `REWIND u`, `ENDFILE u`.
 An I/O statement may carry `END=label` and `ERR=label` branches.
@@ -187,54 +217,117 @@ list under FORMAT control (the F66-era equivalent of internal-file I/O).
 
 ### FORMAT edit descriptors
 ```
-Iw, Iw.m            integer
+Iw                  integer
 Fw.d                fixed real
-Ew.d, Dw.d          exponential real / double
-Gw.d                general real
+Ew.d, Dw.d          exponential real / double precision
+Gw.d                general real (selects F or E by magnitude)
 Lw                  logical (T/F)
-A, Aw               character / Hollerith
+Aw                  alphanumeric / Hollerith
 nHxxxx              Hollerith literal text
-'text'              [DEC] quoted literal text
 nX                  skip n columns
-Tn                  tab to column n
+kP                  scale factor
 /                   record separator (newline)
-nP                  scale factor
 n( ... )            group repeat
-:                   format-exhaustion stop
+'text'              [DEC] quoted literal text (F66 uses nH only)
+Ow                  [DEC] octal integer
+Rw                  [DEC] right-justified alphanumeric (cf. Aw left-justified)
+Tw                  [DEC] tab to column w
 $                   [DEC] suppress trailing newline
 ```
-A repeat count may precede most descriptors (`3I5`, `2F8.2`). If the list is longer than
-the format, control reverts to the last open group.
+- A repeat count may precede most descriptors (`3I5`, `2F8.2`). If the I/O list is longer
+  than the format, control reverts to the last open group.
+- **[DEC]** A *bare* descriptor with no width (`I`, `F`, `A`, …) takes the FORTRAN-10 V5
+  default width (`I15`, `F15.7`, `E15.7`, `D25.18`, `G15.7`, `A5`, `O15`, `L15`, `R5`,
+  §13.2.6); F66 requires an explicit width on every descriptor.
+- On input, the `D` and `E` exponent letters are interchangeable (`1.5D2` == `1.5E2`).
+- The `kP` scale factor applies on **input** as well as output: a field with no exponent
+  of its own is divided by `10**k` (§7.2.3.5.1).
+- On input, an `nH` / `'…'` field reads its characters *from* the record and the FORMAT
+  itself is updated, so a later WRITE with the same FORMAT echoes them (§7.2.3.8).
 
 ---
 
 ## 7. Intrinsic functions (selection)
 
+The complete ANSI X3.9-1966 library — all 31 intrinsic functions (Table 3) and all 24
+basic external functions (Table 4) — is implemented. A representative selection, with
+FORTRAN-10 extensions marked **[DEC]**:
+
 | Category | Functions |
 |----------|-----------|
-| Conversion | `INT/IFIX/IDINT`, `FLOAT/REAL`, `DBLE`, `SNGL`, `CMPLX`, `AINT` |
-| Truncation/round | `AMOD/MOD`, `SIGN/ISIGN/DSIGN`, `DIM/IDIM`, `NINT/IDNINT` |
-| Max/min | `AMAX0/AMAX1/MAX0/MAX1/DMAX1`, `AMIN0/AMIN1/MIN0/MIN1/DMIN1` |
+| Conversion | `INT/IFIX/IDINT`, `FLOAT`, `REAL`, `SNGL`, `DBLE`, `CMPLX`, `AINT` |
+| Sign/remainder | `MOD/AMOD/DMOD`, `SIGN/ISIGN/DSIGN`, `DIM/IDIM` |
+| Max/min | `MAX0/AMAX0/MAX1/AMAX1/DMAX1`, `MIN0/AMIN0/MIN1/AMIN1/DMIN1` |
 | Absolute | `ABS/IABS/DABS/CABS` |
-| Math | `SQRT/DSQRT`, `EXP/DEXP`, `ALOG/ALOG10/DLOG/DLOG10`, `SIN/COS/TAN`, `ASIN/ACOS/ATAN/ATAN2`, `SINH/COSH/TANH` |
-| Complex | `AIMAG`, `CONJG`, `REAL` |
-| **[DEC]** Bit/logical | `IAND`, `IOR`, `IEOR/XOR`, `NOT`, `ISHFT`/`LSH`, `IBCLR`/`IBSET` |
+| Exp/log | `EXP/DEXP/CEXP`, `ALOG/DLOG/CLOG`, `ALOG10/DLOG10` |
+| Trig | `SIN/DSIN/CSIN`, `COS/DCOS/CCOS`, `ATAN/DATAN`, `ATAN2/DATAN2`, `TANH` |
+| Square root | `SQRT/DSQRT/CSQRT` |
+| Complex | `AIMAG`, `CONJG`, `REAL`, `CMPLX` |
+| **[DEC]** Extra math | `TAN`, `ASIN`, `ACOS`, `SINH`, `COSH`, `SIND`, `COSD`, `NINT`, `ANINT`, `DFLOAT`, `DCMPLX` |
+| **[DEC]** Bit/shift | `LSH` (the `.AND.`/`.OR.`/`.NOT.`/`.XOR.`/`.EQV.` *operators* are in §4) |
+| **[DEC]** System | `RAN`/`SETRAN`, `DATE`, `EXIT`, `TIM2GO` (runtime builtins) |
+
+> **Deliberately not implemented.** A complete FORTRAN-10 V5 also supplies the remaining
+> double-precision elementary functions (`DTAN`, `DASIN`, `DACOS`, `DSINH`, `DCOSH`,
+> `DTANH`, `DINT`, `DNINT`, `IDNINT`, `DDIM`, `DPROD`) and the degree-argument forms
+> (`TAND`, `ASIND`, `ACOSD`, `ATAND`, `ATAN2D`). These are pure-math companions to the
+> functions above and would be one-line additions, but are omitted as unused — the base
+> F66 library (all 55 of Tables 3 & 4) is complete without them. Bit-manipulation
+> *function* forms beyond `LSH` (e.g. `ROT`) and additional OS/timing builtins
+> (`SECNDS`, `RUNTIM`) are likewise out of scope; bitwise work uses the `.AND.`/`.OR.`/
+> `.XOR.` operators.
 
 ---
 
 ## 8. Where DEC FORTRAN-10 diverges from ANSI X3.9-1966
 
-The features tagged **[DEC]** above are front-end **dialect** divergences (octal/Hollerith
-literals, `!` and quoted FORMAT text, tab-format source, `IMPLICIT`, `ENTRY`,
-`.XOR.`/`.EQV.`, the bit intrinsics, `ACCEPT`/`TYPE`/`PRINT`, random-access I/O,
-`ENCODE`/`DECODE`). The dialect is selected independently of the target and still defaults
-to `FORTRAN10` (these extensions on); set `f66.STRICT_F66` for ANSI.
+### Front-end dialect divergences
+
+The features tagged **[DEC]** above are front-end **dialect** divergences: octal and
+apostrophe literals, `!` comments and quoted FORMAT text, tab-format source, `IMPLICIT`,
+`ENTRY`, the `.XOR.`/`.EQV.` operators, the `LSH` shift intrinsic, the `O`/`R`/`T`/`$`
+FORMAT descriptors and bare-width descriptors, `PRINT`/unit-less `READ`/`ACCEPT`/`TYPE`,
+list-directed `*` I/O, random-access I/O, `ENCODE`/`DECODE`, free-form (widthless)
+formatted input, and the relaxation of three F66 *constraints* — general integer
+expressions in array subscripts (§5.1.3.3) and `DO` parameters (§7.1.2.8), and `COMPLEX`↔
+numeric assignment (Table 1). **`F66` rejects all of these; `FORTRAN10` accepts them.** The
+dialect is selected independently of the target and defaults to `forterp.F66` (ANSI — these
+extensions off); select `forterp.FORTRAN10` to enable the whole DEC superset.
+
+### Target (value-model) divergences
 
 The 36-bit word size, `.TRUE.` = −1, and the 5×7-bit character packing are properties of
-the **target**, not the language — they belong to `f66.PDP10`. The default target is
-`f66.NATIVE`, a portable 64-bit model (`.TRUE.`=1, boolean logicals). Target and dialect
+the **target**, not the language — they belong to `forterp.PDP10`. The default target is
+`forterp.NATIVE`, a portable 64-bit model (`.TRUE.`=1, boolean logicals). Target and dialect
 are orthogonal: you can run the ANSI dialect on the PDP-10 target, or the DEC dialect on
 NATIVE.
+
+### Implementation divergences (the interpreter as built)
+
+These hold on *every* target — they are properties of the tree-walking interpreter, not
+of the dialect or the value model:
+
+- **`REAL` is the host double.** A `REAL` datum is a Python float (host double precision);
+  there is no distinct single precision. `SNGL`/`DBLE` are effectively identity, so a
+  program depending on single-precision rounding sees double-precision results.
+- **`COMPLEX` and `DOUBLE PRECISION` occupy one storage cell**, stored as a single host
+  object rather than two machine words. Storage association that *splits* them — e.g.
+  `EQUIVALENCE`-ing a `COMPLEX` onto two `REAL`s, or counting on a `DOUBLE` spanning two
+  `COMMON` words — is not bit-faithful. (The "two words" in §2 describes the PDP-10 model,
+  not the interpreter's cell.)
+
+> **Formatted input (F66 §7.2.3.6).** By default (`F66`) every numeric/logical field is
+> read by *column*: packed digits split by width (`(I2,I3)` on `12345` → `12, 345`),
+> leading blanks are insignificant, embedded/trailing blanks count as **zeros** (`(I5)` on
+> `4 2␣␣` → `40200`), an `Fw.d` field with no decimal point gets the implied decimal
+> (`(F5.2)` on `12345` → `123.45`), a `kP` scale divides an exponent-free field, and a
+> field that isn't a valid number reads as **zero** (ANSI mandates no diagnostics; a real
+> FORTRAN-10 would raise a runtime error). **[DEC]** Under `FORTRAN10`, a *widthless*
+> descriptor (`I`, `G`, …) instead reads one free-form, space/comma/**tab**-delimited token
+> — the idiom variable-length tab-delimited databases (e.g. ADVENT) rely on. For free-form
+> input regardless of dialect, list-directed `READ(u,*)` and NAMELIST are whitespace-
+> delimited by design. (A record shorter than a width'd field supplies only the columns it
+> has — `forterp` doesn't blank-pad past the record's end.)
 
 For anything not covered here, the ANSI X3.9-1966 standard is authoritative for the
 base language, and the DECsystem-10 FORTRAN-10 Language Manual (V5) for the extensions.

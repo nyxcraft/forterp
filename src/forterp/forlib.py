@@ -15,7 +15,7 @@ engine's FOROTS error state). Each has the builtin signature (eng, frame, arg_no
 
 from __future__ import annotations
 
-from f66.engine import StopExecution
+from forterp.engine import StopExecution
 
 _MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
