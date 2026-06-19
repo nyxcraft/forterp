@@ -1,0 +1,135 @@
+"""Interactive command monitor (forterp.monitor.Monitor): RUN/CHECK/LOAD/START/SET/SHOW.
+
+Drives the monitor with a scripted line source and captures its output, pinning the
+command set the pyf66 / pyfortran10 / forterp front-ends expose when launched with no
+file. The set is identical across the three; only the starting dialect differs."""
+
+import io
+import os
+import tempfile
+
+from forterp.cli import f66_main
+from forterp.monitor import Monitor
+
+# strict-F66-clean: Hollerith FORMAT (the monitor defaults to f66, which rejects '...')
+HELLO = "      PROGRAM T\n      WRITE(6,10)\n   10 FORMAT(7H HI MON)\n      END\n"
+# writes COMMON so SHOW /OUT/ has state to print after a run
+COMMON_PROG = (
+    "      PROGRAM T\n      COMMON /OUT/ V(3)\n      INTEGER V\n"
+    "      V(1)=11\n      V(2)=22\n      V(3)=33\n      END\n"
+)
+# IMPLICIT is a FORTRAN-10 statement -- rejected under strict f66
+DEC = (
+    "      PROGRAM T\n      IMPLICIT INTEGER(A-Z)\n"
+    "      WRITE(6,10)\n   10 FORMAT(' DEC OK')\n      END\n"
+)
+
+
+def _src(text):
+    with tempfile.NamedTemporaryFile("w", suffix=".FOR", delete=False) as f:
+        f.write(text)
+        return f.name
+
+
+def drive(lines, **kw):
+    """Run the monitor over a scripted command list; return (stdout, stderr)."""
+    it = iter(lines)
+    out, err = [], []
+    Monitor(write=out.append, errwrite=err.append, readline=lambda: next(it, ""), **kw).run()
+    return "".join(out), "".join(err)
+
+
+def test_run_executes_a_file():
+    p = _src(HELLO)
+    try:
+        out, _ = drive([f"RUN {p}\n", "EXIT\n"])
+    finally:
+        os.unlink(p)
+    assert "HI MON" in out
+
+
+def test_execute_is_an_alias_for_run():
+    p = _src(HELLO)
+    try:
+        out, _ = drive([f"EXECUTE {p}\n"])  # EOF then ends the loop
+    finally:
+        os.unlink(p)
+    assert "HI MON" in out
+
+
+def test_check_reports_ok_and_does_not_run():
+    p = _src(HELLO)
+    try:
+        out, _ = drive([f"CHECK {p}\n"])
+    finally:
+        os.unlink(p)
+    assert "unit(s) OK" in out
+    assert "HI MON" not in out  # CHECK parses but does not run
+
+
+def test_check_lists_diagnostics_under_f66():
+    p = _src(DEC)
+    try:
+        _, err = drive([f"CHECK {p}\n"], std="f66")
+    finally:
+        os.unlink(p)
+    assert "error(s)" in err and "IMPLICIT" in err
+
+
+def test_set_std_switches_dialect():
+    p = _src(DEC)
+    try:
+        # rejected under f66; after SET STD fortran10 the same source runs
+        out, err = drive([f"RUN {p}\n", "SET STD fortran10\n", f"RUN {p}\n"], std="f66")
+    finally:
+        os.unlink(p)
+    assert "IMPLICIT" in err  # first run rejected
+    assert "DEC OK" in out  # second run succeeded
+
+
+def test_load_then_start():
+    p = _src(HELLO)
+    try:
+        out, _ = drive([f"LOAD {p}\n", "START\n"])
+    finally:
+        os.unlink(p)
+    assert "loaded" in out and "HI MON" in out
+
+
+def test_start_without_load_errors():
+    _, err = drive(["START\n"])
+    assert "nothing loaded" in err.lower()
+
+
+def test_show_settings_reflects_initial_state():
+    out, _ = drive(["SHOW\n"], std="fortran10", target="pdp10")
+    assert "fortran10" in out and "pdp10" in out
+
+
+def test_show_common_block_after_run():
+    p = _src(COMMON_PROG)
+    try:
+        out, _ = drive([f"RUN {p}\n", "SHOW /OUT/\n"])
+    finally:
+        os.unlink(p)
+    assert "/OUT/" in out and "11" in out and "33" in out
+
+
+def test_unknown_command_is_reported():
+    _, err = drive(["FROBNICATE\n"])
+    assert "Unknown command" in err
+
+
+def test_help_lists_the_core_commands():
+    out, _ = drive(["HELP\n"])
+    for c in ("RUN", "CHECK", "LOAD", "START", "SET", "SHOW", "EXIT"):
+        assert c in out
+
+
+def test_bare_invocation_enters_the_monitor(monkeypatch, capsys):
+    # pyf66 with no file -> interactive monitor reading from stdin
+    monkeypatch.setattr("sys.stdin", io.StringIO("HELP\nEXIT\n"))
+    rc = f66_main([])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "RUN" in out and "interactive (f66)" in out

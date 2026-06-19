@@ -24,7 +24,9 @@ _DIALECTS = {"f66": forterp.F66, "fortran10": forterp.FORTRAN10}
 
 def _run(argv, dialect, prog, *, allow_std):
     ap = argparse.ArgumentParser(prog=prog, description=__doc__.strip().splitlines()[0])
-    ap.add_argument("file", help="FORTRAN source file to run")
+    ap.add_argument(
+        "file", nargs="?", help="FORTRAN source file to run (omit for interactive mode)"
+    )
     ap.add_argument(
         "--target",
         choices=_TARGETS,
@@ -47,8 +49,15 @@ def _run(argv, dialect, prog, *, allow_std):
             help="language dialect (default: f66 = strict ANSI; fortran10 = DEC superset)",
         )
     args = ap.parse_args(argv)
-    if allow_std:
-        dialect = _DIALECTS[args.std]
+    std = args.std if allow_std else ("fortran10" if dialect is forterp.FORTRAN10 else "f66")
+    dialect = _DIALECTS[std]
+
+    if args.file is None:  # no file -> interactive command monitor
+        if args.check:
+            ap.error("--check requires a file")
+        from forterp.monitor import Monitor
+
+        return Monitor(std=std, target=args.target, program=args.program).run()
 
     try:
         text = open(args.file, "r", errors="replace").read()

@@ -66,6 +66,21 @@ unit. `--check` parses and lists every diagnostic without running (a compile-che
 `pyf66 --check prog.for` is a strict-ANSI-F66 conformance linter. Before install, use
 `python -m forterp …`.
 
+Launched with **no file**, each command drops into an interactive monitor (a small,
+FORTRAN-focused descendant of the TOPS-10 `.` prompt — it operates on whole source
+files, not a statement REPL, since F66 has no incremental-execution model):
+
+```text
+f66> RUN prog.for            # compile + run (alias EXECUTE); CHECK = parse-only
+f66> SET STD fortran10       # switch dialect, target, or main unit between runs
+f10> LOAD prog.for           # parse into the session; START runs it
+f10> SHOW /BLOCK/            # inspect a COMMON block after a run; SHOW = settings
+f10> !cmd   @file   HELP   EXIT
+```
+
+The command set is identical across the three commands; only the starting dialect
+differs (`pyf66` → f66, `pyfortran10` → fortran10), and `SET STD` flips it.
+
 ## What's pluggable
 
 - **Machine target** — `forterp.Target(word_bits, chars_per_word, logical_true, bitwise_logic,
