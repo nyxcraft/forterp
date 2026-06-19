@@ -1064,42 +1064,49 @@ class Engine:
 
     # ---- the per-unit run loop
     def run(self, frame):
-        """Run `frame`'s unit to completion. The fast path is this method's inline loop,
-        unchanged from the original; only a debugged/profiled run (tracer installed) takes
-        the _run_traced twin, which also maintains the active-frame stack (for backtrace /
-        step-over depth) and fires the per-statement hook. Keep the two loops in sync."""
-        if self.tracer is not None:
+        """Run `frame`'s unit to completion. A single loop serves both the normal and the
+        debugged/profiled case. `tracer` is None by default and hoisted to a local, so on
+        the fast path the per-statement hook is one predicted branch; when a tracer is
+        installed we also maintain the active-frame stack (self.frames, for backtrace /
+        step-over depth) and call it before each statement. `tracer`/`frames` are CLASS
+        defaults -- never set in __init__ -- so a normal engine's instance __dict__, and
+        thus its hot-loop attribute-access speed, is identical to the pre-debug engine
+        (measured: adding them as instance attrs cost ~8% on a tight loop)."""
+        tracer = self.tracer
+        if tracer is not None:
             if type(self.frames) is tuple:  # first traced run -> a real per-instance stack
                 self.frames = []
             self.frames.append(frame)
-            try:
-                return self._run_traced(frame)
-            finally:
+        try:
+            code = frame.rt.unit.code
+            labels = frame.rt.unit.labels
+            do_terms = frame.rt.do_terms
+            n = len(code)
+            while 0 <= frame.pc < n:
+                self.steps += 1
+                if self.steps > self.max_steps:
+                    self._budget_error(frame)
+                s = code[frame.pc]
+                if tracer is not None:  # debug/profile hook; pauses BEFORE the statement runs
+                    tracer(s, frame)
+                ctrl = self.exec_stmt(s, frame)
+                if ctrl is None:
+                    if (
+                        s.label is not None
+                        and s.label in do_terms
+                        and self._do_bookkeep(frame, s.label)
+                    ):
+                        continue
+                    frame.pc += 1
+                elif type(ctrl) is Goto:
+                    self._apply_goto(frame, ctrl.label, labels)
+                elif type(ctrl) is Ret:
+                    return ctrl.alt
+                elif type(ctrl) is Stop:
+                    raise StopExecution()
+        finally:
+            if tracer is not None:
                 self.frames.pop()
-        code = frame.rt.unit.code
-        labels = frame.rt.unit.labels
-        do_terms = frame.rt.do_terms
-        n = len(code)
-        while 0 <= frame.pc < n:
-            self.steps += 1
-            if self.steps > self.max_steps:
-                self._budget_error(frame)
-            s = code[frame.pc]
-            ctrl = self.exec_stmt(s, frame)
-            if ctrl is None:
-                if (
-                    s.label is not None
-                    and s.label in do_terms
-                    and self._do_bookkeep(frame, s.label)
-                ):
-                    continue
-                frame.pc += 1
-            elif type(ctrl) is Goto:
-                self._apply_goto(frame, ctrl.label, labels)
-            elif type(ctrl) is Ret:
-                return ctrl.alt
-            elif type(ctrl) is Stop:
-                raise StopExecution()
 
     def backtrace(self):
         """The active call chain as [(unit_name, current_line), ...], outermost first
@@ -1142,35 +1149,6 @@ class Engine:
             frame.do_stack.extend(reentered)
         frame.pc = newpc
 
-    def _run_traced(self, frame):
-        """The run() loop plus the per-statement debug/profile hook (self.tracer). Keep
-        in sync with run()'s inline loop; the sole difference is the tracer(s, frame) call."""
-        tracer = self.tracer
-        code = frame.rt.unit.code
-        labels = frame.rt.unit.labels
-        do_terms = frame.rt.do_terms
-        n = len(code)
-        while 0 <= frame.pc < n:
-            self.steps += 1
-            if self.steps > self.max_steps:
-                self._budget_error(frame)
-            s = code[frame.pc]
-            tracer(s, frame)  # pauses BEFORE the statement runs
-            ctrl = self.exec_stmt(s, frame)
-            if ctrl is None:
-                if (
-                    s.label is not None
-                    and s.label in do_terms
-                    and self._do_bookkeep(frame, s.label)
-                ):
-                    continue
-                frame.pc += 1
-            elif type(ctrl) is Goto:
-                self._apply_goto(frame, ctrl.label, labels)
-            elif type(ctrl) is Ret:
-                return ctrl.alt
-            elif type(ctrl) is Stop:
-                raise StopExecution()
 
     def run_block(self, base_rt, code, labels, formats=None):
         """Run an arbitrary statement list (with its own `labels`) against the storage
