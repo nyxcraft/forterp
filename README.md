@@ -81,6 +81,24 @@ f10> !cmd   @file   HELP   EXIT
 The command set is identical across the three commands; only the starting dialect
 differs (`pyf66` → f66, `pyfortran10` → fortran10), and `SET STD` flips it.
 
+`IMMEDIATE` (alias `REPL`) drops into interactive FORTRAN — statements run as you type,
+a DO loop is collected across lines, and a bare expression is evaluated (so typing a
+name inspects it). After a `LOAD`, the REPL can call straight into the program:
+
+```text
+f66* NFAC = 1
+f66* DO 10 I=1,5
+cont> NFAC = NFAC * I
+cont> 10 CONTINUE
+f66* NFAC                    # -> 120
+f66* ISQ(9)                  # call a function from the LOADed program -> 81
+f66* 2 + 3 * 4               # calculator -> 14
+```
+
+(`COMMON`/`EQUIVALENCE` need a full program unit — put those in a file and `LOAD` it;
+F66 has no incremental model for control flow, so the unit of work is a statement or a
+DO block, never a bare `GOTO`.)
+
 ## What's pluggable
 
 - **Machine target** — `forterp.Target(word_bits, chars_per_word, logical_true, bitwise_logic,

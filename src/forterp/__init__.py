@@ -33,7 +33,7 @@ Public API:
 """
 
 from forterp.engine import Engine, Frame, StopExecution
-from forterp.parser import ParseError
+from forterp.parser import ParseError, parse_expression
 from forterp.target import Target, PDP10, NATIVE, VAX
 from forterp.dialect import Dialect, F66, FORTRAN10
 from forterp.source import SourceOptions
@@ -60,6 +60,7 @@ __all__ = [
     "install_runtime",
     "make_engine",
     "parse_source",
+    "parse_expression",
     "run_source",
 ]
 

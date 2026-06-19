@@ -126,6 +126,13 @@ def test_help_lists_the_core_commands():
         assert c in out
 
 
+def test_immediate_command_enters_the_repl():
+    # IMMEDIATE drops into the REPL (reading the same input); first EXIT returns to the
+    # monitor, second EXIT quits. The expression's value reaches stdout.
+    out, _ = drive(["IMMEDIATE\n", "2 + 3\n", "EXIT\n", "EXIT\n"])
+    assert "immediate mode" in out and "5" in out
+
+
 def test_bare_invocation_enters_the_monitor(monkeypatch, capsys):
     # pyf66 with no file -> interactive monitor reading from stdin
     monkeypatch.setattr("sys.stdin", io.StringIO("HELP\nEXIT\n"))

@@ -1213,6 +1213,24 @@ def parse_units(statements, *, on_error=None, on_warn=None, dialect=F66):
     return units
 
 
+def parse_expression(text, *, dialect=F66, unit=None):
+    """Parse a single FORTRAN expression and return its AST node. `unit` (a ProgramUnit)
+    supplies declared arrays/types so NAME(...) disambiguates as an array element vs a
+    function reference exactly as it would inside that unit. Raises ParseError on
+    malformed input or tokens left over after a complete expression."""
+    p = P(fix_tokens(tokenize(text, dialect)), dialect)
+    if unit is not None:
+        p.arrays = unit.arrays
+        p.types = unit.types
+        p.namelists = unit.namelists
+    if not p.toks:
+        raise ParseError("empty expression", "NRC")
+    node = p.parse_expr()
+    if p.cur() is not None:  # a clean expression consumes all its tokens
+        raise ParseError("trailing tokens after expression", "NRC")
+    return node
+
+
 # Intrinsics that yield a COMPLEX result (for the F66 complex-assignment check).
 _COMPLEX_FUNCS = {"CMPLX", "DCMPLX", "CONJG", "CEXP", "CLOG", "CSIN", "CCOS", "CSQRT"}
 

@@ -1108,6 +1108,34 @@ class Engine:
             elif type(ctrl) is Stop:
                 raise StopExecution()
 
+    def run_block(self, base_rt, code, labels, formats=None):
+        """Run an arbitrary statement list (with its own `labels`) against the storage
+        and declarations of an existing UnitRT, without disturbing that unit. The block
+        executes through a transient unit that shares `base_rt`'s declarations and live
+        store by reference, so it reads/writes the same variables/arrays/COMMON and
+        resolves CALLs against the engine's units. This is the primitive the REPL uses
+        to run a typed statement or DO block against the live session. A STOP ends the
+        block, not the engine."""
+        base = base_rt.unit
+        blk = A.ProgramUnit(kind=base.kind, name=base.name)
+        blk.types = base.types  # share declarations so names resolve as they do in `base`
+        blk.arrays = base.arrays
+        blk.implicit = base.implicit
+        blk.consts = base.consts
+        blk.stmt_funcs = base.stmt_funcs
+        blk.externals = base.externals
+        blk.formats = {**base.formats, **(formats or {})}
+        blk.code = code
+        blk.labels = labels
+        rt = UnitRT(blk)  # derives do_terms / assigned-names from the block's own code
+        rt.common_map = base_rt.common_map  # share the live store
+        rt.local_scalars = base_rt.local_scalars
+        rt.local_arrays = base_rt.local_arrays
+        try:
+            self.run(Frame(rt, {}))
+        except StopExecution:
+            pass
+
     def _do_bookkeep(self, frame, label):
         while frame.do_stack and frame.do_stack[-1].term == label:
             f = frame.do_stack[-1]

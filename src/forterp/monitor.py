@@ -4,9 +4,8 @@ A line-oriented command loop -- a small, FORTRAN-focused descendant of the TOPS-
 monitor the ``--check`` feature came from. It operates on whole source files (RUN /
 CHECK / LOAD / START), lets you SET the dialect, target, and main unit between runs,
 SHOW the current settings or a COMMON block after a run, ``!`` to shell out, and ``@``
-to run commands from a file. It is deliberately NOT a statement REPL: FORTRAN-66 has no
-incremental-execution model (fixed form, program units, declarations before statements),
-so the unit of work is a source file, not a line.
+to run commands from a file. IMMEDIATE drops into interactive statement-at-a-time
+FORTRAN (the REPL in forterp.repl); the monitor itself works at file granularity.
 
 Entered when a front-end (pyf66 / pyfortran10 / forterp) is launched with no file. The
 command set is identical across the three; only the starting dialect differs (pyf66 ->
@@ -31,6 +30,7 @@ Commands (case-insensitive):
   LOAD file                   parse a file into the session
   START                       run the loaded program
   RESET                       drop the loaded program
+  IMMEDIATE                   interactive FORTRAN (a REPL)      (alias REPL)
   SET STD f66|fortran10       switch dialect
   SET TARGET native|pdp10|vax switch the machine value model
   SET PROGRAM [name]          choose the main unit (blank = first)
@@ -74,6 +74,8 @@ class Monitor:
             "LOAD": self.cmd_load,
             "START": self.cmd_start,
             "RESET": self.cmd_reset,
+            "IMMEDIATE": self.cmd_immediate,
+            "REPL": self.cmd_immediate,
             "SET": self.cmd_set,
             "SHOW": self.cmd_show,
             "HELP": self.cmd_help,
@@ -162,6 +164,20 @@ class Monitor:
         self.loaded_path = None
         self.last_engine = None
         self.write("[reset]\n")
+
+    def cmd_immediate(self, arg):
+        """Drop into interactive immediate-mode FORTRAN (a REPL), sharing the current
+        dialect/target and any LOADed program. EXIT/'.' there returns to the monitor."""
+        from forterp.repl import Immediate
+
+        Immediate(
+            std=self.std,
+            target=self.target,
+            loaded=self.units,
+            write=self.write,
+            errwrite=self.errwrite,
+            readline=self.readline,
+        ).run()
 
     # ---- commands: set / show ----
     def cmd_set(self, arg):
