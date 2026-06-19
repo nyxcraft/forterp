@@ -213,6 +213,22 @@ def test_read_scale_factor():
     assert read_values(parse_format("(2PE10.3)"), " 314.0E-01") == [("F", approx(31.4))]
 
 
+def test_read_bz_blanks_extend_into_the_exponent():
+    # F66 7.2.3.6 blanks-as-zero, taken literally, folds trailing / record-extension blanks
+    # into a real field's EXPONENT -- the classic "BZ gotcha". This is INTENTIONAL conformance
+    # (real FORTRAN-10 V5 does the same; numeric input was expected to be RIGHT-justified),
+    # pinned here so it can't change silently. The usability escape -- a BN-style "blanks
+    # ignored" option for interactive mode -- is deferred, NOT a change to this default.
+    import math
+
+    # full-width field, value left-justified: the 2 trailing blanks extend E+02 -> E+0200
+    assert read_values(parse_format("(E12.4)"), "1.2500E+02  ") == [("F", 1.25e200)]
+    # a record shorter than the field is blank-extended into the exponent -> overflow
+    assert math.isinf(read_values(parse_format("(E10.3)"), "1.5E2")[0][1])
+    # the discipline that avoids the gotcha: right-justify (no trailing blanks) -> 150.0
+    assert read_values(parse_format("(E10.3)"), "   1.5E+02") == [("F", 150.0)]
+
+
 def test_read_hollerith_field_takes_input_chars():
     # F66 7.2.3.8: an nH field reads its characters FROM the record, mutated in place
     fmt = parse_format("(5Hxxxxx)")

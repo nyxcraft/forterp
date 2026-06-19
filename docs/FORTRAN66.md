@@ -327,7 +327,11 @@ of the dialect or the value model:
 > is a runtime input error: it routes to the READ's `ERR=` label, or — absent `ERR=` —
 > halts the program, as real FORTRAN-10 does. A record shorter than an **explicit-width**
 > field is **blank-extended** to the field width (and trailing blanks are zeros, so `(I5)`
-> on `42` reads `42000`, not `42` — the BZ gotcha). **[DEC]** Under `FORTRAN10`, a
+> on `42` reads `42000`, not `42` — the BZ gotcha). The same rule folds trailing/extension
+> blanks into a real field's **exponent**: `(E10.3)` on `1.5E2` reads `1.5E200000` (overflow)
+> — so numeric input must be **right-justified**, exactly as on real FORTRAN-10. (This is the
+> literal blanks-as-zero behavior; a BN-style "blanks ignored" leniency for interactive input
+> is a possible future option, not the default.) **[DEC]** Under `FORTRAN10`, a
 > *widthless* descriptor (`I`, `G`, …) instead reads one free-form, space/comma/**tab**-
 > delimited token (reading only the columns present) — the idiom variable-length
 > tab-delimited databases (e.g. ADVENT) rely on. For free-form input regardless of dialect,
