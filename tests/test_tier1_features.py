@@ -207,6 +207,26 @@ def test_random_apostrophe_form():
     assert out(eng, 1) == 77
 
 
+def test_random_write_invalid_record_does_not_clobber():
+    # WRITE(u'0) / negative REC must NOT corrupt an existing record. rec-1 was used as a
+    # Python index, so REC=0 clobbered the last record (recs[-1]). An invalid record number
+    # is an I/O error (no-op absent ERR=), never silent corruption.
+    src = (
+        _RHEAD + "        WRITE(1'3) 33\n        WRITE(1'0) 999\n"
+        "        READ(1'3) K\n        V(1)=K\n" + _REND
+    )
+    assert out(run(src), 1) == 33  # record 3 intact (was 999 via the negative-index clobber)
+
+
+def test_random_write_invalid_record_routes_to_err():
+    # an invalid record number branches to ERR= (V5: it's an I/O error)
+    src = (
+        _RHEAD + "        WRITE(1'3) 33\n        WRITE(1'0,ERR=99) 999\n"
+        "        K = 0\n        GO TO 100\n   99   K = -1\n  100   V(1)=K\n" + _REND
+    )
+    assert out(run(src), 1) == -1
+
+
 def test_find_then_sequential_read():
     # FIND(u#r) positions the file; a following sequential READ(u) reads record r
     src = (

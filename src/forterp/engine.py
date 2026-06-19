@@ -1527,6 +1527,9 @@ class Engine:
             self._set_assoc(st, frame, rec)
             return None
         if s.mode == "WRITE":
+            if rec < 1:  # invalid record number: an I/O error, not a negative-index clobber
+                self.last_io_error = (25, 302)
+                return Goto(s.specs["ERR"]) if "ERR" in s.specs else None
             while len(recs) < rec:
                 recs.append(None)
             if binmode:  # FOROTS LSCW word record
