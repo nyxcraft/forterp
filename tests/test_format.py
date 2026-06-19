@@ -165,6 +165,9 @@ def test_read_widthd_fields_by_column():
     assert read_values(parse_format("(I5)"), "4 2  ") == [("I", 40200)]
     # ... and an all-blank field is zero.
     assert read_values(parse_format("(I5)"), "     ") == [("I", 0)]
+    # ... a record SHORTER than the field is blank-extended (blanks are zeros): I5 of
+    # "42" reads "42___" -> 42000 (F66 7.2.3), not 42.
+    assert read_values(parse_format("(I5)"), "42") == [("I", 42000)]
 
 
 def test_read_widthless_descriptors_are_free_form():
@@ -199,7 +202,7 @@ def test_read_real_d_exponent():
     # Dw.d / Ew.d input: FORTRAN's D and E exponent letters are interchangeable
     assert read_values(parse_format("(D10.3)"), " 1.250D+01") == [("F", 12.5)]
     assert read_values(parse_format("(E10.3)"), " 1.250E+01") == [("F", 12.5)]
-    assert read_values(parse_format("(F10.3)"), "1.5d-3") == [("F", 0.0015)]
+    assert read_values(parse_format("(F6.3)"), "1.5d-3") == [("F", 0.0015)]
 
 
 def test_read_scale_factor():
@@ -207,7 +210,7 @@ def test_read_scale_factor():
     assert read_values(parse_format("(1PF6.2)"), " 31.40") == [("F", approx(3.14))]
     assert read_values(parse_format("(-1PF6.1)"), "  3.14") == [("F", approx(31.4))]
     # ... but the scale is suspended when the field carries its own exponent
-    assert read_values(parse_format("(2PE12.3)"), " 314.0E-01") == [("F", approx(31.4))]
+    assert read_values(parse_format("(2PE10.3)"), " 314.0E-01") == [("F", approx(31.4))]
 
 
 def test_read_hollerith_field_takes_input_chars():
@@ -217,8 +220,16 @@ def test_read_hollerith_field_takes_input_chars():
     assert fmt[0].kind == "lit" and fmt[0].a == "HELLO"
 
 
-def test_read_nonnumeric_integer_is_zero():
-    assert read_values(parse_format("(I)"), "xyz") == [("I", 0)]
+def test_read_nonnumeric_integer_raises():
+    # V5 conformance: an illegal character in a numeric field is a runtime input error,
+    # not a silent zero (an all-blank field is still zero -- that's blanks-as-zero).
+    import pytest
+
+    from forterp.fmt import InputConversionError
+
+    with pytest.raises(InputConversionError):
+        read_values(parse_format("(I)"), "xyz")
+    assert read_values(parse_format("(I5)"), "     ") == [("I", 0)]  # all-blank stays 0
 
 
 def test_read_x_skips_columns():

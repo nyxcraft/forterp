@@ -384,6 +384,13 @@ def apply_carriage(text):
 
 
 # ---- input -----------------------------------------------------------------
+class InputConversionError(Exception):
+    """An illegal character in a numeric/logical input field (V5: a runtime I/O error,
+    e.g. ?FRSIVF). The engine routes it to a READ's ERR= label, or -- absent ERR= --
+    lets it halt the program, as real FORTRAN-10 does. An all-blank field is NOT this:
+    blanks are zeros, so it reads as 0 (F66 7.2.3.6)."""
+
+
 def read_values(items, line, target=PDP10, free_form=False):
     """Parse `line` per the format (F66 7.2.3); return a list of (kind, value) reads.
 
@@ -449,7 +456,10 @@ def _grab(it, line, pos, free_form):
     if it.a is None and free_form:
         tok, pos = _next_token(line, pos)
         return tok, pos, True
-    w = it.a if it.a is not None else _DEFAULTS[it.kind][0]
+    if it.a is not None:  # explicit width: a record shorter than the field is blank-
+        w = it.a  # extended (and blanks are zeros), F66 7.2.3 -- as the char fields ljust
+        return line[pos : pos + w].ljust(w), pos + w, False
+    w = _DEFAULTS[it.kind][0]  # widthless [DEC] descriptor: read only the columns present
     return line[pos : pos + w], pos + w, False
 
 
@@ -465,8 +475,11 @@ def _next_token(line, pos):
 
 
 def _to_int(s, base):
-    """Parse an integer field/token; a blank or unreadable field reads as zero. A real
-    written into a base-10 integer field is truncated toward zero."""
+    """Parse an integer field/token. An all-blank field reads as zero (blanks-as-zero,
+    F66 7.2.3.6); a real written into a base-10 integer field is truncated toward zero;
+    any other non-numeric field is a runtime input error (V5 -> ERR= or halt)."""
+    if not s:  # all-blank field (after blank-fill) -> zero
+        return 0
     try:
         return int(s, base)
     except ValueError:
@@ -475,7 +488,7 @@ def _to_int(s, base):
                 return int(float(s.replace("D", "E").replace("d", "e")))
             except ValueError:
                 pass
-        return 0
+        raise InputConversionError(f"illegal character in integer field {s!r}")
 
 
 def _blank_fill(field):
@@ -488,14 +501,15 @@ def _read_real(field, d, scale):
     """Convert a real input field (Fw.d / Ew.d / Dw.d / Gw.d). The D and E exponent
     letters are interchangeable; a field with no decimal point places it `d` digits
     from the right (implied decimal); a kP scale factor divides an exponent-free field
-    by 10**k. An unreadable field reads as zero."""
+    by 10**k. An all-blank field reads as zero; any other unreadable field is a runtime
+    input error (V5 -> ERR= or halt)."""
     s = _blank_fill(field).replace("D", "E").replace("d", "e")
-    if not s or s in ("+", "-"):
+    if not s or s in ("+", "-"):  # all-blank field -> zero (blanks-as-zero)
         return 0.0
     try:
         v = float(s)
     except ValueError:
-        return 0.0
+        raise InputConversionError(f"illegal character in real field {field!r}")
     if d and "." not in field:  # implied decimal: rightmost d digits are fractional
         v /= 10.0**d
     if scale and not _has_exponent(field):  # external = internal * 10**scale

@@ -322,14 +322,16 @@ of the dialect or the value model:
 > read by *column*: packed digits split by width (`(I2,I3)` on `12345` → `12, 345`),
 > leading blanks are insignificant, embedded/trailing blanks count as **zeros** (`(I5)` on
 > `4 2␣␣` → `40200`), an `Fw.d` field with no decimal point gets the implied decimal
-> (`(F5.2)` on `12345` → `123.45`), a `kP` scale divides an exponent-free field, and a
-> field that isn't a valid number reads as **zero** (ANSI mandates no diagnostics; a real
-> FORTRAN-10 would raise a runtime error). **[DEC]** Under `FORTRAN10`, a *widthless*
-> descriptor (`I`, `G`, …) instead reads one free-form, space/comma/**tab**-delimited token
-> — the idiom variable-length tab-delimited databases (e.g. ADVENT) rely on. For free-form
-> input regardless of dialect, list-directed `READ(u,*)` and NAMELIST are whitespace-
-> delimited by design. (A record shorter than a width'd field supplies only the columns it
-> has — `forterp` doesn't blank-pad past the record's end.)
+> (`(F5.2)` on `12345` → `123.45`), and a `kP` scale divides an exponent-free field. An
+> **all-blank** field is zero (blanks-as-zero), but a field with an **illegal character**
+> is a runtime input error: it routes to the READ's `ERR=` label, or — absent `ERR=` —
+> halts the program, as real FORTRAN-10 does. A record shorter than an **explicit-width**
+> field is **blank-extended** to the field width (and trailing blanks are zeros, so `(I5)`
+> on `42` reads `42000`, not `42` — the BZ gotcha). **[DEC]** Under `FORTRAN10`, a
+> *widthless* descriptor (`I`, `G`, …) instead reads one free-form, space/comma/**tab**-
+> delimited token (reading only the columns present) — the idiom variable-length
+> tab-delimited databases (e.g. ADVENT) rely on. For free-form input regardless of dialect,
+> list-directed `READ(u,*)` and NAMELIST are whitespace-delimited by design.
 
 For anything not covered here, the ANSI X3.9-1966 standard is authoritative for the
 base language, and the DECsystem-10 FORTRAN-10 Language Manual (V5) for the extensions.

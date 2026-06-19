@@ -1005,16 +1005,30 @@ class Engine:
             self.do_type(s, frame)
             return None
         if t is A.AcceptStmt:
-            self.do_accept(s, frame)
-            return None
+            return self._io_guard(s, self.do_accept, frame)
         if t in (A.IoStmt, A.FileCtl):
-            return self.do_io(s, frame)
+            return self._io_guard(s, self.do_io, frame)
         if t is A.DefineFile:
             return self.do_define_file(s, frame)
         if t is A.EncDec:
-            self.do_encdec(s, frame)
-            return None
+            return self._io_guard(s, self.do_encdec, frame)
         raise RuntimeError(f"cannot exec {s}")
+
+    def _io_guard(self, s, do_fn, frame):
+        """Run an I/O statement, routing a numeric input-conversion error (V5) to the
+        READ's ERR= label if it has one, else letting it halt the program. Returns the
+        statement's own control signal (e.g. a Goto from END=) when no error occurs."""
+        from forterp.fmt import InputConversionError
+
+        try:
+            return do_fn(s, frame)
+        except InputConversionError:
+            self.last_io_error = (38, 311)  # FOROTS: illegal character in input data
+            specs = getattr(s, "specs", None)
+            err = specs.get("ERR") if specs else None
+            if err is not None:
+                return Goto(err)
+            raise
 
     def do_assign(self, s, frame):
         val = self.eval(s.expr, frame)
@@ -1148,7 +1162,6 @@ class Engine:
             reentered.sort(key=lambda d: d.body)
             frame.do_stack.extend(reentered)
         frame.pc = newpc
-
 
     def run_block(self, base_rt, code, labels, formats=None):
         """Run an arbitrary statement list (with its own `labels`) against the storage

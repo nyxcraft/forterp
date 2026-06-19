@@ -142,3 +142,30 @@ def test_time_second_arg_is_seconds_and_tenths():
     eng = run(IINT + "        CALL TIME(P,Q)\n        V(1)=P\n        V(2)=Q\n" + END, setup=setup)
     assert unpack_chars(out(eng, 1), 5) == "14:30"
     assert unpack_chars(out(eng, 2), 5) == " 45.3"  # 'bss.t'
+
+
+# ---- input conversion errors (V5: illegal char in a numeric field) ----------
+def test_bad_input_field_routes_to_err():
+    # An illegal character in a numeric field is a runtime I/O error; READ(...,ERR=lbl)
+    # branches to its label (V5 conformance), rather than the old silent zero.
+    src = (
+        IINT + "        N = 7\n"
+        "        READ(5,10,ERR=99) N\n"
+        "   10   FORMAT(I5)\n"
+        "        V(1) = N\n"
+        "        GO TO 100\n"
+        "   99   V(1) = -1\n"
+        "  100   CONTINUE\n" + END
+    )
+    assert out(run(src, inputs=["xyz"]), 1) == -1
+
+
+def test_bad_input_field_without_err_halts():
+    # No ERR= -> the conversion error propagates (the program halts), per V5.
+    import pytest
+
+    from forterp.fmt import InputConversionError
+
+    src = IINT + "        READ(5,10) N\n   10   FORMAT(I5)\n" + END
+    with pytest.raises(InputConversionError):
+        run(src, inputs=["xyz"])
