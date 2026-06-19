@@ -63,3 +63,26 @@ def test_general_driver_std_selects_dialect(capsys):
         assert main(["--std", "f66", p]) == 1  # strict F66 rejects it
     finally:
         os.unlink(p)
+
+
+def test_check_lists_all_diagnostics_without_running(capsys):
+    # --check = compile-check: parse, list every %FTN diagnostic, do NOT run.
+    p = _src(DEC)  # uses IMPLICIT (a FORTRAN-10 statement)
+    try:
+        rc = f66_main(["--check", p])
+    finally:
+        os.unlink(p)
+    cap = capsys.readouterr()
+    assert rc == 1
+    assert "error(s)" in cap.err and "IMPLICIT" in cap.err  # diagnostic listed
+    assert "HELLO FROM F10" not in cap.out  # nothing ran
+
+
+def test_check_reports_ok_on_clean_source(capsys):
+    p = _src(HELLO_F66)  # strict-F66-clean (Hollerith FORMAT)
+    try:
+        rc = f66_main(["--check", p])
+    finally:
+        os.unlink(p)
+    assert rc == 0
+    assert "unit(s) OK" in capsys.readouterr().out

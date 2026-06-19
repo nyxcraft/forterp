@@ -62,7 +62,9 @@ forterp --std fortran10 prog.for   # general driver; --std f66|fortran10 (defaul
 ```
 
 `--target native|pdp10|vax` selects the value model and `--program NAME` picks the main
-unit. Before install, use `python -m forterp …`.
+unit. `--check` parses and lists every diagnostic without running (a compile-check) — so
+`pyf66 --check prog.for` is a strict-ANSI-F66 conformance linter. Before install, use
+`python -m forterp …`.
 
 ## What's pluggable
 

@@ -13,6 +13,7 @@ thin presets over `forterp` itself -- like g77/gfortran over gcc.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 
 import forterp
@@ -33,6 +34,11 @@ def _run(argv, dialect, prog, *, allow_std):
     ap.add_argument(
         "--program", metavar="NAME", help="main PROGRAM unit to run (default: the first)"
     )
+    ap.add_argument(
+        "--check",
+        action="store_true",
+        help="parse and report all diagnostics; do not run (compile-check)",
+    )
     if allow_std:
         ap.add_argument(
             "--std",
@@ -48,6 +54,18 @@ def _run(argv, dialect, prog, *, allow_std):
         text = open(args.file, "r", errors="replace").read()
     except OSError as e:
         ap.error(str(e))
+
+    if args.check:  # compile-check: list every %FTN diagnostic, don't run
+        diags = []
+        units = forterp.parse_source(text, dialect=dialect, on_error=lambda st, m: diags.append(m))
+        name = os.path.basename(args.file)
+        if diags:
+            print(f"?{name}: {len(diags)} error(s)", file=sys.stderr)
+            for d in diags:
+                print(f"  {d}", file=sys.stderr)
+            return 1
+        print(f"[{name}: {len(units)} unit(s) OK]")
+        return 0
 
     try:
         forterp.run_source(
