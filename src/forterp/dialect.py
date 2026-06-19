@@ -29,6 +29,15 @@ class Dialect:
     # 7.1.2.8 allow only c*v±k subscripts and constant/variable DO parameters)
     mixed_complex_assign: bool = False  # COMPLEX <-> int/real/double assignment (F66 Table 1
     # prohibits it -- COMPLEX may only be assigned to/from COMPLEX)
+    extended_io: bool = False  # non-F66 I/O: TYPE/PRINT/ACCEPT/PUNCH, ENCODE/DECODE, unit-
+    # less READ/WRITE/REREAD, list-directed `*`, and random-access (DEFINE FILE, FIND, u#r/
+    # u'r). F66 has only READ/WRITE with a unit + the auxiliary BACKSPACE/REWIND/ENDFILE (§7.1.3)
+    bare_format_width: bool = False  # widthless FORMAT descriptors I/F/A/... (F66 §7.2.3.1
+    # requires an explicit width on every descriptor; DEC supplies V5 default widths)
+    dec_intrinsics: bool = False  # the DEC/F77 extra library functions beyond F66 Tables 3
+    # & 4 (TAN, NINT/ANINT, the DP DTAN.../degree TAND... families, LSH, MAX/MIN, ...). F66
+    # exposes only the 55 standard functions; set this (e.g. Dialect(dec_intrinsics=True))
+    # to opt into the DEC library under F66 without the rest of the FORTRAN10 superset.
 
 
 F66 = Dialect()  # ANSI X3.9-1966 -- the default dialect
@@ -42,4 +51,7 @@ FORTRAN10 = Dialect(  # DEC FORTRAN-10 V5 superset: every extension on
     implicit_stmt=True,
     expr_subscripts=True,
     mixed_complex_assign=True,
+    extended_io=True,
+    bare_format_width=True,
+    dec_intrinsics=True,
 )

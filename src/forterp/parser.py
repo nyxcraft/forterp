@@ -710,6 +710,8 @@ class P:
     def parse_encode_decode(self, kw):
         """ENCODE(count, fmt, buf) iolist / DECODE(...) -- internal formatted I/O
         to a packed-ASCII buffer (V5 10.15)."""
+        if not self.dialect.extended_io:
+            raise ParseError(f"{kw} is a FORTRAN-10 extension", "NRC")
         self.advance()  # ENCODE / DECODE
         self.expect_op("(")
         count = self.parse_expr()
@@ -727,6 +729,8 @@ class P:
         return A.EncDec(decode=(kw == "DECODE"), count=count, fmt=fmt, buf=buf, items=items)
 
     def parse_type_io(self, kw):
+        if not self.dialect.extended_io:  # F66 §7.1.3: only READ/WRITE with a unit
+            raise ParseError(f"{kw} is a FORTRAN-10 statement", "NRC")
         self.advance()  # TYPE / ACCEPT / PRINT
         fmt = self._io_fmt()  # '*' | label | NAMELIST name
         items = self.parse_iolist() if self.accept_op(",") else []
@@ -737,6 +741,8 @@ class P:
     def parse_default_io(self, kw):
         """READ/WRITE/REREAD without a (unit): default device (card reader / line
         printer) -- routed to the terminal in our model."""
+        if not self.dialect.extended_io:  # F66 requires READ/WRITE(unit, ...)
+            raise ParseError(f"unit-less {kw} is a FORTRAN-10 extension", "NRC")
         self.advance()  # READ / WRITE / REREAD
         fmt = self._io_fmt()  # '*' | label | NAMELIST name
         items = self.parse_iolist() if self.accept_op(",") else []
@@ -754,6 +760,8 @@ class P:
         fmt = None
         specs = {}
         if self.is_op("#") or self.is_op("'"):  # V5 10.3.5: random record  u#r / u'r
+            if not self.dialect.extended_io:  # F66 has no random-access I/O
+                raise ParseError("random-access record (u#r) is a FORTRAN-10 extension", "NRC")
             self.advance()
             specs["REC"] = self.p_add()
         while self.accept_op(","):
@@ -773,6 +781,8 @@ class P:
             elif self.cur() and self.cur().kind in ("INT", "OCTAL"):
                 fmt = self.advance().value
             elif self.accept_op("*"):
+                if not self.dialect.extended_io:  # list-directed I/O is not in F66
+                    raise ParseError("list-directed I/O (*) is a FORTRAN-10 extension", "NRC")
                 fmt = "*"
             else:
                 fmt = self.parse_expr()
@@ -783,6 +793,8 @@ class P:
     def parse_define_file(self):
         """DEFINE FILE u(m,n,U,v) [,u2(...)...] (V5 10.3.5): declare random-access
         units -- m records of n words, access-mode letter U/E/L, associated variable v."""
+        if not self.dialect.extended_io:  # F66 has no random-access I/O
+            raise ParseError("DEFINE FILE (random-access I/O) is a FORTRAN-10 extension", "NRC")
         self.advance()  # DEFINE
         self.advance()  # FILE
         defs = []
@@ -804,6 +816,8 @@ class P:
 
     def parse_find(self):
         """FIND(u#r) / FIND(u'r) -- position a random-access file (V5 10.14)."""
+        if not self.dialect.extended_io:  # F66 has no random-access I/O
+            raise ParseError("FIND (random-access I/O) is a FORTRAN-10 extension", "NRC")
         self.advance()  # FIND
         self.expect_op("(")
         unit = self.p_add()
@@ -1249,7 +1263,14 @@ def _route(unit, st, toks, on_warn=None, dialect=F66):
     if kw == "FORMAT":
         if st.label is None:
             raise ParseError("NO STATEMENT NUMBER ON FORMAT", "NNF")
-        unit.formats[st.label] = _format_body(st.text)
+        body = _format_body(st.text)
+        if not dialect.bare_format_width:  # F66 §7.2.3.1: every descriptor needs a width
+            from forterp.fmt import parse_format
+
+            for it in parse_format(body):
+                if it.kind in ("I", "O", "L", "F", "E", "D", "G", "A", "R") and it.a is None:
+                    raise ParseError("F66 FORMAT descriptor requires an explicit width", "NRC")
+        unit.formats[st.label] = body
         return
     if kw == "IMPLICIT":
         if not p.dialect.implicit_stmt:  # F66 has no IMPLICIT statement (only the I-N rule)

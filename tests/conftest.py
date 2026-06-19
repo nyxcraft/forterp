@@ -50,6 +50,7 @@ def run(src, program="T", inputs=None, setup=None, target=None, dialect=None):
             printer=printout.append,
             target=target or forterp.PDP10,  # default: validate the PDP-10 target
             free_form_input=dlc.free_form_input,  # F66 column vs FORTRAN-10 free-form input
+            dec_intrinsics=dlc.dec_intrinsics,  # DEC extra library functions
         )
         eng.printout = printout  # tests read it via printed(eng)
         forterp.install_runtime(eng)  # STDLIB + FOROTS binary-I/O codec

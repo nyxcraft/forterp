@@ -111,6 +111,7 @@ def run_source(text, program=None, dialect=F66, options=None, **kwargs):
     is an optional `SourceOptions` for source-recovery handling."""
     units = parse_source(text, dialect=dialect, options=options)
     kwargs.setdefault("free_form_input", dialect.free_form_input)  # F66 column vs DEC free-form
+    kwargs.setdefault("dec_intrinsics", dialect.dec_intrinsics)  # DEC extra library functions
     eng = make_engine(units, **kwargs)
     name = program or next((n for n, u in units.items() if u.kind == "program"), None)
     try:

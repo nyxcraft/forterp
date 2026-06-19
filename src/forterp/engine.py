@@ -299,14 +299,18 @@ class Engine:
         target=None,
         binio=None,
         free_form_input=False,
+        dec_intrinsics=True,
     ):
         import random
 
         self.tgt = target if target is not None else NATIVE  # default value model (portable)
         self.binio = binio  # unformatted-I/O codec (FOROTS); injected by the runtime
-        # Widthless formatted-input fields read free-form (FORTRAN-10) vs by column (F66).
-        # Set from the dialect; the engine itself stays dialect-agnostic otherwise.
+        # Two dialect-derived knobs the engine needs at run time (else dialect-agnostic):
+        #  - free_form_input: widthless input fields read free-form (FORTRAN-10) vs column (F66)
+        #  - dec_intrinsics: expose the DEC/F77 extra library functions beyond F66 Tables 3 & 4
+        # (default True so a bare Engine has the full library; the dialect paths gate it).
         self.free_form_input = free_form_input
+        self.dec_intrinsics = dec_intrinsics
         self.units = units
         self.commons = {}  # block -> list (flat store)
         self.rts = {}  # unit name -> UnitRT
@@ -719,7 +723,7 @@ class Engine:
             return self._call_entry_func(name, node.args, frame)
         if name in unit.externals and name in self.units and self.units[name].kind == "function":
             return self.call_function(name, node.args, frame)  # V5 15.3: EXTERNAL beats intrinsic
-        if name in INTRINSICS:
+        if name in INTRINSICS and (self.dec_intrinsics or name in _F66_INTRINSICS):
             return self._apply_intrinsic(name, [self.eval(a, frame) for a in node.args])
         if name in self.units and self.units[name].kind == "function":
             return self.call_function(name, node.args, frame)
@@ -765,6 +769,8 @@ class Engine:
         approximation -- same class as REAL=Python double."""
         if name == "LSH":  # PDP-10 logical word shift: width from the target
             return _lsh(self.tgt, args[0], args[1])
+        if name == "ROT":  # PDP-10 logical word rotate: width from the target
+            return _rot(self.tgt, args[0], args[1])
         try:
             r = INTRINSICS[name](args)
         except ValueError:  # math domain error (negative / out of range)
@@ -1799,6 +1805,18 @@ def _lsh(tgt, v, n):
     return tgt.wrap(u)
 
 
+def _rot(tgt, v, n):
+    """Logical word ROTATE left by n bits (n<0 rotates right), within the target's word
+    width (V5). A target with no fixed width (mask falsy) can't rotate -> returns v."""
+    if not tgt.mask:
+        return tgt.wrap(int(v))
+    w = tgt.word_bits
+    u = int(v) & tgt.mask
+    n %= w  # normalize; a negative (right) rotate becomes the equivalent left rotate
+    u = ((u << n) | (u >> (w - n))) & tgt.mask if n else u
+    return tgt.wrap(u)
+
+
 def _anint(x):  # round to nearest whole, halves away from zero
     return float(math.floor(x + 0.5)) if x >= 0 else float(math.ceil(x - 0.5))
 
@@ -1839,11 +1857,25 @@ _LIB_RECOVER = {
 }
 
 
-_INT_RESULT = frozenset({"INT", "IFIX", "IDINT", "NINT"})  # results take the target's integer wrap
+_INT_RESULT = frozenset({"INT", "IFIX", "IDINT", "NINT", "IDNINT"})  # take the target's int wrap
+
+# The ANSI X3.9-1966 standard library: Table 3 (intrinsic) + Table 4 (basic external), 55
+# functions. Everything else in INTRINSICS (TAN, NINT/ANINT, the DTAN.../TAND... families,
+# LSH, MAX/MIN, ...) is a DEC/F77 extension, exposed only when the dialect's dec_intrinsics
+# is on (FORTRAN10, or an F66 dialect that opts in).
+_F66_INTRINSICS = frozenset(
+    # Table 3 (31 intrinsic functions)
+    "ABS IABS DABS AINT INT IDINT AMOD MOD AMAX0 AMAX1 MAX0 MAX1 DMAX1 AMIN0 AMIN1 MIN0 "
+    "MIN1 DMIN1 FLOAT IFIX SIGN ISIGN DSIGN DIM IDIM SNGL REAL AIMAG DBLE CMPLX CONJG "
+    # Table 4 (24 basic external functions)
+    "EXP DEXP CEXP ALOG DLOG CLOG ALOG10 DLOG10 SIN DSIN CSIN COS DCOS CCOS TANH SQRT "
+    "DSQRT CSQRT ATAN DATAN ATAN2 DATAN2 DMOD CABS".split()
+)
 
 INTRINSICS = {
     # ---- DEC extensions ----
     "LSH": lambda a: _lsh(PDP10, a[0], a[1]),  # width-dependent; routed via self.tgt
+    "ROT": lambda a: _rot(PDP10, a[0], a[1]),  # width-dependent; routed via self.tgt
     # ---- type conversion (INT-family wrap applied target-aware in _apply_intrinsic) ----
     "INT": lambda a: int(a[0]),
     "IFIX": lambda a: int(a[0]),
@@ -1918,8 +1950,28 @@ INTRINSICS = {
     "COSD": lambda a: math.cos(math.radians(a[0])),  # cosine of degrees
     "ASIN": lambda a: math.asin(a[0]),
     "ACOS": lambda a: math.acos(a[0]),
+    "DTAN": lambda a: math.tan(a[0]),
+    "DASIN": lambda a: math.asin(a[0]),
+    "DACOS": lambda a: math.acos(a[0]),
+    "DSINH": lambda a: math.sinh(a[0]),
+    "DCOSH": lambda a: math.cosh(a[0]),
+    "DTANH": lambda a: math.tanh(a[0]),
+    # ---- degree-argument trig (V5): argument/result in degrees ----
+    "TAND": lambda a: math.tan(math.radians(a[0])),
+    "ASIND": lambda a: math.degrees(math.asin(a[0])),
+    "ACOSD": lambda a: math.degrees(math.acos(a[0])),
+    "ATAND": lambda a: math.degrees(math.atan(a[0])),
+    "ATAN2D": lambda a: math.degrees(math.atan2(a[0], a[1])),
+    "DSIND": lambda a: math.sin(math.radians(a[0])),
+    "DCOSD": lambda a: math.cos(math.radians(a[0])),
+    "DTAND": lambda a: math.tan(math.radians(a[0])),
     # ---- double-precision variants (we model double as Python float) ----
     "DFLOAT": lambda a: float(a[0]),  # integer -> double
+    "DINT": lambda a: float(int(a[0])),  # truncate toward zero
+    "DNINT": lambda a: _anint(a[0]),  # round to nearest whole
+    "IDNINT": lambda a: int(_anint(a[0])),  # round to nearest integer
+    "DDIM": lambda a: max(a[0] - a[1], 0),  # positive difference
+    "DPROD": lambda a: float(a[0]) * float(a[1]),  # double product of two reals
     "DMAX1": lambda a: max(float(x) for x in a),
     "DMIN1": lambda a: min(float(x) for x in a),
 }

@@ -233,6 +233,35 @@ def test_hollerith_field_read_then_echoed():
     assert printed(eng) == "ABCD\n"  # leading-blank carriage control consumed
 
 
+# ---- FORTRAN-10 V5 double-precision + degree-argument math intrinsics -------
+def test_v5_double_and_degree_intrinsics():
+    # the V5 superset math library: double-precision elementary (DTAN/DASIN/DSINH/…,
+    # DPROD/DNINT/IDNINT/DINT/DDIM) and degree-argument (TAND/ASIND/ATAN2D/…) functions.
+    src = (
+        "        PROGRAM T\n        COMMON /OUT/ V(40)\n"  # V defaults REAL
+        "        V(1) = DPROD(3.0, 4.0)\n"
+        "        V(2) = DNINT(3.5)\n"
+        "        V(3) = TAND(45.0)\n"
+        "        V(4) = ATAN2D(1.0, 1.0)\n"
+        "        V(5) = IDNINT(2.5)\n"
+        "        V(6) = DSINH(0.0)\n" + END
+    )
+    eng = run(src)
+    assert out(eng, 1) == 12.0  # DPROD
+    assert out(eng, 2) == 4.0  # DNINT
+    assert abs(out(eng, 3) - 1.0) < 1e-9  # TAND(45)
+    assert out(eng, 4) == 45.0  # ATAN2D(1,1)
+    assert out(eng, 5) == 3.0  # IDNINT(2.5) -> halves away from zero
+    assert out(eng, 6) == 0.0  # DSINH(0)
+
+
+def test_rot_word_rotate_intrinsic():
+    # V5 ROT: logical word rotate within the target word (PDP-10 36-bit under run_int)
+    eng = run_int("        V(1) = ROT(1, 1)\n        V(2) = ROT(2, -1)\n")
+    assert out(eng, 1) == 2  # rotate left 1
+    assert out(eng, 2) == 1  # rotate right 1
+
+
 # ---- adjustable (dummy-arg) array dimensions -------------------------------
 def test_adjustable_dimensions():
     src = (

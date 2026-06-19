@@ -5,8 +5,9 @@ NOT FORTRAN-77. These tests pin both the supported forms and the F77 constructs 
 correctly do NOT parse -- a regression here would mean we drifted toward F77.
 """
 
+import forterp
 from conftest import run, run_int, out
-from forterp.dialect import F66
+from forterp.dialect import Dialect, F66, FORTRAN10
 
 H = "        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n        COMMON /OUT/ V(40)\n"
 END = "        END\n"
@@ -130,3 +131,51 @@ def test_f66_accepts_the_legal_restricted_forms():
         "        DO 5 J=1,N\n    5   W(2*I+1)=1.0\n        Z=(1.0,2.0)\n        V(1)=W(3)\n" + END
     )
     assert out(run(src, dialect=F66), 1) == 1.0
+
+
+# ---- F66 rejects the DEC/F77 I/O surface (§7.1.3: only READ/WRITE(unit) + aux) ----
+def test_extended_io_gated_to_fortran10():
+    fmt = "   10   FORMAT(I3)\n"
+    for stmt in ("TYPE 10, I", "PRINT 10, I", "ACCEPT 10, I", "READ 10, I"):
+        assert _rejected(PH + f"        I=1\n        {stmt}\n" + fmt + END, dialect=F66)
+    assert _rejected(PH + "        READ(5,*) I\n" + END, dialect=F66)  # list-directed
+    assert _rejected(
+        PH + "        DIMENSION B(5)\n        ENCODE(20,10,B) I\n" + fmt + END, dialect=F66
+    )
+    # the same DEC forms run under FORTRAN10 (default); TYPE / list-directed out need no input
+    assert not _rejected(PH + "        I=1\n        TYPE 10, I\n" + fmt + END)
+    assert not _rejected(PH + "        I=1\n        WRITE(6,*) I\n" + END)
+
+
+def test_bare_format_width_gated_to_fortran10():
+    src = PH + "        I=1\n        WRITE(6,10) I\n   10   FORMAT(I)\n" + END
+    assert _rejected(src, dialect=F66)  # F66 §7.2.3.1: explicit width required
+    assert not _rejected(src)  # FORTRAN10: bare I -> V5 default width I15
+
+
+def test_f66_keeps_unit_formatted_write():
+    # the canonical F66 I/O form -- READ/WRITE(unit, label) -- must still parse+run
+    src = PH + "        I=1\n        WRITE(6,10) I\n   10   FORMAT(I3)\n" + END
+    assert not _rejected(src, dialect=F66)
+
+
+# ---- DEC/F77 extra intrinsics are gated to FORTRAN10 (F66 = Tables 3 & 4 only) ----
+def test_dec_intrinsics_gated_to_fortran10():
+    dtan = PH + "        V(1) = DTAN(1.0)\n" + END  # DEC double-precision extra
+    assert not _rejected(dtan)  # FORTRAN10 (default): available
+    assert _rejected(dtan, dialect=F66)  # strict F66: unknown function
+    assert not _rejected(dtan, dialect=Dialect(dec_intrinsics=True))  # F66 opt-in: available
+    # the F66 standard library (Tables 3/4) is always available, even strict
+    assert not _rejected(PH + "        V(1) = SQRT(4.0)\n" + END, dialect=F66)
+
+
+def test_random_access_io_gated_to_fortran10():
+    # F66 has no random-access I/O; DEFINE FILE, FIND, and the u#r/u'r record forms are DEC.
+    df = PH + "        INTEGER NEXT\n        DEFINE FILE 1(100,80,U,NEXT)\n" + END
+    rd = PH + "        DIMENSION A(3)\n        READ(1#5) A\n" + END
+    assert _rejected(df, dialect=F66)
+    assert _rejected(rd, dialect=F66)
+    assert _rejected(PH + "        FIND(1'5)\n" + END, dialect=F66)
+    # they parse cleanly under FORTRAN10 (parse-only: random I/O needs a connected unit to run)
+    forterp.parse_source(df, dialect=FORTRAN10)
+    forterp.parse_source(rd, dialect=FORTRAN10)

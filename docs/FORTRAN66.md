@@ -209,8 +209,9 @@ ANSI X3.9-1966 has no list-directed I/O.
 Control statements: `BACKSPACE u`, `REWIND u`, `ENDFILE u`.
 An I/O statement may carry `END=label` and `ERR=label` branches.
 
-**[DEC] Random-access**: `READ (u'r) list` / `WRITE (u'r) list` reads or writes record
-number `r` directly.
+**[DEC] Random-access**: `READ (u'r) list` / `WRITE (u'r) list` (or the `u#r` form) reads
+or writes record number `r` directly; `DEFINE FILE` declares such a unit and `FIND`
+positions it. F66 has no random-access I/O, so all of these are rejected under `F66`.
 
 **[DEC] `ENCODE` / `DECODE`** convert between an internal character buffer and a value
 list under FORMAT control (the F66-era equivalent of internal-file I/O).
@@ -263,19 +264,20 @@ FORTRAN-10 extensions marked **[DEC]**:
 | Trig | `SIN/DSIN/CSIN`, `COS/DCOS/CCOS`, `ATAN/DATAN`, `ATAN2/DATAN2`, `TANH` |
 | Square root | `SQRT/DSQRT/CSQRT` |
 | Complex | `AIMAG`, `CONJG`, `REAL`, `CMPLX` |
-| **[DEC]** Extra math | `TAN`, `ASIN`, `ACOS`, `SINH`, `COSH`, `SIND`, `COSD`, `NINT`, `ANINT`, `DFLOAT`, `DCMPLX` |
-| **[DEC]** Bit/shift | `LSH` (the `.AND.`/`.OR.`/`.NOT.`/`.XOR.`/`.EQV.` *operators* are in §4) |
+| **[DEC]** Extra elementary | `TAN/DTAN`, `ASIN/DASIN`, `ACOS/DACOS`, `SINH/DSINH`, `COSH/DCOSH`, `TANH/DTANH` |
+| **[DEC]** Degree-argument | `SIND/DSIND`, `COSD/DCOSD`, `TAND/DTAND`, `ASIND`, `ACOSD`, `ATAND`, `ATAN2D` |
+| **[DEC]** Round/diff/prod | `NINT`, `ANINT`, `DNINT`, `IDNINT`, `DINT`, `DDIM`, `DPROD`, `DFLOAT`, `DCMPLX` |
+| **[DEC]** Bit/shift | `LSH`, `ROT` (word shift/rotate; the `.AND.`/`.OR.`/`.NOT.`/`.XOR.`/`.EQV.` *operators* are in §4) |
 | **[DEC]** System | `RAN`/`SETRAN`, `DATE`, `EXIT`, `TIM2GO` (runtime builtins) |
 
-> **Deliberately not implemented.** A complete FORTRAN-10 V5 also supplies the remaining
-> double-precision elementary functions (`DTAN`, `DASIN`, `DACOS`, `DSINH`, `DCOSH`,
-> `DTANH`, `DINT`, `DNINT`, `IDNINT`, `DDIM`, `DPROD`) and the degree-argument forms
-> (`TAND`, `ASIND`, `ACOSD`, `ATAND`, `ATAN2D`). These are pure-math companions to the
-> functions above and would be one-line additions, but are omitted as unused — the base
-> F66 library (all 55 of Tables 3 & 4) is complete without them. Bit-manipulation
-> *function* forms beyond `LSH` (e.g. `ROT`) and additional OS/timing builtins
-> (`SECNDS`, `RUNTIM`) are likewise out of scope; bitwise work uses the `.AND.`/`.OR.`/
-> `.XOR.` operators.
+The full FORTRAN-10 V5 double-precision and degree-argument math library is now provided.
+These **[DEC]** extras (every intrinsic above the 55 standard Table 3/4 functions) are
+available under `FORTRAN10`; **strict `F66` exposes only the standard library** — a call to
+`DTAN`/`NINT`/`TAND`/… resolves only as an (undefined) external. To use the DEC library
+under F66 without the rest of the superset, opt in with `Dialect(dec_intrinsics=True)`.
+Still out of scope: the MIL-STD bit-manipulation *functions* `IAND`/`IOR`/`IEOR`/`ISHFT`
+(F77, not V5 — bitwise work uses the `.AND.`/`.OR.`/`.XOR.` operators of §4, or `LSH`/`ROT`)
+and OS/timing builtins like `SECNDS`/`RUNTIM`.
 
 ---
 
