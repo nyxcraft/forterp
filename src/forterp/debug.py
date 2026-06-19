@@ -13,7 +13,9 @@ hook serves them all:
 A Tracer is installed on the engine (`eng.tracer = t`) only while something is enabled
 (`t.active`); a plain run leaves `eng.tracer = None` and pays only a hoisted None check
 per statement. The breakpoint prompt reuses the engine's expression evaluator, so
-inspecting a variable is just typing its name -- exactly like the REPL.
+inspecting a variable is just typing its name -- except that a bare command word wins
+(typing `N` runs `next`, not "show N", since single-letter vars collide with the command
+abbreviations), so `p <expr>` / `print <expr>` / `=<expr>` force inspection.
 """
 
 from __future__ import annotations
@@ -110,8 +112,14 @@ class Tracer:
             cmd = line.strip()
             if not cmd:
                 continue
+            if cmd[0] == "=":  # `=expr` -> always inspect (escape for command-named vars)
+                self._inspect(cmd[1:].strip(), frame)
+                continue
             word, _, arg = cmd.partition(" ")
             word, arg = word.lower(), arg.strip()
+            if word in ("p", "print"):  # explicit inspect (e.g. `p N` for a command-named var)
+                self._inspect(arg, frame)
+                continue
             if word in ("c", "cont", "continue"):
                 return
             if word in ("s", "step"):

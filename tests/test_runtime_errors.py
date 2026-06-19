@@ -169,3 +169,31 @@ def test_bad_input_field_without_err_halts():
     src = IINT + "        READ(5,10) N\n   10   FORMAT(I5)\n" + END
     with pytest.raises(InputConversionError):
         run(src, inputs=["xyz"])
+
+
+# ---- documented non-fatal divergences, pinned (FORTRAN66 §8) -------
+def test_out_of_bounds_array_access_is_non_fatal():
+    # OOB read -> 0; OOB write dropped (local array); never a trap. Pinned so a future
+    # bounds-checking refactor is a conscious, test-visible change.
+    src = (
+        IINT + "        DIMENSION A(3)\n"
+        "        A(1)=1\n        A(5)=99\n"  # OOB write dropped
+        "        V(1)=A(5)\n        V(2)=A(1)\n        V(3)=A(3)\n" + END
+    )
+    eng = run(src)
+    assert out(eng, 1) == 0  # OOB read -> 0
+    assert out(eng, 2) == 1  # in-bounds element intact
+    assert out(eng, 3) == 0  # neighbor not corrupted by the OOB write
+
+
+def test_errsns_reports_the_input_conversion_error_code():
+    # after a bad numeric field routes to ERR=, ERRSNS returns the (38,311) input-error pair
+    src = (
+        IINT + "        READ(5,10,ERR=99) M\n   10   FORMAT(I5)\n"
+        "        GO TO 100\n"
+        "   99   CALL ERRSNS(I,J)\n        V(1)=I\n        V(2)=J\n"
+        "  100   CONTINUE\n" + END
+    )
+    eng = run(src, inputs=["xyz"])
+    assert out(eng, 1) == 38
+    assert out(eng, 2) == 311

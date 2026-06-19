@@ -317,6 +317,15 @@ of the dialect or the value model:
   `EQUIVALENCE`-ing a `COMPLEX` onto two `REAL`s, or counting on a `DOUBLE` spanning two
   `COMMON` words — is not bit-faithful. (The "two words" in §2 describes the PDP-10 model,
   not the interpreter's cell.)
+- **Non-fatal arithmetic.** Integer/real divide-by-zero yields `0` and continues rather
+  than trapping; library domain errors (`SQRT`/`LOG` of a negative, `ASIN`/`ACOS` of
+  |arg|>1) print the V5 warning and continue (V5 App. H — "usually reported as warnings
+  and the program continues"). The div-by-zero→0 *value* is a processor-dependent
+  stand-in, not a V5-specified result.
+- **Out-of-bounds array access is non-fatal.** An OOB read yields `0`; an OOB write is
+  dropped (for a local array) — though within a flat `COMMON` block an out-of-range index
+  still lands on a real neighbor word. ANSI leaves this undefined; a real FORTRAN-10 with
+  bounds-checking would trap.
 
 > **Formatted input (F66 §7.2.3.6).** By default (`F66`) every numeric/logical field is
 > read by *column*: packed digits split by width (`(I2,I3)` on `12345` → `12, 345`),

@@ -89,6 +89,9 @@ def _run(argv, dialect, prog, *, allow_std):
     except forterp.ParseError as e:
         print(e, file=sys.stderr)
         return 1
+    except forterp.InputConversionError as e:  # bad numeric field, no ERR= -> clean halt
+        print(f"?{e}", file=sys.stderr)
+        return 1
     return 0
 
 

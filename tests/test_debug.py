@@ -122,3 +122,31 @@ def test_plain_run_installs_no_tracer():
     finally:
         os.unlink(p)
     assert m.last_engine.tracer is None
+
+
+# ---- R5 fixes: explicit inspect + the off-path instance-__dict__ guard ------
+import forterp  # noqa: E402
+
+# a variable named N collides with the `next` command at the (dbg) prompt
+_NVAR = (
+    "      PROGRAM T\n      COMMON /O/ M\n      INTEGER M, N\n      N = 7\n      M = N\n      END\n"
+)
+
+
+def test_debugger_p_inspects_a_command_named_variable():
+    # `N` would run `next`; `p N` / `=N` force inspection of the variable instead (R5).
+    p = _src(_NVAR)
+    try:
+        _, out, _ = drive(["BREAK 5\n", f"RUN {p}\n", "p N\n", "=N\n", "cont\n", "EXIT\n"])
+    finally:
+        os.unlink(p)
+    assert "stopped at T:5" in out
+    assert out.count("7\n") >= 2  # inspected once via `p N`, once via `=N`
+
+
+def test_plain_engine_keeps_tracer_and_frames_as_class_attrs():
+    # tracer/frames must stay CLASS defaults; a stray `self.tracer = None` in __init__ would
+    # silently reintroduce the ~8% hot-loop regression. Guard a run engine's instance dict.
+    eng = forterp.run_source("      PROGRAM T\n      I = 1\n      END\n", dialect=forterp.FORTRAN10)
+    assert "tracer" not in eng.__dict__
+    assert "frames" not in eng.__dict__

@@ -3,6 +3,7 @@
 They pin that the commands run a file, route program output to stdout, and that the
 dialect boundary is visible at the CLI (pyf66 rejects a DEC feature pyfortran10 runs)."""
 
+import io
 import os
 import tempfile
 
@@ -76,6 +77,20 @@ def test_check_lists_all_diagnostics_without_running(capsys):
     assert rc == 1
     assert "error(s)" in cap.err and "IMPLICIT" in cap.err  # diagnostic listed
     assert "HELLO FROM F10" not in cap.out  # nothing ran
+
+
+def test_bad_input_field_reports_clean_error_not_traceback(monkeypatch, capsys):
+    # a bad numeric field with no ERR= halts with a clean ?-error, not a Python traceback
+    monkeypatch.setattr("sys.stdin", io.StringIO("xyz\n"))
+    p = _src("      PROGRAM T\n      READ(5,10) N\n   10 FORMAT(I5)\n      END\n")
+    try:
+        rc = f10_main([p])
+    finally:
+        os.unlink(p)
+    err = capsys.readouterr().err
+    assert rc == 1
+    assert "?" in err  # a FORTRAN-style ? diagnostic
+    assert "Traceback" not in err  # not a raw Python traceback
 
 
 def test_check_reports_ok_on_clean_source(capsys):

@@ -34,6 +34,7 @@ Public API:
 
 from forterp.engine import Engine, Frame, StopExecution
 from forterp.parser import ParseError, parse_expression
+from forterp.fmt import InputConversionError
 from forterp.target import Target, PDP10, NATIVE, VAX, TARGETS
 from forterp.dialect import Dialect, F66, FORTRAN10, DIALECTS
 from forterp.source import SourceOptions
@@ -47,6 +48,7 @@ __all__ = [
     "Frame",
     "StopExecution",
     "ParseError",
+    "InputConversionError",
     "Target",
     "PDP10",
     "NATIVE",
