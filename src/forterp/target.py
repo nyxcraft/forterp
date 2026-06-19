@@ -150,3 +150,6 @@ VAX = Target(
     little_endian=True,
     truth="low_bit",
 )
+
+# CLI / front-end name -> value model, so every caller resolves the same names in one place.
+TARGETS = {"native": NATIVE, "pdp10": PDP10, "vax": VAX}

@@ -18,8 +18,8 @@ import sys
 
 import forterp
 
-_TARGETS = {"native": forterp.NATIVE, "pdp10": forterp.PDP10, "vax": forterp.VAX}
-_DIALECTS = {"f66": forterp.F66, "fortran10": forterp.FORTRAN10}
+_TARGETS = forterp.TARGETS
+_DIALECTS = forterp.DIALECTS
 
 
 def _run(argv, dialect, prog, *, allow_std):

@@ -29,8 +29,8 @@ import sys
 import forterp
 from forterp import ast_nodes as A
 
-_TARGETS = {"native": forterp.NATIVE, "pdp10": forterp.PDP10, "vax": forterp.VAX}
-_DIALECTS = {"f66": forterp.F66, "fortran10": forterp.FORTRAN10}
+_TARGETS = forterp.TARGETS
+_DIALECTS = forterp.DIALECTS
 
 SESS = "$REPL"  # name of the session program unit
 
@@ -202,9 +202,8 @@ class Immediate:
         all_units[SESS] = sess
         eng = forterp.make_engine(
             all_units,
+            dialect=dlc,
             target=_TARGETS[self.target],
-            free_form_input=dlc.free_form_input,
-            dec_intrinsics=dlc.dec_intrinsics,
             emit=self.write,
             printer=self.write,
             readline=self.readline,

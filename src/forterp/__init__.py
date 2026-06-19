@@ -34,8 +34,8 @@ Public API:
 
 from forterp.engine import Engine, Frame, StopExecution
 from forterp.parser import ParseError, parse_expression
-from forterp.target import Target, PDP10, NATIVE, VAX
-from forterp.dialect import Dialect, F66, FORTRAN10
+from forterp.target import Target, PDP10, NATIVE, VAX, TARGETS
+from forterp.dialect import Dialect, F66, FORTRAN10, DIALECTS
 from forterp.source import SourceOptions
 from forterp.forlib import STDLIB
 from forterp import forbin
@@ -54,10 +54,13 @@ __all__ = [
     "Dialect",
     "F66",
     "FORTRAN10",
+    "TARGETS",
+    "DIALECTS",
     "SourceOptions",
     "STDLIB",
     "forbin",
     "install_runtime",
+    "engine_kwargs",
     "make_engine",
     "parse_source",
     "parse_expression",
@@ -73,10 +76,25 @@ def install_runtime(eng):
     return eng
 
 
-def make_engine(units, **kwargs):
+def engine_kwargs(dialect):
+    """The dialect-derived runtime behaviors the Engine needs -- it is otherwise
+    dialect-agnostic: `free_form_input` (widthless input fields read free-form vs
+    column) and `dec_intrinsics` (the DEC/F77 library beyond F66 Tables 3 & 4). The
+    single source of truth, so adding a future engine-relevant dialect flag is a
+    one-line change here rather than an edit at every engine-construction site."""
+    return {
+        "free_form_input": dialect.free_form_input,
+        "dec_intrinsics": dialect.dec_intrinsics,
+    }
+
+
+def make_engine(units, dialect=None, **kwargs):
     """Build an Engine over `units` ({name: ProgramUnit}) with the FORTRAN-10 runtime
-    installed and ready to run. Extra kwargs (root, emit, readline, getch, printer,
-    target, ...) pass through to Engine."""
+    installed and ready to run. Passing `dialect` applies its engine-relevant flags (see
+    engine_kwargs); explicit kwargs win. Other kwargs (root, emit, readline, getch,
+    printer, target, ...) pass through to Engine."""
+    if dialect is not None:
+        kwargs = {**engine_kwargs(dialect), **kwargs}
     eng = Engine(units, **kwargs)
     install_runtime(eng)
     return eng
@@ -111,9 +129,7 @@ def run_source(text, program=None, dialect=F66, options=None, **kwargs):
     `program` selects the main PROGRAM (defaults to the first program unit). `options`
     is an optional `SourceOptions` for source-recovery handling."""
     units = parse_source(text, dialect=dialect, options=options)
-    kwargs.setdefault("free_form_input", dialect.free_form_input)  # F66 column vs DEC free-form
-    kwargs.setdefault("dec_intrinsics", dialect.dec_intrinsics)  # DEC extra library functions
-    eng = make_engine(units, **kwargs)
+    eng = make_engine(units, dialect=dialect, **kwargs)
     name = program or next((n for n, u in units.items() if u.kind == "program"), None)
     try:
         eng.run(Frame(eng.rts[name], {}))

@@ -55,3 +55,6 @@ FORTRAN10 = Dialect(  # DEC FORTRAN-10 V5 superset: every extension on
     bare_format_width=True,
     dec_intrinsics=True,
 )
+
+# CLI / front-end name -> dialect, so every caller resolves the same names in one place.
+DIALECTS = {"f66": F66, "fortran10": FORTRAN10}

@@ -20,8 +20,8 @@ import sys
 
 import forterp
 
-_TARGETS = {"native": forterp.NATIVE, "pdp10": forterp.PDP10, "vax": forterp.VAX}
-_DIALECTS = {"f66": forterp.F66, "fortran10": forterp.FORTRAN10}
+_TARGETS = forterp.TARGETS
+_DIALECTS = forterp.DIALECTS
 
 _HELP = """\
 Commands (case-insensitive):
@@ -281,9 +281,8 @@ class Monitor:
         dlc = self._dialect()
         eng = forterp.make_engine(
             units,
+            dialect=dlc,
             target=_TARGETS[self.target],
-            free_form_input=dlc.free_form_input,
-            dec_intrinsics=dlc.dec_intrinsics,
             emit=self.write,  # TYPE / terminal output
             printer=self.write,  # line-printer (units 3/6)
             readline=self.readline,  # READ / ACCEPT
