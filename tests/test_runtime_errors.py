@@ -171,6 +171,42 @@ def test_bad_input_field_without_err_halts():
         run(src, inputs=["xyz"])
 
 
+def test_list_directed_bad_field_routes_to_err():
+    # R3 #4: a non-numeric token in list-directed input is a conversion error, like a
+    # formatted field -- it routes to ERR=, not a silent packed-character value.
+    src = (
+        IINT + "        N = 7\n"
+        "        READ(5,*,ERR=99) N\n"
+        "        V(1) = N\n"
+        "        GO TO 100\n"
+        "   99   V(1) = -1\n"
+        "  100   CONTINUE\n" + END
+    )
+    assert out(run(src, inputs=["xyz"]), 1) == -1
+
+
+def test_list_directed_bad_field_without_err_halts():
+    import pytest
+
+    from forterp.fmt import InputConversionError
+
+    src = IINT + "        READ(5,*) N\n" + END
+    with pytest.raises(InputConversionError):
+        run(src, inputs=["xyz"])
+
+
+def test_namelist_bad_field_halts():
+    # R3 #4: NAMELIST shares the conversion-error contract; a non-numeric value (not a
+    # T/F logical) raises rather than packing garbage into the variable.
+    import pytest
+
+    from forterp.fmt import InputConversionError
+
+    src = IINT + "        NAMELIST /NL/ N\n        READ(5,NL)\n" + END
+    with pytest.raises(InputConversionError):
+        run(src, inputs=[" $NL N=xyz $"])
+
+
 # ---- documented non-fatal divergences, pinned (FORTRAN66 §8) -------
 def test_out_of_bounds_array_access_is_non_fatal():
     # OOB read -> 0; OOB write dropped (local array); never a trap. Pinned so a future

@@ -1261,7 +1261,11 @@ class Engine:
                 try:
                     v = float(tok)
                 except ValueError:
-                    v = self.tgt.pack(tok)  # non-numeric -> packed char
+                    # A non-numeric token is a conversion error, like formatted input --
+                    # not a silent pack of the raw characters. Routes via _io_guard to ERR=.
+                    from forterp.fmt import InputConversionError
+
+                    raise InputConversionError(f"illegal character in list-directed field {tok!r}")
             ref.write(v)
 
     def do_type(self, s, frame):
@@ -1479,7 +1483,12 @@ class Engine:
             try:
                 return float(t)
             except ValueError:
-                return self.tgt.pack(tok.strip())  # character constant
+                # Not a logical/int/real: a conversion error, like formatted input, rather
+                # than a silent pack of the characters. (Round-trips are numeric, so this
+                # only fires on genuinely bad input.) Routes via _io_guard to ERR=.
+                from forterp.fmt import InputConversionError
+
+                raise InputConversionError(f"illegal character in NAMELIST field {tok.strip()!r}")
 
     def _formatted_write(self, s, frame, sink=None):
         """Formatted WRITE(unit,fmt) to a character device. `sink` is where the
