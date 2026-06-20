@@ -236,7 +236,10 @@ def scan_text(
         if not pending_frags and pending_label is None:
             return
         joined = "".join(pending_frags)  # inline '!' comments already stripped per line
-        for k, part in enumerate(_split_semicolons(joined)):
+        # `;` multi-statement lines are a DEC extension; under F66 don't split -- the ';'
+        # then reaches the lexer as an illegal character (F66 is one statement per line).
+        parts = _split_semicolons(joined) if dialect.stmt_separator else [joined]
+        for k, part in enumerate(parts):
             part = part.strip()
             if part == "":
                 continue

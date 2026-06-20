@@ -179,3 +179,56 @@ def test_random_access_io_gated_to_fortran10():
     # they parse cleanly under FORTRAN10 (parse-only: random I/O needs a connected unit to run)
     forterp.parse_source(df, dialect=FORTRAN10)
     forterp.parse_source(rd, dialect=FORTRAN10)
+
+
+# ---- DEC operators + syntax extensions, now gated to FORTRAN10 (R2: were ungated leaks) ----
+def test_symbolic_relationals_gated_to_fortran10():
+    src = PH + "        V(1)=0.0\n        IF(1==1) V(1)=9.0\n" + END
+    assert out(run(src), 1) == 9.0  # FORTRAN10: == is a relational
+    assert _rejected(src, dialect=F66)  # F66 §6.1: only .EQ./.NE./.LT./.LE./.GT./.GE.
+
+
+def test_extended_logical_ops_gated_to_fortran10():
+    src = PH + "        LOGICAL L\n        L = .TRUE. .XOR. .FALSE.\n        IF(L) V(1)=9.0\n" + END
+    assert out(run(src), 1) == 9.0  # FORTRAN10: .XOR.
+    assert _rejected(src, dialect=F66)  # F66 §6.1: only .NOT./.AND./.OR.
+
+
+def test_caret_power_gated_but_double_star_stays_f66():
+    assert out(run_int("        V(1)=2^10\n"), 1) == 1024  # FORTRAN10: ^ power
+    assert _rejected(PH + "        V(1)=2^10\n" + END, dialect=F66)  # F66: no literal ^
+    assert out(run(PH + "        V(1)=2**10\n" + END, dialect=F66), 1) == 1024  # ** stays F66
+
+
+def test_stmt_separator_gated_to_fortran10():
+    src = PH + "        V(1)=1.0 ; V(2)=2.0\n" + END
+    eng = run(src)  # FORTRAN10: two statements on one line
+    assert out(eng, 1) == 1.0 and out(eng, 2) == 2.0
+    assert _rejected(src, dialect=F66)  # F66: one statement per line; ';' is illegal
+
+
+def test_array_lower_bounds_gated_to_fortran10():
+    src = PH + "        DIMENSION A(2:5)\n        A(2)=7.0\n        V(1)=A(2)\n" + END
+    assert out(run(src), 1) == 7.0  # FORTRAN10: explicit lower bound
+    assert _rejected(src, dialect=F66)  # F66 7.2.1.1.1: arrays are 1..n
+
+
+def test_parameter_stmt_gated_to_fortran10():
+    src = PH + "        PARAMETER (K=5)\n        V(1)=K*2\n" + END
+    assert out(run(src), 1) == 10  # FORTRAN10
+    assert _rejected(src, dialect=F66)  # PARAMETER added in F77; not in ANSI F66
+
+
+def test_star_size_gated_to_fortran10():
+    src = PH + "        INTEGER*4 K\n        K=5\n        V(1)=K\n" + END
+    assert out(run(src), 1) == 5  # FORTRAN10: *n byte-size specifier
+    assert _rejected(src, dialect=F66)  # F66: no *n size specifier
+
+
+def test_alt_return_arg_gated_to_fortran10():
+    import pytest
+
+    src = PH + "        CALL SUB(*10)\n   10   V(1)=1.0\n" + END
+    forterp.parse_source(src, dialect=FORTRAN10)  # FORTRAN10: parses
+    with pytest.raises(forterp.ParseError):
+        forterp.parse_source(src, dialect=F66)  # F66: no alternate-return CALL argument

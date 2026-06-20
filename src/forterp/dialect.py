@@ -38,6 +38,14 @@ class Dialect:
     # & 4 (TAN, NINT/ANINT, the DP DTAN.../degree TAND... families, LSH, MAX/MIN, ...). F66
     # exposes only the 55 standard functions; set this (e.g. Dialect(dec_intrinsics=True))
     # to opt into the DEC library under F66 without the rest of the FORTRAN10 superset.
+    dec_operators: bool = False  # operators beyond ANSI X3.9-1966 §6.1: the symbolic
+    # relationals (== # < > <= >=, vs .EQ./.NE./.LT./.LE./.GT./.GE.), the extended logicals
+    # (.XOR./.EQV./.NEQV., vs .NOT./.AND./.OR.), and `^` as a power operator (`**` is ANSI).
+    stmt_separator: bool = False  # `;` multi-statement lines (F66 is one statement per line)
+    array_lower_bounds: bool = False  # DIMENSION A(lo:hi) explicit lower bounds (F66 is 1..n)
+    parameter_stmt: bool = False  # the PARAMETER statement (added in F77; not in ANSI F66)
+    star_sizes: bool = False  # INTEGER*4 / REAL*8 byte-size type specifiers (DEC/F77)
+    alt_return: bool = False  # alternate-return actual args in CALL ($n/&n/*n) (F77/DEC)
 
 
 F66 = Dialect()  # ANSI X3.9-1966 -- the default dialect
@@ -54,6 +62,12 @@ FORTRAN10 = Dialect(  # DEC FORTRAN-10 V5 superset: every extension on
     extended_io=True,
     bare_format_width=True,
     dec_intrinsics=True,
+    dec_operators=True,
+    stmt_separator=True,
+    array_lower_bounds=True,
+    parameter_stmt=True,
+    star_sizes=True,
+    alt_return=True,
 )
 
 # CLI / front-end name -> dialect, so every caller resolves the same names in one place.

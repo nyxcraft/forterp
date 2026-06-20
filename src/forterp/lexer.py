@@ -10,13 +10,14 @@ Token kinds:
   LOGIC   .TRUE. / .FALSE.                value = True / False
   OP      operator / punctuation          value = the operator text
 
-The DEC FORTRAN-10 lexical extensions it handles:
-  * symbolic relationals:  ==  #  <  >  <=  >=
-  * '^' as a power operator (a synonym of '**')
-  * octal literals:  "nnn
-  * ':' as an array-bound separator
+The DEC FORTRAN-10 lexical extensions it handles (each gated on a `Dialect` flag, so
+strict F66 rejects them -- see dialect.py):
+  * symbolic relationals == # < > <= >= and '^' power [dec_operators]  ('**' stays F66)
+  * the extended logicals .XOR./.EQV./.NEQV. [dec_operators]
+  * octal literals "nnn [octal_quote]
+  * apostrophe string literals [apostrophe_string]  ('' = an escaped quote inside one)
+  * ':' as an array-bound separator (the gate is in the parser, on array_lower_bounds)
   * '$' in a FORMAT
-  * '' (doubled quote) as an escaped quote inside a string
 """
 
 from __future__ import annotations
@@ -175,6 +176,10 @@ def tokenize(s: str, dialect=F66) -> list[Token]:
                 elif word == ".FALSE.":
                     toks.append(Token("LOGIC", False, i))
                 else:
+                    if word in (".XOR.", ".EQV.", ".NEQV.") and not dialect.dec_operators:
+                        raise LexError(
+                            f"{word} is a FORTRAN-10 extension (F66 §6.1: .NOT./.AND./.OR.)", i
+                        )
                     toks.append(Token("DOTOP", word, i))
                 i = i2
                 continue
@@ -196,11 +201,17 @@ def tokenize(s: str, dialect=F66) -> list[Token]:
             toks.append(Token("OP", "^", i))
             i += 2
             continue
-        if two in MULTI_OPS:
+        if two in MULTI_OPS:  # ==, <=, >= : DEC symbolic relationals
+            if not dialect.dec_operators:
+                raise LexError(f"symbolic relational {two!r} is a FORTRAN-10 extension", i)
             toks.append(Token("OP", two, i))
             i += 2
             continue
         if c in SINGLE_OPS:
+            # <, >, #, and a literal '^' are DEC operators beyond ANSI §6.1 (relationals,
+            # and '^' for power -- '**' above stays F66-legal). Gate them on dec_operators.
+            if c in "<>#^" and not dialect.dec_operators:
+                raise LexError(f"{c!r} is a FORTRAN-10 operator (not in ANSI F66 §6.1)", i)
             toks.append(Token("OP", c, i))
             i += 1
             continue

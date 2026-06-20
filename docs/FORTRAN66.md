@@ -287,12 +287,17 @@ and OS/timing builtins like `SECNDS`/`RUNTIM`.
 
 The features tagged **[DEC]** above are front-end **dialect** divergences: octal and
 apostrophe literals, `!` comments and quoted FORMAT text, tab-format source, `IMPLICIT`,
-`ENTRY`, the `.XOR.`/`.EQV.` operators, the `LSH` shift intrinsic, the `O`/`R`/`T`/`$`
+`ENTRY`, the `LSH` shift intrinsic, the `O`/`R`/`T`/`$`
 FORMAT descriptors and bare-width descriptors, `PRINT`/unit-less `READ`/`ACCEPT`/`TYPE`,
 list-directed `*` I/O, random-access I/O, `ENCODE`/`DECODE`, free-form (widthless)
-formatted input, and the relaxation of three F66 *constraints* — general integer
-expressions in array subscripts (§5.1.3.3) and `DO` parameters (§7.1.2.8), and `COMPLEX`↔
-numeric assignment (Table 1). **`F66` rejects all of these; `FORTRAN10` accepts them.** The
+formatted input; the operators beyond §6.1 — the symbolic relationals (`==` `#` `<` `>`
+`<=` `>=`), the extended logicals (`.XOR.`/`.EQV.`/`.NEQV.`), and `^` for power (`**` is
+ANSI); the extra syntax — `;` multi-statement lines, explicit array lower bounds
+`A(lo:hi)`, the `PARAMETER` statement, `*n` byte-size type specifiers (`INTEGER*4`), and
+alternate-return CALL args (`*n`/`$n`/`&n`); and the relaxation of three F66 *constraints* —
+general integer expressions in array subscripts (§5.1.3.3) and `DO` parameters (§7.1.2.8),
+and `COMPLEX`↔numeric assignment (Table 1). **`F66` rejects all of these; `FORTRAN10`
+accepts them** — each gated on its own `Dialect` flag (see `dialect.py`). The
 dialect is selected independently of the target and defaults to `forterp.F66` (ANSI — these
 extensions off); select `forterp.FORTRAN10` to enable the whole DEC superset.
 

@@ -655,6 +655,11 @@ class P:
         if t and t.kind == "OP" and t.value in ("$", "*", "&"):
             nx = self.nxt()
             if nx and nx.kind == "INT":
+                if not self.dialect.alt_return:
+                    raise ParseError(
+                        "alternate-return CALL argument (*n / $n / &n) is a FORTRAN-10 extension",
+                        "NRC",
+                    )
                 self.advance()  # $ / * / &
                 return A.LabelArg(label=self.advance().value)
         return self.parse_expr()
@@ -880,6 +885,12 @@ class P:
             while True:
                 lo_n = self.parse_expr()
                 if self.accept_op(":") or self.accept_op("/"):
+                    if not self.dialect.array_lower_bounds:
+                        raise ParseError(
+                            "explicit array lower bound (lo:hi) is a FORTRAN-10 extension; "
+                            "F66 arrays are 1..n",
+                            "NRC",
+                        )
                     hi_n = self.parse_expr()
                     dims.append((_dim_bound(lo_n, consts), _dim_bound(hi_n, consts)))
                 else:
@@ -894,6 +905,8 @@ class P:
     def opt_size(self):
         """Consume an optional *n size modifier (e.g. REAL*8); return n or None."""
         if self.is_op("*"):
+            if not self.dialect.star_sizes:
+                raise ParseError("*n byte-size specifier (REAL*8) is a FORTRAN-10 extension", "NRC")
             self.advance()
             t = self.advance()
             return t.value if t.kind in ("INT", "OCTAL") else None
@@ -1302,6 +1315,10 @@ def _route(unit, st, toks, on_warn=None, dialect=F66):
         p.parse_common(unit)
         return
     if kw == "PARAMETER":
+        if not p.dialect.parameter_stmt:
+            raise ParseError(
+                "the PARAMETER statement is a FORTRAN-10 extension (not ANSI F66)", "NRC"
+            )
         p.parse_parameter(unit)
         return
     if kw == "DATA":
