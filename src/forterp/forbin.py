@@ -37,17 +37,28 @@ START, CONTINUE, END = 0o1, 0o2, 0o3
 
 
 # ---- DECsystem-10 single-precision floating point -----------------------------
+class Dec10FloatError(Exception):
+    """A float with no DEC-10 single-precision representation: inf/nan, or a magnitude
+    outside the excess-128 exponent range. FOROTS reports a floating-overflow; we raise
+    this rather than silently wrapping the exponent (corruption) or leaking a bare Python
+    OverflowError/ValueError out of the codec."""
+
+
 def double_to_dec10(x: float) -> int:
     """Encode a Python float as a 36-bit DEC-10 single-precision word.
     1.0 -> 0o201400000000, matching the documented PDP-10 representation."""
     if x == 0.0:
         return 0
+    if not math.isfinite(x):  # inf / nan have no DEC-10 representation
+        raise Dec10FloatError(f"cannot encode {x!r} as a DEC-10 single")
     neg = x < 0
     m, e = math.frexp(abs(x))  # abs(x) = m * 2**e, 0.5 <= m < 1.0
     frac = int(round(m * (1 << 27)))
     if frac > MASK27:  # rounding carried into 1.0
         frac >>= 1
         e += 1
+    if not (-128 <= e <= 127):  # the excess-128 exponent field is 8 bits -> e in [-128,127]
+        raise Dec10FloatError(f"{x!r} is out of DEC-10 single-precision range")
     word = (((e + 128) & 0o377) << 27) | (frac & MASK27)  # bit0=0 (positive)
     return (-word) & MASK36 if neg else word  # negate the whole word
 

@@ -3,7 +3,16 @@ V5 manual, Appendix D.5.2 (the LSCW format and its D-6 worked example).
 """
 
 import math
-from forterp.forbin import double_to_dec10, dec10_to_double, encode_record, decode_record
+
+import pytest
+
+from forterp.forbin import (
+    Dec10FloatError,
+    decode_record,
+    dec10_to_double,
+    double_to_dec10,
+    encode_record,
+)
 
 
 # ---- the manual's D-6 worked example (GROUND TRUTH) ------------------------
@@ -58,3 +67,24 @@ def test_dec10_negative_is_twos_complement_of_positive():
     pos = double_to_dec10(2.5)
     neg = double_to_dec10(-2.5)
     assert neg == ((-pos) & ((1 << 36) - 1))
+
+
+# ---- R3 #3: unrepresentable floats raise, not silently wrap / crash ---------
+@pytest.mark.parametrize("x", [float("inf"), float("-inf"), float("nan")])
+def test_dec10_rejects_inf_and_nan(x):
+    # was a bare OverflowError/ValueError leaking out of the codec
+    with pytest.raises(Dec10FloatError):
+        double_to_dec10(x)
+
+
+@pytest.mark.parametrize("x", [1.0e40, -1.0e40, 1.0e-50])
+def test_dec10_rejects_out_of_range_magnitude(x):
+    # exponent outside the 8-bit excess-128 field: was silently wrapped (corruption)
+    with pytest.raises(Dec10FloatError):
+        double_to_dec10(x)
+
+
+def test_dec10_in_range_extremes_still_encode():
+    # just inside the representable range (|exponent| ~ 127) still round-trips
+    for x in (1.0e37, 1.0e-37):
+        assert math.isclose(dec10_to_double(double_to_dec10(x)), x, rel_tol=1e-6)

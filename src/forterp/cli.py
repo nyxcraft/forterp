@@ -17,6 +17,7 @@ import os
 import sys
 
 import forterp
+from forterp.forbin import Dec10FloatError
 
 _TARGETS = forterp.TARGETS
 _DIALECTS = forterp.DIALECTS
@@ -89,7 +90,8 @@ def _run(argv, dialect, prog, *, allow_std):
     except forterp.ParseError as e:
         print(e, file=sys.stderr)
         return 1
-    except forterp.InputConversionError as e:  # bad numeric field, no ERR= -> clean halt
+    except (forterp.InputConversionError, Dec10FloatError) as e:
+        # bad numeric field / unrepresentable float in binary I/O, no ERR= -> clean halt
         print(f"?{e}", file=sys.stderr)
         return 1
     return 0
