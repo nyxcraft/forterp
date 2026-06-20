@@ -6,7 +6,8 @@ session:
 
   * Tier 1 -- a straight-line statement (assignment, I/O, CALL into a LOADed program)
     runs immediately; a bare expression is evaluated and printed, so the prompt doubles
-    as a calculator and as a way to inspect a variable by typing its name.
+    as a calculator and as a way to inspect a variable by typing its name -- except the
+    reserved words EXIT / QUIT / MONITOR (and '.'), which always return to the monitor.
   * Tier 2 -- a DO loop is collected across lines (a continuation prompt) and run as a
     block once its terminator appears.
 
@@ -83,7 +84,8 @@ class Immediate:
         """Read FORTRAN statements until EXIT / '.' / EOF, then return to the monitor."""
         self.write(
             f"immediate mode ({self.std}) -- type FORTRAN; a bare expression is "
-            f"evaluated.  '.' or EXIT returns to the monitor.\n"
+            f"evaluated.  '.', EXIT, QUIT, and MONITOR are reserved here and return "
+            f"to the monitor.\n"
         )
         buf, raw = [], []  # fixed-form lines / raw lines of the chunk being collected
         while True:
@@ -96,6 +98,11 @@ class Immediate:
             if not buf:
                 if not s:
                     continue
+                # '.', EXIT, QUIT, MONITOR are reserved words at the prompt -> return to the
+                # monitor. A variable so named is shadowed here and can't be inspected by name
+                # (EXIT also names a STDLIB routine, so even `(EXIT)` resolves to the builtin).
+                # Accepted as documented: such names are pathological for a FORTRAN program,
+                # and reserving prompt keywords is normal REPL behavior. (R5, reconciliation.)
                 if s == "." or s.upper() in ("EXIT", "QUIT", "MONITOR"):
                     break
             elif not s:  # blank line cancels a half-typed block
