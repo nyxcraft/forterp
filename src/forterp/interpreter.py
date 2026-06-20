@@ -29,7 +29,7 @@ from forterp.dialect import F66, FORTRAN10
 from forterp.engine import Engine, Frame, StopExecution
 from forterp.forlib import STDLIB
 from forterp.parser import ParseError, parse_units
-from forterp.source import DEFAULT_OPTIONS, expand_includes, scan_file, scan_text
+from forterp.source import DEFAULT_OPTIONS, SourceOptions, expand_includes, scan_file, scan_text
 from forterp.target import NATIVE, PDP10
 
 
@@ -38,19 +38,23 @@ class Interpreter:
     engines with build_engine(); parse with parse_text()/parse_file()/parse_dir(); or do
     both with run_source()."""
 
-    def __init__(self, target, dialect, *, free_form_input, dec_intrinsics=True, runtime=True):
+    def __init__(self, target, dialect, *, free_form_input, dec_intrinsics=True,
+                 runtime=True, source_options=None):
         self.target = target
         self.dialect = dialect
         self.free_form_input = free_form_input
         self.dec_intrinsics = dec_intrinsics
         self.runtime = runtime
+        self.source_options = source_options or DEFAULT_OPTIONS
 
     # ---- building engines --------------------------------------------------
     def build_engine(self, units, *, runtime=None, **kwargs):
         """An Engine pinned to this interpreter's target + dialect-derived flags.  With the
         runtime (default), installs the standard library + FOROTS binary I/O -- but never
-        shadows a routine the program defines itself: engine builtins take precedence over
-        program units, so STDLIB names that collide with a defined unit are skipped."""
+        shadows a STDLIB library routine the program defines itself: engine builtins take
+        precedence over program units, so STDLIB names that collide with a defined unit are
+        skipped.  (Hardcoded intrinsics still win unless the program declares EXTERNAL --
+        correct FORTRAN.)"""
         kwargs.setdefault("target", self.target)
         kwargs.setdefault("free_form_input", self.free_form_input)
         kwargs.setdefault("dec_intrinsics", self.dec_intrinsics)
@@ -64,7 +68,7 @@ class Interpreter:
     def parse_text(self, text):
         """Parse source text -> ({name: ProgramUnit}, [(line, message), ...])."""
         stmts = expand_includes(
-            scan_text(text, dialect=self.dialect, options=DEFAULT_OPTIONS).statements,
+            scan_text(text, dialect=self.dialect, options=self.source_options).statements,
             ".", dialect=self.dialect)
         return self._units(stmts)
 
@@ -72,7 +76,7 @@ class Interpreter:
         """Parse one .FOR file (INCLUDEs resolved against root or the file's directory)
         -> ({name: ProgramUnit}, [(line, message), ...])."""
         stmts = expand_includes(
-            scan_file(path, dialect=self.dialect).statements,
+            scan_file(path, dialect=self.dialect, options=self.source_options).statements,
             root or os.path.dirname(os.path.abspath(path)), dialect=self.dialect)
         return self._units(stmts)
 
@@ -87,8 +91,8 @@ class Interpreter:
             base = os.path.basename(path)
             if os.path.splitext(base)[0].upper() in skip:
                 continue
-            stmts = expand_includes(scan_file(path, dialect=self.dialect).statements, root,
-                                    dialect=self.dialect)
+            sc = scan_file(path, dialect=self.dialect, options=self.source_options)
+            stmts = expand_includes(sc.statements, root, dialect=self.dialect)
             for u in parse_units(stmts, dialect=self.dialect,
                                  on_error=lambda s, m, b=base: errors.append((b, s.line, m))):
                 units[u.name] = u
@@ -118,8 +122,11 @@ class Interpreter:
         return eng
 
 
-#: DEC FORTRAN-10 V5 -- the faithful PDP-10 setup (36-bit, FORTRAN-10 dialect, free-form).
-fortran10 = Interpreter(PDP10, FORTRAN10, free_form_input=True, dec_intrinsics=True)
+#: DEC FORTRAN-10 V5 -- the forgiving real-source preset: PDP-10 (36-bit), FORTRAN-10
+#: dialect, free-form input, and recovery of statement text shifted a column or two past
+#: 72 (common in transcribed/reindented decks).  f66 below stays strict (no recovery).
+fortran10 = Interpreter(PDP10, FORTRAN10, free_form_input=True, dec_intrinsics=True,
+                        source_options=SourceOptions(recover_shifted_cols=True))
 
 #: Strict ANSI FORTRAN-66 -- portable NATIVE machine, F66 dialect, column input.
 f66 = Interpreter(NATIVE, F66, free_form_input=False, dec_intrinsics=False)
