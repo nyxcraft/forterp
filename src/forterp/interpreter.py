@@ -13,9 +13,9 @@ pieces into two named interpreters:
 
 Use directly::
 
-    eng   = forterp.fortran10.run_source(open("PROG.FOR").read())
-    units = forterp.fortran10.parse_dir("GAME/", exclude={"PATH"})
-    eng   = forterp.fortran10.build_engine(units, emit=print)   # add your builtins after
+    eng          = forterp.fortran10.run_source(open("PROG.FOR").read())
+    units, errs  = forterp.fortran10.parse_dir("GAME/", exclude={"PATH"})
+    eng          = forterp.fortran10.build_engine(units, emit=print)   # add builtins after
 
 or build your own with the Interpreter class.
 """
@@ -61,19 +61,19 @@ class Interpreter:
         return eng
 
     # ---- parsing -----------------------------------------------------------
-    def parse_text(self, text, on_error=None):
-        """Parse source text -> {name: ProgramUnit}.  Raises ParseError on bad source
-        unless on_error(statement, message) is supplied to receive diagnostics instead."""
+    def parse_text(self, text):
+        """Parse source text -> ({name: ProgramUnit}, [(line, message), ...])."""
         stmts = expand_includes(
             scan_text(text, dialect=self.dialect, options=DEFAULT_OPTIONS).statements, ".")
-        return self._units(stmts, on_error)
+        return self._units(stmts)
 
-    def parse_file(self, path, root=None, on_error=None):
-        """Parse one .FOR file (INCLUDEs resolved against root or the file's directory)."""
+    def parse_file(self, path, root=None):
+        """Parse one .FOR file (INCLUDEs resolved against root or the file's directory)
+        -> ({name: ProgramUnit}, [(line, message), ...])."""
         stmts = expand_includes(
             scan_file(path, dialect=self.dialect).statements,
             root or os.path.dirname(os.path.abspath(path)))
-        return self._units(stmts, on_error)
+        return self._units(stmts)
 
     def parse_dir(self, root, exclude=()):
         """Parse every ``*.FOR`` in `root` as one program.  `exclude` is a set of basenames
@@ -92,20 +92,21 @@ class Interpreter:
                 units[u.name] = u
         return units, errors
 
-    def _units(self, stmts, on_error):
+    def _units(self, stmts):
         errs = []
-        cb = on_error or (lambda s, m: errs.append((s.line, m)))
-        units = {u.name: u for u in parse_units(stmts, dialect=self.dialect, on_error=cb)}
-        if on_error is None and errs:
-            raise ParseError("parse error(s):\n"
-                             + "\n".join(f"  line {ln}: {m}" for ln, m in errs))
-        return units
+        units = {u.name: u for u in parse_units(
+            stmts, dialect=self.dialect, on_error=lambda s, m: errs.append((s.line, m)))}
+        return units, errs
 
     # ---- parse + run -------------------------------------------------------
     def run_source(self, text, program=None, **kwargs):
         """Parse + run source text; return the Engine to inspect its state.  `program`
-        selects the main PROGRAM (default: the first program unit)."""
-        units = self.parse_text(text)
+        selects the main PROGRAM (default: the first program unit).  Raises ParseError on
+        bad source."""
+        units, errors = self.parse_text(text)
+        if errors:
+            raise ParseError("parse error(s):\n"
+                             + "\n".join(f"  line {ln}: {m}" for ln, m in errors))
         eng = self.build_engine(units, **kwargs)
         name = program or next((n for n, u in units.items() if u.kind == "program"), None)
         try:
