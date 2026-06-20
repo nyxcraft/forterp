@@ -64,7 +64,8 @@ class Interpreter:
     def parse_text(self, text):
         """Parse source text -> ({name: ProgramUnit}, [(line, message), ...])."""
         stmts = expand_includes(
-            scan_text(text, dialect=self.dialect, options=DEFAULT_OPTIONS).statements, ".")
+            scan_text(text, dialect=self.dialect, options=DEFAULT_OPTIONS).statements,
+            ".", dialect=self.dialect)
         return self._units(stmts)
 
     def parse_file(self, path, root=None):
@@ -72,7 +73,7 @@ class Interpreter:
         -> ({name: ProgramUnit}, [(line, message), ...])."""
         stmts = expand_includes(
             scan_file(path, dialect=self.dialect).statements,
-            root or os.path.dirname(os.path.abspath(path)))
+            root or os.path.dirname(os.path.abspath(path)), dialect=self.dialect)
         return self._units(stmts)
 
     def parse_dir(self, root, exclude=()):
@@ -86,7 +87,8 @@ class Interpreter:
             base = os.path.basename(path)
             if os.path.splitext(base)[0].upper() in skip:
                 continue
-            stmts = expand_includes(scan_file(path, dialect=self.dialect).statements, root)
+            stmts = expand_includes(scan_file(path, dialect=self.dialect).statements, root,
+                                    dialect=self.dialect)
             for u in parse_units(stmts, dialect=self.dialect,
                                  on_error=lambda s, m, b=base: errors.append((b, s.line, m))):
                 units[u.name] = u

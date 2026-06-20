@@ -354,6 +354,7 @@ def expand_includes(
     statements: list[Statement],
     include_dir: str,
     debug: bool = False,
+    dialect=F66,
     _stack: frozenset = frozenset(),
 ) -> list[Statement]:
     """Expand INCLUDE statements in place.
@@ -369,18 +370,18 @@ def expand_includes(
             if inc_path is None or inc_path in _stack:
                 out.append(st)  # unresolved / cyclic: leave visible
                 continue
-            inc = scan_file(inc_path, debug=debug).statements
-            out.extend(expand_includes(inc, include_dir, debug, _stack | {inc_path}))
+            inc = scan_file(inc_path, debug=debug, dialect=dialect).statements
+            out.extend(expand_includes(inc, include_dir, debug, dialect, _stack | {inc_path}))
         else:
             out.append(st)
     return out
 
 
 def load_statements(
-    path: str, debug: bool = False, include_dir: str | None = None
+    path: str, debug: bool = False, include_dir: str | None = None, dialect=F66
 ) -> list[Statement]:
     """Load statements from a file, expanding INCLUDE directives in place."""
     if include_dir is None:
         include_dir = os.path.dirname(os.path.abspath(path))
-    stmts = scan_file(path, debug=debug).statements
-    return expand_includes(stmts, include_dir, debug=debug)
+    stmts = scan_file(path, debug=debug, dialect=dialect).statements
+    return expand_includes(stmts, include_dir, debug=debug, dialect=dialect)

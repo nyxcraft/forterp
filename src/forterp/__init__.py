@@ -180,7 +180,8 @@ def parse_source(text, dialect=F66, on_error=None, options=None):
     errs = []
     cb = on_error if on_error is not None else (lambda st, m: errs.append((st.line, m)))
     opts = options if options is not None else DEFAULT_OPTIONS
-    stmts = expand_includes(scan_text(text, dialect=dialect, options=opts).statements, ".")
+    stmts = expand_includes(scan_text(text, dialect=dialect, options=opts).statements, ".",
+                            dialect=dialect)
     units = {u.name: u for u in parse_units(stmts, dialect=dialect, on_error=cb)}
     if on_error is None and errs:
         raise ParseError("parse error(s):\n" + "\n".join(f"  line {ln}: {m}" for ln, m in errs))
