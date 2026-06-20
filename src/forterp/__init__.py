@@ -15,6 +15,9 @@ Quick start::
     ''', printer=print)
 
 Public API:
+    fortran10, f66                  -- prebuilt, ready-to-run interpreters (the easy path:
+                                       forterp.fortran10.run_source(src) / .parse_dir(dir)
+                                       / .build_engine(units)); Interpreter to roll your own
     Engine, Frame, StopExecution    -- the execution engine
     Target, PDP10, NATIVE, VAX      -- the machine value model (NATIVE 64-bit is the
                                        default; PDP10 is the faithful 36-bit DEC target;
@@ -30,6 +33,26 @@ Public API:
     parse_source(text, ...)         -- parse source text into program units (raises ParseError)
     run_source(text, ...)           -- parse + run a source string, return the Engine
     ParseError                      -- raised by parse_source/run_source on bad source
+
+Embedding API (lower-level building blocks, for hosting FORTRAN inside another program):
+    Front-end stages:
+        scan_file / expand_includes -- read fixed-form source -> statements
+        parse_units / parse_program / parse_file -- statements -> {name: ProgramUnit}
+        tokenize, Token, LexError   -- the lexer
+        ast_nodes                   -- AST node classes (for inspecting parsed units)
+    FORMAT engine:
+        parse_format(spec)          -- a FORMAT string -> edit-descriptor items
+        render(items, values, ...)  -- format a value list -> text
+        read_values(items, line, ...) -- parse an input record under a FORMAT
+        apply_carriage(text)        -- apply FORTRAN carriage control
+    Diagnostics:
+        diag, show                  -- render FORTRAN-10 compiler messages
+    Writing builtins (host routines callable from FORTRAN):
+        A builtin is `fn(eng, frame, arg_nodes)`, registered via
+        `eng.register_builtins({"NAME": fn})`. Resolve arguments with
+        `eng.arg_ref / eng.arrayview / eng.scalar_ref`; the reference objects
+        (ArrayView for arrays, TempRef for by-value) expose `.read()/.write()/.loc()`.
+        ArrayView, TempRef          -- the engine's argument-reference objects
 """
 
 from forterp.engine import Engine, Frame, StopExecution
@@ -40,6 +63,19 @@ from forterp.dialect import Dialect, F66, FORTRAN10, DIALECTS
 from forterp.source import SourceOptions
 from forterp.forlib import STDLIB
 from forterp import forbin
+
+# Embedding API -- lower-level building blocks for hosting FORTRAN in another program.
+from forterp import ast_nodes
+from forterp.source import scan_file, expand_includes
+from forterp.parser import parse_units, parse_program, parse_file
+from forterp.lexer import tokenize, Token, LexError
+from forterp.fmt import parse_format, render, read_values, apply_carriage
+from forterp.diagnostics import diag, show
+from forterp.engine import ArrayView, TempRef
+
+# Prebuilt, reusable interpreters -- the easy-reuse entry point: forterp.fortran10
+# (faithful DEC FORTRAN-10) and forterp.f66 (strict ANSI), plus the Interpreter class.
+from forterp.interpreter import Interpreter, fortran10, f66
 
 __version__ = "0.1.0"
 
@@ -67,6 +103,31 @@ __all__ = [
     "parse_source",
     "parse_expression",
     "run_source",
+    # embedding API -- front-end stages
+    "scan_file",
+    "expand_includes",
+    "parse_units",
+    "parse_program",
+    "parse_file",
+    "tokenize",
+    "Token",
+    "LexError",
+    "ast_nodes",
+    # embedding API -- FORMAT engine
+    "parse_format",
+    "render",
+    "read_values",
+    "apply_carriage",
+    # embedding API -- diagnostics
+    "diag",
+    "show",
+    # embedding API -- writing builtins (engine reference objects)
+    "ArrayView",
+    "TempRef",
+    # prebuilt, reusable interpreters (forterp.fortran10 / forterp.f66)
+    "Interpreter",
+    "fortran10",
+    "f66",
 ]
 
 
