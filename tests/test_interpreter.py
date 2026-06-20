@@ -130,3 +130,21 @@ def test_custom_interpreter_combines_target_and_dialect():
     interp = forterp.Interpreter(forterp.NATIVE, forterp.FORTRAN10, free_form_input=True)
     eng = interp.run_source(OK)
     assert eng.tgt is forterp.NATIVE and eng.commons["OUT"][0] == 1024.0
+
+
+def test_presets_do_not_recover_shifted_columns_by_default():
+    # faithful default: the prebuilt interpreters drop cols 73+ like real FORTRAN-10, no
+    # shifted-column recovery. A driver that needs reindented-deck recovery opts in via
+    # source_options -- it is not baked into the DEC preset.
+    from forterp.source import SourceOptions
+
+    assert forterp.fortran10.source_options.recover_shifted_cols is False
+    assert forterp.f66.source_options.recover_shifted_cols is False
+    # ... but the knob is there for a driver that asks for it (e.g. the pdp10-empire migration):
+    custom = forterp.Interpreter(
+        forterp.PDP10,
+        forterp.FORTRAN10,
+        free_form_input=True,
+        source_options=SourceOptions(recover_shifted_cols=True),
+    )
+    assert custom.source_options.recover_shifted_cols is True

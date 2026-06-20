@@ -19,6 +19,7 @@ Use directly::
 
 or build your own with the Interpreter class.
 """
+
 from __future__ import annotations
 
 import glob
@@ -29,7 +30,7 @@ from forterp.dialect import F66, FORTRAN10
 from forterp.engine import Engine, Frame, StopExecution
 from forterp.forlib import STDLIB
 from forterp.parser import ParseError, parse_units
-from forterp.source import DEFAULT_OPTIONS, SourceOptions, expand_includes, scan_file, scan_text
+from forterp.source import DEFAULT_OPTIONS, expand_includes, scan_file, scan_text
 from forterp.target import NATIVE, PDP10
 
 
@@ -38,8 +39,16 @@ class Interpreter:
     engines with build_engine(); parse with parse_text()/parse_file()/parse_dir(); or do
     both with run_source()."""
 
-    def __init__(self, target, dialect, *, free_form_input, dec_intrinsics=True,
-                 runtime=True, source_options=None):
+    def __init__(
+        self,
+        target,
+        dialect,
+        *,
+        free_form_input,
+        dec_intrinsics=True,
+        runtime=True,
+        source_options=None,
+    ):
         self.target = target
         self.dialect = dialect
         self.free_form_input = free_form_input
@@ -69,7 +78,9 @@ class Interpreter:
         """Parse source text -> ({name: ProgramUnit}, [(line, message), ...])."""
         stmts = expand_includes(
             scan_text(text, dialect=self.dialect, options=self.source_options).statements,
-            ".", dialect=self.dialect)
+            ".",
+            dialect=self.dialect,
+        )
         return self._units(stmts)
 
     def parse_file(self, path, root=None):
@@ -77,7 +88,9 @@ class Interpreter:
         -> ({name: ProgramUnit}, [(line, message), ...])."""
         stmts = expand_includes(
             scan_file(path, dialect=self.dialect, options=self.source_options).statements,
-            root or os.path.dirname(os.path.abspath(path)), dialect=self.dialect)
+            root or os.path.dirname(os.path.abspath(path)),
+            dialect=self.dialect,
+        )
         return self._units(stmts)
 
     def parse_dir(self, root, exclude=()):
@@ -93,15 +106,22 @@ class Interpreter:
                 continue
             sc = scan_file(path, dialect=self.dialect, options=self.source_options)
             stmts = expand_includes(sc.statements, root, dialect=self.dialect)
-            for u in parse_units(stmts, dialect=self.dialect,
-                                 on_error=lambda s, m, b=base: errors.append((b, s.line, m))):
+            for u in parse_units(
+                stmts,
+                dialect=self.dialect,
+                on_error=lambda s, m, b=base: errors.append((b, s.line, m)),
+            ):
                 units[u.name] = u
         return units, errors
 
     def _units(self, stmts):
         errs = []
-        units = {u.name: u for u in parse_units(
-            stmts, dialect=self.dialect, on_error=lambda s, m: errs.append((s.line, m)))}
+        units = {
+            u.name: u
+            for u in parse_units(
+                stmts, dialect=self.dialect, on_error=lambda s, m: errs.append((s.line, m))
+            )
+        }
         return units, errs
 
     # ---- parse + run -------------------------------------------------------
@@ -111,8 +131,9 @@ class Interpreter:
         bad source."""
         units, errors = self.parse_text(text)
         if errors:
-            raise ParseError("parse error(s):\n"
-                             + "\n".join(f"  line {ln}: {m}" for ln, m in errors))
+            raise ParseError(
+                "parse error(s):\n" + "\n".join(f"  line {ln}: {m}" for ln, m in errors)
+            )
         eng = self.build_engine(units, **kwargs)
         name = program or next((n for n, u in units.items() if u.kind == "program"), None)
         try:
@@ -122,11 +143,11 @@ class Interpreter:
         return eng
 
 
-#: DEC FORTRAN-10 V5 -- the forgiving real-source preset: PDP-10 (36-bit), FORTRAN-10
-#: dialect, free-form input, and recovery of statement text shifted a column or two past
-#: 72 (common in transcribed/reindented decks).  f66 below stays strict (no recovery).
-fortran10 = Interpreter(PDP10, FORTRAN10, free_form_input=True, dec_intrinsics=True,
-                        source_options=SourceOptions(recover_shifted_cols=True))
+#: DEC FORTRAN-10 V5 -- the faithful PDP-10 setup (36-bit, FORTRAN-10 dialect, free-form).
+#: Columns 73+ are dropped like real FORTRAN-10 (no shifted-column recovery by default); a
+#: driver that needs reindented-deck recovery asks for it via
+#: source_options=SourceOptions(recover_shifted_cols=True).
+fortran10 = Interpreter(PDP10, FORTRAN10, free_form_input=True, dec_intrinsics=True)
 
 #: Strict ANSI FORTRAN-66 -- portable NATIVE machine, F66 dialect, column input.
 f66 = Interpreter(NATIVE, F66, free_form_input=False, dec_intrinsics=False)
