@@ -5,7 +5,10 @@ Implemented so far: BLOCK DATA (Ch16). Each test confirms source that uses the
 construct now parses AND runs correctly.
 """
 
+import pytest
+
 from conftest import run, out
+from forterp.dialect import F66, FORTRAN10
 from forterp.fmt import unpack_chars
 
 
@@ -348,3 +351,42 @@ def test_equivalence_data_initialization():
         "        DATA Y(1)/55/\n        V(1)=X\n" + _EEND
     )
     assert out(eng, 1) == 55  # DATA on Y(1) is visible through X
+
+
+# ---- illegal EQUIVALENCE shapes: rejected, not silently mis-laid (R4-b) ----
+# All three are non-conforming in ANSI F66 itself (10.2.1 / 10.2.2 / contradictory), so the
+# diagnostic is ungated -- F66 and FORTRAN10 both raise rather than pick a wrong layout. The
+# programs are plain ANSI (no IMPLICIT) so the error under F66 is the EQUIVALENCE, not a gate.
+@pytest.mark.parametrize("dlc", [F66, FORTRAN10])
+def test_equivalence_backward_common_extension_rejected(dlc):
+    # EQUIVALENCE(A(3),X), X first in /CB/: would extend the block backward (F66 10.2.2).
+    # Old behavior silently clamped A's base to 0, aliasing A(3) to Z instead of X.
+    src = (
+        "        PROGRAM T\n        COMMON /CB/ X,Y,Z\n        DIMENSION A(4)\n"
+        "        EQUIVALENCE (A(3),X)\n        END\n"
+    )
+    with pytest.raises(RuntimeError, match="backward"):
+        run(src, dialect=dlc)
+
+
+@pytest.mark.parametrize("dlc", [F66, FORTRAN10])
+def test_equivalence_contradictory_rejected(dlc):
+    # A can't share storage with both C(1) and C(2). Old behavior dropped the 2nd silently.
+    src = (
+        "        PROGRAM T\n        DIMENSION C(3)\n"
+        "        EQUIVALENCE (A,C(1)),(A,C(2))\n        END\n"
+    )
+    with pytest.raises(RuntimeError, match="contradictory"):
+        run(src, dialect=dlc)
+
+
+@pytest.mark.parametrize("dlc", [F66, FORTRAN10])
+def test_equivalence_across_two_common_blocks_rejected(dlc):
+    # P in /A/, Q in /B/: can't associate two COMMON blocks (F66 10.2.1). Old behavior bound
+    # Q into /A/ and orphaned /B/'s slot.
+    src = (
+        "        PROGRAM T\n        COMMON /A/ P\n        COMMON /B/ Q\n"
+        "        EQUIVALENCE (P,Q)\n        END\n"
+    )
+    with pytest.raises(RuntimeError, match="two COMMON blocks"):
+        run(src, dialect=dlc)

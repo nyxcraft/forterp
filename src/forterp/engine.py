@@ -477,6 +477,13 @@ class Engine:
         def union(a, b, delta):  # constrain base(b) = base(a) + delta
             ra, rb = find(a), find(b)
             if ra == rb:
+                # already one component: the new constraint must agree, else the program
+                # demands one name occupy two offsets -- a contradictory EQUIVALENCE (illegal
+                # in F66; a conforming compiler diagnoses it rather than dropping one).
+                if off[b] - off[a] != delta:
+                    raise RuntimeError(
+                        f"contradictory EQUIVALENCE: {b!r} is constrained to two storage offsets"
+                    )
                 return
             parent[rb] = ra
             off[rb] = off[a] + delta - off[b]
@@ -508,13 +515,25 @@ class Engine:
 
         eq_block = 0
         for root, members in comps.items():
+            # A group may touch at most one COMMON block; equivalencing across two is illegal
+            # (F66 10.2.1 -- each block's storage sequence is independent and can't be joined).
+            blocks = {rt.common_map[m][0] for m in members if m in rt.common_map}
+            if len(blocks) > 1:
+                raise RuntimeError(
+                    f"EQUIVALENCE associates two COMMON blocks {sorted(blocks)!r} (F66 10.2.1)"
+                )
             anchor = next((m for m in members if m in rt.common_map), None)
             if anchor is not None:  # tie the whole group into a COMMON block
                 block, coff, _ = rt.common_map[anchor]
                 for m in members:
                     mo = coff + (off[m] - off[anchor])
                     if mo < 0:
-                        mo = 0  # V5: no backward common extension (clamp)
+                        # would prepend storage before the block's first element: F66 10.2.2
+                        # forbids extending a COMMON block backward (V5 errors too). The old
+                        # code silently clamped to 0, which mis-associated the member.
+                        raise RuntimeError(
+                            f"EQUIVALENCE extends COMMON {block!r} backward (F66 10.2.2): {m!r}"
+                        )
                     rt.common_map[m] = (block, mo, u.arrays.get(m))
                     end = mo + size_of(m)
                     if end > len(self.commons[block]):

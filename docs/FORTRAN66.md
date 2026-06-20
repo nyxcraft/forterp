@@ -318,10 +318,21 @@ of the dialect or the value model:
   there is no distinct single precision. `SNGL`/`DBLE` are effectively identity, so a
   program depending on single-precision rounding sees double-precision results.
 - **`COMPLEX` and `DOUBLE PRECISION` occupy one storage cell**, stored as a single host
-  object rather than two machine words. Storage association that *splits* them — e.g.
-  `EQUIVALENCE`-ing a `COMPLEX` onto two `REAL`s, or counting on a `DOUBLE` spanning two
-  `COMMON` words — is not bit-faithful. (The "two words" in §2 describes the PDP-10 model,
-  not the interpreter's cell.)
+  object rather than the two machine words §2 lists. This is **silently lossy** in two ways.
+  (1) Storage association that *splits* the value — `EQUIVALENCE`-ing a `COMPLEX` onto two
+  `REAL`s, or a `DOUBLE` onto two `INTEGER`s — keeps the whole value in the first slot and
+  leaves the second an unrelated zero: `C=(3.,4.)` then `EQUIVALENCE(C,R(1))` gives
+  `R(1)`=3, `R(2)`=0 — the imaginary half is gone. (2) A `COMPLEX`/`DOUBLE` inside a
+  `COMMON` block counts as **one** slot, so the block is one word short per such member and
+  **every following member shifts by a word**: `COMMON /CB/ D,K` lays out as length 2, not
+  3, so a different unit overlaying the block reads `K` at the wrong word. The rule:
+  **a `COMMON` block is word-faithful iff every member is `INTEGER`, single `REAL`, or
+  `LOGICAL`** — the moment a `COMPLEX` or `DOUBLE PRECISION` appears, slot index stops
+  tracking machine-word index for that member and everything after it. This follows from
+  the deliberate value-slot cell model (the same one that makes integer `COMMON` *exactly*
+  word-faithful and keeps the runtime target-agnostic); a faithful two-word layout is
+  deferred to the macroterp bridge — where `common_layout` must report true word offsets
+  and flag multi-word members — rather than retrofitted into the cell here.
 - **Non-fatal arithmetic.** Integer/real divide-by-zero yields `0` and continues rather
   than trapping; library domain errors (`SQRT`/`LOG` of a negative, `ASIN`/`ACOS` of
   |arg|>1) print the V5 warning and continue (V5 App. H — "usually reported as warnings
@@ -331,6 +342,14 @@ of the dialect or the value model:
   dropped (for a local array) — though within a flat `COMMON` block an out-of-range index
   still lands on a real neighbor word. ANSI leaves this undefined; a real FORTRAN-10 with
   bounds-checking would trap.
+- **Illegal storage association is rejected, not silently mis-laid.** The runtime leniencies
+  above are for ANSI-*undefined* conditions; by contrast the three `EQUIVALENCE` shapes ANSI
+  flatly *prohibits* — extending a `COMMON` block **backward** (10.2.2), associating **two**
+  `COMMON` blocks (10.2.1), and a **contradictory** group (one name forced to two offsets) —
+  raise a build-time error rather than picking an arbitrary layout. They are statically
+  illegal in F66 itself, so the diagnostic is ungated (both dialects). This contrasts with the
+  *value-model* lossiness above (splitting a `COMPLEX`/`DOUBLE`), which is silent because it
+  follows from the cell model, not from a malformed program.
 
 > **Formatted input (F66 §7.2.3.6).** By default (`F66`) every numeric/logical field is
 > read by *column*: packed digits split by width (`(I2,I3)` on `12345` → `12, 345`),
