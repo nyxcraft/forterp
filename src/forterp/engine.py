@@ -1621,30 +1621,15 @@ class Engine:
         return None
 
     def do_io(self, s, frame):
-        """Unformatted READ/WRITE on a unit, modeled as ordered records (each
-        statement = one record). Returns a Goto for READ ... END= at EOF."""
+        """READ/WRITE on a unit -- a dispatcher over the I/O forms. FileCtl, NAMELIST,
+        random-access, terminal input, formatted text-file READ, formatted/sequential WRITE,
+        and the unformatted-record READ each go to a handler. Returns a Goto for READ...END=
+        at EOF; records are modeled as an ordered list (one statement = one record)."""
         if isinstance(s, A.FileCtl):
             return self._file_ctl(s, frame)
         nml = self._nml_name(s.fmt, frame)
         if nml is not None:  # READ/WRITE(unit, NAMELIST)
-            st = self.io.get(self.eval(s.unit, frame))
-            if s.mode == "WRITE":
-                text = self._nml_write(nml, frame)
-                if st and st.get("mode") == "w":  # file: store as a text record
-                    st["recs"].append(text)
-                elif st and st.get("mode") == "lpt":
-                    self.printer(text)
-                else:
-                    self.emit(text)  # terminal / default
-            else:  # READ
-                if st and st.get("mode") == "r" and st.get("recs") is not None:
-                    pos = st.get("pos", 0)
-                    rec = st["recs"][pos] if pos < len(st["recs"]) else ""
-                    st["pos"] = pos + 1
-                    line = rec if isinstance(rec, str) else ""
-                else:
-                    line = self.readline()  # terminal / default
-                self._nml_read(nml, line, frame)
+            self._namelist_io(nml, s, frame)
             return None
         unit = self.eval(s.unit, frame)
         if s.mode == "FIND" or "REC" in s.specs:  # random-access (V5 10.3.5/10.14)
@@ -1680,11 +1665,37 @@ class Engine:
             elif mode == "w":
                 st["recs"].append(self._unf_values(s.items, frame))
             return None
+        return self._unf_record_read(st, s, frame)
+
+    def _namelist_io(self, nml, s, frame):
+        """READ/WRITE(unit, NAMELIST): write the group's name=value text to the unit's
+        device, or read one record and assign the group's variables from it."""
+        st = self.io.get(self.eval(s.unit, frame))
+        if s.mode == "WRITE":
+            text = self._nml_write(nml, frame)
+            if st and st.get("mode") == "w":  # file: store as a text record
+                st["recs"].append(text)
+            elif st and st.get("mode") == "lpt":
+                self.printer(text)
+            else:
+                self.emit(text)  # terminal / default
+            return
+        if st and st.get("mode") == "r" and st.get("recs") is not None:
+            pos = st.get("pos", 0)
+            rec = st["recs"][pos] if pos < len(st["recs"]) else ""
+            st["pos"] = pos + 1
+            line = rec if isinstance(rec, str) else ""
+        else:
+            line = self.readline()  # terminal / default
+        self._nml_read(nml, line, frame)
+
+    def _unf_record_read(self, st, s, frame):
+        """Read one unformatted record into the I/O list. Returns a Goto for READ...END= at
+        EOF (else None); EOF sets ERRSNS status 24 / monitor 308 (V5 App H)."""
         recs = st.get("recs")
         if recs is None:
             return None
         if st["pos"] >= len(recs):
-            # V5 App H: EOF during READ -> ERRSNS status 24 / monitor 308.
             self.last_io_error = IO_EOF
             if "END" in s.specs:
                 return Goto(s.specs["END"])

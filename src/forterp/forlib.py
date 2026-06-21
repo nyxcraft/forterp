@@ -50,85 +50,85 @@ def _fmt_time2(t):
     return f" {t[5]:02d}.{t[6] % 10:1d}"
 
 
-def b_TIME(eng, frame, n):
+def b_TIME(eng, frame, arg_nodes):
     """CALL TIME(X[,Y]) -- X gets 'hh:mm'; optional Y gets 'bss.t'."""
     t = eng.now()
-    _store_words(eng, eng.arg_ref(n[0], frame), _fmt_time(t))
-    if len(n) > 1:
-        _store_words(eng, eng.arg_ref(n[1], frame), _fmt_time2(t))
+    _store_words(eng, eng.arg_ref(arg_nodes[0], frame), _fmt_time(t))
+    if len(arg_nodes) > 1:
+        _store_words(eng, eng.arg_ref(arg_nodes[1], frame), _fmt_time2(t))
 
 
-def b_DATE(eng, frame, n):
+def b_DATE(eng, frame, arg_nodes):
     """CALL DATE(array) -- today's date as 'dd-mmm-yy', left-justified in 2 words."""
-    _store_words(eng, eng.arg_ref(n[0], frame), _fmt_date(eng.now()))
+    _store_words(eng, eng.arg_ref(arg_nodes[0], frame), _fmt_date(eng.now()))
 
 
-def b_EXIT(eng, frame, n):
+def b_EXIT(eng, frame, arg_nodes):
     """CALL EXIT -- return control to the monitor (terminate the program)."""
     raise StopExecution()
 
 
-def b_ERRSNS(eng, frame, n):
+def b_ERRSNS(eng, frame, arg_nodes):
     """CALL ERRSNS(I[,J]) -- return the (first[,second]) status code of the last
     I/O operation (V5 App H Table H-1). The second argument is optional."""
     first, second = eng.last_io_error
-    eng.arg_ref(n[0], frame).write(eng.tgt.wrap(int(first)))
-    if len(n) > 1:
-        eng.arg_ref(n[1], frame).write(eng.tgt.wrap(int(second)))
+    eng.arg_ref(arg_nodes[0], frame).write(eng.tgt.wrap(int(first)))
+    if len(arg_nodes) > 1:
+        eng.arg_ref(arg_nodes[1], frame).write(eng.tgt.wrap(int(second)))
 
 
-def b_ERRSET(eng, frame, n):
+def b_ERRSET(eng, frame, arg_nodes):
     """CALL ERRSET(N) -- suppress arithmetic/library error typeout after N
     occurrences (V5 Table 15-3; default N=2 when never called)."""
-    eng.errset_limit = int(eng.eval(n[0], frame))
+    eng.errset_limit = int(eng.eval(arg_nodes[0], frame))
 
 
-def b_SLITE(eng, frame, n):
+def b_SLITE(eng, frame, arg_nodes):
     """CALL SLITE(I) -- turn console sense light I on (I=0 turns all off)."""
-    i = int(eng.eval(n[0], frame))
+    i = int(eng.eval(arg_nodes[0], frame))
     if i == 0:
         eng.sense_lights.clear()
     elif 1 <= i <= 36:
         eng.sense_lights.add(i)
 
 
-def b_SLITET(eng, frame, n):
+def b_SLITET(eng, frame, arg_nodes):
     """CALL SLITET(I,J) -- J=1 if light I is on (then turn it off), else J=2."""
-    i = int(eng.eval(n[0], frame))
+    i = int(eng.eval(arg_nodes[0], frame))
     on = i in eng.sense_lights
     eng.sense_lights.discard(i)
-    eng.arg_ref(n[1], frame).write(1 if on else 2)
+    eng.arg_ref(arg_nodes[1], frame).write(1 if on else 2)
 
 
-def b_SSWTCH(eng, frame, n):
+def b_SSWTCH(eng, frame, arg_nodes):
     """CALL SSWTCH(I,J) -- J=1 if data switch I is set, else J=2 (no switches here)."""
-    eng.arg_ref(n[1], frame).write(2)
+    eng.arg_ref(arg_nodes[1], frame).write(2)
 
 
-def b_RELEAS(eng, frame, n):
+def b_RELEAS(eng, frame, arg_nodes):
     """CALL RELEAS(unit) -- close out I/O on a device."""
-    eng.io.pop(int(eng.eval(n[0], frame)), None)
+    eng.io.pop(int(eng.eval(arg_nodes[0], frame)), None)
 
 
-def b_SETRAN(eng, frame, n):
+def b_SETRAN(eng, frame, arg_nodes):
     """CALL SETRAN(seed) -- seed the FORTRAN-10 RAN generator (manual Ch15). The
     generator state is an engine service (eng.rng); the driver may also seed it."""
-    eng.seed_rng(int(eng.eval(n[0], frame)))
+    eng.seed_rng(int(eng.eval(arg_nodes[0], frame)))
 
 
-def b_RAN(eng, frame, n):
+def b_RAN(eng, frame, arg_nodes):
     """RAN(x) -- uniform random real in [0,1) (manual Ch15). The argument is a dummy
     in our model; the sequence is reproducible via SETRAN / the injected RNG seed."""
     return eng.rng.random()
 
 
-def b_SAVRAN(eng, frame, n):
+def b_SAVRAN(eng, frame, arg_nodes):
     """CALL SAVRAN(I) -- save the last RAN value. RNG-state capture isn't modeled;
     we just return a defined value so the call is harmless."""
-    eng.arg_ref(n[0], frame).write(0)
+    eng.arg_ref(arg_nodes[0], frame).write(0)
 
 
-def _noop(eng, frame, n):
+def _noop(eng, frame, arg_nodes):
     """A standard-library routine with no effect in this (no-hardware/OS) environment
     -- callable so source that references it still loads and runs."""
     return None

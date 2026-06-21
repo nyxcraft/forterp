@@ -77,6 +77,17 @@ class FileScan:
     n_blank: int = 0
 
 
+def _scan_quote(text: str, i: int, in_str: bool) -> tuple[int, bool, str]:
+    """Step over the apostrophe at text[i] when scanning fixed-form source: a '' inside a
+    string is an escaped apostrophe (consumed whole, string state unchanged); a lone ' opens
+    or closes a string. Returns (next index, new in_str, the source text consumed -- the two
+    chars "''" or the single "'"). Kept verbatim: this scans source, it does not decode the
+    literal's value (that is lexer._read_string)."""
+    if in_str and text[i : i + 2] == "''":
+        return i + 2, in_str, "''"
+    return i + 1, not in_str, "'"
+
+
 def _split_inline_comment(text: str, in_str: bool = False) -> tuple[str, bool]:
     """Drop a trailing '!' comment, ignoring '!' inside '...' strings. `in_str` is
     the open-string state inherited from the previous physical line (a character
@@ -87,13 +98,8 @@ def _split_inline_comment(text: str, in_str: bool = False) -> tuple[str, bool]:
     while i < n:
         c = text[i]
         if c == "'":
-            if in_str and i + 1 < n and text[i + 1] == "'":
-                out.append("''")
-                i += 2
-                continue
-            in_str = not in_str
-            out.append(c)
-            i += 1
+            i, in_str, quoted = _scan_quote(text, i, in_str)
+            out.append(quoted)
             continue
         if c == "!" and not in_str:
             break
@@ -110,13 +116,8 @@ def _split_semicolons(text: str) -> list[str]:
     while i < n:
         c = text[i]
         if c == "'":
-            if in_str and i + 1 < n and text[i + 1] == "'":
-                buf.append("''")
-                i += 2
-                continue
-            in_str = not in_str
-            buf.append(c)
-            i += 1
+            i, in_str, quoted = _scan_quote(text, i, in_str)
+            buf.append(quoted)
             continue
         if c == ";" and not in_str:
             parts.append("".join(buf))
@@ -161,11 +162,9 @@ def _statement_cut_midway(text: str) -> bool:
     while i < n:
         c = text[i]
         if c == "'":
-            if in_str and i + 1 < n and text[i + 1] == "'":
-                i += 2
-                continue
-            in_str = not in_str
-        elif not in_str:
+            i, in_str, _ = _scan_quote(text, i, in_str)
+            continue
+        if not in_str:
             if c == "!":  # inline comment: the rest is not statement text
                 break
             if c == "(":

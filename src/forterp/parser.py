@@ -206,7 +206,7 @@ def pack5(s: str) -> int:
 
 
 # ----------------------------------------------------------------- the parser
-class P:
+class StatementParser:
     """A cursor over one statement's tokens, with expression + statement rules."""
 
     def __init__(self, toks: list[Token], dialect=F66):
@@ -253,10 +253,10 @@ class P:
         return False
 
     # -- low level
-    def cur(self):
+    def peek(self):
         return self.toks[self.pos] if self.pos < len(self.toks) else None
 
-    def nxt(self):
+    def peek_next(self):
         return self.toks[self.pos + 1] if self.pos + 1 < len(self.toks) else None
 
     def at_end(self):
@@ -268,11 +268,11 @@ class P:
         return t
 
     def is_op(self, v):
-        t = self.cur()
+        t = self.peek()
         return t is not None and t.kind == "OP" and t.value == v
 
     def is_id(self, name=None):
-        t = self.cur()
+        t = self.peek()
         if t is None or t.kind != "ID":
             return False
         return name is None or t.value == name
@@ -285,18 +285,18 @@ class P:
 
     def expect_op(self, v):
         if not self.is_op(v):
-            raise ParseError(f"FOUND {show(self.cur())} WHEN EXPECTING {v!r}", "FWE")
+            raise ParseError(f"FOUND {show(self.peek())} WHEN EXPECTING {v!r}", "FWE")
         self.advance()
 
     def expect_id(self):
-        t = self.cur()
+        t = self.peek()
         if t is None or t.kind != "ID":
             raise ParseError(f"FOUND {show(t)} WHEN EXPECTING AN IDENTIFIER", "FWE")
         self.advance()
         return self._name6(t.value)  # V5 3.3: symbolic names are limited to 6 chars
 
     def expect_int(self):
-        t = self.cur()
+        t = self.peek()
         if t is None or t.kind not in ("INT", "OCTAL"):
             raise ParseError(f"FOUND {show(t)} WHEN EXPECTING A STATEMENT LABEL", "FWE")
         self.advance()
@@ -308,34 +308,34 @@ class P:
 
     def p_equiv(self):  # level 9 (lowest): .EQV. / .NEQV. / .XOR.
         n = self.p_or()
-        while self.cur() and self.cur().kind == "DOTOP" and self.cur().value in _EQV_DOT:
+        while self.peek() and self.peek().kind == "DOTOP" and self.peek().value in _EQV_DOT:
             op = _EQV_DOT[self.advance().value]
             n = A.Binary(op, n, self.p_or())
         return n
 
     def p_or(self):  # level 8: .OR.
         n = self.p_and()
-        while self.cur() and self.cur().kind == "DOTOP" and self.cur().value in _OR_DOT:
+        while self.peek() and self.peek().kind == "DOTOP" and self.peek().value in _OR_DOT:
             op = _OR_DOT[self.advance().value]
             n = A.Binary(op, n, self.p_and())
         return n
 
     def p_and(self):
         n = self.p_not()
-        while self.cur() and self.cur().kind == "DOTOP" and self.cur().value == ".AND.":
+        while self.peek() and self.peek().kind == "DOTOP" and self.peek().value == ".AND.":
             self.advance()
             n = A.Binary("AND", n, self.p_not())
         return n
 
     def p_not(self):
-        if self.cur() and self.cur().kind == "DOTOP" and self.cur().value == ".NOT.":
+        if self.peek() and self.peek().kind == "DOTOP" and self.peek().value == ".NOT.":
             self.advance()
             return A.Unary("NOT", self.p_not())
         return self.p_rel()
 
     def p_rel(self):
         n = self.p_add()
-        t = self.cur()
+        t = self.peek()
         if t is not None:
             if t.kind == "OP" and t.value in _REL_OP:
                 op = _REL_OP[self.advance().value]
@@ -347,7 +347,7 @@ class P:
 
     def p_add(self):
         n = self.p_mul()
-        while self.cur() and self.cur().kind == "OP" and self.cur().value in ("+", "-"):
+        while self.peek() and self.peek().kind == "OP" and self.peek().value in ("+", "-"):
             op = self.advance().value
             n = A.Binary(op, n, self.p_mul())
         return n
@@ -355,13 +355,13 @@ class P:
     def p_mul(self):
         ops = ("*",) if self._no_div else ("*", "/")  # '/' is a bound delimiter in dims
         n = self.p_unary()
-        while self.cur() and self.cur().kind == "OP" and self.cur().value in ops:
+        while self.peek() and self.peek().kind == "OP" and self.peek().value in ops:
             op = self.advance().value
             n = A.Binary(op, n, self.p_unary())
         return n
 
     def p_unary(self):
-        if self.cur() and self.cur().kind == "OP" and self.cur().value in ("+", "-"):
+        if self.peek() and self.peek().kind == "OP" and self.peek().value in ("+", "-"):
             op = self.advance().value
             return A.Unary(op, self.p_unary())
         return self.p_pow()
@@ -374,7 +374,7 @@ class P:
         return base
 
     def p_primary(self):
-        t = self.cur()
+        t = self.peek()
         if t is None:
             raise ParseError("unexpected end of expression")
         if t.kind == "INT":
@@ -467,8 +467,8 @@ class P:
         close, eq_idx, cc = info
         body = self.toks[self.pos + 1 : cc]
         ctrl = self.toks[cc + 1 : close]
-        items = P(body).parse_iolist()
-        cp = P(ctrl)
+        items = StatementParser(body).parse_iolist()
+        cp = StatementParser(ctrl)
         var = cp.expect_id()
         cp.expect_op("=")
         e1 = cp.parse_expr()
@@ -480,9 +480,9 @@ class P:
 
     # -- executable statements
     def parse_exec(self):
-        t = self.cur()
+        t = self.peek()
         kw = t.value if (t and t.kind == "ID") else None
-        nx = self.nxt()
+        nx = self.peek_next()
         if kw == "IF" and nx and nx.kind == "OP" and nx.value == "(":
             return self.parse_if()
         if kw == "DO" and self._looks_like_do():
@@ -490,28 +490,9 @@ class P:
         if kw == "GOTO" or (kw == "GO" and nx and nx.kind == "ID" and nx.value == "TO"):
             return self.parse_goto()
         if kw == "ASSIGN" and nx and nx.kind == "INT":  # ASSIGN <label> TO <var>
-            self.advance()
-            label = self.expect_int()
-            if self.is_id("TO"):
-                self.advance()
-            return A.AssignLabel(tgt=label, var=self.expect_id())
+            return self.parse_assign_label()
         if kw == "ENTRY":  # V5 15.7: alternate entry point
-            self.advance()
-            ename = self.expect_id()
-            eparams = []
-            if self.is_op("("):
-                self.advance()
-                if not self.is_op(")"):
-                    while True:
-                        if self.is_op("*"):  # alternate-return placeholder dummy
-                            self.advance()
-                            eparams.append("*")
-                        else:
-                            eparams.append(self.expect_id())
-                        if not self.accept_op(","):
-                            break
-                self.expect_op(")")
-            return A.EntryStmt(name=ename, params=eparams)
+            return self.parse_entry()
         if kw in ("ENCODE", "DECODE"):  # V5 10.15: internal formatted I/O
             return self.parse_encode_decode(kw)
         if kw == "CALL":
@@ -521,40 +502,18 @@ class P:
             expr = self.parse_expr() if not self.at_end() else None
             return A.Return(expr=expr)
         if kw in ("STOP", "PAUSE"):
-            self.advance()
-            code = None
-            if not self.at_end():
-                t2 = self.cur()
-                if t2.kind in ("INT", "OCTAL", "STR"):
-                    code = self.advance().value
-            return A.StopStmt(code=code) if kw == "STOP" else A.PauseStmt(code=code)
+            return self.parse_stop_pause(kw)
         if kw == "CONTINUE":
             self.advance()
             return A.Continue()
-        if (
-            kw in ("TYPE", "ACCEPT", "PRINT", "PUNCH")
-            and nx
-            and (
-                nx.kind in ("INT", "OCTAL")
-                or (nx.kind == "OP" and nx.value == "*")
-                or (nx.kind == "ID" and nx.value[:6] in self.namelists)
-            )
-        ):
+        if kw in ("TYPE", "ACCEPT", "PRINT", "PUNCH") and self._starts_io_format(nx):
             return self.parse_type_io(kw)
         if kw in ("READ", "WRITE") and nx and nx.kind == "OP" and nx.value == "(":
             return self.parse_readwrite(kw)
         if kw == "FIND" and nx and nx.kind == "OP" and nx.value == "(":
             return self.parse_find()
-        if (
-            kw in ("READ", "WRITE", "REREAD")
-            and nx
-            and (  # default-device form
-                nx.kind in ("INT", "OCTAL")
-                or (nx.kind == "OP" and nx.value == "*")
-                or (nx.kind == "ID" and nx.value[:6] in self.namelists)
-            )
-        ):
-            return self.parse_default_io(kw)
+        if kw in ("READ", "WRITE", "REREAD") and self._starts_io_format(nx):
+            return self.parse_default_io(kw)  # default-device form
         if kw == "DEFINE" and nx and nx.kind == "ID" and nx.value == "FILE":
             return self.parse_define_file()
         if kw in ("OPEN", "CLOSE") and nx and nx.kind == "OP" and nx.value == "(":
@@ -567,17 +526,68 @@ class P:
             self.advance()
             return self.parse_filectl("ENDFILE")
         if kw == "SKIP" and nx and nx.kind == "ID" and nx.value in ("RECORD", "FILE"):
-            self.advance()  # SKIP
-            verb = "SKIPREC" if self.advance().value == "RECORD" else "SKIPFILE"
-            specs = {} if self.at_end() else {"UNIT": self.parse_expr()}
-            return A.FileCtl(verb=verb, specs=specs)
+            return self.parse_skip()
         return self.parse_assign()
+
+    def _starts_io_format(self, nx):
+        """True if token `nx` begins a default-device I/O statement's control: a unit/format
+        number, `*` (list-directed), or a NAMELIST group name."""
+        return nx is not None and (
+            nx.kind in ("INT", "OCTAL")
+            or (nx.kind == "OP" and nx.value == "*")
+            or (nx.kind == "ID" and nx.value[:6] in self.namelists)
+        )
+
+    def parse_assign_label(self):
+        """ASSIGN <label> TO <var> -- statement-label assignment (used with assigned GOTO)."""
+        self.advance()  # ASSIGN
+        label = self.expect_int()
+        if self.is_id("TO"):
+            self.advance()
+        return A.AssignLabel(tgt=label, var=self.expect_id())
+
+    def parse_entry(self):
+        """ENTRY <name>[(<dummy args>)] -- an alternate entry point (V5 15.7); a `*` dummy
+        is an alternate-return placeholder."""
+        self.advance()  # ENTRY
+        ename = self.expect_id()
+        eparams = []
+        if self.is_op("("):
+            self.advance()
+            if not self.is_op(")"):
+                while True:
+                    if self.is_op("*"):
+                        self.advance()
+                        eparams.append("*")
+                    else:
+                        eparams.append(self.expect_id())
+                    if not self.accept_op(","):
+                        break
+            self.expect_op(")")
+        return A.EntryStmt(name=ename, params=eparams)
+
+    def parse_stop_pause(self, kw):
+        """STOP / PAUSE [<code>], where the optional code is an integer, octal, or string."""
+        self.advance()  # STOP / PAUSE
+        code = None
+        if not self.at_end():
+            t = self.peek()
+            if t.kind in ("INT", "OCTAL", "STR"):
+                code = self.advance().value
+        return A.StopStmt(code=code) if kw == "STOP" else A.PauseStmt(code=code)
+
+    def parse_skip(self):
+        """SKIP RECORD / SKIP FILE [u] -- DEC file positioning (verb SKIPREC / SKIPFILE)."""
+        self.advance()  # SKIP
+        verb = "SKIPREC" if self.advance().value == "RECORD" else "SKIPFILE"
+        specs = {} if self.at_end() else {"UNIT": self.parse_expr()}
+        return A.FileCtl(verb=verb, specs=specs)
 
     def _looks_like_do(self):
         # DO <label> <var> = ...
         return (
-            self.nxt()
-            and self.nxt().kind in ("INT", "OCTAL")
+            self.peek_next()
+            and self.peek_next().kind in ("INT", "OCTAL")
             and self.pos + 2 < len(self.toks)
             and self.toks[self.pos + 2].kind == "ID"
             and self.pos + 3 < len(self.toks)
@@ -590,7 +600,7 @@ class P:
         self.expect_op("(")
         cond = self.parse_expr()
         self.expect_op(")")
-        t = self.cur()
+        t = self.peek()
         if t is not None and t.kind in ("INT", "OCTAL"):
             labels = [self.expect_int()]
             while self.accept_op(","):
@@ -629,7 +639,7 @@ class P:
             self.expect_op(")")
             self.accept_op(",")
             return A.CompGoto(labels=labels, index=self.parse_expr())
-        t = self.cur()
+        t = self.peek()
         if t and t.kind == "ID":  # assigned GOTO: GO TO N [,(...)]
             var = self.expect_id()
             labels = []
@@ -657,9 +667,9 @@ class P:
 
     def _call_arg(self):
         """A CALL actual: a normal expression, or a $nnn/*nnn alternate-return label."""
-        t = self.cur()
+        t = self.peek()
         if t and t.kind == "OP" and t.value in ("$", "*", "&"):
-            nx = self.nxt()
+            nx = self.peek_next()
             if nx and nx.kind == "INT":
                 if not self.dialect.alt_return:
                     raise ParseError(
@@ -714,7 +724,7 @@ class P:
         identifier (a NAMELIST group name -- returned as the bare name string)."""
         if self.accept_op("*"):
             return "*"
-        if self.cur() and self.cur().kind in ("INT", "OCTAL"):
+        if self.peek() and self.peek().kind in ("INT", "OCTAL"):
             return self.advance().value
         return self.expect_id()
 
@@ -727,7 +737,7 @@ class P:
         self.expect_op("(")
         count = self.parse_expr()
         self.expect_op(",")
-        if self.cur() and self.cur().kind in ("INT", "OCTAL"):
+        if self.peek() and self.peek().kind in ("INT", "OCTAL"):
             fmt = self.advance().value  # FORMAT statement label
         elif self.accept_op("*"):
             fmt = "*"
@@ -778,18 +788,18 @@ class P:
         while self.accept_op(","):
             if (
                 self.is_id()
-                and self.cur().value in IO_SPEC_KEYS
-                and self.nxt()
-                and self.nxt().kind == "OP"
-                and self.nxt().value == "="
+                and self.peek().value in IO_SPEC_KEYS
+                and self.peek_next()
+                and self.peek_next().kind == "OP"
+                and self.peek_next().value == "="
             ):
                 key = self.advance().value
                 self.advance()  # '='
-                if self.cur() and self.cur().kind in ("INT", "OCTAL"):
+                if self.peek() and self.peek().kind in ("INT", "OCTAL"):
                     specs[key] = self.advance().value
                 else:
                     specs[key] = self.parse_expr()
-            elif self.cur() and self.cur().kind in ("INT", "OCTAL"):
+            elif self.peek() and self.peek().kind in ("INT", "OCTAL"):
                 fmt = self.advance().value
             elif self.accept_op("*"):
                 if not self.dialect.extended_io:  # list-directed I/O is not in F66
@@ -852,15 +862,15 @@ class P:
         if self.is_op("("):
             self.advance()
             # positional unit "REWIND(1)" vs keyword specs "OPEN(UNIT=1,...)"
-            if not (self.is_id() and self.nxt() and self.nxt().value == "="):
+            if not (self.is_id() and self.peek_next() and self.peek_next().value == "="):
                 specs["UNIT"] = self.parse_expr()
             while not self.is_op(")"):
-                kt = self.cur()  # OPEN keyword: NOT a 6-char symbolic name
+                kt = self.peek()  # OPEN keyword: NOT a 6-char symbolic name
                 if kt is None or kt.kind != "ID":
                     raise ParseError(f"FOUND {show(kt)} WHEN EXPECTING AN IDENTIFIER", "FWE")
                 key = self.advance().value
                 self.expect_op("=")
-                t = self.cur()
+                t = self.peek()
                 if t is not None and t.kind in ("INT", "OCTAL", "STR"):
                     specs[key] = self.advance().value
                 else:
@@ -1047,7 +1057,7 @@ class P:
             im = self.parse_data_value()
             self.expect_op(")")
             return A.Complex(re, im)
-        t = self.cur()
+        t = self.peek()
         if t is None:
             raise ParseError("expected DATA value")
         if t.kind in ("INT", "OCTAL"):
@@ -1128,7 +1138,7 @@ def _is_header(toks):
 
 
 def _parse_header(toks):
-    p = P(toks)
+    p = StatementParser(toks)
     ret_type = None
     v0 = toks[0].value if toks[0].kind == "ID" else None
     if v0 == "BLOCKDATA" or v0 == "BLOCK":  # BLOCK DATA [name] (V5 Ch16)
@@ -1137,7 +1147,7 @@ def _parse_header(toks):
             p.expect_id()  # DATA
         name = p.expect_id() if p.is_id() else "$BLOCKDATA"  # name is optional
         return A.ProgramUnit(kind="blockdata", name=name)
-    if p.is_id() and p.cur().value in TYPE_KW and p.cur().value not in ("SUBROUTINE", "PROGRAM"):
+    if p.is_id() and p.peek().value in TYPE_KW and p.peek().value not in ("SUBROUTINE", "PROGRAM"):
         # could be a typed FUNCTION header
         typ = p.advance().value
         if typ == "DOUBLE" and p.is_id("PRECISION"):
@@ -1244,7 +1254,7 @@ def parse_expression(text, *, dialect=F66, unit=None):
     supplies declared arrays/types so NAME(...) disambiguates as an array element vs a
     function reference exactly as it would inside that unit. Raises ParseError on
     malformed input or tokens left over after a complete expression."""
-    p = P(fix_tokens(tokenize(text, dialect)), dialect)
+    p = StatementParser(fix_tokens(tokenize(text, dialect)), dialect)
     if unit is not None:
         p.arrays = unit.arrays
         p.types = unit.types
@@ -1252,7 +1262,7 @@ def parse_expression(text, *, dialect=F66, unit=None):
     if not p.toks:
         raise ParseError("empty expression", "NRC")
     node = p.parse_expr()
-    if p.cur() is not None:  # a clean expression consumes all its tokens
+    if p.peek() is not None:  # a clean expression consumes all its tokens
         raise ParseError("trailing tokens after expression", "NRC")
     return node
 
@@ -1317,7 +1327,7 @@ def _data_is_assignment(toks):
 
 def _route(unit, st, toks, on_warn=None, dialect=F66):
     kw = toks[0].value if toks[0].kind == "ID" else None
-    p = P(toks, dialect)
+    p = StatementParser(toks, dialect)
     p.namelists = unit.namelists  # so ACCEPT/TYPE/READ <namelist> dispatches right
     p.arrays = unit.arrays  # declared so far (F66 requires specs before executables)
     p.types = unit.types

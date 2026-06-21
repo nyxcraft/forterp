@@ -59,6 +59,45 @@ def parse_format(spec: str):
     return fmt
 
 
+def _scan_string_literal(s, p):
+    """Read a '...' literal whose opening quote is at s[p]; '' is an escaped apostrophe.
+    Returns (the decoded text, the index past the closing quote)."""
+    n = len(s)
+    p += 1  # past the opening quote
+    buf = []
+    while p < n:
+        if s[p] == "'":
+            if p + 1 < n and s[p + 1] == "'":  # escaped '' -> one apostrophe
+                buf.append("'")
+                p += 2
+                continue
+            p += 1  # closing quote
+            break
+        buf.append(s[p])
+        p += 1
+    return "".join(buf), p
+
+
+def _scan_width_decimals(s, p):
+    """Read a data descriptor's optional width and optional `.decimals` starting at s[p].
+    Returns (width, has_width, decimals-or-None, next index)."""
+    n = len(s)
+    w = 0
+    has_w = False
+    while p < n and s[p].isdigit():
+        w = w * 10 + int(s[p])
+        has_w = True
+        p += 1
+    d = None
+    if p < n and s[p] == ".":
+        p += 1
+        d = 0
+        while p < n and s[p].isdigit():
+            d = d * 10 + int(s[p])
+            p += 1
+    return w, has_w, d, p
+
+
 def _parse_seq(s, p, depth=0):
     items = []
     rev = 0  # last top-level group start (depth 0)
@@ -79,19 +118,8 @@ def _parse_seq(s, p, depth=0):
         if c == ")":
             return items, p + 1, rev
         if c == "'":
-            buf = []
-            p += 1
-            while p < n:
-                if s[p] == "'":
-                    if p + 1 < n and s[p + 1] == "'":
-                        buf.append("'")
-                        p += 2
-                        continue
-                    p += 1
-                    break
-                buf.append(s[p])
-                p += 1
-            items.append(Item("lit", "".join(buf)))
+            text, p = _scan_string_literal(s, p)
+            items.append(Item("lit", text))
             continue
         # optional sign (only meaningful as part of a scale factor nP)
         neg = False
@@ -107,7 +135,9 @@ def _parse_seq(s, p, depth=0):
             p += 1
             items.append(Item("P", -rep if neg else rep))
             continue
-        if rep == 0 and not (p < n and (s[p].isalpha() or s[p] in "(")):
+        # a bare number with no descriptor letter or group after it counts as a repeat of 1
+        at_descriptor = p < n and (s[p].isalpha() or s[p] == "(")
+        if rep == 0 and not at_descriptor:
             rep = 1
         if p < n and s[p] == "(":  # group repeat
             grp = len(items)  # where this group's expansion begins
@@ -126,19 +156,7 @@ def _parse_seq(s, p, depth=0):
             p += rep
             items.append(Item("lit", text))
             continue
-        w = 0
-        has_w = False
-        while p < n and s[p].isdigit():
-            w = w * 10 + int(s[p])
-            has_w = True
-            p += 1
-        d = None
-        if p < n and s[p] == ".":
-            p += 1
-            d = 0
-            while p < n and s[p].isdigit():
-                d = d * 10 + int(s[p])
-                p += 1
+        w, has_w, d, p = _scan_width_decimals(s, p)
         count = max(rep, 1)
         if letter == "X":  # nX = (rep) spaces
             items.append(Item("X", rep if rep else (w or 1)))

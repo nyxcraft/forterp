@@ -82,6 +82,24 @@ def _read_string(s: str, i: int):
     raise LexError("NO CLOSING QUOTE IN LITERAL", i, "CQL")
 
 
+def _scan_decimal(s: str, i: int):
+    """At the '.' (s[i]) that follows a run of integer digits, decide what it is and how far
+    the number extends. Returns (next index, is_real). A '.' that begins a dotted operator
+    (1000.EQ.2 -> 1000 .EQ. 2) or precedes a stray letter ends the integer (the '.' is left
+    for the operator scanner); a decimal point or an exponent letter (1.E3) makes it real."""
+    n = len(s)
+    if _match_dot(s, i) is not None:
+        return i, False  # dotted operator -> the integer ends before the '.'
+    nxt = s[i + 1] if i + 1 < n else ""
+    if nxt.isalpha():
+        # exponent letter -> real, consuming the '.'; any other letter is left with the '.'
+        return (i + 1, True) if nxt in "eEdD" else (i, False)
+    i += 1  # a plain decimal point: consume it and the fraction digits
+    while i < n and s[i] in _DIGIT:
+        i += 1
+    return i, True
+
+
 def _read_number(s: str, i: int):
     """Read an int or real literal starting at s[i] (a digit or '.')."""
     n = len(s)
@@ -90,23 +108,7 @@ def _read_number(s: str, i: int):
     while i < n and s[i] in _DIGIT:
         i += 1
     if i < n and s[i] == ".":
-        # A '.' after digits is a decimal point UNLESS it begins a dotted operator:
-        # FORTRAN parses 1000.EQ.2 as 1000 .EQ. 2, not 1000.<exponent> (.EQ. starts
-        # with 'E', which would otherwise look like an exponent letter).
-        if _match_dot(s, i) is not None:
-            pass  # dotted operator -> the integer ends here
-        else:
-            nxt = s[i + 1] if i + 1 < n else ""
-            if nxt.isalpha():
-                if nxt in "eEdD":  # exponent letter -> real; consume the '.'
-                    is_real = True
-                    i += 1
-                # else: a stray letter -> leave the dot for the operator scanner
-            else:
-                is_real = True  # decimal point
-                i += 1
-                while i < n and s[i] in _DIGIT:
-                    i += 1
+        i, is_real = _scan_decimal(s, i)
     # exponent
     if i < n and s[i] in "eEdD":
         j = i + 1

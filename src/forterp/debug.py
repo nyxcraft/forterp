@@ -112,34 +112,42 @@ class Tracer:
             cmd = line.strip()
             if not cmd:
                 continue
-            if cmd[0] == "=":  # `=expr` -> always inspect (escape for command-named vars)
-                self._inspect(cmd[1:].strip(), frame)
-                continue
             word, _, arg = cmd.partition(" ")
             word, arg = word.lower(), arg.strip()
-            if word in ("p", "print"):  # explicit inspect (e.g. `p N` for a command-named var)
-                self._inspect(arg, frame)
-                continue
+
+            # Commands that RESUME the run -- each returns from _pause.
             if word in ("c", "cont", "continue"):
                 return
-            if word in ("s", "step"):
+            if word in ("s", "step"):  # stop at the very next statement
                 self.stepping, self._step_depth = True, None
                 return
-            if word in ("n", "next"):  # step over calls: pause only in this frame or shallower
+            if word in ("n", "next"):  # step over calls: pause in this frame or shallower
                 self.stepping, self._step_depth = True, len(self.eng.frames)
                 return
-            if word in ("w", "where", "bt"):
-                self._backtrace()
-            elif word in ("b", "break"):
-                self.add_break(arg)
-            elif word in ("d", "delete", "unbreak"):
-                self.remove_break(arg)
-            elif word in ("l", "list"):
-                self._list(frame)
-            elif word in ("q", "quit"):
-                raise forterp.StopExecution()  # abort the run, return to the monitor
-            else:  # anything else: evaluate it against the paused frame
-                self._inspect(cmd, frame)
+
+            # Everything else acts and STAYS at the prompt (loop again).
+            self._prompt_command(word, arg, cmd, frame)
+
+    def _prompt_command(self, word, arg, cmd, frame):
+        """Run one breakpoint-prompt command that does NOT resume the run -- inspection,
+        breakpoint edits, backtrace/list, or quit. (Resuming commands are handled inline
+        in `_pause` so they can return from it.)"""
+        if cmd[0] == "=":  # `=expr` -> force inspect (escape for a command-named var)
+            self._inspect(cmd[1:].strip(), frame)
+        elif word in ("p", "print"):  # explicit inspect (e.g. `p N` for a command-named var)
+            self._inspect(arg, frame)
+        elif word in ("w", "where", "bt"):
+            self._backtrace()
+        elif word in ("b", "break"):
+            self.add_break(arg)
+        elif word in ("d", "delete", "unbreak"):
+            self.remove_break(arg)
+        elif word in ("l", "list"):
+            self._list(frame)
+        elif word in ("q", "quit"):
+            raise forterp.StopExecution()  # abort the run, return to the monitor
+        else:  # anything else: evaluate it against the paused frame
+            self._inspect(cmd, frame)
 
     def _inspect(self, text, frame):
         try:
