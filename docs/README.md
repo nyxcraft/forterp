@@ -6,6 +6,11 @@
 - **[DESIGN.md](DESIGN.md)** — the interpreter's architecture: the pipeline (source →
   lexer → parser → engine), the machine value model, memory/control models, and the four
   seams that make it standalone. For someone modifying forterp.
+- **[CHANGELOG.md](../CHANGELOG.md)** — dated history of the standalone interpreter.
+
+These docs are also published as a site via GitHub Pages — the build machinery lives in
+`gh-pages/` (a small `markdown-it-py` static-site generator) and is deployed by
+`.github/workflows/pages.yml`; no built output is committed.
 
 ## Authoritative standards
 

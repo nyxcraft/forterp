@@ -1,0 +1,52 @@
+{
+  "site_name": "forterp",
+  "site_tagline": "A faithful FORTRAN-66 / DEC FORTRAN-10 interpreter, in Python.",
+  "site_description": "forterp runs FORTRAN against a pluggable machine value model and a pluggable front-end dialect: strict ANSI FORTRAN-66 by default, the DEC FORTRAN-10 superset on demand — on a portable 64-bit machine or a faithful 36-bit PDP-10. Extracted from an interpreter built to run the 1978 games DECWAR and Empire unmodified.",
+  "github_href": "https://github.com/nkissebe/forterp",
+  "copyright": "Nicholas J. Kisseberth",
+  "status": "beta",
+  "attribution": [
+    "Software Architecture, Design & Engineering by Nicholas J. Kisseberth.",
+    "Code Synthesized via Anthropic Claude Code / Opus 4.8.",
+    "Code Review by OpenAI Codex / ChatGPT 5.5."
+  ],
+  "docs": [
+    {
+      "slug": "reference",
+      "title": "Language reference",
+      "source": "docs/FORTRAN66.md",
+      "summary": "The FORTRAN dialect forterp implements: standard FORTRAN-66 plus the DEC FORTRAN-10 extensions, written for users of the interpreter — with the deliberate divergences spelled out.",
+      "featured": true
+    },
+    {
+      "slug": "design",
+      "title": "Architecture & design",
+      "source": "docs/DESIGN.md",
+      "summary": "How it works inside and why: the source → lexer → parser → engine pipeline, the pluggable Target value model and Dialect axis, the memory/control models, and the seams that make it standalone.",
+      "featured": true
+    },
+    {
+      "slug": "changelog",
+      "title": "Changelog",
+      "source": "CHANGELOG.md",
+      "summary": "Dated history of the standalone interpreter, in order: the target/dialect axes, the CLI and monitor, the conformance work, and the review sweep.",
+      "featured": true
+    },
+    {
+      "slug": "docs",
+      "title": "Documentation",
+      "source": "docs/README.md",
+      "summary": "Index of the forterp documentation and the authoritative standards it targets.",
+      "template": "page",
+      "featured": false
+    },
+    {
+      "slug": "license",
+      "title": "License",
+      "source": "docs/LICENSE.md",
+      "summary": "forterp is released under the MIT License.",
+      "template": "page",
+      "featured": false
+    }
+  ]
+}

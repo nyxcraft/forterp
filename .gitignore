@@ -8,3 +8,6 @@ dist/
 .venv/
 venv/
 *.prt
+
+# Built docs site (published by the pages workflow; not committed)
+gh-pages/public/
