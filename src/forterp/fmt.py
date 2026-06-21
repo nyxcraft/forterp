@@ -359,7 +359,11 @@ def _efmt(v, w, d, letter="E", scale=0):
     if frac == 0:
         body += "."
     es = "+" if exp_shown >= 0 else "-"
-    return _fit(f"{sign}{body}{letter}{es}{abs(exp_shown):02d}", w)
+    aexp = abs(exp_shown)
+    # FORTRAN reserves 4 columns for the exponent (E+dd). A 3-digit exponent does not fit,
+    # so the letter is dropped and the sign + 3 digits are shown (0.1E+101 -> 0.1+101).
+    exp = f"{letter}{es}{aexp:02d}" if aexp < 100 else f"{es}{aexp:03d}"
+    return _fit(f"{sign}{body}{exp}", w)
 
 
 def _gfmt(v, w, d, scale=0):
@@ -385,24 +389,30 @@ def _gfmt(v, w, d, scale=0):
     return body.rjust(fw) + "    "
 
 
-def apply_carriage(text):
-    """Honor FORTRAN carriage control (ASA/FOROTS): the first character of a record
-    selects vertical spacing. We translate it to terminal/printer motion as a PREFIX
-    only -- the record's own line break is the trailing newline the caller appends.
-    So consecutive ' ' (single-space) records are single-spaced, not double; this
-    matches FORTRAN-10 terminal output (e.g. multi-line program output)."""
-    if not text:
-        return ""  # empty record -> a blank line (caller's trailing \n)
-    c = text[0]
+def _carriage_one(rec):
+    """Honor FORTRAN carriage control (ASA/FOROTS) for ONE record: its first character
+    selects vertical spacing, translated to terminal/printer motion as a PREFIX only --
+    the record's own line break is the surrounding newline. Consecutive ' ' records are
+    single-spaced, not double (FORTRAN-10 terminal output)."""
+    if not rec:
+        return ""  # empty record -> a blank line
+    c = rec[0]
     if c == "+":
-        return "\r" + text[1:]  # overprint: return to column 0
+        return "\r" + rec[1:]  # overprint: return to column 0
     if c == "0":
-        return "\n" + text[1:]  # double space: one blank line before this one
+        return "\n" + rec[1:]  # double space: one blank line before this one
     if c == "1":
-        return "\f" + text[1:]  # form feed: top of next page
+        return "\f" + rec[1:]  # form feed: top of next page
     if c == " ":
-        return text[1:]  # single space: normal advance (the trailing \n)
-    return text  # no recognized control char -> keep it, advance
+        return rec[1:]  # single space: normal advance
+    return rec  # no recognized control char -> keep it, advance
+
+
+def apply_carriage(text):
+    """Apply carriage control to every record in `text`. A single WRITE can emit several
+    records -- via FORMAT reversion or a '/' separator -- and EACH carries its own control
+    character in column 1, so the control must be honored per record, not just the first."""
+    return "\n".join(_carriage_one(rec) for rec in text.split("\n"))
 
 
 # ---- input -----------------------------------------------------------------

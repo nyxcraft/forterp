@@ -1345,23 +1345,43 @@ class Engine:
         return out
 
     def _ld_in(self, line, refs):
-        """List-directed input: split on blanks/commas, convert by token form."""
+        """List-directed input: values separated by blanks/commas, converted by token form.
+        Honors the repeat and terminator grammar: `r*c` gives the value c r times, `r*`
+        skips r items (they keep their values), and `/` ends the read (the remaining items
+        keep their values). A non-numeric field is a conversion error (routes to ERR=)."""
         import re
 
-        toks = [t for t in re.split(r"[ ,\t]+", line.strip()) if t]
-        for ref, tok in zip(refs, toks):
+        from forterp.fmt import InputConversionError
+
+        def value(tok):
             try:
-                v = int(tok)
+                return int(tok)
             except ValueError:
                 try:
-                    v = float(tok)
+                    return float(tok)
                 except ValueError:
-                    # A non-numeric token is a conversion error, like formatted input --
-                    # not a silent pack of the raw characters. Routes via _io_guard to ERR=.
-                    from forterp.fmt import InputConversionError
+                    raise InputConversionError(
+                        f"illegal character in list-directed field {tok!r}"
+                    ) from None
 
-                    raise InputConversionError(f"illegal character in list-directed field {tok!r}")
-            ref.write(v)
+        items = iter(refs)
+        for tok in (t for t in re.split(r"[ ,\t]+", line.strip()) if t):
+            if tok == "/":  # slash terminator: stop; remaining items keep their values
+                return
+            count, star, rest = tok.partition("*")
+            if star and count.isdigit():  # r*c (repeat the value) or r* (skip r items)
+                v = value(rest) if rest else None
+                for _ in range(int(count)):
+                    ref = next(items, None)
+                    if ref is None:
+                        return
+                    if v is not None:  # r* leaves the skipped items untouched
+                        ref.write(v)
+                continue
+            ref = next(items, None)
+            if ref is None:
+                return
+            ref.write(value(tok))
 
     def do_type(self, s, frame):
         from forterp.fmt import render, apply_carriage
@@ -1733,7 +1753,13 @@ class Engine:
             elif mode == "lpt":
                 self._formatted_write(s, frame, self.printer)
             elif mode == "w":
-                st["recs"].append(self._unf_values(s.items, frame))
+                # a sequential WRITE places the record at the current position and makes it
+                # the last one -- records left after a prior BACKSPACE/REWIND are dropped
+                # (ANSI X3.9-1966 7.1.3.3); pos then advances. Normal writing has pos == len,
+                # so this is an append.
+                pos = st["pos"]
+                st["recs"][pos:] = [self._unf_values(s.items, frame)]
+                st["pos"] = pos + 1
             return None
         return self._unf_record_read(st, s, frame)
 

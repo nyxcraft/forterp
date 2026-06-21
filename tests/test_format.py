@@ -264,3 +264,17 @@ def test_type_emits_with_carriage_control():
 def test_type_overprint_carriage():
     src = "        PROGRAM T\n        TYPE 100\n  100   FORMAT('+DONE')\n        END\n"
     assert "".join(run(src).out) == "\rDONE\n"
+
+
+def test_carriage_control_applied_to_every_record():
+    # A multi-record WRITE (FORMAT reversion or '/') carries a carriage-control character
+    # in column 1 of EACH record, so it must be consumed per record -- not just the first.
+    text, _ = render(parse_format("(I3)"), [1, 2, 3])  # -> "  1\n  2\n  3"
+    assert apply_carriage(text) == " 1\n 2\n 3"
+
+
+def test_e_descriptor_three_digit_exponent_drops_the_letter():
+    # FORTRAN reserves four columns for the exponent (E+dd); a 3-digit exponent does not
+    # fit, so the letter is dropped: 0.1E+101 -> 0.1+101. Two-digit exponents keep the E.
+    assert render(parse_format("(E15.7)"), [1e100])[0] == "  0.1000000+101"
+    assert render(parse_format("(E12.4)"), [12.493])[0] == "  0.1249E+02"
