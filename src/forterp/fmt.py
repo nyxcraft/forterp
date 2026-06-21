@@ -11,6 +11,8 @@ Edit descriptors supported (V5 Ch13, Table 13-1):
 
 from __future__ import annotations
 
+import math
+
 from forterp.target import NATIVE
 
 MASK36 = (1 << 36) - 1
@@ -505,10 +507,12 @@ def _to_int(s, base):
     except ValueError:
         if base == 10:
             try:
-                return int(float(s.replace("D", "E").replace("d", "e")))
+                v = float(s.replace("D", "E").replace("d", "e"))
             except ValueError:
-                pass
-        raise InputConversionError(f"illegal character in integer field {s!r}")
+                v = None
+            if v is not None and math.isfinite(v):  # a real written into an int field
+                return int(v)  # (reject inf: 1E400 is out of range, not a value)
+        raise InputConversionError(f"illegal character in integer field {s!r}") from None
 
 
 def _blank_fill(field):
@@ -529,7 +533,9 @@ def _read_real(field, d, scale):
     try:
         v = float(s)
     except ValueError:
-        raise InputConversionError(f"illegal character in real field {field!r}")
+        raise InputConversionError(f"illegal character in real field {field!r}") from None
+    # NB: an overflowing field (e.g. BZ blanks extending the exponent) yields inf -- a
+    # deliberate FORTRAN-10 divergence pinned by test_read_bz_blanks_extend_into_the_exponent.
     if d and "." not in field:  # implied decimal: rightmost d digits are fractional
         v /= 10.0**d
     if scale and not _has_exponent(field):  # external = internal * 10**scale

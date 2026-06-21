@@ -90,6 +90,8 @@ def encode_record(data_words) -> list:
 def decode_record(words, pos: int = 0):
     """Read one record whose START LSCW is at words[pos]. Returns (data_words,
     next_pos). Raises ValueError if words[pos] is not a START LSCW."""
+    if pos >= len(words):  # truncated buffer: a clean ValueError, not a raw IndexError
+        raise ValueError(f"truncated binary record: no START LSCW at word {pos}")
     start = words[pos] & MASK36
     if (start >> 27) != START:
         raise ValueError(f"expected START LSCW at {pos}, got {start:012o}")

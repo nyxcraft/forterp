@@ -15,9 +15,27 @@ engine's FOROTS error state). Each has the builtin signature (eng, frame, arg_no
 
 from __future__ import annotations
 
+import functools
+
 from forterp.engine import StopExecution
 
 _MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+
+def _needs(n):
+    """Builtin guard: a CALL with fewer than `n` actual arguments is a clean runtime error,
+    not a raw IndexError when the body indexes arg_nodes."""
+
+    def deco(fn):
+        @functools.wraps(fn)
+        def guard(eng, frame, arg_nodes):
+            if len(arg_nodes) < n:
+                raise RuntimeError(f"{fn.__name__[2:]} requires {n} argument(s)")
+            return fn(eng, frame, arg_nodes)
+
+        return guard
+
+    return deco
 
 
 def _store_words(eng, ref, text):
@@ -50,6 +68,7 @@ def _fmt_time2(t):
     return f" {t[5]:02d}.{t[6] % 10:1d}"
 
 
+@_needs(1)
 def b_TIME(eng, frame, arg_nodes):
     """CALL TIME(X[,Y]) -- X gets 'hh:mm'; optional Y gets 'bss.t'."""
     t = eng.now()
@@ -58,6 +77,7 @@ def b_TIME(eng, frame, arg_nodes):
         _store_words(eng, eng.arg_ref(arg_nodes[1], frame), _fmt_time2(t))
 
 
+@_needs(1)
 def b_DATE(eng, frame, arg_nodes):
     """CALL DATE(array) -- today's date as 'dd-mmm-yy', left-justified in 2 words."""
     _store_words(eng, eng.arg_ref(arg_nodes[0], frame), _fmt_date(eng.now()))
@@ -68,6 +88,7 @@ def b_EXIT(eng, frame, arg_nodes):
     raise StopExecution()
 
 
+@_needs(1)
 def b_ERRSNS(eng, frame, arg_nodes):
     """CALL ERRSNS(I[,J]) -- return the (first[,second]) status code of the last
     I/O operation (V5 App H Table H-1). The second argument is optional."""
@@ -77,12 +98,14 @@ def b_ERRSNS(eng, frame, arg_nodes):
         eng.arg_ref(arg_nodes[1], frame).write(eng.tgt.wrap(int(second)))
 
 
+@_needs(1)
 def b_ERRSET(eng, frame, arg_nodes):
     """CALL ERRSET(N) -- suppress arithmetic/library error typeout after N
     occurrences (V5 Table 15-3; default N=2 when never called)."""
     eng.errset_limit = int(eng.eval(arg_nodes[0], frame))
 
 
+@_needs(1)
 def b_SLITE(eng, frame, arg_nodes):
     """CALL SLITE(I) -- turn console sense light I on (I=0 turns all off)."""
     i = int(eng.eval(arg_nodes[0], frame))
@@ -92,6 +115,7 @@ def b_SLITE(eng, frame, arg_nodes):
         eng.sense_lights.add(i)
 
 
+@_needs(2)
 def b_SLITET(eng, frame, arg_nodes):
     """CALL SLITET(I,J) -- J=1 if light I is on (then turn it off), else J=2."""
     i = int(eng.eval(arg_nodes[0], frame))
@@ -100,16 +124,19 @@ def b_SLITET(eng, frame, arg_nodes):
     eng.arg_ref(arg_nodes[1], frame).write(1 if on else 2)
 
 
+@_needs(2)
 def b_SSWTCH(eng, frame, arg_nodes):
     """CALL SSWTCH(I,J) -- J=1 if data switch I is set, else J=2 (no switches here)."""
     eng.arg_ref(arg_nodes[1], frame).write(2)
 
 
+@_needs(1)
 def b_RELEAS(eng, frame, arg_nodes):
     """CALL RELEAS(unit) -- close out I/O on a device."""
     eng.io.pop(int(eng.eval(arg_nodes[0], frame)), None)
 
 
+@_needs(1)
 def b_SETRAN(eng, frame, arg_nodes):
     """CALL SETRAN(seed) -- seed the FORTRAN-10 RAN generator (manual Ch15). The
     generator state is an engine service (eng.rng); the driver may also seed it."""
@@ -122,6 +149,7 @@ def b_RAN(eng, frame, arg_nodes):
     return eng.rng.random()
 
 
+@_needs(1)
 def b_SAVRAN(eng, frame, arg_nodes):
     """CALL SAVRAN(I) -- save the last RAN value. RNG-state capture isn't modeled;
     we just return a defined value so the call is harmless."""

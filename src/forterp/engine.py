@@ -1098,6 +1098,8 @@ class Engine:
         # DO I=1,0 executes once with I=1, then exits. (F77 zero-trip is a later compiler.)
         if trips < 1:
             trips = 1
+        if s.term_label not in frame.rt.unit.labels:
+            raise RuntimeError(f"DO loop terminal label {s.term_label} not found")
         term_idx = frame.rt.unit.labels[s.term_label]
         # Starting this loop fresh invalidates any earlier instance left suspended by a
         # jump-out (extended range), so it can't later reactivate by mistake.
@@ -1193,10 +1195,10 @@ class Engine:
         range: suspend (don't discard) loops we leave, and resume any whose range we
         re-enter. Rare at run time -- not on the per-statement path -- so both run loops
         share it."""
-        if isinstance(tgt, tuple):  # skip-to-after-terminal
-            newpc = labels[tgt[1]] + 1
-        else:
-            newpc = labels[tgt]
+        label = tgt[1] if isinstance(tgt, tuple) else tgt
+        if label not in labels:
+            raise RuntimeError(f"jump to undefined statement label {label}")
+        newpc = labels[label] + (1 if isinstance(tgt, tuple) else 0)  # tuple = skip past term
         while frame.do_stack and not (
             frame.do_stack[-1].body <= newpc <= frame.do_stack[-1].term_idx
         ):
@@ -1402,7 +1404,10 @@ class Engine:
         if fmt is None or fmt == "*":
             return None
         if isinstance(fmt, int):
-            return frame.rt.unit.formats.get(fmt)
+            spec = frame.rt.unit.formats.get(fmt)
+            if spec is None:
+                raise RuntimeError(f"FORMAT statement label {fmt} not found")
+            return spec
         # a Hollerith array/variable holding the format text, referenced by name
         out, depth, started = [], 0, False
         for ref in self._item_refs(fmt, frame):
@@ -1627,11 +1632,11 @@ class Engine:
         at EOF; records are modeled as an ordered list (one statement = one record)."""
         if isinstance(s, A.FileCtl):
             return self._file_ctl(s, frame)
+        unit = int(self.eval(s.unit, frame))  # the unit number keys self.io -- coerce to int
         nml = self._nml_name(s.fmt, frame)
         if nml is not None:  # READ/WRITE(unit, NAMELIST)
-            self._namelist_io(nml, s, frame)
+            self._namelist_io(nml, s, unit, frame)
             return None
-        unit = self.eval(s.unit, frame)
         if s.mode == "FIND" or "REC" in s.specs:  # random-access (V5 10.3.5/10.14)
             return self._random_io(s, frame, unit)
         st = self.io.get(unit)
@@ -1667,10 +1672,11 @@ class Engine:
             return None
         return self._unf_record_read(st, s, frame)
 
-    def _namelist_io(self, nml, s, frame):
+    def _namelist_io(self, nml, s, unit, frame):
         """READ/WRITE(unit, NAMELIST): write the group's name=value text to the unit's
-        device, or read one record and assign the group's variables from it."""
-        st = self.io.get(self.eval(s.unit, frame))
+        device, or read one record and assign the group's variables from it. `unit` is the
+        already-evaluated unit number (do_io evaluated it once)."""
+        st = self.io.get(unit)
         if s.mode == "WRITE":
             text = self._nml_write(nml, frame)
             if st and st.get("mode") == "w":  # file: store as a text record

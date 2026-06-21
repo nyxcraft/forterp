@@ -1001,9 +1001,13 @@ class StatementParser:
                 a = self.expect_id()
                 if self.accept_op("-"):
                     b = self.expect_id()
+                    if len(a) != 1 or len(b) != 1:
+                        raise ParseError("IMPLICIT range bounds must be single letters", "NRC")
                     for o in range(ord(a), ord(b) + 1):
                         unit.implicit[chr(o)] = typ
                 else:
+                    if len(a) != 1:
+                        raise ParseError("IMPLICIT letter must be a single letter", "NRC")
                     unit.implicit[a] = typ
                 if not self.accept_op(","):
                     break
@@ -1077,12 +1081,28 @@ class StatementParser:
         raise ParseError(f"bad DATA value: {t}")
 
 
+def _has_var(node):
+    """True if `node` references any variable -- i.e. it is not a pure-constant expression."""
+    if isinstance(node, A.Var):
+        return True
+    if isinstance(node, A.Unary):
+        return _has_var(node.operand)
+    if isinstance(node, A.Binary):
+        return _has_var(node.left) or _has_var(node.right)
+    return False
+
+
 def _dim_bound(node, consts):
     """A dimension bound: a constant int when possible, else the AST expression
     (an adjustable dimension whose dummy-arg value is resolved at run time)."""
     try:
         return const_eval(node, consts)
     except ParseError:
+        # A bound that mentions a variable is an adjustable dimension -- keep the
+        # expression to evaluate at run time. A pure-constant bound that would not fold
+        # (e.g. A(1/0)) is malformed: let the error stand rather than silently deferring.
+        if not _has_var(node):
+            raise
         return node
 
 
@@ -1106,16 +1126,19 @@ def const_eval(node, consts):
     if isinstance(node, A.Binary):
         a = const_eval(node.left, consts)
         b = const_eval(node.right, consts)
-        if node.op == "+":
-            return a + b
-        if node.op == "-":
-            return a - b
-        if node.op == "*":
-            return a * b
-        if node.op == "/":
-            return int(a / b) if isinstance(a, float) or isinstance(b, float) else a // b
-        if node.op == "^":
-            return a**b
+        try:  # a malformed constant (1/0, 'AB'+1, a huge **) is a parse-time error, not a crash
+            if node.op == "+":
+                return a + b
+            if node.op == "-":
+                return a - b
+            if node.op == "*":
+                return a * b
+            if node.op == "/":
+                return int(a / b) if isinstance(a, float) or isinstance(b, float) else a // b
+            if node.op == "^":
+                return a**b
+        except (ArithmeticError, TypeError, ValueError) as e:
+            raise ParseError(f"invalid constant expression: {e}", "NRC") from None
     raise ParseError(f"non-constant expression: {node}")
 
 
@@ -1254,7 +1277,11 @@ def parse_expression(text, *, dialect=F66, unit=None):
     supplies declared arrays/types so NAME(...) disambiguates as an array element vs a
     function reference exactly as it would inside that unit. Raises ParseError on
     malformed input or tokens left over after a complete expression."""
-    p = StatementParser(fix_tokens(tokenize(text, dialect)), dialect)
+    try:
+        toks = fix_tokens(tokenize(text, dialect))
+    except LexError as e:  # the docstring promises ParseError -- don't leak a LexError
+        raise ParseError(str(e), e.mnemonic) from None
+    p = StatementParser(toks, dialect)
     if unit is not None:
         p.arrays = unit.arrays
         p.types = unit.types

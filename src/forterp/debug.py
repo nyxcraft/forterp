@@ -153,6 +153,8 @@ class Tracer:
         try:
             node = forterp.parse_expression(text, dialect=self.dialect, unit=frame.rt.unit)
             val = self.eng.eval(node, frame)
+        except forterp.StopExecution:
+            raise  # a STOP reached while inspecting aborts the run; don't swallow it
         except Exception as e:
             self.errwrite(f"?{e}\n")
             return

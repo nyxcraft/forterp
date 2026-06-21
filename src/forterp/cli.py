@@ -97,6 +97,14 @@ def _run(argv, dialect, prog, *, allow_std):
         # bad numeric field / unrepresentable float in binary I/O, no ERR= -> clean halt
         print(f"?{e}", file=sys.stderr)
         return 1
+    except forterp.StopExecution:
+        return 0  # explicit STOP: normal termination (run_program also swallows it)
+    except (RuntimeError, ValueError, ArithmeticError, RecursionError, OSError) as e:
+        # any other runtime fault (undefined unit/label/routine, step budget, bad
+        # dimension, deep recursion, a file error during the run) -> a clean ?-diagnostic,
+        # never a raw traceback
+        print(f"?{e}", file=sys.stderr)
+        return 1
     return 0
 
 
