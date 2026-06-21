@@ -232,3 +232,30 @@ def test_alt_return_arg_gated_to_fortran10():
     forterp.parse_source(src, dialect=FORTRAN10)  # FORTRAN10: parses
     with pytest.raises(forterp.ParseError):
         forterp.parse_source(src, dialect=F66)  # F66: no alternate-return CALL argument
+
+
+def test_io_list_comma_gated_to_fortran10():
+    # DEC FORTRAN-10 accepts an optional comma between the I/O control list and the data
+    # list (WRITE(u,f),list); ANSI F66 (7.1.2) does not. Seen in genuine DECUS source.
+    src = PH + "        V(1)=7.0\n        WRITE(6,20),V(1)\n   20   FORMAT(F4.1)\n" + END
+    eng = run(src, dialect=FORTRAN10)
+    assert "7.0" in "".join(eng.printout)   # accepted + runs under FORTRAN10 (unit 6 = LPT)
+    assert _rejected(src, dialect=F66)      # rejected under strict F66
+
+
+def test_end_file_is_the_f66_spelling_of_endfile():
+    # 'END FILE u' is the ANSI X3.9-1966 (7.1.3.3) spelling of ENDFILE; one-word ENDFILE is
+    # the F77 form. Both parse, in both dialects (blanks are insignificant). DECUS source.
+    src = "      PROGRAM T\n      END FILE 2\n      END\n"
+    forterp.parse_source(src, dialect=F66)        # the standard F66 form -> no ParseError
+    forterp.parse_source(src, dialect=FORTRAN10)  # ... and in the DEC superset
+
+
+def test_data_is_usable_as_an_array_name():
+    # 'DATA' is not a reserved word: DATA(i)=x assigns to an array named DATA (genuine DECUS
+    # source), while a real DATA statement still initializes -- both in one unit, ungated.
+    src = (
+        PH + "        DIMENSION DATA(3)\n        REAL SEED\n        DATA SEED /5.0/\n"
+        "        DATA(1)=7.0\n        DATA(2)=8.0\n        V(1)=DATA(1)+DATA(2)+SEED\n" + END
+    )
+    assert out(run(src), 1) == 20.0

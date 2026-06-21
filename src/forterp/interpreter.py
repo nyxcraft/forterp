@@ -25,10 +25,8 @@ from __future__ import annotations
 import glob
 import os
 
-from forterp import forbin
 from forterp.dialect import F66, FORTRAN10
-from forterp.engine import Engine, Frame, StopExecution
-from forterp.forlib import STDLIB
+from forterp.engine import Engine
 from forterp.parser import ParseError, parse_units
 from forterp.source import DEFAULT_OPTIONS, expand_includes, scan_file, scan_text
 from forterp.target import NATIVE, PDP10
@@ -44,15 +42,19 @@ class Interpreter:
         target,
         dialect,
         *,
-        free_form_input,
-        dec_intrinsics=True,
+        free_form_input=None,
+        dec_intrinsics=None,
         runtime=True,
         source_options=None,
     ):
         self.target = target
         self.dialect = dialect
-        self.free_form_input = free_form_input
-        self.dec_intrinsics = dec_intrinsics
+        # Both already live on the Dialect (the single source of truth); default from it so
+        # callers cannot construct a contradictory pairing. Explicit args still override.
+        self.free_form_input = (
+            dialect.free_form_input if free_form_input is None else free_form_input
+        )
+        self.dec_intrinsics = dialect.dec_intrinsics if dec_intrinsics is None else dec_intrinsics
         self.runtime = runtime
         self.source_options = source_options or DEFAULT_OPTIONS
 
@@ -69,8 +71,9 @@ class Interpreter:
         kwargs.setdefault("dec_intrinsics", self.dec_intrinsics)
         eng = Engine(units, **kwargs)
         if self.runtime if runtime is None else runtime:
-            eng.register_builtins({k: v for k, v in STDLIB.items() if k not in units})
-            eng.binio = forbin
+            import forterp  # local import: forterp.__init__ imports this module
+
+            forterp.install_runtime(eng)  # DEC library (gated on dec_intrinsics) + FOROTS I/O
         return eng
 
     # ---- parsing -----------------------------------------------------------
@@ -135,19 +138,15 @@ class Interpreter:
                 "parse error(s):\n" + "\n".join(f"  line {ln}: {m}" for ln, m in errors)
             )
         eng = self.build_engine(units, **kwargs)
-        name = program or next((n for n, u in units.items() if u.kind == "program"), None)
-        try:
-            eng.run(Frame(eng.rts[name], {}))
-        except StopExecution:
-            pass
-        return eng
+        return eng.run_program(program)
 
 
 #: DEC FORTRAN-10 V5 -- the faithful PDP-10 setup (36-bit, FORTRAN-10 dialect, free-form).
 #: Columns 73+ are dropped like real FORTRAN-10 (no shifted-column recovery by default); a
 #: driver that needs reindented-deck recovery asks for it via
 #: source_options=SourceOptions(recover_shifted_cols=True).
-fortran10 = Interpreter(PDP10, FORTRAN10, free_form_input=True, dec_intrinsics=True)
+fortran10 = Interpreter(PDP10, FORTRAN10)
 
-#: Strict ANSI FORTRAN-66 -- portable NATIVE machine, F66 dialect, column input.
-f66 = Interpreter(NATIVE, F66, free_form_input=False, dec_intrinsics=False)
+#: Strict ANSI FORTRAN-66 -- portable NATIVE machine, F66 dialect, column input, no DEC
+#: library (free_form_input / dec_intrinsics are taken from the F66 dialect).
+f66 = Interpreter(NATIVE, F66)

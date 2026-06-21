@@ -14,64 +14,53 @@ Quick start::
           END
     ''', printer=print)
 
-Public API:
-    fortran10, f66                  -- prebuilt, ready-to-run interpreters (the easy path:
-                                       forterp.fortran10.run_source(src) / .parse_dir(dir)
-                                       / .build_engine(units)); Interpreter to roll your own
-    Engine, Frame, StopExecution    -- the execution engine
-    Target, PDP10, NATIVE, VAX      -- the machine value model (NATIVE 64-bit is the
-                                       default; PDP10 is the faithful 36-bit DEC target;
-                                       VAX is a provisional/unvalidated 32-bit target)
-    Dialect, F66, FORTRAN10         -- front-end dialect (F66 is the default; FORTRAN10
-                                       is the DEC superset: octal/tab/!/free-form input)
-    SourceOptions                   -- source-recovery handling (orthogonal to the
-                                       dialect; e.g. recover statement text shifted past
-                                       col 72). Default: faithful, no recovery.
-    STDLIB                          -- the standard FORTRAN-10 intrinsic/library table
-    install_runtime(eng)            -- wire the FORTRAN-10 runtime (STDLIB + FOROTS I/O)
-    make_engine(units, ...)         -- build a ready-to-run engine
-    parse_source(text, ...)         -- parse source text into program units (raises ParseError)
-    run_source(text, ...)           -- parse + run a source string, return the Engine
-    ParseError                      -- raised by parse_source/run_source on bad source
+Public API (see ``__all__``):
+    run_source(text, ...)       -- parse + run a source string; returns the Engine
+    parse_source(text, ...)     -- parse source -> {name: ProgramUnit} (raises ParseError)
+    f66, fortran10              -- prebuilt, ready-to-run interpreters (the easy path:
+                                   forterp.fortran10.run_source(src) / .parse_dir(dir) /
+                                   .build_engine(units)); Interpreter to roll your own
+    F66, FORTRAN10, Dialect     -- the front-end dialect (F66 is the default; FORTRAN10 the
+                                   DEC superset: octal / tab-format / '!' / free-form input)
+    NATIVE, PDP10, VAX, Target  -- the machine value model (NATIVE 64-bit is the default;
+                                   PDP10 the faithful 36-bit DEC target; VAX provisional)
+    ParseError, SourceOptions   -- the parse error, and source-recovery options (orthogonal
+                                   to the dialect; default: faithful, no recovery)
 
-Embedding API (lower-level building blocks, for hosting FORTRAN inside another program):
-    Front-end stages:
-        scan_file / expand_includes -- read fixed-form source -> statements
-        parse_units / parse_program / parse_file -- statements -> {name: ProgramUnit}
-        tokenize, Token, LexError   -- the lexer
-        ast_nodes                   -- AST node classes (for inspecting parsed units)
-    FORMAT engine:
-        parse_format(spec)          -- a FORMAT string -> edit-descriptor items
-        render(items, values, ...)  -- format a value list -> text
-        read_values(items, line, ...) -- parse an input record under a FORMAT
-        apply_carriage(text)        -- apply FORTRAN carriage control
-    Diagnostics:
-        diag, show                  -- render FORTRAN-10 compiler messages
-    Writing builtins (host routines callable from FORTRAN):
-        A builtin is `fn(eng, frame, arg_nodes)`, registered via
-        `eng.register_builtins({"NAME": fn})`. Resolve arguments with
-        `eng.arg_ref / eng.arrayview / eng.scalar_ref`; the reference objects
-        (ArrayView for arrays, TempRef for by-value) expose `.read()/.write()/.loc()`.
-        ArrayView, TempRef          -- the engine's argument-reference objects
+Expert surfaces live behind explicit namespaces (their names also remain importable from
+the package root as deprecated aliases):
+    forterp.frontend  -- lexer + parser stages (scan_file, parse_units, tokenize, ...)
+    forterp.format    -- the FORMAT engine (parse_format, render, read_values, ...)
+    forterp.runtime   -- the Engine and engine builders (Engine, Frame, make_engine, ...)
+    forterp.hostlib   -- declarative marshalling for host-defined builtins
+    forterp.ast       -- the AST node classes the parser produces
 """
 
-from forterp.engine import Engine, Frame, StopExecution
-from forterp.parser import ParseError, parse_expression
-from forterp.fmt import InputConversionError
-from forterp.target import Target, PDP10, NATIVE, VAX, TARGETS
-from forterp.dialect import Dialect, F66, FORTRAN10, DIALECTS
+# The focused public surface (see __all__).
+from forterp.parser import ParseError
+from forterp.target import Target, PDP10, NATIVE, VAX
+from forterp.dialect import Dialect, F66, FORTRAN10
 from forterp.source import SourceOptions
-from forterp.forlib import STDLIB
-from forterp import forbin
 
-# Embedding API -- lower-level building blocks for hosting FORTRAN in another program.
-from forterp import ast_nodes
-from forterp.source import scan_file, expand_includes
-from forterp.parser import parse_units, parse_program, parse_file
-from forterp.lexer import tokenize, Token, LexError
-from forterp.fmt import parse_format, render, read_values, apply_carriage
-from forterp.diagnostics import diag, show
-from forterp.engine import ArrayView, TempRef
+# Deprecated root aliases. The organized homes are the forterp.frontend / .format /
+# .runtime / .ast namespaces (and forterp.hostlib); these names stay importable from the
+# package root for back-compat and are deliberately kept off __all__.
+from forterp.engine import Engine, Frame, StopExecution, ArrayView, TempRef  # noqa: F401
+from forterp.parser import parse_expression, parse_units  # noqa: F401
+from forterp.fmt import (  # noqa: F401
+    InputConversionError,
+    apply_carriage,
+    parse_format,
+    read_values,
+    render,
+)
+from forterp.target import TARGETS  # noqa: F401
+from forterp.dialect import DIALECTS  # noqa: F401
+from forterp.forlib import STDLIB  # noqa: F401
+from forterp.source import scan_file, expand_includes  # noqa: F401
+from forterp.lexer import LexError, Token, tokenize  # noqa: F401
+from forterp.diagnostics import diag, show  # noqa: F401
+from forterp import ast_nodes, forbin  # noqa: F401
 
 # Prebuilt, reusable interpreters -- the easy-reuse entry point: forterp.fortran10
 # (faithful DEC FORTRAN-10) and forterp.f66 (strict ANSI), plus the Interpreter class.
@@ -79,62 +68,42 @@ from forterp.interpreter import Interpreter, fortran10, f66
 
 __version__ = "0.1.0"
 
+# The focused public surface. Expert layers live behind explicit namespaces --
+# forterp.frontend (lexer/parser stages), forterp.format (the FORMAT engine),
+# forterp.runtime (Engine + builders), forterp.hostlib, forterp.ast -- and many of
+# their names also remain importable from the package root as deprecated aliases.
 __all__ = [
-    "Engine",
-    "Frame",
-    "StopExecution",
-    "ParseError",
-    "InputConversionError",
-    "Target",
-    "PDP10",
-    "NATIVE",
-    "VAX",
-    "Dialect",
+    # parse + run
+    "run_source",
+    "parse_source",
+    # prebuilt interpreters and the class behind them
+    "f66",
+    "fortran10",
+    "Interpreter",
+    # dialects
     "F66",
     "FORTRAN10",
-    "TARGETS",
-    "DIALECTS",
+    "Dialect",
+    # machine value models
+    "NATIVE",
+    "PDP10",
+    "VAX",
+    "Target",
+    # commonly-needed types
+    "ParseError",
     "SourceOptions",
-    "STDLIB",
-    "forbin",
-    "install_runtime",
-    "engine_kwargs",
-    "make_engine",
-    "parse_source",
-    "parse_expression",
-    "run_source",
-    # embedding API -- front-end stages
-    "scan_file",
-    "expand_includes",
-    "parse_units",
-    "parse_program",
-    "parse_file",
-    "tokenize",
-    "Token",
-    "LexError",
-    "ast_nodes",
-    # embedding API -- FORMAT engine
-    "parse_format",
-    "render",
-    "read_values",
-    "apply_carriage",
-    # embedding API -- diagnostics
-    "diag",
-    "show",
-    # embedding API -- writing builtins (engine reference objects)
-    "ArrayView",
-    "TempRef",
-    # prebuilt, reusable interpreters (forterp.fortran10 / forterp.f66)
-    "Interpreter",
-    "fortran10",
-    "f66",
 ]
 
 
 def install_runtime(eng):
-    """Install the DEC FORTRAN-10 runtime onto an engine: the standard library and the
-    FOROTS unformatted-I/O codec used by binary (unformatted) READ/WRITE."""
-    eng.register_builtins(STDLIB)
+    """Install the DEC FORTRAN-10 runtime onto an engine: the DEC library subprograms and
+    the FOROTS unformatted-I/O codec used by binary (unformatted) READ/WRITE.
+
+    The DEC library (RAN, DATE, ERRSET, ...) is a DEC facility, absent from strict ANSI
+    F66 -- so it is installed only when the engine's `dec_intrinsics` is on. A library
+    name that the program defines itself is never shadowed (the program's unit wins)."""
+    if eng.dec_intrinsics:
+        eng.register_builtins({k: v for k, v in STDLIB.items() if k not in eng.units})
     eng.binio = forbin
     return eng
 
@@ -174,14 +143,14 @@ def parse_source(text, dialect=F66, on_error=None, options=None):
     invalid statements are NOT silently dropped. Pass ``on_error(statement, message)``
     to instead receive each diagnostic yourself and keep the (partial) result.
     """
-    from forterp.source import scan_text, expand_includes, DEFAULT_OPTIONS
-    from forterp.parser import parse_units
+    from forterp.source import scan_text, DEFAULT_OPTIONS
 
     errs = []
     cb = on_error if on_error is not None else (lambda st, m: errs.append((st.line, m)))
     opts = options if options is not None else DEFAULT_OPTIONS
-    stmts = expand_includes(scan_text(text, dialect=dialect, options=opts).statements, ".",
-                            dialect=dialect)
+    stmts = expand_includes(
+        scan_text(text, dialect=dialect, options=opts).statements, ".", dialect=dialect
+    )
     units = {u.name: u for u in parse_units(stmts, dialect=dialect, on_error=cb)}
     if on_error is None and errs:
         raise ParseError("parse error(s):\n" + "\n".join(f"  line {ln}: {m}" for ln, m in errs))
@@ -194,9 +163,10 @@ def run_source(text, program=None, dialect=F66, options=None, **kwargs):
     is an optional `SourceOptions` for source-recovery handling."""
     units = parse_source(text, dialect=dialect, options=options)
     eng = make_engine(units, dialect=dialect, **kwargs)
-    name = program or next((n for n, u in units.items() if u.kind == "program"), None)
-    try:
-        eng.run(Frame(eng.rts[name], {}))
-    except StopExecution:
-        pass
-    return eng
+    return eng.run_program(program)
+
+
+# Expert namespaces -- imported last so forterp.runtime can re-export the builders defined
+# above. `forterp.frontend / .format / .runtime / .ast / .hostlib` organize the surface that
+# used to crowd the package root.
+from forterp import frontend, format, runtime, ast, hostlib  # noqa: E402,F401

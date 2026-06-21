@@ -14,10 +14,9 @@ convention, and how characters pack into words. Two ship:
   5×7-bit packed character storage, `.TRUE.`=−1 with bit-wise logicals. Select with
   `Engine(..., target=forterp.PDP10)`.
 
-The PDP-10 target was extracted from an interpreter built to run the 1978 multiplayer
-game *DECWAR* and Walter Bright's *Empire* unmodified, so it is exercised against real,
-gnarly period code — not just toy snippets — and validated against the DEC FORTRAN-10
-V5 manual and the ANSI **FCVS** conformance corpus.
+The PDP-10 target was extracted from an interpreter built to run real 1970s DEC FORTRAN
+unmodified, so it is exercised against real period code — not just toy snippets — and
+validated against the DEC FORTRAN-10 V5 manual and the **FCVS** conformance corpus.
 
 ## Install
 
@@ -65,6 +64,13 @@ forterp --std fortran10 prog.for   # general driver; --std f66|fortran10 (defaul
 unit. `--check` parses and lists every diagnostic without running (a compile-check) — so
 `pyf66 --check prog.for` is a strict-ANSI-F66 conformance linter. Before install, use
 `python -m forterp …`.
+
+Pass several source files and they are linked together by unit name, the way a compiler
+links `f77 main.f lib.f` — so a driver and a separately-held library run as one program:
+
+```sh
+forterp main.for lib.for           # main.for's PROGRAM calls SUBROUTINEs in lib.for
+```
 
 Launched with **no file**, each command drops into an interactive monitor (a small,
 FORTRAN-focused descendant of the TOPS-10 `.` prompt — it operates on whole source
@@ -137,6 +143,19 @@ set, `DO` loops with F66 one-trip semantics, `COMMON`/`EQUIVALENCE` storage asso
 unformatted I/O with the complete `FORMAT` edit-descriptor set, `ENCODE`/`DECODE`, and
 the DEC FORTRAN-10 extensions (octal literals, Hollerith, `IAND`/`IOR`/shift intrinsics,
 tab-format source, random-access `READ(u'r)`). See [`docs/`](docs/).
+
+## Examples & demos
+
+Two directories of runnable material:
+
+- **[`examples/`](examples/)** — short Python scripts showing how to *use forterp as a
+  library*: running source and capturing output, choosing a dialect or target, feeding
+  input via `readline`, and reading results back out of `COMMON`. Start with
+  [`examples/run_and_capture.py`](examples/run_and_capture.py).
+- **[`demos/`](demos/)** — genuine 1970s FORTRAN to *run through* the interpreter:
+  verbatim netlib numerical libraries (EISPACK, LINPACK, FFT, RKF45) each with a small
+  driver, DECsystem-10 sources recovered from DECUS tapes, and a 1971 Game of Life. Every
+  one is real period source, run as-is — the corpus that flushes out interpreter gaps.
 
 ## Tests & lint
 

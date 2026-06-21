@@ -26,7 +26,10 @@ _DIALECTS = forterp.DIALECTS
 def _run(argv, dialect, prog, *, allow_std):
     ap = argparse.ArgumentParser(prog=prog, description=__doc__.strip().splitlines()[0])
     ap.add_argument(
-        "file", nargs="?", help="FORTRAN source file to run (omit for interactive mode)"
+        "file",
+        nargs="*",
+        help="FORTRAN source file(s) to run; several are linked together by unit name, "
+        "like `f77 main.f lib.f` (omit for interactive mode)",
     )
     ap.add_argument(
         "--target",
@@ -53,22 +56,22 @@ def _run(argv, dialect, prog, *, allow_std):
     std = args.std if allow_std else ("fortran10" if dialect is forterp.FORTRAN10 else "f66")
     dialect = _DIALECTS[std]
 
-    if args.file is None:  # no file -> interactive command monitor
+    if not args.file:  # no file -> interactive command monitor
         if args.check:
             ap.error("--check requires a file")
         from forterp.monitor import Monitor
 
         return Monitor(std=std, target=args.target, program=args.program).run()
 
-    try:
-        text = open(args.file, "r", errors="replace").read()
+    try:  # several files are concatenated, then linked by unit name (like `f77 a.f b.f`)
+        text = "\n".join(open(p, "r", errors="replace").read() for p in args.file)
     except OSError as e:
         ap.error(str(e))
+    name = " + ".join(os.path.basename(p) for p in args.file)
 
     if args.check:  # compile-check: list every %FTN diagnostic, don't run
         diags = []
         units = forterp.parse_source(text, dialect=dialect, on_error=lambda st, m: diags.append(m))
-        name = os.path.basename(args.file)
         if diags:
             print(f"?{name}: {len(diags)} error(s)", file=sys.stderr)
             for d in diags:

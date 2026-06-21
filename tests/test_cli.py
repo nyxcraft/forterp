@@ -93,6 +93,43 @@ def test_bad_input_field_reports_clean_error_not_traceback(monkeypatch, capsys):
     assert "Traceback" not in err  # not a raw Python traceback
 
 
+def test_read_with_end_branches_at_stream_eof(monkeypatch, capsys):
+    # A formatted READ(...,END=) past end-of-input must branch to the END= label, not spin
+    # forever re-reading empty records. Regression: terminal EOF was detected only via an
+    # in-band CONTROL-Z, never via readline() returning "" (real stream EOF), so a read
+    # loop over stdin hung. (The 1971 LIFE.FOR surfaced this.)
+    monkeypatch.setattr("sys.stdin", io.StringIO("ABC\n"))  # one record, then EOF
+    src = (
+        "      PROGRAM T\n      INTEGER R(3)\n    5 READ(5,9,END=11) R\n"
+        "    9 FORMAT(3A1)\n      GO TO 5\n   11 WRITE(6,12)\n"
+        "   12 FORMAT(13H REACHED EOF.)\n      END\n"
+    )
+    p = _src(src)
+    try:
+        rc = f10_main([p])
+    finally:
+        os.unlink(p)
+    assert rc == 0
+    assert "REACHED EOF" in capsys.readouterr().out
+
+
+def test_multiple_files_link_by_unit_name(capsys):
+    # Several source files on the command line are concatenated and linked by unit name,
+    # like `f77 main.f lib.f`: a main program in one file calls a SUBROUTINE in another.
+    main_src = "      PROGRAM T\n      CALL GREET\n      END\n"
+    lib_src = (
+        "      SUBROUTINE GREET\n      WRITE(6,10)\n   10 FORMAT(13H HELLO LINKED)\n      END\n"
+    )
+    pm, pl = _src(main_src), _src(lib_src)
+    try:
+        rc = f66_main([pm, pl])
+    finally:
+        os.unlink(pm)
+        os.unlink(pl)
+    assert rc == 0
+    assert "HELLO LINKED" in capsys.readouterr().out
+
+
 def test_check_reports_ok_on_clean_source(capsys):
     p = _src(HELLO_F66)  # strict-F66-clean (Hollerith FORMAT)
     try:

@@ -51,6 +51,13 @@ def fort_mod(a, b):
 truthy = PDP10.truthy  # FORTRAN-10: .TRUE. iff sign negative (-1/0)
 packword = PDP10.pack  # chars -> one signed packed word
 
+# I/O status as the (ERRSNS status code, FOROTS monitor code) pair that `last_io_error`
+# holds and ERRSNS reports (V5 App H). Named so the I/O paths carry no bare magic numbers.
+IO_OK = (0, 0)  # success / status cleared
+IO_EOF = (24, 308)  # end-of-file on input
+IO_BAD_RECORD = (25, 302)  # invalid or unwritten (random-access) record
+IO_ILLEGAL_CHAR = (38, 311)  # illegal character in formatted input
+
 
 # ----------------------------------------------------------------- references
 #: counts faithful out-of-bounds cell accesses (FORTRAN-10 had no array bounds
@@ -348,7 +355,7 @@ class Engine:
         # I/O op's (first, second) code; ERRSET caps how many LIB/APR domain
         # warnings get printed -- V5 Table 15-3: suppress after N occurrences,
         # default N=2.
-        self.last_io_error = (0, 0)
+        self.last_io_error = IO_OK
         self.errset_limit = 2
         self.lib_apr_count = 0
         self.sense_lights = set()  # SLITE/SLITET console sense lights (V5 Table 15-3)
@@ -649,7 +656,13 @@ class Engine:
     def arrayview(self, frame, name):
         rt, unit = frame.rt, frame.rt.unit
         if name in frame.args:
-            return frame.args[name]
+            a = frame.args[name]
+            # An array element actual (X(I) -> CellRef) bound to an array dummy is
+            # FORTRAN sequence association: the dummy's first element IS X(I), the next
+            # is X(I+1), ... Re-view the cell's storage at its offset as the array base.
+            if isinstance(a, CellRef):
+                return ArrayView(a.store, a.idx)
+            return a
         return self._static_array(rt, unit, name)[0]
 
     def _dims(self, name, frame):
@@ -703,35 +716,33 @@ class Engine:
             return self.eval_binary(node, frame)
         raise RuntimeError(f"cannot eval {node}")
 
+    def _name_is_unbound(self, name, frame, unit, *, exclude_assigned=True):
+        """True if `name` is not a local variable in this unit -- not a dummy argument, a
+        COMMON member, or an explicitly typed name (and, unless `exclude_assigned` is False,
+        not an ASSIGN target). Such a name can instead resolve to an ENTRY, an external
+        function, or a builtin."""
+        if name in frame.args or name in frame.rt.common_map or name in unit.types:
+            return False
+        return not (exclude_assigned and name in frame.rt.assigned)
+
     def eval_var(self, name, frame):
         unit = frame.rt.unit
         if name in unit.consts:
             return self._const_value(unit.consts[name])
         if name in unit.arrays:  # bare array name (I/O / arg use)
             return self.arrayview(frame, name)
-        if (
-            name in self.entries
-            and name not in frame.args
-            and name not in frame.rt.common_map
-            and name not in unit.types
-            and name not in frame.rt.assigned
-        ):
+        if name in self.entries and self._name_is_unbound(name, frame, unit):
             return self._call_entry_func(name, [], frame)  # no-arg ENTRY function ref
         if (
             name != frame.rt.unit.name
             and name in self.units
             and self.units[name].kind == "function"
-            and name not in frame.args
-            and name not in frame.rt.common_map
-            and name not in unit.types
-            and name not in frame.rt.assigned
+            and self._name_is_unbound(name, frame, unit)
         ):
             return self.call_function(name, [], frame)
-        if (
-            name not in frame.args
-            and name not in frame.rt.common_map
-            and name not in unit.types
-            and name in self.builtins
+        # the builtin fallback historically does NOT exclude ASSIGN targets
+        if name in self.builtins and self._name_is_unbound(
+            name, frame, unit, exclude_assigned=False
         ):
             return self.builtins[name](self, frame, [])
         return self.scalar_ref(frame, name).read()
@@ -1042,7 +1053,7 @@ class Engine:
         try:
             return do_fn(s, frame)
         except InputConversionError:
-            self.last_io_error = (38, 311)  # FOROTS: illegal character in input data
+            self.last_io_error = IO_ILLEGAL_CHAR
             specs = getattr(s, "specs", None)
             err = specs.get("ERR") if specs else None
             if err is not None:
@@ -1096,6 +1107,23 @@ class Engine:
         return None
 
     # ---- the per-unit run loop
+    def run_program(self, program=None):
+        """Run the main program and return self. `program` names the unit to run; with none,
+        the first PROGRAM unit is chosen. Raises ValueError -- listing the available programs
+        -- when there is nothing to run, so callers get a clear error, not a KeyError."""
+        name = program or next((n for n, u in self.units.items() if u.kind == "program"), None)
+        if name is None or name not in self.rts:
+            progs = sorted(n for n, u in self.units.items() if u.kind == "program")
+            available = ", ".join(progs) or "(none)"
+            if program:
+                raise ValueError(f"no unit named {program!r} to run (programs: {available})")
+            raise ValueError(f"no PROGRAM unit to run (programs: {available})")
+        try:
+            self.run(Frame(self.rts[name], {}))
+        except StopExecution:
+            pass
+        return self
+
     def run(self, frame):
         """Run `frame`'s unit to completion. A single loop serves both the normal and the
         debugged/profiled case. `tracer` is None by default and hoisted to a local, so on
@@ -1290,11 +1318,14 @@ class Engine:
     def do_accept(self, s, frame):
         if getattr(s, "reread", False):
             line = getattr(self, "_last_input", "")  # REREAD: the last record again
+            eof = False
         else:
-            line = self.readline().rstrip("\r\n")  # the line terminator isn't record data
+            raw = self.readline()
+            line = raw.rstrip("\r\n")  # the line terminator isn't record data
             self._last_input = line
-        if "\x1a" in line:  # CONTROL-Z = end-of-file (V5 terminal input)
-            self.last_io_error = (24, 308)
+            eof = raw == ""  # readline() returns "" only at end-of-input
+        if eof or "\x1a" in line:  # CONTROL-Z = end-of-file (V5 terminal input)
+            self.last_io_error = IO_EOF
             raise StopExecution()  # EOF on ACCEPT (no END=) ends the program
         self._apply_read_line(s, frame, line)
 
@@ -1556,7 +1587,7 @@ class Engine:
             return None
         if s.mode == "WRITE":
             if rec < 1:  # invalid record number: an I/O error, not a negative-index clobber
-                self.last_io_error = (25, 302)
+                self.last_io_error = IO_BAD_RECORD
                 return Goto(s.specs["ERR"]) if "ERR" in s.specs else None
             while len(recs) < rec:
                 recs.append(None)
@@ -1584,7 +1615,7 @@ class Engine:
             st["pos"] = rec
             self._set_assoc(st, frame, rec + 1)
         else:
-            self.last_io_error = (25, 302)  # invalid/unwritten record
+            self.last_io_error = IO_BAD_RECORD
             if "END" in s.specs:
                 return Goto(s.specs["END"])
         return None
@@ -1626,15 +1657,17 @@ class Engine:
                 return None
             st = self.io[unit] = {"mode": dev}
         if s.mode == "READ" and st.get("mode") == "term":  # terminal input (e.g. unit 5)
-            line = self.readline().rstrip("\r\n")
+            raw = self.readline()
+            line = raw.rstrip("\r\n")
             self._last_input = line
-            if "\x1a" in line:  # CONTROL-Z = EOF
-                self.last_io_error = (24, 308)
+            # readline() returns "" only at end-of-input; CONTROL-Z is the in-band EOF mark
+            if raw == "" or "\x1a" in line:
+                self.last_io_error = IO_EOF
                 if "END" in s.specs:
                     return Goto(s.specs["END"])
                 raise StopExecution()
             self._apply_read_line(s, frame, line)
-            self.last_io_error = (0, 0)
+            self.last_io_error = IO_OK
             return None
         if s.mode == "READ" and st.get("text"):  # formatted read from a text file
             return self._read_text(s, st, frame)
@@ -1652,7 +1685,7 @@ class Engine:
             return None
         if st["pos"] >= len(recs):
             # V5 App H: EOF during READ -> ERRSNS status 24 / monitor 308.
-            self.last_io_error = (24, 308)
+            self.last_io_error = IO_EOF
             if "END" in s.specs:
                 return Goto(s.specs["END"])
             return None
@@ -1660,7 +1693,7 @@ class Engine:
         st["pos"] += 1
         for ref, w in zip(self._unf_refs(s.items, frame), rec):
             ref.write(w)
-        self.last_io_error = (0, 0)  # successful read clears the status
+        self.last_io_error = IO_OK  # successful read clears the status
         return None
 
     def _spec(self, v, frame):
@@ -1779,7 +1812,7 @@ class Engine:
 
         lines = st["lines"]
         if st["pos"] >= len(lines):
-            self.last_io_error = (24, 308)  # EOF
+            self.last_io_error = IO_EOF
             return Goto(s.specs["END"]) if "END" in s.specs else None
         line = lines[st["pos"]]
         st["pos"] += 1
@@ -1791,7 +1824,7 @@ class Engine:
             self._assign_reads(
                 s.items, read_values(items, line, self.tgt, self.free_form_input), frame
             )
-        self.last_io_error = (0, 0)
+        self.last_io_error = IO_OK
         return None
 
     def _unf_values(self, items, frame):

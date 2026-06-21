@@ -1,18 +1,19 @@
 :root {
-  --bg: #04100a;
-  --paper: #0a1a10;
-  --panel: #06140a;
-  --panel-soft: #0e2417;
-  --ink: #cfeed8;
-  --ink-bright: #eaffef;
-  --ink-soft: #7fae8c;
-  --line: #1d3a28;
-  --accent: #5aff82;
-  --accent-strong: #7dffa0;
-  --gold: #ffb000;
-  --stamp: #ff4d4d;
-  --code: #02100a;
-  --shadow: 0 22px 60px rgba(0, 0, 0, .55);
+  /* "the DEC manual on your desk" — warm cream pages, oxblood/DEC-maroon brand */
+  --bg: #2a1c1a;            /* dark warm surround (the desk) framing the page */
+  --paper: #f3ecdb;         /* the manual page — warm cream */
+  --panel: #efe7d1;         /* hero band */
+  --panel-soft: #e8dec4;    /* feature-strip / table-head band */
+  --ink: #2c2620;           /* body text — warm near-black */
+  --ink-bright: #1d1813;    /* headings — darkest ink */
+  --ink-soft: #6f6453;      /* secondary text — muted brown-grey */
+  --line: #cdbfa1;          /* faint warm paper rule */
+  --accent: #7c2230;        /* DEC maroon — the brand / masthead / accents */
+  --accent-strong: #9a2d3c; /* brighter maroon — links, hover */
+  --gold: #b07a2b;          /* muted brass — focus ring, the author line */
+  --stamp: #7c2230;         /* the "beta" rubber stamp */
+  --code: #ebe1c9;          /* code block — an inset warm tan panel */
+  --shadow: 0 18px 50px rgba(30, 16, 16, .35);
   --content: 76rem;
   --font-body: "Aptos", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   --font-code: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
@@ -60,7 +61,7 @@ pre {
   top: -5rem;
   z-index: 20;
   padding: .7rem 1rem;
-  color: #04100a;
+  color: var(--paper);
   background: var(--accent);
   border-radius: .45rem;
   font-weight: 800;
@@ -84,14 +85,15 @@ pre {
   justify-content: space-between;
   gap: 1rem;
   padding: 1rem clamp(1rem, 3vw, 2rem);
-  border-bottom: 1px solid var(--line);
+  background: var(--accent);            /* DEC maroon masthead — the white-on-maroon "digital" look */
+  border-bottom: 1px solid #5a1822;
 }
 
 .site-header--compact {
   position: sticky;
   top: 0;
   z-index: 5;
-  background: rgba(6, 20, 10, .92);
+  background: rgba(124, 34, 48, .95);
   backdrop-filter: blur(10px);
 }
 
@@ -99,7 +101,7 @@ pre {
   display: inline-flex;
   align-items: center;
   gap: .65rem;
-  color: var(--ink-bright);
+  color: var(--paper);                  /* cream wordmark on the maroon masthead */
   text-decoration: none;
   font-weight: 800;
 }
@@ -119,17 +121,17 @@ pre {
   display: inline-block;
   margin-left: .6rem;
   padding: .08rem .34rem;
-  border: 2px solid var(--stamp);
+  border: 2px solid var(--gold);
   border-radius: 3px;
   background: transparent;
-  color: var(--stamp);
+  color: var(--gold);
   font-size: .62rem;
   font-weight: 800;
   letter-spacing: .12em;
   text-transform: uppercase;
   transform: rotate(-8deg);
   transform-origin: center;
-  opacity: .85;
+  opacity: .95;
   vertical-align: middle;
 }
 
@@ -141,19 +143,19 @@ pre {
 }
 
 .top-nav a {
-  color: var(--ink);
+  color: rgba(243, 236, 219, .85);      /* cream nav on the maroon masthead */
   text-decoration: none;
 }
 
 .top-nav a:hover {
-  color: var(--accent);
+  color: var(--gold);
 }
 
 .hero {
   min-height: 33rem;
   display: grid;
   grid-template-columns: minmax(0, 1.05fr) minmax(20rem, .95fr);
-  gap: clamp(1.5rem, 4vw, 4rem);
+  gap: clamp(2.5rem, 5vw, 5.5rem);
   align-items: center;
   padding: clamp(2rem, 5vw, 5rem) clamp(1rem, 4vw, 4rem);
   color: var(--ink-bright);
@@ -171,15 +173,25 @@ pre {
 
 .hero h1 {
   margin: 0;
-  max-width: 15ch;
-  font-size: clamp(2.4rem, 5.5vw, 4.8rem);
-  line-height: .98;
+  max-width: 22ch;
+  font-size: clamp(1.9rem, 3.4vw, 3rem);
+  line-height: 1.08;
   letter-spacing: 0;
+}
+
+/* the small qualifier under the headline (the dialects line) */
+.hero__sub {
+  display: block;
+  margin-top: .55rem;
+  font-size: clamp(.85rem, 1.5vw, 1rem);
+  font-weight: 600;
+  color: var(--ink-soft);
+  line-height: 1.35;
 }
 
 .hero__lede {
   max-width: 42rem;
-  color: #a7d8b6;
+  color: var(--ink-soft);
   font-size: 1.14rem;
 }
 
@@ -212,7 +224,7 @@ pre {
   align-items: center;
   min-height: 2.75rem;
   padding: .72rem 1rem;
-  border: 1px solid rgba(90, 255, 130, .4);
+  border: 1px solid rgba(124, 34, 48, .4);
   color: var(--ink-bright);
   text-decoration: none;
   font-weight: 800;
@@ -220,15 +232,15 @@ pre {
 
 .button--primary {
   background: var(--accent);
-  color: #04100a;
+  color: var(--paper);
   border-color: var(--accent);
 }
 
 .hero__visual {
   position: relative;
   padding: 1.2rem;
-  border: 1px solid rgba(90, 255, 130, .18);
-  background: rgba(90, 255, 130, .04);
+  border: 1px solid rgba(124, 34, 48, .18);
+  background: rgba(124, 34, 48, .04);
 }
 
 .flow {
@@ -237,8 +249,8 @@ pre {
 }
 
 .flow__node {
-  border: 1px solid rgba(90, 255, 130, .25);
-  background: rgba(90, 255, 130, .06);
+  border: 1px solid rgba(124, 34, 48, .25);
+  background: rgba(124, 34, 48, .06);
   padding: .8rem 1rem;
   text-align: center;
 }
@@ -262,7 +274,7 @@ pre {
 
 .flow__node--hub {
   border-color: var(--accent);
-  background: rgba(90, 255, 130, .12);
+  background: rgba(124, 34, 48, .12);
 }
 
 .flow__arrow {
@@ -283,7 +295,7 @@ pre {
   display: grid;
   place-items: center;
   min-height: 3rem;
-  border: 1px solid rgba(90, 255, 130, .3);
+  border: 1px solid rgba(124, 34, 48, .3);
   color: var(--ink-bright);
   font-weight: 800;
   font-size: .78rem;
@@ -392,7 +404,7 @@ pre {
 
 .docs-article__source {
   margin: .5rem 0 0;
-  color: #6f9a7d;
+  color: var(--ink-soft);
   font-size: .9rem;
 }
 
@@ -507,7 +519,7 @@ pre {
 
 .prose :not(pre) > code {
   padding: .1rem .25rem;
-  background: rgba(90, 255, 130, .1);
+  background: rgba(124, 34, 48, .1);
   color: var(--accent-strong);
 }
 
@@ -553,7 +565,7 @@ pre {
   }
 
   .hero h1 {
-    font-size: 2.4rem;
+    font-size: 1.9rem;
   }
 
   .flow__fan {

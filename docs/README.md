@@ -8,6 +8,13 @@
   seams that make it standalone. For someone modifying forterp.
 - **[CHANGELOG.md](../CHANGELOG.md)** — dated history of the standalone interpreter.
 
+Runnable material lives outside `docs/`:
+
+- **[`examples/`](../examples/)** — short Python scripts showing how to drive forterp as a
+  library (run source, capture output, pick a dialect/target, read results from `COMMON`).
+- **[`demos/`](../demos/)** — genuine 1970s FORTRAN to run through the interpreter:
+  verbatim netlib libraries with drivers, DECsystem-10 tape sources, and a 1971 Game of Life.
+
 These docs are also published as a site via GitHub Pages — the build machinery lives in
 `gh-pages/` (a small `markdown-it-py` static-site generator) and is deployed by
 `.github/workflows/pages.yml`; no built output is committed.

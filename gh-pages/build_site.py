@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import datetime
+import hashlib
 import json
 import os
 import re
@@ -204,6 +205,9 @@ def main() -> int:
 
     ensure_clean_dir(output_dir)
     copy_tree(SOURCE_DIR / "assets", output_dir / "assets")
+    # cache-buster: a short content hash on the stylesheet URL, so an edited site.css is
+    # re-fetched instead of served stale from the browser cache.
+    css_ver = hashlib.sha1((SOURCE_DIR / "assets" / "site.css").read_bytes()).hexdigest()[:8]
     copy_tree(ROOT / "docs" / "media", output_dir / "media")  # screenshots/gifs for the reference
     write_text(output_dir / ".nojekyll", "")
 
@@ -284,6 +288,7 @@ def main() -> int:
             "site_name": escape(config["site_name"]),
             "site_tagline": escape(config["site_tagline"]),
             "site_description": escape(config["site_description"]),
+            "stylesheet": escape(f"assets/site.css?v={css_ver}"),
             "logo_href": escape(HEADER_LOGO),
             "home_href": escape("index.html"),
             "status_badge": status_badge,
@@ -344,7 +349,7 @@ def main() -> int:
                 "site_name": escape(config["site_name"]),
                 "site_tagline": escape(config["site_tagline"]),
                 "page_summary": escape(page["summary"]),
-                "assets_href": escape(asset_href),
+                "assets_href": escape(f"{asset_href}?v={css_ver}"),
                 "logo_href": escape(logo_href),
                 "home_href": escape(home_href),
                 "status_badge": status_badge,

@@ -9,10 +9,13 @@ p13-9) exactly, which serves as the spec oracle.
 
 from forterp.fmt import parse_format, render
 from forterp.parser import pack5
+from forterp.target import PDP10
 
 
 def r(spec, values):
-    return render(parse_format(spec), values)[0]
+    # These pin V5 descriptor behavior against the manual -- the 36-bit PDP-10 model
+    # (octal bit patterns, A5/R packing), so render with that target explicitly.
+    return render(parse_format(spec), values, PDP10)[0]
 
 
 # ---- Ow octal (V5 13.2.8 / Table 13-2: zero-padded) ------------------------

@@ -197,11 +197,12 @@ def pack5(s: str) -> int:
     """Left-justify up to 5 chars as 7-bit bytes in a 36-bit word, blank pad.
     Returns the SIGNED 36-bit value so it compares equal to packword()-stored
     char data everywhere (DATA, literals, GETCHX, and ACCEPT input alike)."""
-    s = (s + "     ")[:5]
+    word_bits, bits, per_word, ascii_mask = 36, 7, 5, 0x7F
+    s = (s + " " * per_word)[:per_word]
     v = 0
     for i, c in enumerate(s):
-        v |= (ord(c) & 0x7F) << (29 - 7 * i)
-    return v - (1 << 36) if v & (1 << 35) else v
+        v |= (ord(c) & ascii_mask) << (word_bits - bits * (i + 1))  # char i, high-justified
+    return v - (1 << word_bits) if v & (1 << (word_bits - 1)) else v
 
 
 # ----------------------------------------------------------------- the parser
@@ -560,6 +561,11 @@ class P:
             return self.parse_filectl(kw)
         if kw in ("REWIND", "BACKSPACE", "ENDFILE"):  # bare unit or (specs)
             return self.parse_filectl(kw)
+        if kw == "END" and nx and nx.kind == "ID" and nx.value == "FILE":
+            # 'END FILE u' is the ANSI X3.9-1966 (7.1.3.3) spelling of ENDFILE; one-word
+            # ENDFILE is the F77 form. Consume END, then parse_filectl eats FILE as the verb.
+            self.advance()
+            return self.parse_filectl("ENDFILE")
         if kw == "SKIP" and nx and nx.kind == "ID" and nx.value in ("RECORD", "FILE"):
             self.advance()  # SKIP
             verb = "SKIPREC" if self.advance().value == "RECORD" else "SKIPFILE"
@@ -792,6 +798,13 @@ class P:
             else:
                 fmt = self.parse_expr()
         self.expect_op(")")
+        # DEC FORTRAN-10 accepts an optional comma between the control list and the I/O
+        # list -- WRITE(u,f),list -- which ANSI F66 (7.1.2) does not; gate it like the
+        # other DEC I/O forms in this routine.
+        if self.is_op(","):
+            if not self.dialect.extended_io:
+                raise ParseError("comma before the I/O list is a FORTRAN-10 extension", "NRC")
+            self.advance()
         items = self.parse_iolist() if not self.at_end() else []
         return A.IoStmt(mode=kw, unit=unit, fmt=fmt, specs=specs, items=items)
 
@@ -1280,6 +1293,28 @@ def _f66_subscript(e):
     return False
 
 
+def _data_is_assignment(toks):
+    """`DATA` is not a reserved word: `DATA=x` / `DATA(i)=x` is an assignment to a variable
+    or array named DATA, not the DATA statement (whose value list is delimited by `/`).
+    Tell them apart by the token after DATA, or after DATA's matching `)`."""
+    if len(toks) < 2 or toks[1].kind != "OP":
+        return False
+    if toks[1].value == "=":
+        return True
+    if toks[1].value == "(":  # scan to the matching ')'; assignment iff '=' follows it
+        depth = 0
+        for i in range(1, len(toks)):
+            t = toks[i]
+            if t.kind == "OP" and t.value == "(":
+                depth += 1
+            elif t.kind == "OP" and t.value == ")":
+                depth -= 1
+                if depth == 0:
+                    nx = toks[i + 1] if i + 1 < len(toks) else None
+                    return nx is not None and nx.kind == "OP" and nx.value == "="
+    return False
+
+
 def _route(unit, st, toks, on_warn=None, dialect=F66):
     kw = toks[0].value if toks[0].kind == "ID" else None
     p = P(toks, dialect)
@@ -1321,7 +1356,7 @@ def _route(unit, st, toks, on_warn=None, dialect=F66):
             )
         p.parse_parameter(unit)
         return
-    if kw == "DATA":
+    if kw == "DATA" and not _data_is_assignment(toks):
         p.parse_data(unit)
         return
     if kw == "EXTERNAL":

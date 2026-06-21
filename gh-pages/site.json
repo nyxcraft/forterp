@@ -1,14 +1,14 @@
 {
   "site_name": "forterp",
-  "site_tagline": "A faithful FORTRAN-66 / DEC FORTRAN-10 interpreter, in Python.",
-  "site_description": "forterp runs FORTRAN against a pluggable machine value model and a pluggable front-end dialect: strict ANSI FORTRAN-66 by default, the DEC FORTRAN-10 superset on demand — on a portable 64-bit machine or a faithful 36-bit PDP-10. Extracted from an interpreter built to run the 1978 games DECWAR and Empire unmodified.",
+  "site_tagline": "A FORTRAN-66 / DEC FORTRAN-10 interpreter, in Python.",
+  "site_description": "Written in pure Python, with two pluggable axes: the front-end dialect — strict ANSI FORTRAN 66 by default, the DEC FORTRAN-10 superset on demand — and the machine value model, a 64-bit default or a 36-bit PDP-10. Conformance is checked against the FCVS corpus; the PDP-10 model, against the DEC FORTRAN-10 V5 manual and real 1970s code.",
   "github_href": "https://github.com/nkissebe/forterp",
   "copyright": "Nicholas J. Kisseberth",
   "status": "beta",
   "attribution": [
     "Software Architecture, Design & Engineering by Nicholas J. Kisseberth.",
     "Code Synthesized via Anthropic Claude Code / Opus 4.8.",
-    "Code Review by OpenAI Codex / ChatGPT 5.5."
+    "Automated Code Review via OpenAI Codex / ChatGPT 5.5."
   ],
   "docs": [
     {
@@ -30,7 +30,7 @@
       "title": "Changelog",
       "source": "CHANGELOG.md",
       "summary": "Dated history of the standalone interpreter, in order: the target/dialect axes, the CLI and monitor, the conformance work, and the review sweep.",
-      "featured": true
+      "featured": false
     },
     {
       "slug": "docs",

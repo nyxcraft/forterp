@@ -10,6 +10,7 @@ from pytest import approx
 
 from forterp.fmt import parse_format, render, apply_carriage, read_values
 from forterp.parser import pack5
+from forterp.target import PDP10  # pack5 produces PDP-10 words; render them with that target
 from conftest import run
 
 
@@ -47,6 +48,7 @@ def test_parse_group_repeat():
 
 def test_parse_hollerith_and_quote_escape():
     assert sig("(5HHELLO)") == [("lit", "HELLO", None)]
+    assert sig("(1H.,1H,)") == [("lit", ".", None), ("lit", ",", None)]
     assert sig("('it''s')") == [("lit", "it's", None)]
 
 
@@ -107,14 +109,14 @@ def test_render_g_format_f_or_e_by_magnitude():
 
 # ---- output rendering: characters ------------------------------------------
 def test_render_char_exact_and_padded():
-    assert render(parse_format("(A2)"), [pack5("HI")]) == ("HI", False)
-    assert render(parse_format("(A5)"), [pack5("HI")]) == ("HI   ", False)  # left-justified
-    assert render(parse_format("(A)"), [pack5("HELLO")]) == ("HELLO", False)
+    assert render(parse_format("(A2)"), [pack5("HI")], PDP10) == ("HI", False)
+    assert render(parse_format("(A5)"), [pack5("HI")], PDP10) == ("HI   ", False)  # left-justified
+    assert render(parse_format("(A)"), [pack5("HELLO")], PDP10) == ("HELLO", False)
 
 
 def test_render_char_wider_field_right_justifies():
     # Aw with w greater than the data length right-justifies (blank fill on left)
-    assert render(parse_format("(A8)"), [pack5("HI")]) == ("   HI   ", False)
+    assert render(parse_format("(A8)"), [pack5("HI")], PDP10) == ("   HI   ", False)
 
 
 # ---- spacing / control -----------------------------------------------------
@@ -191,7 +193,7 @@ def test_read_real_implied_decimal():
 
 
 def test_read_char_field_packs():
-    assert read_values(parse_format("(A2)"), "HIthere") == [("A", pack5("HI"))]
+    assert read_values(parse_format("(A2)"), "HIthere", PDP10) == [("A", pack5("HI"))]
 
 
 def test_read_real():

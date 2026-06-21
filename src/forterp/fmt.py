@@ -11,19 +11,21 @@ Edit descriptors supported (V5 Ch13, Table 13-1):
 
 from __future__ import annotations
 
-from forterp.target import PDP10
+from forterp.target import NATIVE
 
 MASK36 = (1 << 36) - 1
 
 
 def unpack_chars(word, n):
-    """Unpack up to n leading 7-bit characters from a packed-ASCII word."""
+    """Unpack up to n leading characters from a packed-ASCII word -- the PDP-10 layout:
+    five 7-bit characters, char 0 in the high bits of a 36-bit word."""
     if isinstance(word, str):
         return word[:n] if n else word
+    word_bits, bits, per_word, ascii_mask = 36, 7, 5, 0x7F
     u = int(word) & MASK36
     out = []
-    for k in range(min(n, 5) if n else 5):
-        c = (u >> (29 - 7 * k)) & 0x7F
+    for k in range(min(n, per_word) if n else per_word):
+        c = (u >> (word_bits - bits * (k + 1))) & ascii_mask  # char k, high-justified
         out.append(chr(c) if c else " ")
     return "".join(out)
 
@@ -119,6 +121,11 @@ def _parse_seq(s, p, depth=0):
             break
         letter = s[p].upper()
         p += 1
+        if letter == "H":  # nH literal begins immediately after the H
+            text = s[p : p + rep]
+            p += rep
+            items.append(Item("lit", text))
+            continue
         w = 0
         has_w = False
         while p < n and s[p].isdigit():
@@ -135,11 +142,6 @@ def _parse_seq(s, p, depth=0):
         count = max(rep, 1)
         if letter == "X":  # nX = (rep) spaces
             items.append(Item("X", rep if rep else (w or 1)))
-            continue
-        if letter == "H":  # nH literal (rep chars)
-            text = s[p : p + rep]
-            p += rep
-            items.append(Item("lit", text))
             continue
         for _ in range(count):
             items.append(Item(letter, w if has_w else None, d))
@@ -190,7 +192,7 @@ class _Record:
         return "".join(self.chars)
 
 
-def render(items, values, target=PDP10):
+def render(items, values, target=NATIVE):
     """Render an output record list. Returns (text, suppress_newline).
 
     Implements V5 FORMAT control (13.2.2/13.2.10): when the I/O list outlasts the
@@ -241,7 +243,7 @@ def render(items, values, target=PDP10):
     return "\n".join(records), suppress
 
 
-def _render_one(k, it, v, scale, target=PDP10):
+def _render_one(k, it, v, scale, target=NATIVE):
     """Render one value under data descriptor `k` (with the current scale factor)."""
     dw, dd = _DEFAULTS[k]
     w = it.a if it.a is not None else dw
@@ -267,7 +269,7 @@ def _render_one(k, it, v, scale, target=PDP10):
     return ""
 
 
-def _afmt(v, w, target=PDP10):
+def _afmt(v, w, target=NATIVE):
     """A descriptor: w>=m -> m chars right-justified, blank-filled; w<m -> leftmost w."""
     s = v if isinstance(v, str) else target.unpack(v, w if w else target.chars_per_word)
     if w:
@@ -275,7 +277,7 @@ def _afmt(v, w, target=PDP10):
     return s
 
 
-def _rfmt(v, w, target=PDP10):
+def _rfmt(v, w, target=NATIVE):
     """R descriptor: like A, but w<m takes the RIGHTMOST w chars (vs A's leftmost)."""
     full = v if isinstance(v, str) else target.unpack(v, target.chars_per_word)
     w = w or target.chars_per_word
@@ -289,7 +291,7 @@ def _ifmt(iv, w):
     return s.rjust(w) if w else " " + s
 
 
-def _ofmt(iv, w, target=PDP10):
+def _ofmt(iv, w, target=NATIVE):
     s = format(int(iv) & target.mask, "o")  # octal of the word's bit pattern (target width)
     if w and len(s) > w:
         return "*" * w
@@ -391,7 +393,7 @@ class InputConversionError(Exception):
     blanks are zeros, so it reads as 0 (F66 7.2.3.6)."""
 
 
-def read_values(items, line, target=PDP10, free_form=False):
+def read_values(items, line, target=NATIVE, free_form=False):
     """Parse `line` per the format (F66 7.2.3); return a list of (kind, value) reads.
 
     By default (F66) every numeric/logical field is read by COLUMN: leading blanks are

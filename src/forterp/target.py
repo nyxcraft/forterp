@@ -35,6 +35,8 @@ class Target:
         self.truth = truth
         self.mask = (1 << word_bits) - 1
         self.sign = 1 << (word_bits - 1)
+        self.modulus = 1 << word_bits  # 2^word_bits: the two's-complement wrap modulus
+        self.char_mask = (1 << bits_per_char) - 1  # low-bits mask for one packed character
 
     def _charshift(self, i):
         """Bit offset of the i-th packed character. Big-endian (PDP-10/NATIVE): char 0 in
@@ -45,7 +47,7 @@ class Target:
     def wrap(self, v: int) -> int:
         """Reduce an integer to a signed word value (PDP-10: 2's-complement, 36 bits)."""
         v &= self.mask
-        return v - (1 << self.word_bits) if v & self.sign else v
+        return v - self.modulus if v & self.sign else v
 
     def truthy(self, v) -> bool:
         """Is this value .TRUE.?  PDP-10: sign-negative; NATIVE: nonzero; VAX: low-order
@@ -65,47 +67,44 @@ class Target:
         """A relational/logical result as this target's logical value (PDP-10: -1/0)."""
         return self.logical_true if b else 0
 
-    # ---- logical connectives: bitwise on the word (PDP-10) or boolean (portable) ----
+    # ---- logical connectives ----
+    def _connective(self, bitwise, boolean):
+        """Apply one logical connective under this target's convention: `bitwise()` on the
+        raw words (PDP-10 -- .TRUE. is all-bits-set, so the bit ops carry the truth), or
+        `boolean()` on the truth values (portable). Only the chosen branch is evaluated."""
+        return self.wrap(bitwise()) if self.bitwise_logic else self.from_bool(boolean())
+
     def lnot(self, v):
-        return self.wrap(~int(v)) if self.bitwise_logic else self.from_bool(not self.truthy(v))
+        return self._connective(lambda: ~int(v), lambda: not self.truthy(v))
 
     def land(self, lhs, rhs):
-        return (
-            self.wrap(int(lhs) & int(rhs))
-            if self.bitwise_logic
-            else self.from_bool(self.truthy(lhs) and self.truthy(rhs))
+        return self._connective(
+            lambda: int(lhs) & int(rhs), lambda: self.truthy(lhs) and self.truthy(rhs)
         )
 
     def lor(self, lhs, rhs):
-        return (
-            self.wrap(int(lhs) | int(rhs))
-            if self.bitwise_logic
-            else self.from_bool(self.truthy(lhs) or self.truthy(rhs))
+        return self._connective(
+            lambda: int(lhs) | int(rhs), lambda: self.truthy(lhs) or self.truthy(rhs)
         )
 
     def lxor(self, lhs, rhs):
-        return (
-            self.wrap(int(lhs) ^ int(rhs))
-            if self.bitwise_logic
-            else self.from_bool(self.truthy(lhs) != self.truthy(rhs))
+        return self._connective(
+            lambda: int(lhs) ^ int(rhs), lambda: self.truthy(lhs) != self.truthy(rhs)
         )
 
     def leqv(self, lhs, rhs):
-        return (
-            self.wrap(~(int(lhs) ^ int(rhs)))
-            if self.bitwise_logic
-            else self.from_bool(self.truthy(lhs) == self.truthy(rhs))
+        return self._connective(
+            lambda: ~(int(lhs) ^ int(rhs)), lambda: self.truthy(lhs) == self.truthy(rhs)
         )
 
     def pack(self, s: str) -> int:
         """Pack up to chars_per_word characters left-justified, blank-padded, into one
         signed word (bits_per_char bits each; PDP-10: 5 chars x 7 bits in 36 bits)."""
-        cw, bpc = self.chars_per_word, self.bits_per_char
+        cw = self.chars_per_word
         s = (s + " " * cw)[:cw]
-        cmask = (1 << bpc) - 1
         v = 0
         for i, c in enumerate(s):
-            v |= (ord(c) & cmask) << self._charshift(i)
+            v |= (ord(c) & self.char_mask) << self._charshift(i)
         return self.wrap(v)
 
     def unpack(self, w, n=None) -> str:
@@ -113,12 +112,11 @@ class Target:
         A value that is already a Python str is returned as-is (sliced to n)."""
         if isinstance(w, str):
             return w[:n] if n else w
-        cw, bpc = self.chars_per_word, self.bits_per_char
-        cmask = (1 << bpc) - 1
+        cw = self.chars_per_word
         u = int(w) & self.mask
         out = []
         for k in range(min(n, cw) if n else cw):
-            c = (u >> self._charshift(k)) & cmask
+            c = (u >> self._charshift(k)) & self.char_mask
             out.append(chr(c) if c else " ")
         return "".join(out)
 
