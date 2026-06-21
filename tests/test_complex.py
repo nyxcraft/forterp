@@ -66,7 +66,7 @@ def test_complex_data_statement():
 
 def test_complex_list_directed_output():
     eng = cx("        C=(1.0,2.0)\n        TYPE *, C\n", "        COMPLEX C\n")
-    assert "(1.0,2.0)" in "".join(eng.out)
+    assert "".join(eng.out) == " (1.0,2.0)\n"  # full record, not just a substring
 
 
 def test_complex_formatted_output_is_two_reals():

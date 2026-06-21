@@ -71,13 +71,18 @@ def _vals_agree(x, y):
 
 def _assert_dialects_agree(f66_eng, f10_eng, src):
     """An F66-compliant program must produce identical results under F66 and FORTRAN10."""
-    if _vals_agree(f66_eng.commons, f10_eng.commons) and f66_eng.printout == f10_eng.printout:
+    if (
+        _vals_agree(f66_eng.commons, f10_eng.commons)
+        and f66_eng.printout == f10_eng.printout
+        and f66_eng.out == f10_eng.out  # terminal (TYPE / list-directed / unit-5) output too
+    ):
         return
     raise AssertionError(
         "F66 and FORTRAN10 disagree on an F66-compliant program -- the dialect changed its "
         "behavior, or a gate over-rejects.\n"
         f"  COMMON  F66={f66_eng.commons!r}\n          F10={f10_eng.commons!r}\n"
         f"  LPT     F66={f66_eng.printout!r}\n          F10={f10_eng.printout!r}\n"
+        f"  TTY     F66={f66_eng.out!r}\n          F10={f10_eng.out!r}\n"
         f"--- src ---\n{src}"
     )
 

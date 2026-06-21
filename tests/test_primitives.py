@@ -73,8 +73,11 @@ def test_lsh_right_is_logical_not_arithmetic():
 
 # ---- packed ASCII (7-bit, left-justified, blank-padded, signed) ----
 def test_pack5_known_filename():
-    # GAM:X.A filename word, from the missing-maps analysis (signed 36-bit)
+    # GAM:X.A filename word from the missing-maps analysis. Signed 36-bit; the bit pattern
+    # is 0o541350120100 (X=0o130, .=0o056, A=0o101, blanks 0o040 -- five 7-bit chars,
+    # high-justified), which as a negative two's-complement word is -21279760320.
     assert pack5("X.A  ") == -21279760320
+    assert pack5("X.A  ") & ((1 << 36) - 1) == 0o541350120100  # auditable bit pattern
 
 
 def test_pack5_blank_pads():

@@ -148,3 +148,55 @@ def test_presets_do_not_recover_shifted_columns_by_default():
         source_options=SourceOptions(recover_shifted_cols=True),
     )
     assert custom.source_options.recover_shifted_cols is True
+
+
+# ---- API-review contracts: dialect gating, no-shadow, clean errors, namespaces ----
+def test_strict_f66_does_not_install_the_dec_library():
+    # the DEC library (RAN/DATE/...) is gated on dec_intrinsics, so strict f66 must not
+    # provide it -- calling RAN under f66 is an error, not a silent random value.
+    ran = "      PROGRAM T\n      COMMON /OUT/ R\n      R = RAN(0)\n      END\n"
+    with pytest.raises(RuntimeError):
+        forterp.f66.run_source(ran)
+    forterp.fortran10.run_source(ran)  # the DEC superset does provide it
+
+
+def test_make_engine_does_not_shadow_a_program_defined_routine():
+    # a program that defines its own routine sharing a STDLIB name (DATE) gets its own,
+    # not the library builtin.
+    src = (
+        "      PROGRAM T\n      COMMON /OUT/ V(2)\n      CALL DATE(V)\n      END\n"
+        "      SUBROUTINE DATE(A)\n      DIMENSION A(2)\n      A(1)=42\n      RETURN\n      END\n"
+    )
+    units = forterp.parse_source(src, dialect=forterp.FORTRAN10)
+    eng = forterp.make_engine(units, dialect=forterp.FORTRAN10)
+    eng.run_program("T")
+    assert eng.commons["OUT"][0] == 42
+
+
+def test_run_source_raises_value_error_when_there_is_no_program():
+    # a missing or unknown program is a descriptive ValueError, not a leaked KeyError.
+    with pytest.raises(ValueError):
+        forterp.run_source("      SUBROUTINE S\n      END\n")
+    with pytest.raises(ValueError):
+        forterp.run_source("      PROGRAM T\n      END\n", program="NOPE")
+
+
+def test_interpreter_derives_flags_from_its_dialect():
+    # free_form_input / dec_intrinsics default from the Dialect, so a caller cannot build a
+    # contradictory pairing by omission.
+    fi = forterp.Interpreter(forterp.NATIVE, forterp.F66)
+    assert fi.free_form_input is False and fi.dec_intrinsics is False
+    f10 = forterp.Interpreter(forterp.PDP10, forterp.FORTRAN10)
+    assert f10.free_form_input is True and f10.dec_intrinsics is True
+
+
+def test_expert_namespaces_exist_and_root_is_slimmed():
+    # expert surfaces live behind explicit namespaces ...
+    assert callable(forterp.frontend.parse_units)
+    assert callable(forterp.format.render)
+    assert forterp.runtime.Engine is forterp.Engine
+    assert hasattr(forterp.ast, "Binary")
+    # ... and the misleading generic parsers are off the root (only in forterp.frontend).
+    assert not hasattr(forterp, "parse_file")
+    assert not hasattr(forterp, "parse_program")
+    assert callable(forterp.frontend.parse_file)

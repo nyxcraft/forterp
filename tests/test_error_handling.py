@@ -84,3 +84,14 @@ def test_huge_array_allocation_is_a_clean_error(capsys):
         args=("--std", "fortran10"),
     )
     assert "exceeds" in err
+
+
+def test_call_unresolved_external_is_clean(capsys):
+    # a name declared EXTERNAL but never defined, passed as a dummy procedure then called,
+    # is a clean ?-error, not a crash.
+    _cli_fails_cleanly(
+        capsys,
+        "      PROGRAM T\n      EXTERNAL FOO\n      CALL APPLY(FOO)\n      END\n"
+        "      SUBROUTINE APPLY(P)\n      EXTERNAL P\n      CALL P\n      RETURN\n      END\n",
+        args=("--std", "fortran10"),
+    )

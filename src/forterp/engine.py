@@ -830,6 +830,11 @@ class Engine:
         actual values, evaluate its body expression, then restore the locals it
         shadowed (the dummies are local to the statement function)."""
         params, body = frame.rt.unit.stmt_funcs[name]
+        if len(arg_nodes) != len(params):
+            raise RuntimeError(
+                f"statement function {name} expects {len(params)} argument(s), "
+                f"got {len(arg_nodes)}"
+            )
         actuals = [self.eval(a, frame) for a in arg_nodes]
         store = frame.rt.local_scalars
         saved = {p: store[p] for p in params if p in store}
