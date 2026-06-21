@@ -109,6 +109,31 @@ def _oob_event(idx, store_len, op):
         OOB_LOG.append(_oob_context(idx, store_len, op))
 
 
+def oob_read(store, idx):
+    """Read store[idx] with FORTRAN-10's unchecked-pointer semantics: an out-of-bounds (or
+    negative) index reads 0 rather than faulting. The single source of that rule -- CellRef
+    and the engine's scalar/array fast paths all go through here (no per-access object)."""
+    if 0 <= idx < len(store):
+        return store[idx]
+    global OOB_READS
+    OOB_READS += 1
+    if OOB_CHECK != "off":
+        _oob_event(idx, len(store), "read")
+    return 0
+
+
+def oob_write(store, idx, v):
+    """Write store[idx] with FORTRAN-10's unchecked-pointer semantics: an out-of-bounds (or
+    negative) index is dropped rather than faulting. The write counterpart of oob_read."""
+    if 0 <= idx < len(store):
+        store[idx] = v
+        return
+    global OOB_WRITES
+    OOB_WRITES += 1
+    if OOB_CHECK != "off":
+        _oob_event(idx, len(store), "write")
+
+
 class CellRef:
     """Reference to one word in a backing list.
 
@@ -124,22 +149,10 @@ class CellRef:
         self.store, self.idx = store, idx
 
     def read(self):
-        if 0 <= self.idx < len(self.store):
-            return self.store[self.idx]
-        global OOB_READS
-        OOB_READS += 1
-        if OOB_CHECK != "off":
-            _oob_event(self.idx, len(self.store), "read")
-        return 0
+        return oob_read(self.store, self.idx)
 
     def write(self, v):
-        if 0 <= self.idx < len(self.store):
-            self.store[self.idx] = v
-            return
-        global OOB_WRITES
-        OOB_WRITES += 1
-        if OOB_CHECK != "off":
-            _oob_event(self.idx, len(self.store), "write")
+        oob_write(self.store, self.idx, v)
 
 
 class DictRef:
@@ -646,6 +659,22 @@ class Engine:
             rt.local_arrays[name] = [0] * array_size(dims)
         return ArrayView(rt.local_arrays[name], 0), dims
 
+    def _array_base(self, frame, name):
+        """The backing store and base offset of array `name`, without building an ArrayView
+        -- the read/write fast paths use this with oob_read/oob_write. (arrayview() builds
+        the ArrayView object, which is still what array-argument passing and I/O need.)"""
+        a = frame.args.get(name)
+        if a is not None:  # an array dummy: a CellRef actual seq-associates from its element
+            return (a.store, a.idx) if type(a) is CellRef else (a.store, a.base)
+        rt = frame.rt
+        slot = rt.common_map.get(name)
+        if slot is not None:
+            return self.commons[slot[0]], slot[1]
+        arr = rt.local_arrays.get(name)
+        if arr is None:
+            arr = rt.local_arrays[name] = [0] * array_size(rt.unit.arrays[name])
+        return arr, 0
+
     def _scalar_static_ref(self, rt, unit, name):
         if name in rt.common_map:
             block, off, _ = rt.common_map[name]
@@ -688,23 +717,19 @@ class Engine:
 
     # ---- expression evaluation
     def eval(self, node, frame):
+        # Ordered hottest-first: at run time, variable reads, arithmetic, integer constants,
+        # and array elements dominate; the rarer literal node types follow.
         t = type(node)
-        if t is A.IntLit:
-            return node.value
-        if t is A.RealLit:
-            return node.value
-        if t is A.OctalLit:
-            return self.tgt.wrap(node.value)
-        if t is A.Complex:  # (re, im) complex constant
-            return complex(float(self.eval(node.re, frame)), float(self.eval(node.im, frame)))
-        if t is A.StrLit:
-            return self.tgt.pack(node.value)
-        if t is A.LogicalLit:
-            return self.tgt.from_bool(node.value)  # FORTRAN-10 .TRUE.=-1, .FALSE.=0
         if t is A.Var:
             return self.eval_var(node.name, frame)
+        if t is A.Binary:
+            return self.eval_binary(node, frame)
+        if t is A.IntLit:
+            return node.value
         if t is A.Ref:
             return self.eval_ref(node, frame)
+        if t is A.RealLit:
+            return node.value
         if t is A.Unary:
             v = self.eval(node.operand, frame)
             if node.op == "NOT":
@@ -712,8 +737,14 @@ class Engine:
             if node.op == "-":
                 return self.tgt.wrap(-v) if isinstance(v, int) else -v
             return v
-        if t is A.Binary:
-            return self.eval_binary(node, frame)
+        if t is A.OctalLit:
+            return self.tgt.wrap(node.value)
+        if t is A.StrLit:
+            return self.tgt.pack(node.value)
+        if t is A.LogicalLit:
+            return self.tgt.from_bool(node.value)  # FORTRAN-10 .TRUE.=-1, .FALSE.=0
+        if t is A.Complex:  # (re, im) complex constant
+            return complex(float(self.eval(node.re, frame)), float(self.eval(node.im, frame)))
         raise RuntimeError(f"cannot eval {node}")
 
     def _name_is_unbound(self, name, frame, unit, *, exclude_assigned=True):
@@ -745,7 +776,15 @@ class Engine:
             name, frame, unit, exclude_assigned=False
         ):
             return self.builtins[name](self, frame, [])
-        return self.scalar_ref(frame, name).read()
+        # plain scalar read: fetch the value directly, allocating no per-read reference
+        # object (the hot path). scalar_ref() builds a CellRef/DictRef -- only writes and
+        # argument passing need that.
+        if name in frame.args:
+            return frame.args[name].read()
+        slot = frame.rt.common_map.get(name)
+        if slot is not None:
+            return self.commons[slot[0]][slot[1]]
+        return frame.rt.local_scalars.get(name, 0)
 
     def eval_ref(self, node, frame):
         name = node.name
@@ -753,7 +792,8 @@ class Engine:
         if name in unit.arrays:
             dims = self._dims(name, frame)
             subs = [self.eval(a, frame) for a in node.args]
-            return self.arrayview(frame, name).loc(linidx(subs, dims)).read()
+            store, base = self._array_base(frame, name)  # read directly, no CellRef/ArrayView
+            return oob_read(store, base + linidx(subs, dims))
         proc = frame.args.get(name)
         if isinstance(proc, ProcRef):  # reference to a dummy procedure (function)
             return self.call_function(proc.target, node.args, frame)
@@ -838,7 +878,21 @@ class Engine:
             return self.tgt.leqv(self.eval(node.left, frame), self.eval(node.right, frame))
         a = self.eval(node.left, frame)
         b = self.eval(node.right, frame)
+        fl = isinstance(a, float) or isinstance(b, float)
         cx = isinstance(a, complex) or isinstance(b, complex)
+        # arithmetic first (the hot ops); an integer result takes the target's word wrap
+        if op == "+":
+            return a + b if (fl or cx) else self.tgt.wrap(a + b)
+        if op == "-":
+            return a - b if (fl or cx) else self.tgt.wrap(a - b)
+        if op == "*":
+            return a * b if (fl or cx) else self.tgt.wrap(a * b)
+        if op == "/":
+            if cx:
+                return a / b if b != 0 else 0j  # complex divide (non-fatal /0)
+            if fl:
+                return a / b if b != 0 else 0.0  # FOROTS divide-by-zero: non-fatal
+            return trunc_div(a, b)  # (handles b==0 -> 0)
         # relational results are FORTRAN logicals (target's convention: PDP-10 -1/0)
         if op == "EQ":
             return self.tgt.from_bool(a == b)
@@ -854,19 +908,6 @@ class Engine:
             return self.tgt.from_bool(a > b)
         if op == "GE":
             return self.tgt.from_bool(a >= b)
-        fl = isinstance(a, float) or isinstance(b, float)
-        if op == "+":
-            return a + b if (fl or cx) else self.tgt.wrap(a + b)
-        if op == "-":
-            return a - b if (fl or cx) else self.tgt.wrap(a - b)
-        if op == "*":
-            return a * b if (fl or cx) else self.tgt.wrap(a * b)
-        if op == "/":
-            if cx:
-                return a / b if b != 0 else 0j  # complex divide (non-fatal /0)
-            if fl:
-                return a / b if b != 0 else 0.0  # FOROTS divide-by-zero: non-fatal
-            return trunc_div(a, b)  # (handles b==0 -> 0)
         if op == "^":
             if cx:
                 return a**b  # complex exponentiation
@@ -1078,11 +1119,21 @@ class Engine:
         elif ttype == "INTEGER" and isinstance(val, float):
             val = self.tgt.wrap(int(val))
         if isinstance(tgt, A.Var):
-            self.scalar_ref(frame, tgt.name).write(val)
+            # write directly, allocating no reference object (mirror of eval_var's read)
+            name = tgt.name
+            if name in frame.args:
+                frame.args[name].write(val)
+            else:
+                slot = frame.rt.common_map.get(name)
+                if slot is not None:
+                    self.commons[slot[0]][slot[1]] = val  # in-range COMMON scalar slot
+                else:
+                    frame.rt.local_scalars[name] = val
         else:
             dims = self._dims(tgt.name, frame)
             subs = [self.eval(a, frame) for a in tgt.args]
-            self.arrayview(frame, tgt.name).loc(linidx(subs, dims)).write(val)
+            store, base = self._array_base(frame, tgt.name)
+            oob_write(store, base + linidx(subs, dims), val)
 
     def exec_do(self, s, frame):
         start = self.eval(s.start, frame)
