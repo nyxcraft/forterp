@@ -383,7 +383,11 @@ class Engine:
         # a 'GAM:' terrain device) via register_device, so the engine stays host-agnostic.
         self.device_handlers = {}
         self.steps = 0
-        self.max_steps = 50_000_000
+        self.max_steps = 50_000_000  # bounds compute (runaway loops) -> _budget_error
+        # bounds a single array/COMMON allocation so a hostile or accidental huge DIMENSION
+        # (e.g. A(2000000000)) raises a clean error instead of OOM-ing the host. Generous;
+        # raise eng.max_array_words for a program that legitimately needs more.
+        self.max_array_words = 50_000_000
         # (tracer / frames are class-level defaults -- see the top of the class -- so a
         # normal run leaves the instance __dict__ identical to the pre-debug engine.)
         # Parsed FORMATs, memoized by spec text. Reusing one parsed object per spec lets
@@ -447,7 +451,7 @@ class Engine:
                     off += array_size(d) if d else 1
                 sizes[block] = max(sizes.get(block, 0), off)
         for block, n in sizes.items():
-            self.commons[block] = [0] * n
+            self.commons[block] = self._alloc_words(n)
 
         for name, u in self.units.items():
             rt = UnitRT(u)
@@ -563,7 +567,7 @@ class Engine:
                 size = max(off[m] - mn + size_of(m) for m in members)
                 key = f"$EQV.{uname}.{eq_block}"
                 eq_block += 1
-                self.commons[key] = [0] * size
+                self.commons[key] = self._alloc_words(size)
                 for m in members:
                     rt.common_map[m] = (key, off[m] - mn, u.arrays.get(m))
 
@@ -650,13 +654,23 @@ class Engine:
             return {"+": a + b, "-": a - b, "*": a * b, "/": trunc_div(a, b)}[node.op]
         raise RuntimeError(f"bad DATA subscript {node}")
 
+    def _alloc_words(self, n):
+        """A flat word store of length n, capped at max_array_words so a hostile or accidental
+        huge DIMENSION raises a clean error instead of OOM-ing the host."""
+        if n > self.max_array_words:
+            raise RuntimeError(
+                f"array allocation of {n} words exceeds the {self.max_array_words}-word limit "
+                "(set eng.max_array_words higher if this is intended)"
+            )
+        return [0] * n
+
     def _static_array(self, rt, unit, name):
         dims = unit.arrays[name]
         if name in rt.common_map:
             block, off, _ = rt.common_map[name]
             return ArrayView(self.commons[block], off), dims
         if name not in rt.local_arrays:
-            rt.local_arrays[name] = [0] * array_size(dims)
+            rt.local_arrays[name] = self._alloc_words(array_size(dims))
         return ArrayView(rt.local_arrays[name], 0), dims
 
     def _array_base(self, frame, name):
@@ -672,7 +686,7 @@ class Engine:
             return self.commons[slot[0]], slot[1]
         arr = rt.local_arrays.get(name)
         if arr is None:
-            arr = rt.local_arrays[name] = [0] * array_size(rt.unit.arrays[name])
+            arr = rt.local_arrays[name] = self._alloc_words(array_size(rt.unit.arrays[name]))
         return arr, 0
 
     def _scalar_static_ref(self, rt, unit, name):

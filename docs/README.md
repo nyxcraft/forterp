@@ -36,3 +36,12 @@ the primary sources are:
 The interpreter is exercised against the **FCVS** (FORTRAN Compiler Validation System)
 audit corpus — see `tests/fcvs/` — which checks conformance to the FORTRAN-66 standard.
 Run `pytest` to execute it.
+
+## Security & trust model
+
+forterp is an **interpreter, not a sandbox**: a program runs with the invoking process's
+privileges and its `OPEN`/`READ`/`WRITE` reach the real filesystem (absolute or `..` paths
+escape `save_root`). There is no network, `eval`, or subprocess reachable from FORTRAN, and
+execution and allocation are bounded (`eng.max_steps`, `eng.max_array_words`) — but do not
+run untrusted source expecting containment; confine it at the OS level instead. See the
+**Security & trust model** section of the top-level [README](../README.md#security--trust-model).

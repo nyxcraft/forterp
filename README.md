@@ -170,6 +170,25 @@ The suite is the interpreter's unit tests plus the **FCVS** (FORTRAN Compiler Va
 System) conformance corpus — the standard-conformance audits — exercised through the
 real source-reader → lexer → parser → engine pipeline.
 
+## Security & trust model
+
+forterp is an **interpreter, not a sandbox**. A program it runs executes with the full
+privileges of the invoking process: FORTRAN `OPEN`/`READ`/`WRITE` reach the real
+filesystem, and an absolute path or one containing `..` reads or writes files *outside*
+the `save_root` base directory. There is no network access, Python `eval`, or subprocess
+reachable from a FORTRAN program — but file access alone means **you should not run
+untrusted source expecting containment.** To run code you don't trust, confine the process
+at the OS level (an unprivileged user, a container, a read-only filesystem, seccomp).
+
+Two guards keep an accidental or hostile program from taking down the host, each raising a
+clean error rather than hanging or OOM-ing: a statement budget (`eng.max_steps`, default
+50M) bounds execution, and `eng.max_array_words` (default 50M) bounds any single
+array/`COMMON` allocation. `INCLUDE` is confined to the source file's own directory.
+
+The interactive monitor additionally offers a `!` shell escape and `@file` command scripts
+(not reachable from a running FORTRAN program); these run with your shell's privileges, so
+treat a command script as trusted input and don't wire the monitor to an untrusted source.
+
 ## License
 
 MIT © Nicholas J. Kisseberth. See [LICENSE](LICENSE).

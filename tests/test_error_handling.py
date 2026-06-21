@@ -73,3 +73,14 @@ def test_library_builtin_wrong_arg_count_is_clean(capsys):
         capsys, "      PROGRAM T\n      CALL TIME\n      END\n", args=("--std", "fortran10")
     )
     assert "TIME" in err
+
+
+def test_huge_array_allocation_is_a_clean_error(capsys):
+    # A hostile or accidental huge DIMENSION raises a clean error (the max_array_words
+    # cap), not an out-of-memory crash.
+    err = _cli_fails_cleanly(
+        capsys,
+        "      PROGRAM T\n      DIMENSION A(2000000000)\n      A(1)=1\n      END\n",
+        args=("--std", "fortran10"),
+    )
+    assert "exceeds" in err
