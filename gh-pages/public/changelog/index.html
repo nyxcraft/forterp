@@ -34,15 +34,12 @@
         <p class="docs-sidebar__eyebrow">On this page</p>
         <nav class="section-nav" aria-label="On this page">
 <ul class="section-nav__list">
-<li><a class="section-nav__link section-nav__link--l2" href="#pre-extraction-in-pdp10-empire-before-the-2026-06-19-split">Pre-extraction — in `pdp10-empire`, before the 2026-06-19 split</a></li>
-<li><a class="section-nav__link section-nav__link--l3" href="#2026-06-16">2026-06-16</a></li>
-<li><a class="section-nav__link section-nav__link--l3" href="#2026-06-17">2026-06-17</a></li>
-<li><a class="section-nav__link section-nav__link--l3" href="#2026-06-18">2026-06-18</a></li>
-<li><a class="section-nav__link section-nav__link--l3" href="#2026-06-19">2026-06-19</a></li>
-<li><a class="section-nav__link section-nav__link--l2" href="#2026-06-18-standalone-and-a-pluggable-machine">2026-06-18 — standalone, and a pluggable machine</a></li>
-<li><a class="section-nav__link section-nav__link--l2" href="#2026-06-19-cli-monitor-repl-debugger-and-the-conformance-review-work">2026-06-19 — CLI, monitor, REPL, debugger — and the conformance + review work</a></li>
-<li><a class="section-nav__link section-nav__link--l2" href="#2026-06-20-real-machine-defaults-host-marshalling">2026-06-20 — real-machine defaults, host marshalling</a></li>
-<li><a class="section-nav__link section-nav__link--l2" href="#2026-06-21-a-documentation-site-genuine-source-demos-and-the-fixes-they-flushed-out">2026-06-21 — a documentation site, genuine-source demos, and the fixes they flushed out</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#2026-06-16-and-so-it-begins">2026-06-16 — And so it begins...</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#2026-06-17-hardening-for-the-next-program">2026-06-17 — hardening for the next program</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#2026-06-18-pluggable-seams-then-standalone">2026-06-18 — pluggable seams, then standalone</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#2026-06-19-cli-monitor-repl-debugger-conformance">2026-06-19 — CLI, monitor, REPL, debugger, conformance</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#2026-06-20-real-machine-defaults-host-marshalling-docs-site">2026-06-20 — real-machine defaults, host marshalling, docs site</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#2026-06-21-genuine-source-demos-and-the-fixes-they-flushed-out">2026-06-21 — genuine-source demos, and the fixes they flushed out</a></li>
 </ul>
         </nav>
       </aside>
@@ -55,93 +52,61 @@
           <p class="docs-article__source">Changelog</p>
         </header>
         <div class="prose">
-<p>In order, oldest-first. It opens with the <strong>pre-extraction</strong> lineage — the interpreter's
-life inside the <code>pdp10-empire</code> monorepo before <code>forterp</code> was split into its own repository
-(2026-06-19) — then follows the standalone <code>forterp</code> repository. Bullets use local commit
-times (US Eastern); pre-extraction bullets additionally cite their <code>pdp10-empire</code> commit.</p>
-<h2 id="pre-extraction-in-pdp10-empire-before-the-2026-06-19-split">Pre-extraction — in <code>pdp10-empire</code>, before the 2026-06-19 split</h2>
-<p><code>forterp</code> began on 2026-06-16 as a FORTRAN-10 interpreter inside the <code>pdp10-empire</code> monorepo,
-written to run real 1970s DEC FORTRAN — Walter Bright's 1978 <em>Empire</em> and UT Austin's 1979
-<em>DECWAR</em> — <strong>unmodified</strong>. That goal set the north star the project still follows:
-<strong>faithfulness over polish</strong>, reproducing PDP-10 / FORTRAN-10 behavior and its quirks rather
-than cleaning them up. It also forced the load-bearing design decision — a real machine value
-model (36-bit two's-complement words, 5-character packed ASCII, <code>.TRUE.</code> = −1) — because a
-naive interpreter would run the games subtly <em>wrong</em>.</p>
-<p>The monorepo grew in layers — a language core (<code>f66</code>), a TOPS-10 operating environment (the
-interactive monitor), and the games on top — and the language core never imported the layers
-above it. That discipline is what let <code>f66</code> be lifted out cleanly: over three days the few
-game-ward couplings were severed (a pluggable <code>OPEN</code> device registry, a pluggable <code>Target</code>
-value model, a parameterized <code>Dialect</code>, and FOROTS binary I/O moved into a <code>fortran10</code>
-layer), at which point the interpreter was provably standalone and was split into its own
-repository. A configurable FORTRAN-66 interpreter is reusable well beyond those games, while
-the PDP-10 target specifically remains load-bearing for running them as the real machine did.</p>
-<p>Below are the interpreter-core milestones from that era; the hashes reference <code>pdp10-empire</code>,
-not this repo. (The TOPS-10 monitor, the DECWAR multiplayer port, and the instrumented
-terminal / god-view from this period stayed behind in the monorepo and are not part of
-<code>forterp</code>.)</p>
-<h3 id="2026-06-16">2026-06-16</h3>
+<h2 id="2026-06-16-and-so-it-begins">2026-06-16 — And so it begins...</h2>
 <ul>
-<li><strong>15:29</strong> — Initial FORTRAN-10 / F66 interpreter — fixed-form lexer and parser, AST, tree-walking engine, the <code>FORMAT</code> runtime, the intrinsic/runtime library (<code>forlib</code>), and diagnostics. (<code>dfaeda7</code>)</li>
-<li><strong>16:07</strong> — Honor F66 §3.1.6 — blanks are insignificant within tokens, via a tokenizer parse-retry. (<code>268deb8</code>)</li>
-<li><strong>18:49</strong> — <code>RAN</code>/<code>SETRAN</code> intrinsics; <code>COMPLEX</code> formatted input; <code>NAMELIST</code> I/O; random-access (direct) I/O; <code>%FTNLID</code>-style listing warnings. (<code>7a3a7a3</code>)</li>
-<li><strong>18:51</strong> — FOROTS binary-record codec — LSCW framing + DEC-10 floating point — <code>MODE='BINARY'</code>. (<code>cbb06e8</code>)</li>
-<li><strong>23:12</strong> — Front-end: DEC TAB-format source lines, the bare (unnamed) main program, and integer-vs-<code>.EQ.</code> lexing. (<code>07c2c5f</code>)</li>
+<li><strong>15:29</strong> — Initial FORTRAN-10 / F66 interpreter: lexer, parser, AST, tree-walking engine, the FORMAT runtime, the <code>forlib</code> library, diagnostics.</li>
+<li><strong>16:07</strong> — F66 §3.1.6 blanks-insignificance, via a tokenizer parse-retry.</li>
+<li><strong>18:49</strong> — <code>RAN</code>/<code>SETRAN</code>, COMPLEX formatted input, NAMELIST and random-access I/O, <code>%FTNLID</code> warnings.</li>
+<li><strong>18:51</strong> — FOROTS binary-record codec (LSCW framing + DEC-10 float), <code>MODE='BINARY'</code>.</li>
+<li><strong>23:12</strong> — Front-end: DEC TAB-format source, the bare main program, integer-vs-<code>.EQ.</code> lexing.</li>
 </ul>
-<h3 id="2026-06-17">2026-06-17</h3>
+<h2 id="2026-06-17-hardening-for-the-next-program">2026-06-17 — hardening for the next program</h2>
 <ul>
-<li><strong>22:49</strong> — <code>COMMON</code>-block sizing, dummy procedures, continuation-line comments, and lowercase <code>nH</code> Hollerith. (<code>4ca49c0</code>)</li>
+<li><strong>22:49</strong> — <code>COMMON</code> sizing, dummy procedures, continuation comments, lowercase <code>nH</code> Hollerith.</li>
 </ul>
-<h3 id="2026-06-18">2026-06-18</h3>
+<h2 id="2026-06-18-pluggable-seams-then-standalone">2026-06-18 — pluggable seams, then standalone</h2>
 <ul>
-<li><strong>08:58</strong> — A pluggable <code>OPEN</code> device registry — decouples file/device I/O from the host application. (<code>55c91fb</code>)</li>
-<li><strong>09:23</strong> — Extracted the machine value model behind a pluggable <code>Target</code> (36-bit word semantics). (<code>5abce63</code>)</li>
-<li><strong>09:43</strong> — Parameterized the source dialect (<code>Dialect</code>) on the front-end. (<code>9bf7b93</code>)</li>
-<li><strong>11:23</strong> — Introduced a <code>fortran10</code> layer atop the <code>f66</code> core, and relocated FOROTS binary I/O into it. (<code>92f9113</code>)</li>
+<li><strong>08:58</strong> — A pluggable <code>OPEN</code> device registry.</li>
+<li><strong>09:23</strong> — Extracted the machine value model behind a pluggable <code>Target</code>.</li>
+<li><strong>09:43</strong> — Parameterized the front-end dialect (<code>Dialect</code>).</li>
+<li><strong>11:23</strong> — A <code>fortran10</code> layer atop the <code>f66</code> core; moved FOROTS binary I/O into it.</li>
+<li><strong>13:44</strong> — <strong>Split out to a standalone repo</strong> — a <code>src/</code> package with a clean public API and the FCVS corpus.</li>
+<li><strong>14:09</strong> — Routed every wrap/pack/truthy site through <code>Target</code> (INT/LSH, the logical algebra, the char codec).</li>
+<li><strong>14:47</strong> — Added the <code>NATIVE</code> 64-bit target and made it the default; <code>PDP10</code> the opt-in machine.</li>
+<li><strong>15:19</strong> — A provisional, unvalidated <code>VAX</code> target.</li>
+<li><strong>15:39</strong> — Curated the FCVS corpus to F66-only (dropped the 140 F77/<code>CHARACTER</code> routines).</li>
+<li><strong>16:25</strong> — Adopted <code>ruff</code> lint + <code>ruff format</code>.</li>
+<li><strong>23:59</strong> — Renamed <code>f66</code> → <code>forterp</code>; made <code>F66</code> the default dialect.</li>
 </ul>
-<h3 id="2026-06-19">2026-06-19</h3>
+<h2 id="2026-06-19-cli-monitor-repl-debugger-conformance">2026-06-19 — CLI, monitor, REPL, debugger, conformance</h2>
 <ul>
-<li><strong>23:26</strong> — <strong>Split out into the standalone <code>forterp</code> repository</strong> — by then restructured under <code>sixbit/f66/</code> and named <em>SIXBIT FORTRAN 66</em>; <code>pdp10-empire</code> became a downstream consumer. (Later renamed <code>pyf66</code> → <code>forterp</code>; the standalone repo's own history continues below, from its 2026-06-18 initial commit.) (<code>2be5df5</code>)</li>
+<li><strong>00:00</strong> — Three console front-ends: <code>pyf66</code>, <code>pyfortran10</code>, <code>forterp --std</code>.</li>
+<li><strong>00:48</strong> — Gated the DEC I/O surface, intrinsics, and random-access I/O under F66; added the V5 math/rotate intrinsics.</li>
+<li><strong>01:11</strong> — <code>--check</code>: parse and list diagnostics without running.</li>
+<li><strong>10:16</strong> — An interactive command monitor (a TOPS-10 <code>.</code>-prompt descendant).</li>
+<li><strong>10:20</strong> — An immediate-mode REPL, then refactored onto two reusable primitives.</li>
+<li><strong>11:03</strong> — Factored target/dialect config into shared registries + <code>engine_kwargs</code>.</li>
+<li><strong>12:31</strong> — An off-by-default per-statement tracer hook; on it, a debugger + profiler.</li>
+<li><strong>14:24</strong> — Formatted-input conformance; fixed the random-access write clobber; CLI error hygiene.</li>
+<li><strong>21:10</strong> — Exposed the embedding API; added the prebuilt <code>fortran10</code> / <code>f66</code> interpreters.</li>
+<li><strong>21:47</strong> — Gated every non-F66 feature behind a <code>Dialect</code> flag; dual-run F66 tests under both dialects.</li>
+<li><strong>22:11</strong> — Illegal <code>EQUIVALENCE</code> shapes now raise; documented the multi-word storage boundary.</li>
+<li><strong>23:06</strong> — list-directed/NAMELIST bad fields raise like formatted; <code>forbin</code> rejects unrepresentable floats.</li>
 </ul>
-<h2 id="2026-06-18-standalone-and-a-pluggable-machine">2026-06-18 — standalone, and a pluggable machine</h2>
+<h2 id="2026-06-20-real-machine-defaults-host-marshalling-docs-site">2026-06-20 — real-machine defaults, host marshalling, docs site</h2>
 <ul>
-<li><strong>13:44</strong> — Initial commit: the FORTRAN-66 interpreter, lifted out of the original monorepo into its own <code>src/</code> package with a clean public API and the FCVS conformance corpus.</li>
-<li><strong>14:09–14:30</strong> — Routed the value model through a pluggable <code>Target</code>, three steps at a time: the <code>INT</code>-family / <code>LSH</code> intrinsics, the logical algebra, then the character codec.</li>
-<li><strong>14:47</strong> — Added the <code>NATIVE</code> 64-bit target and <strong>made it the default</strong> — <code>PDP10</code> becomes the opt-in real-machine target.</li>
-<li><strong>15:19</strong> — A provisional, <em>unvalidated</em> <code>VAX</code> target plus the seam knobs it needs (little-endian, low-bit truth).</li>
-<li><strong>15:39</strong> — Curated the FCVS corpus to F66-only — removed the 140 F77 / <code>CHARACTER</code> routines.</li>
-<li><strong>16:25–16:38</strong> — Adopted <code>ruff</code> lint + <code>ruff format</code> (Black-standard) across the tree.</li>
-<li><strong>23:59</strong> — Renamed the package <code>f66</code> → <strong><code>forterp</code></strong> and made <code>F66</code> the default dialect (futureproofing the name for a multi-dialect interpreter).</li>
-</ul>
-<h2 id="2026-06-19-cli-monitor-repl-debugger-and-the-conformance-review-work">2026-06-19 — CLI, monitor, REPL, debugger — and the conformance + review work</h2>
-<ul>
-<li><strong>00:00</strong> — Three console front-ends: <code>pyf66</code>, <code>pyfortran10</code>, and <code>forterp --std</code> — thin dialect presets over one engine, like <code>g77</code>/<code>gfortran</code> over gcc.</li>
-<li><strong>00:48–01:06</strong> — Gated the DEC I/O surface, the DEC intrinsics, and random-access I/O under F66; added the V5 math / rotate intrinsics.</li>
-<li><strong>01:11</strong> — <code>--check</code>: parse and list every diagnostic without running — a strict-ANSI-F66 conformance linter.</li>
-<li><strong>10:16</strong> — An interactive <strong>command monitor</strong> — a small, FORTRAN-focused descendant of the TOPS-10 <code>.</code> prompt (<code>RUN</code>/<code>LOAD</code>/<code>SET</code>/<code>SHOW</code>/…).</li>
-<li><strong>10:20–10:52</strong> — An immediate-mode <strong>REPL</strong> (statements run as you type; <code>DO</code> blocks collected across lines), then refactored onto two reusable engine/parser primitives.</li>
-<li><strong>11:03</strong> — Factored target/dialect config into shared registries + <code>engine_kwargs</code> (one source of truth).</li>
-<li><strong>12:31</strong> — An <strong>off-by-default per-statement tracer hook</strong> + frame stack — and on it, an interactive <strong>debugger + statement profiler</strong> in the monitor. A plain run pays nothing.</li>
-<li><strong>14:24–16:08</strong> — Formatted-input conformance: bad-field errors, short-record blank-extension, the BZ-into-exponent behavior pinned and documented; the random-access <code>WRITE(u'0)</code> clobber fixed; CLI error hygiene.</li>
-<li><strong>21:10–21:42</strong> — Exposed the embedding API as public surface; added the prebuilt <code>forterp.fortran10</code> / <code>forterp.f66</code> interpreters (the easy path).</li>
-<li><strong>21:47</strong> — <strong>Gated every non-F66 feature behind a <code>Dialect</code> flag</strong> (18 knobs) — so F66 genuinely <em>rejects</em> non-F66 constructs; the test harness now dual-runs F66-compliant programs under both dialects and asserts they agree.</li>
-<li><strong>22:11</strong> — R4: illegal <code>EQUIVALENCE</code> shapes (backward COMMON extension, cross-COMMON, contradictory) now raise instead of silently mis-laying; the multi-word <code>COMPLEX</code>/<code>DOUBLE</code> storage boundary documented.</li>
-<li><strong>22:36</strong> — <code>test_interpreter.py</code> pins the prebuilt-interpreter API contract.</li>
-<li><strong>23:06–23:41</strong> — R3: list-directed + NAMELIST bad fields now raise like formatted; <code>forbin</code> raises a coherent error on unrepresentable floats (no more silent exponent wrap); the REPL's reserved prompt words documented.</li>
-</ul>
-<h2 id="2026-06-20-real-machine-defaults-host-marshalling">2026-06-20 — real-machine defaults, host marshalling</h2>
-<ul>
-<li><strong>00:00</strong> — The <code>fortran10</code> preset <strong>drops cols 73+ by default</strong> (like real FORTRAN-10); shifted-column recovery is opt-in via <code>source_options</code>, for a driver that needs it.</li>
+<li><strong>00:00</strong> — The <code>fortran10</code> preset drops cols 73+ by default; shifted-column recovery is opt-in.</li>
 <li><strong>17:03</strong> — <code>hostlib</code>: a declarative marshalling layer for host builtins.</li>
+<li><strong>23:25</strong> — A GitHub Pages docs site: a <code>markdown-it-py</code> static-site generator (<code>gh-pages/</code>), Actions deploy.</li>
 </ul>
-<h2 id="2026-06-21-a-documentation-site-genuine-source-demos-and-the-fixes-they-flushed-out">2026-06-21 — a documentation site, genuine-source demos, and the fixes they flushed out</h2>
+<h2 id="2026-06-21-genuine-source-demos-and-the-fixes-they-flushed-out">2026-06-21 — genuine-source demos, and the fixes they flushed out</h2>
 <ul>
-<li><strong>GitHub Pages site</strong> — a small <code>markdown-it-py</code> static-site generator (<code>gh-pages/</code>) publishing the docs and changelog, DEC-maroon themed with content-hash cache-busting; deployed by <code>.github/workflows/pages.yml</code>.</li>
-<li><strong><code>demos/</code></strong> — a corpus of genuine 1970s FORTRAN run as-is: verbatim netlib numerical libraries (<strong>EISPACK</strong>, <strong>LINPACK</strong>, <strong>FFT</strong>, <strong>RKF45</strong>), each with a small <code>EXAMPLEn.FOR</code> driver; DECsystem-10 sources recovered from DECUS tapes (WKDAY, NORMAL, ASTRO, WGMM11, CHARTR); and Paul Boltwood's 1971 Game of Life. EISPACK is byte-for-byte netlib; NORMAL had its SOS line-sequence numbers stripped as transport residue; the 1971 Life had one OCR'd list-terminator constant corrected against the page scan.</li>
-<li><strong><code>examples/</code></strong> — short Python scripts showing how to drive forterp as a library: run + capture output, dialect selection, the pluggable target, FORTRAN-as-compute-kernel via <code>COMMON</code>, and parse-only inspection.</li>
-<li><strong>Multi-file linking</strong> — the CLI now accepts several source files and links them by unit name, like <code>f77 main.f lib.f</code>, so a driver and a separately-held library run as one program.</li>
-<li><strong>Dialect gaps closed</strong>, each flushed out by real period source and correctly gated (F66 still rejects them): the optional comma before an I/O list (<code>WRITE(u,f),list</code>), the two-word <code>END FILE</code> spelling, and <code>DATA</code> usable as an ordinary array name.</li>
-<li><strong><code>READ</code>/<code>ACCEPT</code> EOF fix</strong> — terminal input past end-of-stream now branches to <code>END=</code> (or stops cleanly) instead of looping forever; it had recognized only an in-band CONTROL-Z, never an empty <code>readline()</code>.</li>
-<li><strong>Sequence-association fix</strong> — an array element passed where the dummy is an array (<code>CALL SUB(X(I), …)</code>) is now re-viewed as an array based at that element rather than crashing; this is exactly how LINPACK and RKF45 pass the start of a work vector.</li>
+<li><strong>16:16</strong> — <code>demos/</code>: genuine 1970s FORTRAN run as-is — netlib EISPACK/LINPACK/FFT/RKF45 with drivers, DECUS-tape sources, and Paul Boltwood's 1971 Game of Life.</li>
+<li><strong>16:16</strong> — <code>examples/</code>: short Python scripts driving forterp as a library.</li>
+<li><strong>16:16</strong> — Multi-file linking: several source files linked by unit name, like <code>f77 main.f lib.f</code>.</li>
+<li><strong>16:16</strong> — Dialect gaps closed (gated; F66 still rejects them): the optional comma before an I/O list, two-word <code>END FILE</code>, <code>DATA</code> as an array name.</li>
+<li><strong>16:16</strong> — <code>READ</code>/<code>ACCEPT</code> EOF fix: terminal input past end-of-stream branches to <code>END=</code> instead of looping.</li>
+<li><strong>16:16</strong> — Sequence-association fix: an array element passed where the dummy is an array is re-viewed as a based array (LINPACK/RKF45 work-vector passing).</li>
 </ul>
 
         </div>
