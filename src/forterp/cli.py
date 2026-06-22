@@ -19,8 +19,8 @@ import sys
 import forterp
 from forterp.forbin import Dec10FloatError
 
-_TARGETS = forterp.TARGETS
-_DIALECTS = forterp.DIALECTS
+_TARGETS = forterp.target.TARGETS
+_DIALECTS = forterp.dialect.DIALECTS
 
 
 def _run(argv, dialect, prog, *, allow_std):
@@ -99,11 +99,11 @@ def _run(argv, dialect, prog, *, allow_std):
     except forterp.ParseError as e:
         print(e, file=sys.stderr)
         return 1
-    except (forterp.InputConversionError, Dec10FloatError) as e:
+    except (forterp.fmt.InputConversionError, Dec10FloatError) as e:
         # bad numeric field / unrepresentable float in binary I/O, no ERR= -> clean halt
         print(f"?{e}", file=sys.stderr)
         return 1
-    except forterp.StopExecution:
+    except forterp.engine.StopExecution:
         return 0  # explicit STOP: normal termination (run_program also swallows it)
     except (RuntimeError, ValueError, ArithmeticError, RecursionError, OSError) as e:
         # any other runtime fault (undefined unit/label/routine, step budget, bad

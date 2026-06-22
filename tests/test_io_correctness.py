@@ -52,7 +52,7 @@ def test_decode_of_a_malformed_field_raises_a_conversion_error():
         "        PROGRAM T\n        DIMENSION BUF(2)\n        DATA BUF /5HABCDE,5H    Z/\n"
         "        DECODE(10,100,BUF) I\n  100   FORMAT(I5)\n        END\n"
     )
-    with pytest.raises(forterp.InputConversionError):
+    with pytest.raises(forterp.fmt.InputConversionError):
         run(src, dialect=forterp.FORTRAN10)
 
 

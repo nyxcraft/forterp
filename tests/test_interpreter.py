@@ -168,7 +168,7 @@ def test_make_engine_does_not_shadow_a_program_defined_routine():
         "      SUBROUTINE DATE(A)\n      DIMENSION A(2)\n      A(1)=42\n      RETURN\n      END\n"
     )
     units = forterp.parse_source(src, dialect=forterp.FORTRAN10)
-    eng = forterp.make_engine(units, dialect=forterp.FORTRAN10)
+    eng = forterp.runtime.make_engine(units, dialect=forterp.FORTRAN10)
     eng.run_program("T")
     assert eng.commons["OUT"][0] == 42
 
@@ -194,9 +194,27 @@ def test_expert_namespaces_exist_and_root_is_slimmed():
     # expert surfaces live behind explicit namespaces ...
     assert callable(forterp.frontend.parse_units)
     assert callable(forterp.format.render)
-    assert forterp.runtime.Engine is forterp.Engine
+    assert forterp.runtime.Engine.__name__ == "Engine"  # the Engine lives in forterp.runtime
+    assert callable(forterp.runtime.make_engine)
     assert hasattr(forterp.ast, "Binary")
-    # ... and the misleading generic parsers are off the root (only in forterp.frontend).
-    assert not hasattr(forterp, "parse_file")
-    assert not hasattr(forterp, "parse_program")
+    # ... and the package root carries NO back-compat aliases -- only the __all__ names are
+    # exposed; everything else is reached through a namespace.
+    for gone in (
+        "Engine",
+        "Frame",
+        "make_engine",
+        "install_runtime",
+        "engine_kwargs",
+        "STDLIB",
+        "parse_units",
+        "parse_expression",
+        "parse_file",
+        "parse_program",
+        "tokenize",
+        "render",
+        "TARGETS",
+        "DIALECTS",
+        "InputConversionError",
+    ):
+        assert not hasattr(forterp, gone), f"forterp.{gone} should not exist at the root"
     assert callable(forterp.frontend.parse_file)

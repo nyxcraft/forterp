@@ -16,7 +16,7 @@ from forterp.target import NATIVE, PDP10
 def test_library_default_target_is_native():
     # `import forterp; run_source(...)` must use NATIVE, not the PDP-10 quirk model. Checked
     # via the public API (conftest pins PDP10 for the unit suite, so it can't see this).
-    assert forterp.Engine({}).tgt is forterp.NATIVE
+    assert forterp.engine.Engine({}).tgt is forterp.NATIVE
     assert forterp.run_source("      PROGRAM T\n      END\n").tgt is forterp.NATIVE
 
 

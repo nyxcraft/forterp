@@ -23,10 +23,10 @@ import glob
 import os
 import re
 
-from forterp import install_runtime
 from forterp.dialect import FORTRAN10
 from forterp.engine import Engine, Frame, StopExecution
 from forterp.parser import parse_units
+from forterp.runtime import install_runtime
 from forterp.source import expand_includes, scan_file
 from forterp.target import PDP10
 

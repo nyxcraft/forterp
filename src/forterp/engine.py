@@ -431,11 +431,12 @@ class Engine:
 
     def _binio(self):
         """The unformatted-I/O codec (FOROTS record + DEC-10 float layout). It's a
-        target-specific runtime, injected via forterp.install_runtime; the
+        target-specific runtime, injected via forterp.runtime.install_runtime; the
         generic core has none, so binary I/O without it is a clear error."""
         if self.binio is None:
             raise RuntimeError(
-                "unformatted/binary I/O needs a FORTRAN-10 runtime (forterp.install_runtime)"
+                "unformatted/binary I/O needs a FORTRAN-10 runtime "
+                "(forterp.runtime.install_runtime)"
             )
         return self.binio
 

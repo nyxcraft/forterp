@@ -20,8 +20,8 @@ import sys
 
 import forterp
 
-_TARGETS = forterp.TARGETS
-_DIALECTS = forterp.DIALECTS
+_TARGETS = forterp.target.TARGETS
+_DIALECTS = forterp.dialect.DIALECTS
 
 _HELP = """\
 Commands (case-insensitive):
@@ -325,7 +325,7 @@ class Monitor:
 
     def _execute(self, units):
         dlc = self._dialect()
-        eng = forterp.make_engine(
+        eng = forterp.runtime.make_engine(
             units,
             dialect=dlc,
             target=_TARGETS[self.target],
@@ -344,8 +344,8 @@ class Monitor:
             self._dbg.start_run(eng, units)
             eng.tracer = self._dbg
         try:
-            eng.run(forterp.Frame(eng.rts[name], {}))
-        except forterp.StopExecution:
+            eng.run(forterp.engine.Frame(eng.rts[name], {}))
+        except forterp.engine.StopExecution:
             pass
         except Exception as e:  # a program fault returns to the prompt, not a crash
             self._err(f"?runtime error: {e}")

@@ -27,8 +27,8 @@ Public API (see ``__all__``):
     ParseError, SourceOptions   -- the parse error, and source-recovery options (orthogonal
                                    to the dialect; default: no recovery)
 
-Expert surfaces live behind explicit namespaces (their names also remain importable from
-the package root as deprecated aliases):
+Expert surfaces live behind explicit namespaces (the package root exposes only the names in
+``__all__`` above -- there are no back-compat aliases):
     forterp.frontend  -- lexer + parser stages (scan_file, parse_units, tokenize, ...)
     forterp.format    -- the FORMAT engine (parse_format, render, read_values, ...)
     forterp.runtime   -- the Engine and engine builders (Engine, Frame, make_engine, ...)
@@ -36,52 +36,23 @@ the package root as deprecated aliases):
     forterp.ast       -- the AST node classes the parser produces
 """
 
-# The focused public surface (see __all__).
-from forterp import ast_nodes, forbin  # noqa: F401
-from forterp.diagnostics import diag, show  # noqa: F401
-from forterp.dialect import (
-    DIALECTS,  # noqa: F401
-    F66,
-    FORTRAN10,
-    Dialect,
-)
-
-# Deprecated root aliases. The organized homes are the forterp.frontend / .format /
-# .runtime / .ast namespaces (and forterp.hostlib); these names stay importable from the
-# package root for back-compat and are deliberately kept off __all__.
-from forterp.engine import ArrayView, Engine, Frame, StopExecution, TempRef  # noqa: F401
-from forterp.fmt import (  # noqa: F401
-    InputConversionError,
-    apply_carriage,
-    parse_format,
-    read_values,
-    render,
-)
-from forterp.forlib import STDLIB  # noqa: F401  (back-compat root alias; owner is forterp.runtime)
-
-# Prebuilt, reusable interpreters -- the easy-reuse entry point: forterp.fortran10
-# (faithful DEC FORTRAN-10) and forterp.f66 (strict ANSI), plus the Interpreter class.
+# The package root exposes ONLY the focused public surface (see __all__). Everything else --
+# the Engine and builders, the lexer/parser stages, the FORMAT engine, the AST nodes -- lives
+# in the expert namespaces (forterp.frontend / .format / .runtime / .ast / .hostlib), imported
+# at the bottom of this module. There are no back-compat root aliases.
+from forterp.dialect import F66, FORTRAN10, Dialect
 from forterp.interpreter import Interpreter, f66, fortran10
-from forterp.lexer import LexError, Token, tokenize  # noqa: F401
-from forterp.parser import ParseError, parse_expression, parse_units  # noqa: F401
-from forterp.source import SourceOptions, expand_includes, scan_file  # noqa: F401
-from forterp.target import (
-    NATIVE,
-    PDP10,
-    TARGETS,  # noqa: F401
-    VAX,
-    Target,
-)
+from forterp.parser import ParseError
+from forterp.source import SourceOptions
+from forterp.target import NATIVE, PDP10, VAX, Target
 
 # The one place the version is written. pyproject.toml reads it via
 # [tool.setuptools.dynamic] (attr = "forterp.__version__"), so the package metadata and
 # this attribute can never drift apart.
 __version__ = "0.1.0"
 
-# The focused public surface. Expert layers live behind explicit namespaces --
-# forterp.frontend (lexer/parser stages), forterp.format (the FORMAT engine),
-# forterp.runtime (Engine + builders), forterp.hostlib, forterp.ast -- and many of
-# their names also remain importable from the package root as deprecated aliases.
+# The complete public surface: the package root exposes exactly these names. Everything else
+# lives in the expert namespaces (forterp.frontend / .format / .runtime / .ast / .hostlib).
 __all__ = [
     # parse + run
     "run_source",
@@ -105,11 +76,6 @@ __all__ = [
 ]
 
 
-# The engine builders live in their owning module, forterp.runtime; imported here so they
-# stay importable from the package root (back-compat) and available to run_source below.
-from forterp.runtime import engine_kwargs, install_runtime, make_engine  # noqa: F401
-
-
 def parse_source(text, dialect=F66, on_error=None, options=None, include_dir="."):
     """Parse FORTRAN source text into a {name: ProgramUnit} dict.
 
@@ -122,7 +88,8 @@ def parse_source(text, dialect=F66, on_error=None, options=None, include_dir="."
     invalid statements are NOT silently dropped. Pass ``on_error(statement, message)``
     to instead receive each diagnostic yourself and keep the (partial) result.
     """
-    from forterp.source import DEFAULT_OPTIONS, scan_text
+    from forterp.parser import parse_units
+    from forterp.source import DEFAULT_OPTIONS, expand_includes, scan_text
 
     errs = []
     cb = on_error if on_error is not None else (lambda st, m: errs.append((st.line, m)))
@@ -141,12 +108,14 @@ def run_source(text, program=None, dialect=F66, options=None, include_dir=".", *
     `program` selects the main PROGRAM (defaults to the first program unit). `options`
     is an optional `SourceOptions` for source-recovery handling. `include_dir` is the
     base directory for INCLUDE resolution (default the current directory)."""
+    from forterp.runtime import make_engine
+
     units = parse_source(text, dialect=dialect, options=options, include_dir=include_dir)
     eng = make_engine(units, dialect=dialect, **kwargs)
     return eng.run_program(program)
 
 
-# Expert namespaces. `forterp.runtime` owns the engine builders (imported above); these
-# `forterp.frontend / .format / .runtime / .ast / .hostlib` namespaces organize the surface
-# that used to crowd the package root.
+# Expert namespaces -- the organized API beyond the focused public names above:
+# forterp.frontend (lexer/parser), .format (FORMAT engine), .runtime (Engine + builders),
+# .ast (AST nodes), .hostlib (host-builtin marshalling).
 from forterp import ast, format, frontend, hostlib, runtime  # noqa: E402,F401

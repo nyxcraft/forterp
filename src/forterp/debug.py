@@ -145,15 +145,15 @@ class Tracer:
         elif word in ("l", "list"):
             self._list(frame)
         elif word in ("q", "quit"):
-            raise forterp.StopExecution()  # abort the run, return to the monitor
+            raise forterp.engine.StopExecution()  # abort the run, return to the monitor
         else:  # anything else: evaluate it against the paused frame
             self._inspect(cmd, frame)
 
     def _inspect(self, text, frame):
         try:
-            node = forterp.parse_expression(text, dialect=self.dialect, unit=frame.rt.unit)
+            node = forterp.parser.parse_expression(text, dialect=self.dialect, unit=frame.rt.unit)
             val = self.eng.eval(node, frame)
-        except forterp.StopExecution:
+        except forterp.engine.StopExecution:
             raise  # a STOP reached while inspecting aborts the run; don't swallow it
         except Exception as e:
             self.errwrite(f"?{e}\n")

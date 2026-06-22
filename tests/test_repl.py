@@ -123,10 +123,10 @@ def test_runtime_error_keeps_the_session_alive():
 def test_parse_expression_returns_ast_and_rejects_trailing():
     import pytest
 
-    n = forterp.parse_expression("2 + 3 * 4", dialect=FORTRAN10)
+    n = forterp.parser.parse_expression("2 + 3 * 4", dialect=FORTRAN10)
     assert type(n).__name__ == "Binary"  # a top-level '+' expression
     with pytest.raises(forterp.ParseError):
-        forterp.parse_expression("1 2", dialect=FORTRAN10)  # trailing tokens
+        forterp.parser.parse_expression("1 2", dialect=FORTRAN10)  # trailing tokens
 
 
 def test_run_block_shares_store_and_resolves_loaded_calls():
@@ -136,7 +136,7 @@ def test_run_block_shares_store_and_resolves_loaded_calls():
     sess = forterp.parse_source("      INTEGER N\n", dialect=FORTRAN10)["$MAIN"]
     sess.name = "$S"
     units["$S"] = sess
-    eng = forterp.make_engine(units)
+    eng = forterp.runtime.make_engine(units)
     rt = eng.rts["$S"]
     blk = forterp.parse_source("      INTEGER N\n      N = TWICE(21)\n", dialect=FORTRAN10)["$MAIN"]
     eng.run_block(rt, blk.code, blk.labels)

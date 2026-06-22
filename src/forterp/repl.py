@@ -31,8 +31,8 @@ import forterp
 from forterp import ast_nodes as A
 from forterp.debug import format_value
 
-_TARGETS = forterp.TARGETS
-_DIALECTS = forterp.DIALECTS
+_TARGETS = forterp.target.TARGETS
+_DIALECTS = forterp.dialect.DIALECTS
 
 SESS = "$REPL"  # name of the session program unit
 
@@ -175,7 +175,7 @@ class Immediate:
     def _eval_expr(self, raw, errs):
         expr = " ".join(r.strip() for r in raw)
         try:  # parse with the session's declarations so A(I) etc. resolve as in-unit
-            node = forterp.parse_expression(expr, dialect=self._dialect(), unit=self.sess)
+            node = forterp.parser.parse_expression(expr, dialect=self._dialect(), unit=self.sess)
         except Exception:  # not an expression either -> report the statement error
             for m in errs or ["?syntax error"]:
                 self._err(m)
@@ -201,7 +201,7 @@ class Immediate:
         sess.code, sess.labels = [], {}  # decls only; executables are spliced in transiently
         all_units = dict(self.loaded)
         all_units[SESS] = sess
-        eng = forterp.make_engine(
+        eng = forterp.runtime.make_engine(
             all_units,
             dialect=dlc,
             target=_TARGETS[self.target],
@@ -219,7 +219,7 @@ class Immediate:
                     n = min(len(vals), len(eng.commons[b]))
                     eng.commons[b][:n] = vals[:n]
         self.eng, self.sess = eng, sess
-        self.frame = forterp.Frame(eng.rts[SESS], {})
+        self.frame = forterp.engine.Frame(eng.rts[SESS], {})
         return errs
 
     # ---- helpers ----

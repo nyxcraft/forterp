@@ -73,7 +73,9 @@ class Interpreter:
         if self.runtime if runtime is None else runtime:
             import forterp  # local import: forterp.__init__ imports this module
 
-            forterp.install_runtime(eng)  # DEC library (gated on dec_intrinsics) + FOROTS I/O
+            forterp.runtime.install_runtime(
+                eng
+            )  # DEC library (gated on dec_intrinsics) + FOROTS I/O
         return eng
 
     # ---- parsing -----------------------------------------------------------

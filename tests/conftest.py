@@ -45,10 +45,10 @@ def _run_one(src, dlc, program, inputs, setup, target, path):
         readline=rl,
         printer=printout.append,
         target=target or forterp.PDP10,  # default: validate the PDP-10 target
-        **forterp.engine_kwargs(dlc),  # dialect-derived engine flags (single source)
+        **forterp.runtime.engine_kwargs(dlc),  # dialect-derived engine flags (single source)
     )
     eng.printout = printout  # tests read it via printed(eng)
-    forterp.install_runtime(eng)  # STDLIB + FOROTS binary-I/O codec
+    forterp.runtime.install_runtime(eng)  # STDLIB + FOROTS binary-I/O codec
     if setup is not None:
         setup(eng)
     try:
