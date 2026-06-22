@@ -5,6 +5,10 @@
 [![Python versions](https://img.shields.io/pypi/pyversions/forterp.svg)](https://pypi.org/project/forterp/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
+> **Software Architecture, Design & Engineering by Nicholas J. Kisseberth.**  
+> Code Synthesized via Anthropic Claude Code / Opus 4.8.  
+> Automated Code Review via OpenAI Codex / ChatGPT 5.5.
+
 A **configurable FORTRAN-66 interpreter** in Python: the machine value model and the
 front-end dialect are both pluggable, so one core runs FORTRAN against whatever
 representation you select.
@@ -207,6 +211,12 @@ The interactive monitor additionally offers a `!` shell escape and `@file` comma
 (not reachable from a running FORTRAN program); these run with your shell's privileges, so
 treat a command script as trusted input and don't wire the monitor to an untrusted source.
 
+## Authorship & attribution
+
+- Software Architecture, Design & Engineering by Nicholas J. Kisseberth.
+- Code Synthesized via Anthropic Claude Code / Opus 4.8.
+- Automated Code Review via OpenAI Codex / ChatGPT 5.5.
+
 ## License
 
-MIT © Nicholas J. Kisseberth. See [LICENSE](LICENSE).
+© 2026 Nicholas J. Kisseberth · forterp is [MIT-licensed](LICENSE).

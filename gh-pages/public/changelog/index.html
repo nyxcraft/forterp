@@ -39,7 +39,7 @@
 <li><a class="section-nav__link section-nav__link--l2" href="#2026-06-18-pluggable-seams-then-standalone">2026-06-18 — pluggable seams, then standalone</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#2026-06-19-cli-monitor-repl-debugger-conformance">2026-06-19 — CLI, monitor, REPL, debugger, conformance</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#2026-06-20-real-machine-defaults-host-marshalling-docs-site">2026-06-20 — real-machine defaults, host marshalling, docs site</a></li>
-<li><a class="section-nav__link section-nav__link--l2" href="#2026-06-21-genuine-source-demos-and-the-fixes-they-flushed-out">2026-06-21 — genuine-source demos, and the fixes they flushed out</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#2026-06-21-genuine-source-demos-then-the-release-readiness-sweep">2026-06-21 — genuine-source demos, then the release-readiness sweep</a></li>
 </ul>
         </nav>
       </aside>
@@ -99,7 +99,7 @@
 <li><strong>17:03</strong> — <code>hostlib</code>: a declarative marshalling layer for host builtins.</li>
 <li><strong>23:25</strong> — A GitHub Pages docs site: a <code>markdown-it-py</code> static-site generator (<code>gh-pages/</code>), Actions deploy.</li>
 </ul>
-<h2 id="2026-06-21-genuine-source-demos-and-the-fixes-they-flushed-out">2026-06-21 — genuine-source demos, and the fixes they flushed out</h2>
+<h2 id="2026-06-21-genuine-source-demos-then-the-release-readiness-sweep">2026-06-21 — genuine-source demos, then the release-readiness sweep</h2>
 <ul>
 <li><strong>16:16</strong> — <code>demos/</code>: genuine 1970s FORTRAN run as-is — netlib EISPACK/LINPACK/FFT/RKF45 with drivers, DECUS-tape sources, and Paul Boltwood's 1971 Game of Life.</li>
 <li><strong>16:16</strong> — <code>examples/</code>: short Python scripts driving forterp as a library.</li>
@@ -107,6 +107,23 @@
 <li><strong>16:16</strong> — Dialect gaps closed (gated; F66 still rejects them): the optional comma before an I/O list, two-word <code>END FILE</code>, <code>DATA</code> as an array name.</li>
 <li><strong>16:16</strong> — <code>READ</code>/<code>ACCEPT</code> EOF fix: terminal input past end-of-stream branches to <code>END=</code> instead of looping.</li>
 <li><strong>16:16</strong> — Sequence-association fix: an array element passed where the dummy is an array is re-viewed as a based array (LINPACK/RKF45 work-vector passing).</li>
+<li><strong>16:18</strong> — Readability pass: clearer names, smaller focused dispatchers.</li>
+<li><strong>16:40</strong> — Error-handling pass: clean <code>?</code>-diagnostics in place of raw tracebacks.</li>
+<li><strong>17:15</strong> — Trimmed the evaluator hot path (~1.5× on tight loops).</li>
+<li><strong>18:14</strong> — Capped a single array/<code>COMMON</code> allocation; wrote down the interpreter-not-a-sandbox trust model.</li>
+<li><strong>18:26</strong> — Correctness vs <code>gfortran</code> (differential testing): per-record carriage control, list-directed grammar, three-digit exponents.</li>
+<li><strong>18:52</strong> — Extended the dual-run harness to compare terminal output; pinned the public-API contracts.</li>
+<li><strong>20:00</strong> — Packaging &amp; CI: PyPI/distribution readiness — <code>build</code> + <code>twine</code>, a 3.9–3.13 test matrix.</li>
+<li><strong>20:13</strong> — Committed the built docs site, kept in sync automatically by a pre-commit hook.</li>
+<li><strong>20:51</strong> — Hardened the resource limits, <code>INCLUDE</code> resolution, and duplicate-unit detection.</li>
+<li><strong>20:58</strong> — Tag-triggered PyPI release via OIDC Trusted Publishing, gated on tests/lint/format and <code>tag == __version__</code>.</li>
+<li><strong>21:42</strong> — Docs hygiene: folded the origin history into this changelog; removed the HISTORY/HANDOFF/third-party files; recorded FCVS as public domain; trimmed the overuse of &quot;faithful&quot;.</li>
+<li><strong>22:41</strong> — ruff maintained at commit time (a pre-commit hook), with import-sort and dead-<code>noqa</code> rules.</li>
+<li><strong>23:06</strong> — CLI <code>--version</code>; moved the engine builders into <code>forterp.runtime</code>.</li>
+<li><strong>23:23</strong> — Slimmed the package root to exactly <code>__all__</code> — dropped the back-compat aliases.</li>
+<li><strong>23:33</strong> — <code>forterp.debug.oob_census()</code>: a public OOB-access census, so consumers no longer poke engine internals.</li>
+<li><strong>23:47</strong> — New docs: a CLI reference and a <code>forterp.*</code> API programmer's guide.</li>
+<li><strong>23:51</strong> — Docs-site polish: a &quot;Docs&quot; breadcrumb, interpreter-design vocabulary on the home-page pipeline, a high-contrast beta stamp.</li>
 </ul>
 
         </div>
