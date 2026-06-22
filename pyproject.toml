@@ -5,12 +5,12 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "forterp"
 dynamic = ["version"]  # single source: forterp.__version__ in src/forterp/__init__.py
-description = "A faithful FORTRAN-66 / DEC FORTRAN-10 interpreter in Python"
+description = "A FORTRAN-66 / DEC FORTRAN-10 interpreter in Python"
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [{ name = "Nicholas J. Kisseberth", email = "nkissebe@gmail.com" }]
-keywords = ["fortran", "fortran66", "fortran-10", "pdp-10", "interpreter", "retrocomputing"]
+keywords = ["fortran", "fortran66", "f66", "fortran-10", "pdp-10", "interpreter", "retrocomputing"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
