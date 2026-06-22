@@ -11,7 +11,7 @@
   --accent: #7c2230;        /* DEC maroon — the brand / masthead / accents */
   --accent-strong: #9a2d3c; /* brighter maroon — links, hover */
   --gold: #b07a2b;          /* muted brass — focus ring, the author line */
-  --stamp: #7c2230;         /* the "beta" rubber stamp */
+  --stamp: #d61f1f;         /* the "beta" rubber stamp — bright stamp red, high-contrast */
   --code: #ebe1c9;          /* code block — an inset warm tan panel */
   --shadow: 0 18px 50px rgba(30, 16, 16, .35);
   --content: 76rem;
@@ -106,6 +106,12 @@ pre {
   font-weight: 800;
 }
 
+.brand:hover {
+  color: var(--paper);                  /* stay cream -- the generic a:hover (maroon) would
+                                           vanish into the maroon masthead */
+  opacity: .85;                         /* subtle dim as the hover affordance instead */
+}
+
 .brand__icon {
   width: 2.3rem;
   height: 2.3rem;
@@ -116,22 +122,22 @@ pre {
 }
 
 /* "beta" status stamp next to the brand, on every page (site.json -> "status") --
-   a tilted, red, inked rubber-stamp look: outlined box, no fill, slightly faded. */
+   a tilted, bright-red, inked rubber-stamp look: outlined box, no fill. */
 .brand__badge {
   display: inline-block;
   margin-left: .6rem;
-  padding: .08rem .34rem;
-  border: 2px solid var(--gold);
+  padding: .12rem .4rem;
+  border: 2.5px solid var(--stamp);
   border-radius: 3px;
   background: transparent;
-  color: var(--gold);
-  font-size: .62rem;
+  color: var(--stamp);
+  font-size: .74rem;
   font-weight: 800;
-  letter-spacing: .12em;
+  letter-spacing: .14em;
   text-transform: uppercase;
   transform: rotate(-8deg);
   transform-origin: center;
-  opacity: .95;
+  opacity: 1;
   vertical-align: middle;
 }
 
