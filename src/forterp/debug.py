@@ -20,8 +20,108 @@ abbreviations), so `p <expr>` / `print <expr>` / `=<expr>` force inspection.
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+from dataclasses import dataclass, field
+
 import forterp
 from forterp import ast_nodes as A
+
+__all__ = [
+    # OOB-access census -- public instrumentation for the faithful unchecked-array behavior
+    "OobError",
+    "OobCensus",
+    "oob_census",
+    "oob_mode",
+    "set_oob_mode",
+    "oob_counts",
+    "oob_log",
+    "clear_oob_log",
+    "OOB_MODES",
+    # interactive tracer / profiler (driven by the monitor)
+    "Tracer",
+]
+
+
+# ---------------------------------------------------------------------------
+# Out-of-bounds (OOB) access census
+#
+# The engine never bounds-checks array/COMMON access -- it reproduces the unchecked PDP-10
+# faithfully: an OOB read yields 0, an OOB write is dropped (the 1978 SMAC/ENEMYM overrun
+# behavior). This surface lets a tool *observe* that without changing it -- count OOB
+# accesses, log each site's context, or (for a checker/fuzzer) turn an OOB into a raise.
+# The mode/counters/log live as process-global state on the engine; this is the public
+# façade over it, so callers never reach into forterp.engine internals.
+# ---------------------------------------------------------------------------
+
+OobError = forterp.engine.OobError  #: raised on an OOB access while the mode is "raise"
+OOB_MODES = ("off", "log", "raise")  #: off = silent (faithful); log = census; raise = halt
+
+
+def oob_mode():
+    """The current OOB-check mode -- one of `OOB_MODES`."""
+    return forterp.engine.OOB_CHECK
+
+
+def set_oob_mode(mode):
+    """Set the OOB-check mode: 'off' (silent, the faithful default), 'log' (record every OOB
+    site and continue), or 'raise' (raise `OobError` on the first OOB)."""
+    if mode not in OOB_MODES:
+        raise ValueError(f"OOB mode must be one of {OOB_MODES}, not {mode!r}")
+    forterp.engine.OOB_CHECK = mode
+
+
+def oob_counts():
+    """Cumulative `(reads, writes)` OOB cell accesses since the process started."""
+    return (forterp.engine.OOB_READS, forterp.engine.OOB_WRITES)
+
+
+def oob_log():
+    """The per-site OOB records captured while the mode was 'log'. Each is a dict
+    `{op, routine, array, subs, idx, len}` (best-effort context for that access)."""
+    return list(forterp.engine.OOB_LOG)
+
+
+def clear_oob_log():
+    """Discard the accumulated per-site OOB log."""
+    forterp.engine.OOB_LOG.clear()
+
+
+@dataclass
+class OobCensus:
+    """Result of an `oob_census()` block: the OOB reads/writes that occurred during it and,
+    in 'log' mode, the per-site records captured during it."""
+
+    reads: int = 0
+    writes: int = 0
+    sites: list = field(default_factory=list)
+
+
+@contextmanager
+def oob_census(mode="log"):
+    """Census out-of-bounds cell accesses within the block, restoring the prior mode on exit.
+
+    Yields an `OobCensus`; on exit its `.reads` / `.writes` hold the counts that occurred
+    during the block and `.sites` the per-site records captured during it (when
+    `mode == "log"`). The faithful OOB behavior (read -> 0, write dropped) is unchanged --
+    this only observes it::
+
+        import forterp, forterp.debug
+        with forterp.debug.oob_census() as census:
+            forterp.fortran10.run_source(src)
+        print(census.reads, census.writes, census.sites)
+    """
+    eng = forterp.engine
+    prev, r0, w0, n0 = eng.OOB_CHECK, eng.OOB_READS, eng.OOB_WRITES, len(eng.OOB_LOG)
+    set_oob_mode(mode)
+    census = OobCensus()
+    try:
+        yield census
+    finally:
+        eng.OOB_CHECK = prev
+        census.reads = eng.OOB_READS - r0
+        census.writes = eng.OOB_WRITES - w0
+        census.sites = list(eng.OOB_LOG[n0:])
+
 
 # Operators whose result is a FORTRAN logical -> show .TRUE./.FALSE. rather than 1/-1.
 _LOGICAL_OPS = {"AND", "OR", "XOR", "NEQV", "EQV", "EQ", "NE", "LT", "LE", "GT", "GE"}

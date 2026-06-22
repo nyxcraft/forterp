@@ -7,6 +7,9 @@ so a breakpoint at line N targets that source line."""
 import os
 import tempfile
 
+import pytest
+
+import forterp
 from forterp.monitor import Monitor
 
 # line 4 N=0, 5 DO, 6 N=N+I (runs 3x), 7 CONTINUE
@@ -125,8 +128,6 @@ def test_plain_run_installs_no_tracer():
 
 
 # ---- R5 fixes: explicit inspect + the off-path instance-__dict__ guard ------
-import forterp  # noqa: E402
-
 # a variable named N collides with the `next` command at the (dbg) prompt
 _NVAR = (
     "      PROGRAM T\n      COMMON /O/ M\n      INTEGER M, N\n      N = 7\n      M = N\n      END\n"
@@ -150,3 +151,50 @@ def test_plain_engine_keeps_tracer_and_frames_as_class_attrs():
     eng = forterp.run_source("      PROGRAM T\n      I = 1\n      END\n", dialect=forterp.FORTRAN10)
     assert "tracer" not in eng.__dict__
     assert "frames" not in eng.__dict__
+
+
+# ---- OOB-access census (forterp.debug.oob_census) --------------------------
+# A(3) with an A(5) overrun: the faithful unchecked behavior (write dropped, read -> 0) is
+# unchanged; the census just observes it.
+_OOB_SRC = (
+    "      PROGRAM T\n      COMMON /OUT/ V(40)\n      DIMENSION A(3)\n"
+    "      A(5)=99\n      V(1)=A(5)\n      END\n"
+)
+
+
+def test_oob_census_counts_and_logs_the_overrun():
+    with forterp.debug.oob_census() as census:
+        forterp.fortran10.run_source(_OOB_SRC)
+    assert census.writes >= 1  # A(5)=99 -- OOB write dropped, but censused
+    assert census.reads >= 1  # A(5) read -> 0, censused
+    assert len(census.sites) >= 2  # both sites logged in "log" mode
+    assert {s["op"] for s in census.sites} >= {"read", "write"}
+    assert any(s["array"] == "A" for s in census.sites)  # best-effort context captured
+    assert forterp.debug.oob_mode() == "off"  # prior mode restored after the block
+
+
+def test_oob_census_raise_mode_halts_and_restores():
+    with pytest.raises(forterp.debug.OobError):
+        with forterp.debug.oob_census(mode="raise"):
+            forterp.fortran10.run_source(_OOB_SRC)
+    assert forterp.debug.oob_mode() == "off"  # restored even when the block raised
+
+
+def test_set_oob_mode_rejects_unknown_mode():
+    with pytest.raises(ValueError):
+        forterp.debug.set_oob_mode("bogus")
+    assert forterp.debug.oob_mode() == "off"  # left unchanged
+
+
+def test_oob_counts_are_cumulative_and_log_clears():
+    # the standalone (non-context-manager) surface, for callers that snapshot deltas
+    forterp.debug.set_oob_mode("log")
+    forterp.debug.clear_oob_log()
+    r0, w0 = forterp.debug.oob_counts()
+    forterp.fortran10.run_source(_OOB_SRC)
+    r1, w1 = forterp.debug.oob_counts()
+    assert r1 > r0 and w1 > w0  # counters are process-cumulative
+    assert forterp.debug.oob_log()  # sites recorded while in "log" mode
+    forterp.debug.clear_oob_log()
+    assert forterp.debug.oob_log() == []
+    forterp.debug.set_oob_mode("off")  # restore the faithful default

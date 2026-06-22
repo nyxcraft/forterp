@@ -34,6 +34,7 @@ Expert surfaces live behind explicit namespaces (the package root exposes only t
     forterp.runtime   -- the Engine and engine builders (Engine, Frame, make_engine, ...)
     forterp.hostlib   -- declarative marshalling for host-defined builtins
     forterp.ast       -- the AST node classes the parser produces
+    forterp.debug     -- OOB-access census + the interactive tracer / profiler
 """
 
 # The package root exposes ONLY the focused public surface (see __all__). Everything else --
@@ -117,5 +118,5 @@ def run_source(text, program=None, dialect=F66, options=None, include_dir=".", *
 
 # Expert namespaces -- the organized API beyond the focused public names above:
 # forterp.frontend (lexer/parser), .format (FORMAT engine), .runtime (Engine + builders),
-# .ast (AST nodes), .hostlib (host-builtin marshalling).
-from forterp import ast, format, frontend, hostlib, runtime  # noqa: E402,F401
+# .ast (AST nodes), .hostlib (host-builtin marshalling), .debug (OOB census + tracer).
+from forterp import ast, debug, format, frontend, hostlib, runtime  # noqa: E402,F401
