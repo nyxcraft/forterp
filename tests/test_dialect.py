@@ -239,15 +239,15 @@ def test_io_list_comma_gated_to_fortran10():
     # list (WRITE(u,f),list); ANSI F66 (7.1.2) does not. Seen in genuine DECUS source.
     src = PH + "        V(1)=7.0\n        WRITE(6,20),V(1)\n   20   FORMAT(F4.1)\n" + END
     eng = run(src, dialect=FORTRAN10)
-    assert "7.0" in "".join(eng.printout)   # accepted + runs under FORTRAN10 (unit 6 = LPT)
-    assert _rejected(src, dialect=F66)      # rejected under strict F66
+    assert "7.0" in "".join(eng.printout)  # accepted + runs under FORTRAN10 (unit 6 = LPT)
+    assert _rejected(src, dialect=F66)  # rejected under strict F66
 
 
 def test_end_file_is_the_f66_spelling_of_endfile():
     # 'END FILE u' is the ANSI X3.9-1966 (7.1.3.3) spelling of ENDFILE; one-word ENDFILE is
     # the F77 form. Both parse, in both dialects (blanks are insignificant). DECUS source.
     src = "      PROGRAM T\n      END FILE 2\n      END\n"
-    forterp.parse_source(src, dialect=F66)        # the standard F66 form -> no ParseError
+    forterp.parse_source(src, dialect=F66)  # the standard F66 form -> no ParseError
     forterp.parse_source(src, dialect=FORTRAN10)  # ... and in the DEC superset
 
 

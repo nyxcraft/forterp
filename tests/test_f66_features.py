@@ -400,7 +400,8 @@ def test_adjustable_array_write_through():
     # writing through an adjustable dummy modifies the caller's array (pass by reference).
     src = (
         IH + "        DIMENSION A(3)\n        DATA A/1,2,3/\n        CALL SETIT(A,3)\n"
-        "        V(1)=A(1)\n        V(2)=A(2)\n        V(3)=A(3)\n" + END
+        "        V(1)=A(1)\n        V(2)=A(2)\n        V(3)=A(3)\n"
+        + END
         + "        SUBROUTINE SETIT(B,N)\n        IMPLICIT INTEGER(A-Z)\n"
         "        DIMENSION B(N)\n        B(2)=99\n" + END
     )
@@ -413,7 +414,8 @@ def test_assumed_size_dummy_addresses_whole_actual():
     # sequence association -- the actual's storage backs the dummy.
     src = (
         IH + "        DIMENSION A(5)\n        DATA A/10,20,30,40,50/\n"
-        "        CALL SUMIT(A,5)\n" + END
+        "        CALL SUMIT(A,5)\n"
+        + END
         + "        SUBROUTINE SUMIT(B,N)\n        IMPLICIT INTEGER(A-Z)\n"
         "        COMMON /OUT/ V(40)\n        DIMENSION B(1)\n"
         "        IS=0\n        DO 1 I=1,N\n    1   IS=IS+B(I)\n        V(1)=IS\n" + END

@@ -14,14 +14,18 @@ from conftest import HEAD, TAIL, out, printed, run
 
 def test_list_directed_repeat_count_and_slash_terminator():
     # '3*7' repeats 7 three times; '8' fills the 4th; '/' ends the read, so A(5) keeps -1.
-    src = HEAD + (
-        "        DIMENSION A(5)\n"
-        "        DO 5 I=1,5\n"
-        "    5   A(I) = -1\n"
-        "        READ(5,*) A\n"
-        "        DO 6 I=1,5\n"
-        "    6   V(I) = A(I)\n"
-    ) + TAIL
+    src = (
+        HEAD
+        + (
+            "        DIMENSION A(5)\n"
+            "        DO 5 I=1,5\n"
+            "    5   A(I) = -1\n"
+            "        READ(5,*) A\n"
+            "        DO 6 I=1,5\n"
+            "    6   V(I) = A(I)\n"
+        )
+        + TAIL
+    )
     eng = run(src, inputs=["3*7 8 /"], dialect=forterp.FORTRAN10)
     assert [out(eng, i) for i in range(1, 6)] == [7, 7, 7, 8, -1]
 
@@ -67,8 +71,10 @@ def test_stmt_function_wrong_arg_count_is_clean(capsys):
     from forterp.cli import main
 
     with tempfile.NamedTemporaryFile("w", suffix=".FOR", delete=False) as f:
-        f.write("      PROGRAM T\n      F(X)=X+1.0\n      Y=F(2.0,3.0)\n"
-                "      WRITE(6,9) INT(Y)\n    9 FORMAT(I6)\n      END\n")
+        f.write(
+            "      PROGRAM T\n      F(X)=X+1.0\n      Y=F(2.0,3.0)\n"
+            "      WRITE(6,9) INT(Y)\n    9 FORMAT(I6)\n      END\n"
+        )
         path = f.name
     try:
         rc = main(["--std", "fortran10", path])

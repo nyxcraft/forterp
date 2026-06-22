@@ -20,9 +20,25 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Install (with dev extras) + build tools
+        run: pip install -e ".[dev]" build twine
+      - name: Lint, format-check, and test
+        run: |
+          ruff check src tests
+          ruff format --check src tests
+          pytest -q
+      - name: Verify the tag matches forterp.__version__
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          ver=$(python -c "import forterp; print(forterp.__version__)")
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "$ver" != "$tag" ]; then
+            echo "::error::tag '$GITHUB_REF_NAME' does not match forterp.__version__ '$ver'"
+            exit 1
+          fi
+          echo "tag matches version $ver"
       - name: Build sdist + wheel
         run: |
-          pip install build twine
           python -m build
           twine check dist/*
       - uses: actions/upload-artifact@v4
