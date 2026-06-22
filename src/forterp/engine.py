@@ -1871,8 +1871,11 @@ class Engine:
             elif devname == "TTY":
                 self.io[unit] = {"mode": "term"}  # block printout -> terminal
             else:
-                fname = self._spec(specs.get("FILE") or specs.get("NAME") or "EMPIRE.DAT", frame)
-                path = self._open_path(str(fname))
+                fspec = self._spec(specs.get("FILE") or specs.get("NAME") or "EMPIRE.DAT", frame)
+                # a numeric file spec is a packed SIXBIT/ASCII filename (FORTRAN-10) -- decode it
+                # the same way DEVICE is, so OPEN(...FILE=<packed word>...) resolves to its name
+                fname = self.tgt.unpack(fspec).strip() if isinstance(fspec, int) else str(fspec)
+                path = self._open_path(fname)
                 if access == "SEQOUT":
                     self.io[unit] = {"recs": [], "pos": 0, "mode": "w", "path": path}
                 else:
