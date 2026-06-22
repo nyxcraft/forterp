@@ -7,9 +7,9 @@ import os
 import tempfile
 
 import pytest
+from conftest import HEAD, TAIL, out, printed, run
 
 import forterp
-from conftest import HEAD, TAIL, out, printed, run
 
 
 def test_list_directed_repeat_count_and_slash_terminator():
@@ -68,6 +68,7 @@ def test_stmt_function_wrong_arg_count_is_clean(capsys):
     # too many actuals to a statement function is a clean error, not a silently-ignored arg.
     import os
     import tempfile
+
     from forterp.cli import main
 
     with tempfile.NamedTemporaryFile("w", suffix=".FOR", delete=False) as f:

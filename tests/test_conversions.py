@@ -1,6 +1,6 @@
 """Type conversion at assignment boundaries and in mixed expressions."""
 
-from conftest import run, out
+from conftest import out, run
 
 REALHEAD = "        PROGRAM T\n        COMMON /OUT/ V(40)\n        REAL V\n"
 MIXHEAD = (

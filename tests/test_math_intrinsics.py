@@ -1,7 +1,8 @@
 """FORTRAN-66 intrinsic function library (math, sign, conversion, max/min)."""
 
 import math
-from conftest import run, run_int, out
+
+from conftest import out, run, run_int
 
 REAL = "        PROGRAM T\n        COMMON /OUT/ V(40)\n        REAL V\n"
 END = "        END\n"

@@ -4,7 +4,7 @@ Functional where cheap (sense lights/switches, RELEAS); callable no-ops where th
 routine needs hardware/OS we don't have (plotting, core dumps, SORT, realtime).
 """
 
-from conftest import run, run_int, out
+from conftest import out, run, run_int
 
 
 def test_realtime_and_plotting_stubs_are_callable():

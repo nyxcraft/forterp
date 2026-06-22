@@ -8,7 +8,9 @@ domain warnings get printed. This is general FORTRAN-10 V5 runtime/library cover
 """
 
 import math
-from conftest import run, run_int, out
+
+from conftest import out, run, run_int
+
 import forterp.ast_nodes as A
 from forterp.engine import Engine
 from forterp.fmt import unpack_chars

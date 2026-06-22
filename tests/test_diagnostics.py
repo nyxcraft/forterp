@@ -4,6 +4,7 @@ These fire only on INVALID source; valid programs emit none.
 """
 
 from conftest import run
+
 from forterp.diagnostics import diag
 
 PROG = "        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n        COMMON /OUT/ V(40)\n"
@@ -56,10 +57,11 @@ def test_diagnostics_carry_line_numbers():
 
 # ---- %FTNLID warning channel (V5 3.3: >6-char names truncated, non-fatal) --
 def test_ftnlid_warning_on_long_name_truncation():
-    import tempfile
     import os
-    from forterp.source import scan_file, expand_includes
+    import tempfile
+
     from forterp.parser import parse_units
+    from forterp.source import expand_includes, scan_file
 
     src = "        PROGRAM T\n        LONGNAME12 = 5\n        END\n"
     with tempfile.NamedTemporaryFile("w", suffix=".FOR", delete=False) as f:
@@ -79,10 +81,11 @@ def test_ftnlid_warning_on_long_name_truncation():
 
 
 def test_no_warning_for_six_char_or_shorter_names():
-    import tempfile
     import os
-    from forterp.source import scan_file, expand_includes
+    import tempfile
+
     from forterp.parser import parse_units
+    from forterp.source import expand_includes, scan_file
 
     src = "        PROGRAM T\n        SIXCHR = 5\n        END\n"
     with tempfile.NamedTemporaryFile("w", suffix=".FOR", delete=False) as f:

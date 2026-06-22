@@ -11,6 +11,27 @@
 
 set -e
 
+# Keep Python formatting + lint clean (mirrors the CI gate, so drift is fixed at commit
+# time rather than caught later). Format + apply safe fixes (import order, dead `# noqa`,
+# ...) to the staged Python files, re-stage them, then block the commit if any unfixable
+# lint remains. (Re-staging adds the whole file, like the gh-pages step below -- partially
+# staged hunks in a .py file will be staged in full.)
+py_files=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.py$' || true)
+if [ -n "$py_files" ]; then
+    if command -v ruff >/dev/null 2>&1; then
+        echo "pre-commit: ruff format + check --fix on staged Python ..." >&2
+        ruff format $py_files >/dev/null
+        ruff check --fix $py_files >/dev/null 2>&1 || true
+        git add $py_files
+        if ! ruff check $py_files; then
+            echo "pre-commit: ruff found unfixable issues above -- commit aborted." >&2
+            exit 1
+        fi
+    else
+        echo "pre-commit: ruff not installed -- skipping (pip install -e \".[dev]\"; CI gates it)." >&2
+    fi
+fi
+
 # Only the staged source files matter; gh-pages/public/ itself is excluded so re-staging
 # the rebuilt output doesn't re-trigger the rebuild.
 if git diff --cached --name-only \

@@ -37,16 +37,19 @@ the package root as deprecated aliases):
 """
 
 # The focused public surface (see __all__).
-from forterp.parser import ParseError
-from forterp.target import Target, PDP10, NATIVE, VAX
-from forterp.dialect import Dialect, F66, FORTRAN10
-from forterp.source import SourceOptions
+from forterp import ast_nodes, forbin  # noqa: F401
+from forterp.diagnostics import diag, show  # noqa: F401
+from forterp.dialect import (
+    DIALECTS,  # noqa: F401
+    F66,
+    FORTRAN10,
+    Dialect,
+)
 
 # Deprecated root aliases. The organized homes are the forterp.frontend / .format /
 # .runtime / .ast namespaces (and forterp.hostlib); these names stay importable from the
 # package root for back-compat and are deliberately kept off __all__.
-from forterp.engine import Engine, Frame, StopExecution, ArrayView, TempRef  # noqa: F401
-from forterp.parser import parse_expression, parse_units  # noqa: F401
+from forterp.engine import ArrayView, Engine, Frame, StopExecution, TempRef  # noqa: F401
 from forterp.fmt import (  # noqa: F401
     InputConversionError,
     apply_carriage,
@@ -54,17 +57,21 @@ from forterp.fmt import (  # noqa: F401
     read_values,
     render,
 )
-from forterp.target import TARGETS  # noqa: F401
-from forterp.dialect import DIALECTS  # noqa: F401
-from forterp.forlib import STDLIB  # noqa: F401
-from forterp.source import scan_file, expand_includes  # noqa: F401
-from forterp.lexer import LexError, Token, tokenize  # noqa: F401
-from forterp.diagnostics import diag, show  # noqa: F401
-from forterp import ast_nodes, forbin  # noqa: F401
+from forterp.forlib import STDLIB
 
 # Prebuilt, reusable interpreters -- the easy-reuse entry point: forterp.fortran10
 # (faithful DEC FORTRAN-10) and forterp.f66 (strict ANSI), plus the Interpreter class.
-from forterp.interpreter import Interpreter, fortran10, f66
+from forterp.interpreter import Interpreter, f66, fortran10
+from forterp.lexer import LexError, Token, tokenize  # noqa: F401
+from forterp.parser import ParseError, parse_expression, parse_units  # noqa: F401
+from forterp.source import SourceOptions, expand_includes, scan_file  # noqa: F401
+from forterp.target import (
+    NATIVE,
+    PDP10,
+    TARGETS,  # noqa: F401
+    VAX,
+    Target,
+)
 
 # The one place the version is written. pyproject.toml reads it via
 # [tool.setuptools.dynamic] (attr = "forterp.__version__"), so the package metadata and
@@ -147,7 +154,7 @@ def parse_source(text, dialect=F66, on_error=None, options=None, include_dir="."
     invalid statements are NOT silently dropped. Pass ``on_error(statement, message)``
     to instead receive each diagnostic yourself and keep the (partial) result.
     """
-    from forterp.source import scan_text, DEFAULT_OPTIONS
+    from forterp.source import DEFAULT_OPTIONS, scan_text
 
     errs = []
     cb = on_error if on_error is not None else (lambda st, m: errs.append((st.line, m)))
@@ -174,4 +181,4 @@ def run_source(text, program=None, dialect=F66, options=None, include_dir=".", *
 # Expert namespaces -- imported last so forterp.runtime can re-export the builders defined
 # above. `forterp.frontend / .format / .runtime / .ast / .hostlib` organize the surface that
 # used to crowd the package root.
-from forterp import frontend, format, runtime, ast, hostlib  # noqa: E402,F401
+from forterp import ast, format, frontend, hostlib, runtime  # noqa: E402,F401

@@ -3,7 +3,8 @@ into compute-vs-expected tests, in the spirit of the NIST FCVS audit routines. E
 test pins a specific section; a failure here is a real gap vs the standard.
 """
 
-from conftest import run, run_int, out
+from conftest import out, run, run_int
+
 from forterp.fmt import parse_format, render
 
 REAL = "        PROGRAM T\n        COMMON /OUT/ V(40)\n        REAL V\n"

@@ -37,7 +37,6 @@ from dataclasses import dataclass, field
 
 from forterp.dialect import F66
 
-
 COMMENT_COL1 = set("Cc*!$/")  # V5 manual 2.3.3 comment-line markers
 DEBUG_COL1 = set("Dd")
 

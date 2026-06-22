@@ -4,7 +4,7 @@ prefix, and CONTROL-Z = end-of-file on terminal input. These are general
 FORTRAN-10 V5 coverage beyond the minimal subset a single program tends to use.
 """
 
-from conftest import run, run_int, out
+from conftest import out, run, run_int
 
 IH = "        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n        COMMON /OUT/ V(40)\n"
 END = "        END\n"

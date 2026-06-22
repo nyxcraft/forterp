@@ -10,12 +10,11 @@ from __future__ import annotations
 import glob
 import os
 
-from forterp.lexer import tokenize, Token, LexError
-from forterp.dialect import F66
-from forterp.source import scan_file, expand_includes
-from forterp.diagnostics import diag, show
 from forterp import ast_nodes as A
-
+from forterp.diagnostics import diag, show
+from forterp.dialect import F66
+from forterp.lexer import LexError, Token, tokenize
+from forterp.source import expand_includes, scan_file
 
 # normalize relational/logical operator tokens -> canonical Binary op codes
 _REL_OP = {"==": "EQ", "#": "NE", "<": "LT", ">": "GT", "<=": "LE", ">=": "GE"}

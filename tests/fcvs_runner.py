@@ -19,17 +19,16 @@ or import run_corpus() for the regression test.
 
 from __future__ import annotations
 
+import glob
 import os
 import re
-import glob
 
-from forterp.source import scan_file, expand_includes
-from forterp.parser import parse_units
-from forterp.engine import Engine, Frame, StopExecution
 from forterp import install_runtime
-from forterp.target import PDP10
 from forterp.dialect import FORTRAN10
-
+from forterp.engine import Engine, Frame, StopExecution
+from forterp.parser import parse_units
+from forterp.source import expand_includes, scan_file
+from forterp.target import PDP10
 
 CORPUS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fcvs")
 

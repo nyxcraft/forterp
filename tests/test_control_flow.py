@@ -1,6 +1,6 @@
 """Control-flow semantics: computed/arithmetic GOTO, DO loops, IF."""
 
-from conftest import run_int, out
+from conftest import out, run_int
 
 
 def out_(eng):

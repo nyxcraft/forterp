@@ -21,7 +21,7 @@ import itertools
 import math
 
 from forterp import ast_nodes as A
-from forterp.target import PDP10, NATIVE
+from forterp.target import NATIVE, PDP10
 
 # The default target's value model (see target.py), re-exported as module-level names:
 # forlib, the intrinsics table, the empire builtins and tests import these. The Engine
@@ -1404,7 +1404,7 @@ class Engine:
             ref.write(value(tok))
 
     def do_type(self, s, frame):
-        from forterp.fmt import render, apply_carriage
+        from forterp.fmt import apply_carriage, render
 
         nml = self._nml_name(s.fmt, frame)
         if nml is not None:  # TYPE/PRINT of a NAMELIST group
@@ -1459,7 +1459,7 @@ class Engine:
         ENCODE renders the list per the FORMAT into the buffer; DECODE parses the
         buffer per the FORMAT into the list. No carriage control (it's not a record
         to a device) -- render() output goes straight to the buffer."""
-        from forterp.fmt import render, read_values
+        from forterp.fmt import read_values, render
 
         count = int(self.eval(s.count, frame))
         spec = self._fmt_spec(s.fmt, frame)
@@ -1629,12 +1629,14 @@ class Engine:
                 # only fires on genuinely bad input.) Routes via _io_guard to ERR=.
                 from forterp.fmt import InputConversionError
 
-                raise InputConversionError(f"illegal character in NAMELIST field {tok.strip()!r}")
+                raise InputConversionError(
+                    f"illegal character in NAMELIST field {tok.strip()!r}"
+                ) from None
 
     def _formatted_write(self, s, frame, sink=None):
         """Formatted WRITE(unit,fmt) to a character device. `sink` is where the
         rendered text goes -- the terminal (default) or the line printer."""
-        from forterp.fmt import render, apply_carriage
+        from forterp.fmt import apply_carriage, render
 
         sink = sink or self.emit
         values = self._unf_values(s.items, frame)
@@ -1682,7 +1684,7 @@ class Engine:
         or a rendered text line (formatted, when the statement carries a FORMAT). The
         associated variable (DEFINE FILE / OPEN) is updated to the next record number.
         Auto-opens an in-memory unit."""
-        from forterp.fmt import render, read_values
+        from forterp.fmt import read_values, render
 
         st = self.io.get(unit)
         if st is None:

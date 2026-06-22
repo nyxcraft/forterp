@@ -7,9 +7,9 @@ applies one historical application's file conventions and is not a general parse
 prefer `parse_units` (or top-level `parse_source`) for new code.
 """
 
-from forterp.source import scan_file, expand_includes
-from forterp.lexer import tokenize, Token, LexError
-from forterp.parser import parse_units, parse_program, parse_file, parse_expression
+from forterp.lexer import LexError, Token, tokenize
+from forterp.parser import parse_expression, parse_file, parse_program, parse_units
+from forterp.source import expand_includes, scan_file
 
 __all__ = [
     "scan_file",

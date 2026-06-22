@@ -6,12 +6,12 @@ Direct tests pin exact behavior; a few end-to-end TYPE tests confirm the wiring
 (I-field overflow, E as fixed-point) we document it.
 """
 
+from conftest import run
 from pytest import approx
 
-from forterp.fmt import parse_format, render, apply_carriage, read_values
+from forterp.fmt import apply_carriage, parse_format, read_values, render
 from forterp.parser import pack5
 from forterp.target import PDP10  # pack5 produces PDP-10 words; render them with that target
-from conftest import run
 
 
 def sig(spec):

@@ -9,8 +9,9 @@ LITTLE-ENDIAN (char 0 in the low byte -> Hollerith-in-INTEGER is NOT string-mono
 .TRUE.=-1/.FALSE.=0 with a LOW-ORDER-BIT truth test; bit-wise .AND./.OR.. REAL is a Python
 float (VAX F_floating is not modeled bit-for-bit -- same approximation as PDP10/NATIVE)."""
 
-from forterp.target import VAX, PDP10
-from conftest import run_int, out
+from conftest import out, run_int
+
+from forterp.target import PDP10, VAX
 
 
 def test_vax_integer_is_32bit():

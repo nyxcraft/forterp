@@ -5,9 +5,10 @@ NOT FORTRAN-77. These tests pin both the supported forms and the F77 constructs 
 correctly do NOT parse -- a regression here would mean we drifted toward F77.
 """
 
+from conftest import out, run, run_int
+
 import forterp
-from conftest import run, run_int, out
-from forterp.dialect import Dialect, F66, FORTRAN10
+from forterp.dialect import F66, FORTRAN10, Dialect
 
 H = "        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n        COMMON /OUT/ V(40)\n"
 END = "        END\n"

@@ -56,7 +56,8 @@ testpaths = ["tests"]
 line-length = 100
 
 [tool.ruff.lint]
-# pyflakes (F) catches real defects; pycodestyle E/W catch genuine issues. No ignores:
-# the codebase was normalized with `ruff format` and the few ambiguous names renamed,
-# so the full standard set passes clean.
-select = ["E", "F", "W"]
+# pyflakes (F) catches real defects; pycodestyle E/W catch genuine issues; isort (I) keeps
+# imports ordered; RUF100 flags stale `# noqa`. No ignores -- the codebase is normalized with
+# `ruff format` and the few ambiguous names renamed, so this set passes clean. (UP/pyupgrade
+# is deliberately omitted: PEP-604 rewrites would break the requires-python = ">=3.9" floor.)
+select = ["E", "F", "W", "I", "RUF100"]

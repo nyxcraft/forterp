@@ -1,6 +1,6 @@
 """End-to-end arithmetic/operator semantics through the full pipeline."""
 
-from conftest import run, run_int, out
+from conftest import out, run, run_int
 
 
 def test_integer_division_truncates():

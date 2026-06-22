@@ -2,7 +2,7 @@
 operators are BITWISE on the 36-bit word, and truth is sign-based (.TRUE. = -1).
 """
 
-from conftest import run, run_int, out
+from conftest import out, run, run_int
 
 IH = "        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n        COMMON /OUT/ V(40)\n"
 END = "        END\n"

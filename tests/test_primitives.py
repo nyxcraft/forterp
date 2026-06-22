@@ -1,8 +1,8 @@
 """Direct unit tests of the interpreter's core numeric/word primitives."""
 
-from forterp.engine import wrap36, trunc_div, fort_mod, packword, linidx, _lsh
-from forterp.parser import pack5
+from forterp.engine import _lsh, fort_mod, linidx, packword, trunc_div, wrap36
 from forterp.fmt import unpack_chars
+from forterp.parser import pack5
 from forterp.target import PDP10
 
 WORD = 1 << 36
@@ -115,7 +115,7 @@ def test_linidx_2d_column_major():
 def test_open_device_registry_dispatches():
     # OPEN ... DEVICE='X' dispatches to a handler registered via register_device, so the
     # core knows only TTY + files; a host's e.g. 'GAM:' device plugs in exactly this way.
-    from conftest import run, out
+    from conftest import out, run
 
     def setup(eng):
         def zap(e, unit, specs, frame):
@@ -139,7 +139,8 @@ def test_engine_value_model_is_target_pluggable():
     # The engine routes its value model through an injected Target (target.py), so the
     # core is representation-agnostic: a 16-bit target wraps arithmetic differently than
     # the PDP-10's 36 -- proof the seam is real, not cosmetic.
-    from conftest import run, out, HEAD, TAIL
+    from conftest import HEAD, TAIL, out, run
+
     from forterp.target import Target
 
     src = HEAD + "        V(1) = 50000 + 50000\n" + TAIL

@@ -5,7 +5,7 @@ from the PDP-10 (real range/precision) we DOCUMENT it -- typical values never go
 near those edges, so the divergence is benign.
 """
 
-from conftest import run, run_int, out
+from conftest import out, run, run_int
 
 P35 = 1 << 35
 REAL = "        PROGRAM T\n        COMMON /OUT/ V(40)\n        REAL V\n"

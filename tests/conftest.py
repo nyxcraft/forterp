@@ -23,9 +23,9 @@ import tempfile
 
 import forterp
 from forterp.dialect import F66, FORTRAN10
-from forterp.source import scan_file, expand_includes
-from forterp.parser import parse_units
 from forterp.engine import Engine, Frame, StopExecution
+from forterp.parser import parse_units
+from forterp.source import expand_includes, scan_file
 
 
 def _run_one(src, dlc, program, inputs, setup, target, path):

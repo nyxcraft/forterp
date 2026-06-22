@@ -7,7 +7,7 @@ import io
 import os
 import tempfile
 
-from forterp.cli import f66_main, f10_main, main
+from forterp.cli import f10_main, f66_main, main
 
 # strict ANSI F66: Hollerith FORMAT, no DEC features
 HELLO_F66 = "      PROGRAM T\n      WRITE(6,10)\n   10 FORMAT(15H HELLO FROM F66)\n      END\n"

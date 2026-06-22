@@ -7,7 +7,7 @@ output can be verified separately from the terminal stream. This serves general
 FORTRAN-10 source, e.g. the FCVS conformance listings, which write to unit 6.
 """
 
-from conftest import run, printed, out
+from conftest import out, printed, run
 
 PROG = (
     "        PROGRAM T\n        COMMON /OUT/ V(40)\n"

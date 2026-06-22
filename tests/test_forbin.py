@@ -8,8 +8,8 @@ import pytest
 
 from forterp.forbin import (
     Dec10FloatError,
-    decode_record,
     dec10_to_double,
+    decode_record,
     double_to_dec10,
     encode_record,
 )

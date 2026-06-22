@@ -3,7 +3,8 @@ conformant F66 interpreter should support them): statement functions, PAUSE, ASS
 assigned GOTO, type size modifiers, blank common, Hollerith nH literals, multiple
 RETURN."""
 
-from conftest import run, run_int, out, printed
+from conftest import out, printed, run, run_int
+
 from forterp.parser import pack5
 
 IH = "        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n        COMMON /OUT/ V(40)\n"

@@ -3,7 +3,7 @@ and Lines".  These exercise the column-oriented line handling -- comment markers
 continuation field, multi-statement lines, debug lines -- not expression semantics.
 """
 
-from conftest import run, out
+from conftest import out, run
 
 H = "        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n        COMMON /OUT/ V(40)\n"
 END = "        END\n"
@@ -87,9 +87,10 @@ def test_label_leading_zeros_ignored():
 # ---- cols 73+ field (V5 2.2.4): faithfully dropped by default (both dialects); the
 #      SourceOptions recovery heuristic keeps spillover only when col-72 truncation would
 #      cut a statement in half. This is source recovery, NOT a dialect feature.
-from forterp.source import _trim_seqfield, scan_file, SourceOptions  # noqa: E402
-import tempfile  # noqa: E402
 import os  # noqa: E402
+import tempfile  # noqa: E402
+
+from forterp.source import SourceOptions, _trim_seqfield, scan_file  # noqa: E402
 
 
 def _line(stmt_at7, tail_at73):
@@ -179,8 +180,9 @@ def test_dialect_gates_dec_lexer_extensions():
     # The front-end dialect is selectable: DEC FORTRAN-10 accepts the octal "nnn literal;
     # strict ANSI F66 rejects it -- proof the dialect param is wired, not cosmetic.
     import pytest
-    from forterp.lexer import tokenize, LexError
-    from forterp.dialect import FORTRAN10, F66
+
+    from forterp.dialect import F66, FORTRAN10
+    from forterp.lexer import LexError, tokenize
 
     assert tokenize('"101', FORTRAN10)[0].kind == "OCTAL"  # DEC octal literal -> 65
     with pytest.raises(LexError):

@@ -3,7 +3,7 @@ Python complex; declarations, (re,im) constants, mixed-mode arithmetic, the comp
 intrinsics, type conversion on assignment, DATA, and I/O are exercised here.
 """
 
-from conftest import run, out
+from conftest import out, run
 
 RHEAD = "        PROGRAM T\n        COMMON /OUT/ V(40)\n        REAL V\n"
 END = "        END\n"

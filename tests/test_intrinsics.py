@@ -1,6 +1,6 @@
 """Intrinsic functions exercised through the engine."""
 
-from conftest import run, run_int, out
+from conftest import out, run, run_int
 
 
 def test_iabs_and_abs():

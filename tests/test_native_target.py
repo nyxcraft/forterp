@@ -5,10 +5,11 @@ where NATIVE deliberately differs from the faithful PDP-10 target (which the res
 suite validates). Broad conformance under NATIVE is covered by the FCVS corpus run
 (test_fcvs_conformance.test_native_target_runs_the_corpus_identically)."""
 
+from conftest import out, run, run_int
+
 import forterp
 from forterp import fmt
-from forterp.target import PDP10, NATIVE
-from conftest import run, run_int, out
+from forterp.target import NATIVE, PDP10
 
 
 # ---- the library default IS NATIVE (the headline of the value-model work) --------

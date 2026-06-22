@@ -4,4 +4,4 @@ A namespace alias for `forterp.ast_nodes`: the node classes the front end builds
 engine walks. Useful for tooling that inspects or transforms parsed programs.
 """
 
-from forterp.ast_nodes import *  # noqa: F401,F403  (re-export the node classes)
+from forterp.ast_nodes import *  # noqa: F403  (re-export the node classes)

@@ -12,8 +12,9 @@ These numbers are the locked-in baseline; a change means real behavior moved.
 """
 
 from fcvs_runner import run_corpus
-from forterp.target import NATIVE
+
 from forterp.dialect import F66
+from forterp.target import NATIVE
 
 R = run_corpus()  # default: FORTRAN10 dialect, PDP10 target
 R_NATIVE = run_corpus(target=NATIVE)  # value-model axis
@@ -26,6 +27,7 @@ def test_curated_corpus_all_parses_and_runs():
     # this guards against re-introducing non-runnable source.
     import glob
     import os
+
     from fcvs_runner import CORPUS_DIR
 
     n_files = len(glob.glob(os.path.join(CORPUS_DIR, "FM*.FOR")))

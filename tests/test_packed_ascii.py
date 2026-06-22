@@ -1,6 +1,7 @@
 """Character/Hollerith handling end-to-end: DATA char arrays, comparisons."""
 
-from conftest import run, out
+from conftest import out, run
+
 from forterp.parser import pack5
 
 CHARHEAD = (

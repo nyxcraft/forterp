@@ -6,8 +6,8 @@ construct now parses AND runs correctly.
 """
 
 import pytest
+from conftest import out, run
 
-from conftest import run, out
 from forterp.dialect import F66, FORTRAN10
 from forterp.fmt import unpack_chars
 
