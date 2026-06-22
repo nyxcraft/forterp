@@ -66,6 +66,9 @@ from forterp import ast_nodes, forbin  # noqa: F401
 # (faithful DEC FORTRAN-10) and forterp.f66 (strict ANSI), plus the Interpreter class.
 from forterp.interpreter import Interpreter, fortran10, f66
 
+# The one place the version is written. pyproject.toml reads it via
+# [tool.setuptools.dynamic] (attr = "forterp.__version__"), so the package metadata and
+# this attribute can never drift apart.
 __version__ = "0.1.0"
 
 # The focused public surface. Expert layers live behind explicit namespaces --

@@ -1,5 +1,10 @@
 # forterp
 
+[![Tests](https://github.com/nyxcraft/forterp/actions/workflows/tests.yml/badge.svg)](https://github.com/nyxcraft/forterp/actions/workflows/tests.yml)
+[![PyPI](https://img.shields.io/pypi/v/forterp.svg)](https://pypi.org/project/forterp/)
+[![Python versions](https://img.shields.io/pypi/pyversions/forterp.svg)](https://pypi.org/project/forterp/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 A **configurable FORTRAN-66 interpreter** in Python: the machine value model and the
 front-end dialect are both pluggable, so one core runs FORTRAN against whatever
 representation you select.

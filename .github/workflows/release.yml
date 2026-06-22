@@ -1,0 +1,45 @@
+name: Publish to PyPI
+
+# Builds the sdist + wheel and publishes them to PyPI when a version tag (v*) is pushed.
+# Uses PyPI Trusted Publishing (OIDC) -- no API token is stored as a secret. One-time setup
+# on PyPI: add this repo as a trusted publisher for the `forterp` project, workflow
+# `release.yml`, environment `pypi`. Cut a release by tagging, e.g.:
+#     git tag v0.1.0 && git push origin v0.1.0
+# The tag should match forterp.__version__ (the version baked into the build).
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build sdist + wheel
+        run: |
+          pip install build twine
+          python -m build
+          twine check dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write  # required for Trusted Publishing (OIDC); no PyPI token needed
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - name: Publish
+        uses: pypa/gh-action-pypi-publish@release/v1

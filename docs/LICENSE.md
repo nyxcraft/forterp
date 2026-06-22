@@ -1,7 +1,7 @@
 # License
 
 forterp is released under the **MIT License** — © 2026 Nicholas J. Kisseberth. The full text,
-as in the repository's [`LICENSE`](https://github.com/nkissebe/forterp/blob/main/LICENSE) file:
+as in the repository's [`LICENSE`](https://github.com/nyxcraft/forterp/blob/main/LICENSE) file:
 
 ```
 MIT License

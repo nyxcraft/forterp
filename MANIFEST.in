@@ -1,0 +1,18 @@
+# What rides along in the source distribution (the wheel is the package alone).
+#
+# Without this file setuptools' legacy default shipped tests/test_*.py but neither
+# conftest.py (the shared run/out harness) nor tests/fcvs/ (the conformance corpus) --
+# i.e. a test tree that couldn't actually run. Make the sdist a complete, buildable and
+# testable snapshot: the full test suite plus the demo programs and prose docs that the
+# README and docs site point at.
+
+graft tests
+graft demos
+graft docs
+graft examples
+include CHANGELOG.md
+
+# never ship build/cache droppings
+global-exclude *.py[cod]
+global-exclude .DS_Store
+prune **/__pycache__
