@@ -68,10 +68,14 @@ def _run(argv, dialect, prog, *, allow_std):
     except OSError as e:
         ap.error(str(e))
     name = " + ".join(os.path.basename(p) for p in args.file)
+    # INCLUDE targets resolve against the (first) source file's directory, not the cwd.
+    include_dir = os.path.dirname(args.file[0]) or "."
 
     if args.check:  # compile-check: list every %FTN diagnostic, don't run
         diags = []
-        units = forterp.parse_source(text, dialect=dialect, on_error=lambda st, m: diags.append(m))
+        units = forterp.parse_source(
+            text, dialect=dialect, include_dir=include_dir, on_error=lambda st, m: diags.append(m)
+        )
         if diags:
             print(f"?{name}: {len(diags)} error(s)", file=sys.stderr)
             for d in diags:
@@ -85,6 +89,7 @@ def _run(argv, dialect, prog, *, allow_std):
             text,
             program=args.program,
             dialect=dialect,
+            include_dir=include_dir,
             target=_TARGETS[args.target],
             emit=sys.stdout.write,  # TYPE / terminal output -> stdout
             printer=sys.stdout.write,  # line-printer (units 3/6) -> stdout

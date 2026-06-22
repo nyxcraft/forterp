@@ -135,12 +135,13 @@ def make_engine(units, dialect=None, **kwargs):
     return eng
 
 
-def parse_source(text, dialect=F66, on_error=None, options=None):
+def parse_source(text, dialect=F66, on_error=None, options=None, include_dir="."):
     """Parse FORTRAN source text into a {name: ProgramUnit} dict.
 
     `dialect` selects the language (F66 default / FORTRAN10 superset). `options` is a
     `SourceOptions` for source-recovery handling (orthogonal to the dialect; default is
-    faithful, no recovery).
+    faithful, no recovery). `include_dir` is the base directory INCLUDE targets resolve
+    against (default the current directory; the CLI passes the source file's directory).
 
     Raises ``ParseError`` on malformed source, with every diagnostic in the message --
     invalid statements are NOT silently dropped. Pass ``on_error(statement, message)``
@@ -152,7 +153,7 @@ def parse_source(text, dialect=F66, on_error=None, options=None):
     cb = on_error if on_error is not None else (lambda st, m: errs.append((st.line, m)))
     opts = options if options is not None else DEFAULT_OPTIONS
     stmts = expand_includes(
-        scan_text(text, dialect=dialect, options=opts).statements, ".", dialect=dialect
+        scan_text(text, dialect=dialect, options=opts).statements, include_dir, dialect=dialect
     )
     units = {u.name: u for u in parse_units(stmts, dialect=dialect, on_error=cb)}
     if on_error is None and errs:
@@ -160,11 +161,12 @@ def parse_source(text, dialect=F66, on_error=None, options=None):
     return units
 
 
-def run_source(text, program=None, dialect=F66, options=None, **kwargs):
+def run_source(text, program=None, dialect=F66, options=None, include_dir=".", **kwargs):
     """Parse + run a FORTRAN source string; return the Engine to inspect its state.
     `program` selects the main PROGRAM (defaults to the first program unit). `options`
-    is an optional `SourceOptions` for source-recovery handling."""
-    units = parse_source(text, dialect=dialect, options=options)
+    is an optional `SourceOptions` for source-recovery handling. `include_dir` is the
+    base directory for INCLUDE resolution (default the current directory)."""
+    units = parse_source(text, dialect=dialect, options=options, include_dir=include_dir)
     eng = make_engine(units, dialect=dialect, **kwargs)
     return eng.run_program(program)
 

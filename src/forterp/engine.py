@@ -17,6 +17,7 @@ Control model:
 from __future__ import annotations
 
 import cmath
+import itertools
 import math
 
 from forterp import ast_nodes as A
@@ -328,6 +329,7 @@ class Engine:
         binio=None,
         free_form_input=False,
         dec_intrinsics=True,
+        max_array_words=50_000_000,
     ):
         import random
 
@@ -386,8 +388,9 @@ class Engine:
         self.max_steps = 50_000_000  # bounds compute (runaway loops) -> _budget_error
         # bounds a single array/COMMON allocation so a hostile or accidental huge DIMENSION
         # (e.g. A(2000000000)) raises a clean error instead of OOM-ing the host. Generous;
+        # pass max_array_words= to the constructor (it is applied before _build below) or
         # raise eng.max_array_words for a program that legitimately needs more.
-        self.max_array_words = 50_000_000
+        self.max_array_words = max_array_words
         # (tracer / frames are class-level defaults -- see the top of the class -- so a
         # normal run leaves the instance __dict__ identical to the pre-debug engine.)
         # Parsed FORMATs, memoized by spec text. Reusing one parsed object per spec lets
@@ -560,6 +563,13 @@ class Engine:
                         )
                     rt.common_map[m] = (block, mo, u.arrays.get(m))
                     end = mo + size_of(m)
+                    if end > self.max_array_words:
+                        # a crafted EQUIVALENCE offset must not extend a COMMON block past the
+                        # allocation cap any more than a huge DIMENSION can (see _alloc_words).
+                        raise RuntimeError(
+                            f"EQUIVALENCE extends COMMON {block!r} to {end} words, past the "
+                            f"{self.max_array_words}-word limit"
+                        )
                     if end > len(self.commons[block]):
                         self.commons[block].extend([0] * (end - len(self.commons[block])))
             else:  # purely local group -> synthetic block
@@ -581,17 +591,23 @@ class Engine:
     # ---- DATA initialization
     def _apply_data(self, rt, unit):
         for targets, values in unit.data:
-            flat = []
+            # Build the value stream LAZILY: a `DATA A/2000000000*1/` repeat count must not
+            # materialize a 2-billion-element list (it would OOM before the cap on the target
+            # array's own storage ever applied). _data_assign pulls only what the targets
+            # consume, so chained itertools.repeat bounds memory to what is actually used.
+            streams = []
             for count, v in values:
                 # a literal longer than one word (5 chars) spans consecutive
                 # variables/elements: 'ABCDEFGHIJKL' -> 'ABCDE','FGHIJ','KL   '
                 if isinstance(v, A.StrLit) and len(v.value) > self.tgt.chars_per_word:
                     cw = self.tgt.chars_per_word
-                    words = [self.tgt.pack(v.value[i : i + cw]) for i in range(0, len(v.value), cw)]
-                    flat.extend(words * count)
+                    words = tuple(
+                        self.tgt.pack(v.value[i : i + cw]) for i in range(0, len(v.value), cw)
+                    )
+                    streams.append(itertools.chain.from_iterable(itertools.repeat(words, count)))
                 else:
-                    flat.extend([self._const_val(v, unit)] * count)
-            it = iter(flat)
+                    streams.append(itertools.repeat(self._const_val(v, unit), count))
+            it = itertools.chain.from_iterable(streams)
             for tgt in targets:
                 self._data_assign(rt, unit, tgt, it)
 

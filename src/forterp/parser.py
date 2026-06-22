@@ -1213,6 +1213,7 @@ def parse_units(statements, *, on_error=None, on_warn=None, dialect=F66):
     receives non-fatal diagnostics (e.g. %FTNLID, 6-char-name truncation). `dialect`
     selects the front-end extensions (default F66; FORTRAN10 for the DEC superset)."""
     units = []
+    seen = set()  # real unit names, to catch a duplicate definition (else one silently wins)
     unit = None
     for st in statements:
         if st.kind == "include":
@@ -1233,6 +1234,15 @@ def parse_units(statements, *, on_error=None, on_warn=None, dialect=F66):
                 units.append(unit)
             try:
                 unit = _parse_header(toks)
+                # A duplicate program-unit name is a hard error: the {name: unit} map every
+                # caller builds would silently keep only the last one (X3.9-1966 requires
+                # unique external names). Synthetic names ($MAIN, the "?" error placeholder)
+                # are exempt.
+                if unit.name in seen and not unit.name.startswith("$") and unit.name != "?":
+                    if on_error:
+                        msg = f"duplicate program unit name {unit.name!r}"
+                        on_error(st, diag("DUP", msg, st.line))
+                seen.add(unit.name)
             except ParseError as e:
                 if on_error:
                     on_error(st, diag(e.mnemonic, str(e), st.line))
