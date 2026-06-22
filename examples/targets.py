@@ -18,8 +18,8 @@ SOURCE = """\
 
 
 def main():
-    for name in ("native", "pdp10"):
-        eng = forterp.run_source(SOURCE, target=forterp.TARGETS[name])
+    for name, target in (("native", forterp.NATIVE), ("pdp10", forterp.PDP10)):
+        eng = forterp.run_source(SOURCE, target=target)
         print(f"2**40 on {name:7s} = {eng.commons['OUT'][0]}")
     print("(NATIVE's 64-bit word holds 2**40; the PDP-10's 36-bit word wraps it to 0.)")
 

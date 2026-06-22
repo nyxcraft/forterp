@@ -46,12 +46,12 @@ eng = forterp.run_source('''      PROGRAM HELLO
 ''', dialect=forterp.FORTRAN10, printer=print)
 ```
 
-Lower-level building blocks:
+Lower-level building blocks (the expert surface lives under `forterp.runtime`):
 
 ```python
-units = forterp.parse_source(src)         # {name: ProgramUnit}
-eng   = forterp.make_engine(units)        # Engine with the FORTRAN-10 runtime installed
-eng.run(forterp.Frame(eng.rts["MAIN"], {}))
+units = forterp.parse_source(src)              # {name: ProgramUnit}
+eng   = forterp.runtime.make_engine(units)     # Engine with the FORTRAN-10 runtime installed
+eng.run_program("MAIN")                         # or run_program() for the first unit
 ```
 
 ## Command line
@@ -137,7 +137,7 @@ f66> PROFILE                 #    5  FAC:6   (the loop body ran 5 times)
 - **Front-end dialect** — `forterp.FORTRAN10` (DEC extensions on) vs `forterp.F66`
   (ANSI). Threaded through the source reader and lexer.
 - **OPEN devices** — `eng.register_device(name, handler)` plugs in special devices.
-- **Unformatted I/O codec** — `forterp.install_runtime(eng)` wires the FOROTS binary-record +
+- **Unformatted I/O codec** — `forterp.runtime.install_runtime(eng)` wires the FOROTS binary-record +
   DEC-10 float codec used by binary `READ`/`WRITE`.
 
 ## Supported language
@@ -187,8 +187,14 @@ at the OS level (an unprivileged user, a container, a read-only filesystem, secc
 
 Two guards keep an accidental or hostile program from taking down the host, each raising a
 clean error rather than hanging or OOM-ing: a statement budget (`eng.max_steps`, default
-50M) bounds execution, and `eng.max_array_words` (default 50M) bounds any single
-array/`COMMON` allocation. `INCLUDE` is confined to the source file's own directory.
+50M) bounds execution, and `max_array_words` (default 50M, settable on the `Engine` /
+`make_engine`) bounds array/`COMMON` allocation — including DATA repetition counts and
+EQUIVALENCE extension, not just a bare `DIMENSION`. `INCLUDE` resolves only within its base
+directory (the CLI uses the source file's own directory; the library default is the current
+directory), and its `'FILE/SWITCH'` target is split on `/`, so it cannot escape via an
+absolute or `..` path. These bound resource use; they are not a security sandbox — file
+access via `OPEN` is unrestricted, so still confine genuinely untrusted source at the OS
+level.
 
 The interactive monitor additionally offers a `!` shell escape and `@file` command scripts
 (not reachable from a running FORTRAN program); these run with your shell's privileges, so

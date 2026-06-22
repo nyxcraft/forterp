@@ -30,7 +30,7 @@ eng = forterp.run_source(
     source_text,
     program=None,                  # which PROGRAM to run (default: the first)
     dialect=forterp.FORTRAN10,     # forterp.F66 (default) or forterp.FORTRAN10
-    target=forterp.TARGETS["pdp10"],  # forterp.NATIVE (default), PDP10, or VAX
+    target=forterp.PDP10,          # forterp.NATIVE (default), PDP10, or VAX
     printer=print, emit=print,     # line-printer / terminal output callbacks
     readline=input,                # input source for READ / ACCEPT
 )

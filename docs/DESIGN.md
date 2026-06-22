@@ -248,7 +248,7 @@ parses and runs — a parse failure is now a regression, not "out of scope." The
 run across **both seams**: the value-model axis (pinned to `PDP10`, the faithful target the
 unit suite asserts, and again under the default `NATIVE`) and the front-end-dialect axis
 (under `F66`, since the audits are pure ANSI). All runs produce the identical conformance
-aggregate — independent evidence both seams preserve standard behavior. 325 tests pass
+aggregate — independent evidence both seams preserve standard behavior. 471 tests pass
 standalone.
 
 ---

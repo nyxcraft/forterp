@@ -1,8 +1,9 @@
 name: Build and deploy docs to GitHub Pages
 
 # Builds the static docs site (docs/*.md + CHANGELOG.md + gh-pages/) and publishes it via
-# GitHub Pages. Set Settings -> Pages -> Source to "GitHub Actions" once; nothing is committed
-# to the repo (the built site lives only in the Pages artifact -- gh-pages/public/ is gitignored).
+# GitHub Pages. Set Settings -> Pages -> Source to "GitHub Actions" once. The built site is
+# also committed at gh-pages/public/ (kept in sync by the .githooks pre-commit hook and the
+# docs-fresh CI check); this workflow rebuilds and deploys it rather than serving the commit.
 
 on:
   push:
