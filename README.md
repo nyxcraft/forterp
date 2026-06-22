@@ -54,6 +54,13 @@ eng   = forterp.runtime.make_engine(units)     # Engine with the FORTRAN-10 runt
 eng.run_program("MAIN")                         # or run_program() for the first unit
 ```
 
+The package root exposes only the focused names above; the rest is organized into
+namespaces: `forterp.runtime` (the `Engine` and builders), `forterp.frontend` (lexer/parser
+stages), `forterp.format` (the FORMAT engine), `forterp.ast` (AST nodes), `forterp.hostlib`
+(host-builtin marshalling), and `forterp.debug` (the interactive tracer/profiler and the
+out-of-bounds census — `forterp.debug.oob_census()` counts or logs the faithful unchecked-array
+accesses without changing them).
+
 ## Command line
 
 Installing puts three commands on your PATH — thin dialect front-ends over the engine
@@ -67,8 +74,8 @@ forterp --std fortran10 prog.for   # general driver; --std f66|fortran10 (defaul
 
 `--target native|pdp10|vax` selects the value model and `--program NAME` picks the main
 unit. `--check` parses and lists every diagnostic without running (a compile-check) — so
-`pyf66 --check prog.for` is a strict-ANSI-F66 conformance linter. Before install, use
-`python -m forterp …`.
+`pyf66 --check prog.for` is a strict-ANSI-F66 conformance linter. `--version` prints the
+version, `--help` the usage. Before install, use `python -m forterp …`.
 
 Pass several source files and they are linked together by unit name, the way a compiler
 links `f77 main.f lib.f` — so a driver and a separately-held library run as one program:

@@ -1,11 +1,16 @@
 # forterp documentation
 
-- **[FORTRAN66.md](FORTRAN66.md)** — a language reference for the
-  FORTRAN dialect `forterp` implements (standard FORTRAN-66 plus the DEC FORTRAN-10
-  extensions), written for users of this interpreter.
 - **[DESIGN.md](DESIGN.md)** — the interpreter's architecture: the pipeline (source →
   lexer → parser → engine), the machine value model, memory/control models, and the four
   seams that make it standalone. For someone modifying forterp.
+- **[CLI.md](CLI.md)** — the command-line tools (`forterp` / `pyf66` / `pyfortran10`):
+  options, exit codes, multi-file linking, and the interactive monitor.
+- **[API.md](API.md)** — the programmer's reference for the `forterp.*` Python API:
+  running and parsing, the prebuilt interpreters, the target/dialect axes, embedding the
+  engine, the expert namespaces, custom host builtins, and the OOB census.
+- **[FORTRAN66.md](FORTRAN66.md)** — a language reference for the
+  FORTRAN dialect `forterp` implements (standard FORTRAN-66 plus the DEC FORTRAN-10
+  extensions), written for users of this interpreter.
 - **[CHANGELOG.md](../CHANGELOG.md)** — dated history of the standalone interpreter.
 
 Runnable material lives outside `docs/`:
@@ -16,8 +21,9 @@ Runnable material lives outside `docs/`:
   verbatim netlib libraries with drivers, DECsystem-10 tape sources, and a 1971 Game of Life.
 
 These docs are also published as a site via GitHub Pages — the build machinery lives in
-`gh-pages/` (a small `markdown-it-py` static-site generator) and is deployed by
-`.github/workflows/pages.yml`; no built output is committed.
+`gh-pages/` (a small `markdown-it-py` static-site generator); the built site is committed
+under `gh-pages/public/` (kept in sync by the `.githooks` pre-commit hook) and deployed by
+`.github/workflows/pages.yml`.
 
 ## Authoritative standards
 

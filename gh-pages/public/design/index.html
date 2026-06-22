@@ -17,13 +17,14 @@
       </a>
       <nav class="top-nav" aria-label="Primary">
         <a href="../docs/index.html">Docs</a>
-        <a href="../reference/index.html">Reference</a>
         <a href="https://github.com/nyxcraft/forterp">GitHub</a>
       </nav>
     </header>
 
     <nav class="breadcrumbs" aria-label="Breadcrumb">
       <a href="../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../docs/index.html">Docs</a>
       <span class="breadcrumbs__sep" aria-hidden="true">›</span>
       <span aria-current="page">Architecture &amp; design</span>
     </nav>
@@ -162,9 +163,13 @@ several shapes: <code>CellRef</code> (into an array/COMMON store), <code>DictRef
 <li><strong><code>DATA</code> initialization</strong> runs at build time (<code>_apply_data</code>, <code>_const_eval_int</code>), with
 repeat counts.</li>
 </ul>
-<p>Out-of-bounds access mirrors the real machine rather than guarding defensively: <code>OobError</code>/<code>_oob_event</code>
-reproduce the documented 1978 behavior (e.g. an <code>ENEMYM</code> array overrun that read adjacent
-PDP-10 memory) rather than raising a clean Python error.</p>
+<p>Out-of-bounds access mirrors the real machine rather than guarding defensively: an OOB read
+yields <code>0</code> and an OOB write is dropped — the documented 1978 behavior (e.g. an <code>ENEMYM</code> array
+overrun that read adjacent PDP-10 memory) — rather than raising a clean Python error. A tool
+can <em>observe</em> this without changing it through the public census API in <code>forterp.debug</code>:
+<code>oob_census()</code> (a context manager yielding the OOB reads/writes and per-site log for the
+block), the standalone <code>set_oob_mode</code> / <code>oob_mode</code> / <code>oob_counts</code> / <code>oob_log</code>, or <code>&quot;raise&quot;</code>
+mode to turn an overrun into an <code>OobError</code> for a checker or fuzzer.</p>
 <hr />
 <h2 id="4-the-control-model">4. The control model</h2>
 <p>FORTRAN's arbitrary <code>GO TO</code>s mean a structured AST-of-blocks is the wrong shape. Instead a

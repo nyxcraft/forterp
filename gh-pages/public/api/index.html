@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Python API guide | forterp</title>
+  <meta name="description" content="Using forterp as a library: run_source / parse_source, the prebuilt interpreters and the Interpreter class, the target and dialect axes, embedding the Engine, the expert namespaces, custom host builtins, and the OOB census.">
+  <link rel="stylesheet" href="../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../index.html">
+        <img class="brand__icon" src="../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">Python API guide</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#the-public-surface">The public surface</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#run-and-inspect">Run and inspect</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#the-two-axes-target-and-dialect">The two axes: target and dialect</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#prebuilt-interpreters-and-the-interpreter-class">Prebuilt interpreters and the `Interpreter` class</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#embedding-and-i-o">Embedding and I/O</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#expert-namespaces">Expert namespaces</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#custom-host-routines-builtins">Custom host routines (builtins)</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#instrumentation-the-oob-census">Instrumentation: the OOB census</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#errors">Errors</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>Python API guide</h1>
+          <p class="docs-article__summary">Using forterp as a library: run_source / parse_source, the prebuilt interpreters and the Interpreter class, the target and dialect axes, embedding the Engine, the expert namespaces, custom host builtins, and the OOB census.</p>
+          <p class="docs-article__source">Python API guide</p>
+        </header>
+        <div class="prose">
+<p><code>forterp</code> is usable as a library: parse and run FORTRAN from Python, inspect the result,
+swap the value model or dialect, embed the engine in a host program, or instrument it. The
+package root exposes a focused surface; deeper machinery lives in explicit namespaces.</p>
+<h2 id="the-public-surface">The public surface</h2>
+<p><code>import forterp</code> gives exactly these names (everything else is in a namespace, below):</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>run_source(text, …)</code></td>
+<td>parse + run a source string; returns the <code>Engine</code></td>
+</tr>
+<tr>
+<td><code>parse_source(text, …)</code></td>
+<td>parse → <code>{name: ProgramUnit}</code> (raises <code>ParseError</code>)</td>
+</tr>
+<tr>
+<td><code>f66</code>, <code>fortran10</code></td>
+<td>prebuilt, ready-to-run interpreters</td>
+</tr>
+<tr>
+<td><code>Interpreter</code></td>
+<td>roll your own (target + dialect + runtime)</td>
+</tr>
+<tr>
+<td><code>F66</code>, <code>FORTRAN10</code>, <code>Dialect</code></td>
+<td>the front-end dialect axis</td>
+</tr>
+<tr>
+<td><code>NATIVE</code>, <code>PDP10</code>, <code>VAX</code>, <code>Target</code></td>
+<td>the machine value-model axis</td>
+</tr>
+<tr>
+<td><code>ParseError</code>, <code>SourceOptions</code></td>
+<td>the parse error; source-recovery options</td>
+</tr>
+</tbody>
+</table>
+<h2 id="run-and-inspect">Run and inspect</h2>
+<p><code>run_source</code> returns the <code>Engine</code>, so you read results out of it after the run. By
+convention, programs write results into a <code>COMMON</code> block, which the engine exposes as a flat
+list of words:</p>
+<pre><code class="language-python">import forterp
+
+src = &quot;&quot;&quot;      PROGRAM T
+      COMMON /OUT/ V(40)
+      V(1) = 2 ** 10
+      END
+&quot;&quot;&quot;
+eng = forterp.run_source(src, dialect=forterp.FORTRAN10)
+print(eng.commons[&quot;OUT&quot;][0])        # 1024
+</code></pre>
+<p><code>run_source(text, program=None, dialect=F66, options=None, include_dir=&quot;.&quot;, **kwargs)</code>:
+<code>program</code> picks the main unit (default: the first); <code>dialect</code> is <code>F66</code> (default) or
+<code>FORTRAN10</code>; <code>include_dir</code> is where <code>INCLUDE</code> resolves; extra <code>**kwargs</code> pass through to the
+<code>Engine</code> (see <a href="#embedding-and-io">Embedding</a>).</p>
+<p><code>parse_source(text, dialect=F66, on_error=None, options=None, include_dir=&quot;.&quot;)</code> parses
+without running and returns <code>{name: ProgramUnit}</code>. It raises <code>ParseError</code> (with every
+diagnostic in the message) unless you pass <code>on_error(statement, message)</code>, which receives
+each diagnostic and keeps the partial result.</p>
+<h2 id="the-two-axes-target-and-dialect">The two axes: target and dialect</h2>
+<p>They are orthogonal — any pairing is valid.</p>
+<p><strong>Target</strong> — the machine value model (integer word width + overflow, the logical-truth
+convention, the character codec):</p>
+<ul>
+<li><code>forterp.NATIVE</code> — a clean 64-bit host: 64-bit two's-complement, 8-bit ASCII, <code>.TRUE.</code>=1
+with boolean logicals. <strong>The default</strong>, for running standard F66 portably.</li>
+<li><code>forterp.PDP10</code> — the DEC FORTRAN-10 machine: 36-bit two's-complement, 5×7-bit packed
+ASCII, <code>.TRUE.</code>=−1 with bit-wise logicals. The faithful, validated opt-in.</li>
+<li><code>forterp.VAX</code> — a provisional, unvalidated 32-bit guess.</li>
+<li><code>forterp.Target(word_bits=…, chars_per_word=…, bits_per_char=…, logical_true=…, bitwise_logic=…, little_endian=…, truth=…)</code> — build your own.</li>
+</ul>
+<pre><code class="language-python">forterp.run_source(src, target=forterp.PDP10)   # 36-bit arithmetic, packed ASCII
+</code></pre>
+<p><strong>Dialect</strong> — the front-end language (<code>forterp.F66</code> strict ANSI vs <code>forterp.FORTRAN10</code> the
+DEC superset). F66 genuinely <em>rejects</em> non-F66 constructs; FORTRAN10 enables octal,
+tab-format, <code>!</code> comments, apostrophe strings, random-access I/O, free-form input, and the
+DEC intrinsic library.</p>
+<p><strong>SourceOptions</strong> — orthogonal to the dialect; it copes with imperfect <em>input</em>, not a
+language variant. <code>forterp.SourceOptions(recover_shifted_cols=True)</code> keeps statement text
+that spilled past column 72 in a mechanically re-indented deck. The default is no recovery
+(columns 7–72, sequence field dropped).</p>
+<h2 id="prebuilt-interpreters-and-the-interpreter-class">Prebuilt interpreters and the <code>Interpreter</code> class</h2>
+<p><code>forterp.fortran10</code> (<code>PDP10</code> + <code>FORTRAN10</code> + free-form input) and <code>forterp.f66</code> (<code>NATIVE</code> +
+strict <code>F66</code>) are ready-to-run presets. Build your own with <code>Interpreter(target, dialect, *, free_form_input=None, dec_intrinsics=None, runtime=True, source_options=None)</code> — the two
+flags default from the dialect, so you can't construct a contradictory pairing.</p>
+<p>Each interpreter offers a uniform surface:</p>
+<pre><code class="language-python">fp = forterp.fortran10
+
+eng              = fp.run_source(src, program=None, **engine_kwargs)   # parse + run
+units, errors    = fp.parse_text(src)                                  # parse a string
+units, errors    = fp.parse_file(&quot;PROG.FOR&quot;)                           # parse a file
+units, errors    = fp.parse_dir(&quot;src/&quot;, exclude={&quot;SCRATCH&quot;})           # parse a directory
+eng              = fp.build_engine(units, runtime=True, **engine_kwargs)  # engine, ready to run
+</code></pre>
+<p><code>parse_text</code>/<code>parse_file</code> return <code>(units, errors)</code> where <code>errors</code> is a list of
+<code>(line, message)</code>; <code>parse_dir</code> errors are <code>(file, line, message)</code> (a directory spans files).
+<code>build_engine</code> installs the DEC runtime (the library + FOROTS binary-I/O codec) unless
+<code>runtime=False</code>, and never shadows a routine the program defines itself.</p>
+<h2 id="embedding-and-i-o">Embedding and I/O</h2>
+<p>The <code>Engine</code> is the runtime. Build one with <code>forterp.runtime.make_engine(units, dialect=None, **kwargs)</code> (it installs the runtime and applies the dialect's engine flags),
+then <code>eng.run_program(name)</code>. The engine's host touchpoints are injected callbacks, so it
+stays host-agnostic:</p>
+<table>
+<thead>
+<tr>
+<th><code>Engine</code>/<code>make_engine</code> kwarg</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>emit</code></td>
+<td>sink for terminal output (<code>TYPE</code>, list-directed, unit 5) — a <code>str -&gt; None</code> callback</td>
+</tr>
+<tr>
+<td><code>printer</code></td>
+<td>sink for the line printer (units 3/6)</td>
+</tr>
+<tr>
+<td><code>readline</code></td>
+<td>source for <code>READ</code>/<code>ACCEPT</code> — returns one line (<code>&quot;&quot;</code> at EOF)</td>
+</tr>
+<tr>
+<td><code>getch</code></td>
+<td>single-character input, if needed</td>
+</tr>
+<tr>
+<td><code>target</code></td>
+<td>the value model (default <code>NATIVE</code>)</td>
+</tr>
+<tr>
+<td><code>root</code></td>
+<td>base directory for <code>INCLUDE</code> and <code>OPEN</code> file specs</td>
+</tr>
+<tr>
+<td><code>max_array_words</code></td>
+<td>cap on a single array/<code>COMMON</code> allocation (default 50M)</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-python">out = []
+units = forterp.parse_source(src, dialect=forterp.FORTRAN10)
+eng = forterp.runtime.make_engine(units, dialect=forterp.FORTRAN10, printer=out.append)
+eng.run_program()                # or run_program(&quot;MAIN&quot;)
+print(&quot;&quot;.join(out))
+</code></pre>
+<p>Reading results back is just inspecting engine state: <code>eng.commons[&quot;BLK&quot;]</code> (a flat word
+list) is the usual channel for using FORTRAN as a compute kernel.</p>
+<h2 id="expert-namespaces">Expert namespaces</h2>
+<p>The root stays focused; the rest is organized into namespaces (<code>import forterp</code> makes them
+available as <code>forterp.&lt;namespace&gt;</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Namespace</th>
+<th>Holds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>forterp.runtime</code></td>
+<td><code>Engine</code>, <code>Frame</code>, <code>make_engine</code>, <code>install_runtime</code>, <code>engine_kwargs</code>, <code>STDLIB</code></td>
+</tr>
+<tr>
+<td><code>forterp.frontend</code></td>
+<td>the parse stages: <code>scan_file</code>, <code>expand_includes</code>, <code>parse_units</code>, <code>parse_expression</code>, <code>tokenize</code>, <code>Token</code>, <code>LexError</code></td>
+</tr>
+<tr>
+<td><code>forterp.format</code></td>
+<td>the FORMAT engine: <code>parse_format</code>, <code>render</code>, <code>read_values</code>, <code>apply_carriage</code>, <code>InputConversionError</code></td>
+</tr>
+<tr>
+<td><code>forterp.ast</code></td>
+<td>the AST node classes the parser produces</td>
+</tr>
+<tr>
+<td><code>forterp.hostlib</code></td>
+<td>declarative authoring of host builtins (below)</td>
+</tr>
+<tr>
+<td><code>forterp.debug</code></td>
+<td>the OOB-access census (below) and the interactive tracer/profiler</td>
+</tr>
+</tbody>
+</table>
+<h2 id="custom-host-routines-builtins">Custom host routines (builtins)</h2>
+<p>A host can add its own intrinsics/subprograms. The low-level contract is a callable
+<code>fn(eng, frame, arg_nodes)</code> registered with <code>eng.register_builtins({...})</code>. <code>forterp.hostlib</code>
+generates the argument marshalling so the body is clean Python — declare each parameter's
+<em>mode</em>:</p>
+<pre><code class="language-python">from forterp.hostlib import builtin, INT, OUT, ARRAY
+
+@builtin(&quot;IDIST&quot;, args=(INT, INT))      # two integer-word inputs
+def idist(a, b):
+    return abs(a - b)                    # return value used as the function result
+
+eng.register_builtins({&quot;IDIST&quot;: idist})
+</code></pre>
+<p>Modes: <code>IN</code> (raw value), <code>INT</code>, <code>FLOAT</code> (typed inputs), <code>OUT</code>/<code>INOUT</code> (write-back via a
+reference), <code>ARRAY</code> (a based array view). A builtin is dispatched identically whether called
+as a function (its return value is used) or via <code>CALL</code> (ignored).</p>
+<p>Pluggable <code>OPEN</code> devices use the same idea: <code>eng.register_device(&quot;GAM&quot;, fn(eng, unit, specs, frame))</code> lets a program <code>OPEN(…, DEVICE='GAM')</code> route to your handler;
+the core knows only TTY + files.</p>
+<h2 id="instrumentation-the-oob-census">Instrumentation: the OOB census</h2>
+<p>The engine reproduces the unchecked PDP-10 faithfully — an out-of-bounds read yields <code>0</code>, an
+OOB write is dropped (the 1978 overrun behavior). <code>forterp.debug</code> lets you <em>observe</em> that
+without changing it:</p>
+<pre><code class="language-python">import forterp, forterp.debug
+
+with forterp.debug.oob_census() as census:        # mode &quot;log&quot; by default
+    forterp.fortran10.run_source(src)
+print(census.reads, census.writes)                # counts during the block
+for site in census.sites:                          # per-site records (mode &quot;log&quot;)
+    print(site[&quot;op&quot;], site[&quot;routine&quot;], site[&quot;array&quot;], site[&quot;idx&quot;], site[&quot;len&quot;])
+</code></pre>
+<p>The context manager restores the prior mode on exit (even on exception). For finer control
+there is a standalone surface: <code>set_oob_mode(&quot;off&quot;|&quot;log&quot;|&quot;raise&quot;)</code> / <code>oob_mode()</code>,
+<code>oob_counts()</code> → <code>(reads, writes)</code>, and <code>oob_log()</code> / <code>clear_oob_log()</code>. In <code>&quot;raise&quot;</code> mode
+an overrun raises <code>forterp.debug.OobError</code> — turning the faithful overrun into a hard error
+for a checker or fuzzer.</p>
+<h2 id="errors">Errors</h2>
+<table>
+<thead>
+<tr>
+<th>Exception</th>
+<th>Raised when</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>forterp.ParseError</code></td>
+<td>malformed source (front-end); message carries every diagnostic</td>
+</tr>
+<tr>
+<td><code>forterp.format.InputConversionError</code></td>
+<td>a bad numeric field on formatted/list-directed/NAMELIST input</td>
+</tr>
+<tr>
+<td><code>forterp.debug.OobError</code></td>
+<td>an out-of-bounds access while the census mode is <code>&quot;raise&quot;</code></td>
+</tr>
+</tbody>
+</table>
+<p>A runtime fault inside a FORTRAN program surfaces as an ordinary Python exception
+(<code>RuntimeError</code>, <code>ValueError</code>, …) out of <code>run_source</code>/<code>run_program</code>; an explicit <code>STOP</code>
+raises <code>forterp.runtime.StopExecution</code>, which <code>run_program</code> swallows as normal termination.</p>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../index.html">forterp</a> is <a href="../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

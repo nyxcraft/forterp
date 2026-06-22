@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Command-line tools | forterp</title>
+  <meta name="description" content="The forterp / pyf66 / pyfortran10 commands: options, exit codes, multi-file linking, and the interactive monitor — RUN/LOAD, the per-statement debugger/profiler, and the IMMEDIATE REPL.">
+  <link rel="stylesheet" href="../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../index.html">
+        <img class="brand__icon" src="../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">Command-line tools</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#running-a-program">Running a program</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#linking-several-files">Linking several files</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#options">Options</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#exit-codes">Exit codes</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#interactive-monitor">Interactive monitor</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#debugging">Debugging</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#immediate-a-repl">`IMMEDIATE` (a REPL)</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>Command-line tools</h1>
+          <p class="docs-article__summary">The forterp / pyf66 / pyfortran10 commands: options, exit codes, multi-file linking, and the interactive monitor — RUN/LOAD, the per-statement debugger/profiler, and the IMMEDIATE REPL.</p>
+          <p class="docs-article__source">Command-line tools</p>
+        </header>
+        <div class="prose">
+<p>Installing <code>forterp</code> puts three commands on your <code>PATH</code>. They are thin dialect front-ends
+over one engine — like <code>g77</code>/<code>gfortran</code> over gcc:</p>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Dialect</th>
+<th>Use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>forterp</code></td>
+<td><code>--std</code> selects (default <code>f66</code>)</td>
+<td>the general driver</td>
+</tr>
+<tr>
+<td><code>pyf66</code></td>
+<td>strict ANSI FORTRAN-66</td>
+<td>rejects DEC extensions</td>
+</tr>
+<tr>
+<td><code>pyfortran10</code></td>
+<td>DEC FORTRAN-10 (the superset)</td>
+<td>octal, <code>IMPLICIT</code>, <code>'…'</code>, random-access I/O, …</td>
+</tr>
+</tbody>
+</table>
+<p>Before installing, the same commands are available as <code>python -m forterp …</code>.</p>
+<h2 id="running-a-program">Running a program</h2>
+<pre><code class="language-sh">pyfortran10 prog.for          # run prog.for's main PROGRAM
+forterp --std fortran10 prog.for
+</code></pre>
+<p>The program's terminal output (<code>TYPE</code>, list-directed <code>PRINT *</code>, unit 5) and its
+line-printer output (units 3/6) go to <strong>stdout</strong>; <code>READ</code>/<code>ACCEPT</code> read from <strong>stdin</strong>. A
+normal end or <code>STOP</code> exits 0.</p>
+<h3 id="linking-several-files">Linking several files</h3>
+<p>Pass multiple source files and they are linked by unit name, the way a compiler links
+<code>f77 main.f lib.f</code> — a driver and a separately-held library run as one program:</p>
+<pre><code class="language-sh">forterp main.for lib.for      # main.for's PROGRAM calls SUBROUTINEs defined in lib.for
+</code></pre>
+<p><code>INCLUDE</code> targets resolve against the first source file's directory.</p>
+<h2 id="options">Options</h2>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--std f66|fortran10</code></td>
+<td>language dialect (<strong><code>forterp</code> only</strong>; default <code>f66</code>). <code>pyf66</code>/<code>pyfortran10</code> are pinned.</td>
+</tr>
+<tr>
+<td><code>--target native|pdp10|vax</code></td>
+<td>machine value model (default <code>native</code>). <code>pdp10</code> = the faithful 36-bit DEC machine; <code>vax</code> is provisional.</td>
+</tr>
+<tr>
+<td><code>--program NAME</code></td>
+<td>which <code>PROGRAM</code>/<code>SUBROUTINE</code> unit to run as the main (default: the first).</td>
+</tr>
+<tr>
+<td><code>--check</code></td>
+<td>parse and list every diagnostic <strong>without running</strong> — a compile-check. <code>pyf66 --check prog.for</code> is a strict-ANSI-F66 conformance linter.</td>
+</tr>
+<tr>
+<td><code>--version</code></td>
+<td>print <code>&lt;prog&gt; &lt;version&gt;</code> and exit.</td>
+</tr>
+<tr>
+<td><code>--help</code>, <code>-h</code></td>
+<td>usage and exit.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="exit-codes">Exit codes</h2>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>0</code></td>
+<td>ran to completion, or an explicit <code>STOP</code>; <code>--check</code> with no diagnostics</td>
+</tr>
+<tr>
+<td><code>1</code></td>
+<td>a parse error, a bad numeric field / unrepresentable binary float, a runtime fault (undefined unit/label, step-budget exceeded, oversized allocation, deep recursion, a file error), or <code>--check</code> with diagnostics</td>
+</tr>
+<tr>
+<td><code>2</code></td>
+<td>a usage error (unreadable file, <code>--check</code> with no file, a bad option)</td>
+</tr>
+</tbody>
+</table>
+<p>Runtime faults are reported as a single <code>?…</code> line on stderr — never a Python traceback.</p>
+<h2 id="interactive-monitor">Interactive monitor</h2>
+<p>Launched with <strong>no file</strong>, each command drops into an interactive monitor — a small,
+FORTRAN-focused descendant of the TOPS-10 <code>.</code> prompt. It works on whole source files (F66
+has no incremental-execution model), except for <code>IMMEDIATE</code> mode. The command set is the
+same for all three commands; only the starting dialect differs, and <code>SET STD</code> flips it.</p>
+<pre><code class="language-text">f66&gt; RUN prog.for             # compile + run a file        (alias EXECUTE)
+f66&gt; CHECK prog.for           # parse + list diagnostics, no run  (alias COMPILE)
+f66&gt; LOAD prog.for            # parse a file into the session
+f10&gt; START                    # run the loaded program; RESET drops it
+f10&gt; SET STD fortran10        # switch dialect / TARGET / PROGRAM between runs
+f10&gt; SET TARGET pdp10
+f10&gt; SHOW /OUT/               # inspect a COMMON block after a run; SHOW = settings
+f10&gt; !ls                      # run a host shell command
+f10&gt; @script.mon              # run monitor commands from a file
+f10&gt; HELP                     # the command list
+f10&gt; EXIT                     # quit                          (alias QUIT)
+</code></pre>
+<h3 id="debugging">Debugging</h3>
+<p>The monitor carries a per-statement debugger/profiler (off by default — a plain <code>RUN</code>
+pays nothing):</p>
+<pre><code class="language-text">f66&gt; BREAK 7                  # breakpoint at line 7 (no arg = list); UNBREAK to remove
+f66&gt; STEP                     # the next RUN stops at the first statement
+f66&gt; RUN prog.for             # at a (dbg) prompt: step / next / cont, where, p &lt;expr&gt;
+f66&gt; TRACE on                 # echo each statement as it runs
+f66&gt; PROFILE on               # per-line execution counts; PROFILE (no arg) shows the report
+f66&gt; COVERAGE                 # which lines the last run reached
+</code></pre>
+<p>At the <code>(dbg)</code> prompt, typing a name inspects it (the engine's own evaluator); a bare
+command word wins over a same-named variable, so use <code>p &lt;expr&gt;</code> / <code>=&lt;expr&gt;</code> to force
+inspection.</p>
+<h3 id="immediate-a-repl"><code>IMMEDIATE</code> (a REPL)</h3>
+<pre><code class="language-text">f66&gt; IMMEDIATE                # alias REPL — interactive FORTRAN
+*&gt; I = 6 * 7                  # statements run as you type
+*&gt; TYPE *, I                  # 42
+*&gt; 2 + 3 * 4                  # a bare expression is evaluated and printed -&gt; 14
+</code></pre>
+<p>A <code>DO</code> loop is collected across lines and run as a block; declarations accumulate in a
+persistent session. <code>COMMON</code>/<code>EQUIVALENCE</code>/<code>NAMELIST</code> are out of scope for immediate mode —
+put them in a file and <code>LOAD</code> it.</p>
+<blockquote>
+<p>The monitor's <code>!</code> shell escape and <code>@file</code> scripts run with your shell's privileges and
+are <strong>not</strong> reachable from a running FORTRAN program. Treat a command script as trusted
+input; don't wire the monitor to an untrusted source.</p>
+</blockquote>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../index.html">forterp</a> is <a href="../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

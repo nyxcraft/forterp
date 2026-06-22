@@ -119,9 +119,13 @@ FORTRAN-66 has no stack-allocated locals and no heap. forterp mirrors that:
 - **`DATA` initialization** runs at build time (`_apply_data`, `_const_eval_int`), with
   repeat counts.
 
-Out-of-bounds access mirrors the real machine rather than guarding defensively: `OobError`/`_oob_event`
-reproduce the documented 1978 behavior (e.g. an `ENEMYM` array overrun that read adjacent
-PDP-10 memory) rather than raising a clean Python error.
+Out-of-bounds access mirrors the real machine rather than guarding defensively: an OOB read
+yields `0` and an OOB write is dropped — the documented 1978 behavior (e.g. an `ENEMYM` array
+overrun that read adjacent PDP-10 memory) — rather than raising a clean Python error. A tool
+can *observe* this without changing it through the public census API in `forterp.debug`:
+`oob_census()` (a context manager yielding the OOB reads/writes and per-site log for the
+block), the standalone `set_oob_mode` / `oob_mode` / `oob_counts` / `oob_log`, or `"raise"`
+mode to turn an overrun into an `OobError` for a checker or fuzzer.
 
 ---
 

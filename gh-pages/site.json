@@ -26,6 +26,20 @@
       "featured": true
     },
     {
+      "slug": "cli",
+      "title": "Command-line tools",
+      "source": "docs/CLI.md",
+      "summary": "The forterp / pyf66 / pyfortran10 commands: options, exit codes, multi-file linking, and the interactive monitor — RUN/LOAD, the per-statement debugger/profiler, and the IMMEDIATE REPL.",
+      "featured": true
+    },
+    {
+      "slug": "api",
+      "title": "Python API guide",
+      "source": "docs/API.md",
+      "summary": "Using forterp as a library: run_source / parse_source, the prebuilt interpreters and the Interpreter class, the target and dialect axes, embedding the Engine, the expert namespaces, custom host builtins, and the OOB census.",
+      "featured": true
+    },
+    {
       "slug": "changelog",
       "title": "Changelog",
       "source": "CHANGELOG.md",
