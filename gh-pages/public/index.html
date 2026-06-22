@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>forterp | FORTRAN-66 / DEC FORTRAN-10 interpreter</title>
   <meta name="description" content="Written in pure Python, with two pluggable axes: the front-end dialect — strict ANSI FORTRAN 66 by default, the DEC FORTRAN-10 superset on demand — and the machine value model, a 64-bit default or a 36-bit PDP-10. Conformance is checked against the FCVS corpus; the PDP-10 model, against the DEC FORTRAN-10 V5 manual and real 1970s code.">
-  <link rel="stylesheet" href="assets/site.css?v=b5274cda">
+  <link rel="stylesheet" href="assets/site.css?v=de204dc9">
 </head>
 <body class="site-home">
   <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -33,15 +33,15 @@
             <a class="button" href="design/index.html">How it works</a>
           </div>
         </div>
-        <div class="hero__visual" role="img" aria-label="The forterp pipeline, top to bottom: source; lexer and parser, set by the dialect (F66 or FORTRAN10); the engine, set by the target (NATIVE 64-bit or PDP-10 36-bit); then the running program.">
+        <div class="hero__visual" role="img" aria-label="The forterp pipeline, top to bottom: source, read by a fixed-form column scanner into a statement stream; a hand-written lexer and recursive-descent parser that build an AST, set by the dialect (F66 or FORTRAN10); a tree-walking interpreter engine with pass-by-reference argument cells, set by the target (NATIVE 64-bit or PDP-10 36-bit); then the running program.">
           <div class="flow">
-            <div class="flow__node"><span>Source .FOR</span><strong>fixed-form · tab-format · INCLUDE</strong></div>
+            <div class="flow__node"><span>Source .FOR</span><strong>fixed-form · tab-format · INCLUDE</strong><small class="flow__tech">fixed-form column scanner → statement stream</small></div>
             <div class="flow__arrow" aria-hidden="true">↓</div>
-            <div class="flow__node"><span>Lexer · Parser</span><strong>set by the <em>dialect</em> — F66 or FORTRAN10</strong></div>
+            <div class="flow__node"><span>Lexer · Parser</span><strong>set by the <em>dialect</em> — F66 or FORTRAN10</strong><small class="flow__tech">hand-written lexer · recursive-descent parser → AST</small></div>
             <div class="flow__arrow" aria-hidden="true">↓</div>
-            <div class="flow__node flow__node--hub"><span>Engine</span><strong>set by the <em>target</em> — NATIVE 64-bit or PDP-10 36-bit</strong></div>
+            <div class="flow__node flow__node--hub"><span>Engine</span><strong>set by the <em>target</em> — NATIVE 64-bit or PDP-10 36-bit</strong><small class="flow__tech">tree-walking interpreter · pass-by-reference cells</small></div>
             <div class="flow__arrow" aria-hidden="true">↓</div>
-            <div class="flow__node"><span>Running program</span><strong>COMMON · FORMAT · FOROTS binary I/O</strong></div>
+            <div class="flow__node"><span>Running program</span><strong>COMMON · FORMAT · FOROTS binary I/O</strong><small class="flow__tech">static storage · column-major arrays · FORMAT engine</small></div>
           </div>
         </div>
       </section>

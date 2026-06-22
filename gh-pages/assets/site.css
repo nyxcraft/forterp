@@ -278,6 +278,16 @@ pre {
   font-family: var(--font-code);
 }
 
+/* implementation-design note under each stage (tree-walker / AST / etc.) — muted, monospace */
+.flow__node .flow__tech {
+  display: block;
+  margin-top: .35rem;
+  color: var(--ink-soft);
+  font-size: .66rem;
+  font-family: var(--font-code);
+  line-height: 1.35;
+}
+
 .flow__node--hub {
   border-color: var(--accent);
   background: rgba(124, 34, 48, .12);
