@@ -59,13 +59,14 @@ class Interpreter:
         self.source_options = source_options or DEFAULT_OPTIONS
 
     # ---- building engines --------------------------------------------------
-    def build_engine(self, units, *, runtime=None, **kwargs):
+    def build_engine(self, units, *, runtime=None, builtins=None, **kwargs):
         """An Engine pinned to this interpreter's target + dialect-derived flags.  With the
         runtime (default), installs the standard library + FOROTS binary I/O -- but never
         shadows a STDLIB library routine the program defines itself: engine builtins take
         precedence over program units, so STDLIB names that collide with a defined unit are
         skipped.  (Hardcoded intrinsics still win unless the program declares EXTERNAL --
-        correct FORTRAN.)"""
+        correct FORTRAN.)  `builtins` is an optional {name: fn} table of extra host routines,
+        registered last so they extend or override the standard library."""
         kwargs.setdefault("target", self.target)
         kwargs.setdefault("free_form_input", self.free_form_input)
         kwargs.setdefault("dec_intrinsics", self.dec_intrinsics)
@@ -76,6 +77,8 @@ class Interpreter:
             forterp.runtime.install_runtime(
                 eng
             )  # DEC library (gated on dec_intrinsics) + FOROTS I/O
+        if builtins:
+            eng.register_builtins(dict(builtins))
         return eng
 
     # ---- parsing -----------------------------------------------------------

@@ -7,6 +7,8 @@ import io
 import os
 import tempfile
 
+import pytest
+
 from forterp.cli import f10_main, f66_main, main
 
 # strict ANSI F66: Hollerith FORMAT, no DEC features
@@ -138,3 +140,44 @@ def test_check_reports_ok_on_clean_source(capsys):
         os.unlink(p)
     assert rc == 0
     assert "unit(s) OK" in capsys.readouterr().out
+
+
+# A flat host-routine module dropped in beside FORTRAN source -- discovered and registered
+# by basename, no registry/__init__ needed.
+_PY_BUILTIN = (
+    "from forterp.hostlib import builtin, INT\n\n\n"
+    "@builtin('IDIST', args=(INT, INT))\n"
+    "def idist(a, b):\n"
+    "    return abs(a - b)\n"
+)
+_CALLS_IDIST = (
+    "      PROGRAM T\n      WRITE(6,10) IDIST(3,7), IDIST(10,2)\n"
+    "   10 FORMAT(' IDIST:', 2I5)\n      END\n"
+)
+
+
+def _pyfile(text):
+    with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False) as f:
+        f.write(text)
+        return f.name
+
+
+def test_py_argument_registers_host_routines(capsys):
+    pf, src = _pyfile(_PY_BUILTIN), _src(_CALLS_IDIST)
+    try:
+        rc = f10_main([pf, src])  # the .py provides IDIST; the .FOR calls it
+    finally:
+        os.unlink(pf)
+        os.unlink(src)
+    assert rc == 0
+    assert "IDIST:    4    8" in capsys.readouterr().out
+
+
+def test_py_module_without_fortran_is_an_error(capsys):
+    pf = _pyfile(_PY_BUILTIN)
+    try:
+        with pytest.raises(SystemExit):  # argparse error: nothing to run
+            f10_main([pf])
+    finally:
+        os.unlink(pf)
+    assert "no FORTRAN source" in capsys.readouterr().err

@@ -72,3 +72,4 @@
 - **23:33** — `forterp.debug.oob_census()`: a public OOB-access census, so consumers no longer poke engine internals.
 - **23:47** — New docs: a CLI reference and a `forterp.*` API programmer's guide.
 - **23:51** — Docs-site polish: a "Docs" breadcrumb, interpreter-design vocabulary on the home-page pipeline, a high-contrast beta stamp.
+- **23:58** — CLI loads `.py` host-routine modules beside FORTRAN source: a `*.py` argument is imported and its `@builtin` routines are discovered (`hostlib.builtins_in`) and registered — drop them in, no registry/`__init__`.

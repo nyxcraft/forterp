@@ -49,6 +49,7 @@ __all__ = [
     "OutRef",
     "builtin",
     "make_builtin",
+    "builtins_in",
 ]
 
 
@@ -170,3 +171,26 @@ def builtin(name, *, args=None, raw=False):
         return wrapper
 
     return deco
+
+
+def builtins_in(module):
+    """Collect the host builtins a module provides, as ``{name: wrapper}``.
+
+    Two conventions, so a Python module can be dropped in beside FORTRAN source and have its
+    routines discovered without a hand-written registry:
+
+    - every ``@builtin``-decorated callable, keyed by its ``builtin_name``;
+    - a module-level ``BUILTINS`` dict (e.g. one a registry built), merged on top.
+
+    Used by the CLI to register host routines from ``.py`` arguments, and available to any
+    embedder that wants the same drop-in discovery.
+    """
+    table = {}
+    for value in vars(module).values():
+        name = getattr(value, "builtin_name", None)
+        if name and callable(value):
+            table[name] = value
+    extra = getattr(module, "BUILTINS", None)
+    if isinstance(extra, dict):
+        table.update(extra)
+    return table

@@ -13,6 +13,7 @@ thin presets over `forterp` itself -- like g77/gfortran over gcc.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import os
 import sys
 
@@ -23,14 +24,34 @@ _TARGETS = forterp.target.TARGETS
 _DIALECTS = forterp.dialect.DIALECTS
 
 
+def _load_builtins(paths):
+    """Import each ``.py`` path as a module and collect the host routines it provides into a
+    single ``{name: fn}`` table (see `forterp.hostlib.builtins_in`). The file's directory is
+    put on ``sys.path`` so sibling modules can import each other; the module executes on import
+    (it is host code, like any plugin loader)."""
+    table = {}
+    for path in paths:
+        directory = os.path.dirname(os.path.abspath(path)) or "."
+        if directory not in sys.path:
+            sys.path.insert(0, directory)
+        modname = os.path.splitext(os.path.basename(path))[0]
+        spec = importlib.util.spec_from_file_location(modname, path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[modname] = module  # so dataclasses / sibling imports resolve by name
+        spec.loader.exec_module(module)
+        table.update(forterp.hostlib.builtins_in(module))
+    return table
+
+
 def _run(argv, dialect, prog, *, allow_std):
     ap = argparse.ArgumentParser(prog=prog, description=__doc__.strip().splitlines()[0])
     ap.add_argument("--version", action="version", version=f"%(prog)s {forterp.__version__}")
     ap.add_argument(
         "file",
         nargs="*",
-        help="FORTRAN source file(s) to run; several are linked together by unit name, "
-        "like `f77 main.f lib.f` (omit for interactive mode)",
+        help="FORTRAN source file(s) to run (several are linked by unit name, like "
+        "`f77 main.f lib.f`); any *.py argument is imported and its @builtin host routines "
+        "registered (omit all for interactive mode)",
     )
     ap.add_argument(
         "--target",
@@ -57,20 +78,26 @@ def _run(argv, dialect, prog, *, allow_std):
     std = args.std if allow_std else ("fortran10" if dialect is forterp.FORTRAN10 else "f66")
     dialect = _DIALECTS[std]
 
-    if not args.file:  # no file -> interactive command monitor
+    # *.py args are Python host-routine modules; everything else is FORTRAN source.
+    py_files = [p for p in args.file if p.endswith(".py")]
+    src_files = [p for p in args.file if not p.endswith(".py")]
+
+    if not src_files:  # no FORTRAN to run
+        if py_files:
+            ap.error("Python builtin module(s) given but no FORTRAN source to run")
         if args.check:
             ap.error("--check requires a file")
         from forterp.monitor import Monitor
 
         return Monitor(std=std, target=args.target, program=args.program).run()
 
-    try:  # several files are concatenated, then linked by unit name (like `f77 a.f b.f`)
-        text = "\n".join(open(p, "r", errors="replace").read() for p in args.file)
+    try:  # several FORTRAN files are concatenated, then linked by unit name (`f77 a.f b.f`)
+        text = "\n".join(open(p, "r", errors="replace").read() for p in src_files)
     except OSError as e:
         ap.error(str(e))
-    name = " + ".join(os.path.basename(p) for p in args.file)
+    name = " + ".join(os.path.basename(p) for p in src_files)
     # INCLUDE targets resolve against the (first) source file's directory, not the cwd.
-    include_dir = os.path.dirname(args.file[0]) or "."
+    include_dir = os.path.dirname(src_files[0]) or "."
 
     if args.check:  # compile-check: list every %FTN diagnostic, don't run
         diags = []
@@ -85,6 +112,12 @@ def _run(argv, dialect, prog, *, allow_std):
         print(f"[{name}: {len(units)} unit(s) OK]")
         return 0
 
+    try:  # a bad builtins module is a clean ?-diagnostic, not a traceback
+        builtins = _load_builtins(py_files) if py_files else None
+    except Exception as e:
+        print(f"?loading {', '.join(py_files)}: {e}", file=sys.stderr)
+        return 1
+
     try:
         forterp.run_source(
             text,
@@ -92,6 +125,7 @@ def _run(argv, dialect, prog, *, allow_std):
             dialect=dialect,
             include_dir=include_dir,
             target=_TARGETS[args.target],
+            builtins=builtins,  # host routines from the *.py args (after STDLIB, so they win)
             emit=sys.stdout.write,  # TYPE / terminal output -> stdout
             printer=sys.stdout.write,  # line-printer (units 3/6) -> stdout
             readline=sys.stdin.readline,  # READ / ACCEPT <- stdin

@@ -49,13 +49,16 @@ def engine_kwargs(dialect):
     }
 
 
-def make_engine(units, dialect=None, **kwargs):
+def make_engine(units, dialect=None, builtins=None, **kwargs):
     """Build an Engine over `units` ({name: ProgramUnit}) with the FORTRAN-10 runtime
     installed and ready to run. Passing `dialect` applies its engine-relevant flags (see
-    engine_kwargs); explicit kwargs win. Other kwargs (root, emit, readline, getch,
-    printer, target, ...) pass through to Engine."""
+    engine_kwargs); explicit kwargs win. `builtins` is an optional {name: fn} table of extra
+    host routines, registered after the standard library so they extend or override it. Other
+    kwargs (root, emit, readline, getch, printer, target, ...) pass through to Engine."""
     if dialect is not None:
         kwargs = {**engine_kwargs(dialect), **kwargs}
     eng = Engine(units, **kwargs)
     install_runtime(eng)
+    if builtins:
+        eng.register_builtins(dict(builtins))
     return eng
