@@ -57,7 +57,7 @@ from forterp.fmt import (  # noqa: F401
     read_values,
     render,
 )
-from forterp.forlib import STDLIB
+from forterp.forlib import STDLIB  # noqa: F401  (back-compat root alias; owner is forterp.runtime)
 
 # Prebuilt, reusable interpreters -- the easy-reuse entry point: forterp.fortran10
 # (faithful DEC FORTRAN-10) and forterp.f66 (strict ANSI), plus the Interpreter class.
@@ -105,41 +105,9 @@ __all__ = [
 ]
 
 
-def install_runtime(eng):
-    """Install the DEC FORTRAN-10 runtime onto an engine: the DEC library subprograms and
-    the FOROTS unformatted-I/O codec used by binary (unformatted) READ/WRITE.
-
-    The DEC library (RAN, DATE, ERRSET, ...) is a DEC facility, absent from strict ANSI
-    F66 -- so it is installed only when the engine's `dec_intrinsics` is on. A library
-    name that the program defines itself is never shadowed (the program's unit wins)."""
-    if eng.dec_intrinsics:
-        eng.register_builtins({k: v for k, v in STDLIB.items() if k not in eng.units})
-    eng.binio = forbin
-    return eng
-
-
-def engine_kwargs(dialect):
-    """The dialect-derived runtime behaviors the Engine needs -- it is otherwise
-    dialect-agnostic: `free_form_input` (widthless input fields read free-form vs
-    column) and `dec_intrinsics` (the DEC/F77 library beyond F66 Tables 3 & 4). The
-    single source of truth, so adding a future engine-relevant dialect flag is a
-    one-line change here rather than an edit at every engine-construction site."""
-    return {
-        "free_form_input": dialect.free_form_input,
-        "dec_intrinsics": dialect.dec_intrinsics,
-    }
-
-
-def make_engine(units, dialect=None, **kwargs):
-    """Build an Engine over `units` ({name: ProgramUnit}) with the FORTRAN-10 runtime
-    installed and ready to run. Passing `dialect` applies its engine-relevant flags (see
-    engine_kwargs); explicit kwargs win. Other kwargs (root, emit, readline, getch,
-    printer, target, ...) pass through to Engine."""
-    if dialect is not None:
-        kwargs = {**engine_kwargs(dialect), **kwargs}
-    eng = Engine(units, **kwargs)
-    install_runtime(eng)
-    return eng
+# The engine builders live in their owning module, forterp.runtime; imported here so they
+# stay importable from the package root (back-compat) and available to run_source below.
+from forterp.runtime import engine_kwargs, install_runtime, make_engine  # noqa: F401
 
 
 def parse_source(text, dialect=F66, on_error=None, options=None, include_dir="."):
@@ -178,7 +146,7 @@ def run_source(text, program=None, dialect=F66, options=None, include_dir=".", *
     return eng.run_program(program)
 
 
-# Expert namespaces -- imported last so forterp.runtime can re-export the builders defined
-# above. `forterp.frontend / .format / .runtime / .ast / .hostlib` organize the surface that
-# used to crowd the package root.
+# Expert namespaces. `forterp.runtime` owns the engine builders (imported above); these
+# `forterp.frontend / .format / .runtime / .ast / .hostlib` namespaces organize the surface
+# that used to crowd the package root.
 from forterp import ast, format, frontend, hostlib, runtime  # noqa: E402,F401

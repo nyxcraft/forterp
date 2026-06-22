@@ -25,6 +25,7 @@ _DIALECTS = forterp.DIALECTS
 
 def _run(argv, dialect, prog, *, allow_std):
     ap = argparse.ArgumentParser(prog=prog, description=__doc__.strip().splitlines()[0])
+    ap.add_argument("--version", action="version", version=f"%(prog)s {forterp.__version__}")
     ap.add_argument(
         "file",
         nargs="*",
