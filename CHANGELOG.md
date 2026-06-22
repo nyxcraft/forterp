@@ -22,7 +22,7 @@ game-ward couplings were severed (a pluggable `OPEN` device registry, a pluggabl
 value model, a parameterized `Dialect`, and FOROTS binary I/O moved into a `fortran10`
 layer), at which point the interpreter was provably standalone and was split into its own
 repository. A configurable FORTRAN-66 interpreter is reusable well beyond those games, while
-the PDP-10 target specifically remains load-bearing for running them faithfully.
+the PDP-10 target specifically remains load-bearing for running them as the real machine did.
 
 Below are the interpreter-core milestones from that era; the hashes reference `pdp10-empire`,
 not this repo. (The TOPS-10 monitor, the DECWAR multiplayer port, and the instrumented
@@ -56,7 +56,7 @@ terminal / god-view from this period stayed behind in the monorepo and are not p
 
 - **13:44** — Initial commit: the FORTRAN-66 interpreter, lifted out of the original monorepo into its own `src/` package with a clean public API and the FCVS conformance corpus.
 - **14:09–14:30** — Routed the value model through a pluggable `Target`, three steps at a time: the `INT`-family / `LSH` intrinsics, the logical algebra, then the character codec.
-- **14:47** — Added the `NATIVE` 64-bit target and **made it the default** — `PDP10` becomes the opt-in faithful machine.
+- **14:47** — Added the `NATIVE` 64-bit target and **made it the default** — `PDP10` becomes the opt-in real-machine target.
 - **15:19** — A provisional, *unvalidated* `VAX` target plus the seam knobs it needs (little-endian, low-bit truth).
 - **15:39** — Curated the FCVS corpus to F66-only — removed the 140 F77 / `CHARACTER` routines.
 - **16:25–16:38** — Adopted `ruff` lint + `ruff format` (Black-standard) across the tree.
@@ -78,9 +78,9 @@ terminal / god-view from this period stayed behind in the monorepo and are not p
 - **22:36** — `test_interpreter.py` pins the prebuilt-interpreter API contract.
 - **23:06–23:41** — R3: list-directed + NAMELIST bad fields now raise like formatted; `forbin` raises a coherent error on unrepresentable floats (no more silent exponent wrap); the REPL's reserved prompt words documented.
 
-## 2026-06-20 — faithful defaults, host marshalling
+## 2026-06-20 — real-machine defaults, host marshalling
 
-- **00:00** — The `fortran10` preset is **faithful on columns by default** (cols 73+ dropped, like real FORTRAN-10); shifted-column recovery is opt-in via `source_options`, for a driver that needs it.
+- **00:00** — The `fortran10` preset **drops cols 73+ by default** (like real FORTRAN-10); shifted-column recovery is opt-in via `source_options`, for a driver that needs it.
 - **17:03** — `hostlib`: a declarative marshalling layer for host builtins.
 
 ## 2026-06-21 — a documentation site, genuine-source demos, and the fixes they flushed out

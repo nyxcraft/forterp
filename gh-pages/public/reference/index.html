@@ -222,7 +222,7 @@ END
 <p><strong>DO-loop semantics (F66, not F77).</strong> The body executes <strong>at least once</strong> even when the
 initial value already exceeds the limit (the &quot;one-trip DO&quot;). On normal exit the index
 variable retains the value it had on the last iteration — it is <em>not</em> reset. <code>forterp</code>
-reproduces this faithfully; it is a real behavioral difference from FORTRAN-77.
+reproduces this exactly; it is a real behavioral difference from FORTRAN-77.
 A GO TO may also leave a DO's range and later jump back into it (the F66 §7.1.2.8.2
 &quot;extended range&quot;); the loop resumes its iteration when control returns.</p>
 </blockquote>
@@ -448,11 +448,11 @@ leaves the second an unrelated zero: <code>C=(3.,4.)</code> then <code>EQUIVALEN
 <code>COMMON</code> block counts as <strong>one</strong> slot, so the block is one word short per such member and
 <strong>every following member shifts by a word</strong>: <code>COMMON /CB/ D,K</code> lays out as length 2, not
 3, so a different unit overlaying the block reads <code>K</code> at the wrong word. The rule:
-<strong>a <code>COMMON</code> block is word-faithful iff every member is <code>INTEGER</code>, single <code>REAL</code>, or
+<strong>a <code>COMMON</code> block is word-accurate iff every member is <code>INTEGER</code>, single <code>REAL</code>, or
 <code>LOGICAL</code></strong> — the moment a <code>COMPLEX</code> or <code>DOUBLE PRECISION</code> appears, slot index stops
 tracking machine-word index for that member and everything after it. This follows from
 the deliberate value-slot cell model (the same one that makes integer <code>COMMON</code> <em>exactly</em>
-word-faithful and keeps the runtime target-agnostic); a faithful two-word layout is
+word-accurate and keeps the runtime target-agnostic); a true two-word layout is
 deferred to the macroterp bridge — where <code>common_layout</code> must report true word offsets
 and flag multi-word members — rather than retrofitted into the cell here.</li>
 <li><strong>Non-fatal arithmetic.</strong> Integer/real divide-by-zero yields <code>0</code> and continues rather

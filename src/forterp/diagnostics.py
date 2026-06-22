@@ -11,7 +11,7 @@ to NRC ("statement not recognized") for anything without a more specific match.
 We deliberately do NOT emit the semantic / dataflow / optimizer diagnostics
 (VND, VNI, ICD, DIM, WOP, ...): they require program analyses this interpreter
 doesn't perform, and ANSI X3.9-1966 mandates no diagnostics in the first place,
-so emitting none of them is standards-faithful. Diagnostics for DEC extensions
+so emitting none of them is standards-conformant. Diagnostics for DEC extensions
 (NAMELIST, alternate RETURN, size modifiers, ...) belong with those features and
 are added as each is implemented.
 """

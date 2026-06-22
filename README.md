@@ -15,7 +15,7 @@ convention, and how characters pack into words. Two ship:
 - **`NATIVE` (the default)** — a clean 64-bit host machine for running standard
   FORTRAN-66 portably: 64-bit two's-complement integers, 8-bit ASCII, `.TRUE.`=1 with
   boolean logical operators. `import forterp; forterp.run_source(...)` uses this.
-- **`PDP10`** — the faithful DEC FORTRAN-10 model: 36-bit two's-complement words,
+- **`PDP10`** — the DEC FORTRAN-10 model: 36-bit two's-complement words,
   5×7-bit packed character storage, `.TRUE.`=−1 with bit-wise logicals. Select with
   `Engine(..., target=forterp.PDP10)`.
 
@@ -132,7 +132,7 @@ f66> PROFILE                 #    5  FAC:6   (the loop body ran 5 times)
 - **Machine target** — `forterp.Target(word_bits, chars_per_word, logical_true, bitwise_logic,
   bits_per_char, little_endian, truth)` fixes the value model. `forterp.NATIVE` (64-bit, 8-bit
   ASCII, boolean logicals) is the default; `forterp.PDP10` (36-bit, 5×7-bit packed, `.TRUE.`=−1,
-  bit-wise logicals) is the faithful DEC target; `forterp.VAX` (32-bit, little-endian, low-bit
+  bit-wise logicals) is the DEC target; `forterp.VAX` (32-bit, little-endian, low-bit
   logical) is a *provisional, unvalidated* guess. Pass `Engine(..., target=...)`.
 - **Front-end dialect** — `forterp.FORTRAN10` (DEC extensions on) vs `forterp.F66`
   (ANSI). Threaded through the source reader and lexer.

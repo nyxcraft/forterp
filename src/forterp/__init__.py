@@ -23,9 +23,9 @@ Public API (see ``__all__``):
     F66, FORTRAN10, Dialect     -- the front-end dialect (F66 is the default; FORTRAN10 the
                                    DEC superset: octal / tab-format / '!' / free-form input)
     NATIVE, PDP10, VAX, Target  -- the machine value model (NATIVE 64-bit is the default;
-                                   PDP10 the faithful 36-bit DEC target; VAX provisional)
+                                   PDP10 the 36-bit DEC target; VAX provisional)
     ParseError, SourceOptions   -- the parse error, and source-recovery options (orthogonal
-                                   to the dialect; default: faithful, no recovery)
+                                   to the dialect; default: no recovery)
 
 Expert surfaces live behind explicit namespaces (their names also remain importable from
 the package root as deprecated aliases):
@@ -140,7 +140,7 @@ def parse_source(text, dialect=F66, on_error=None, options=None, include_dir="."
 
     `dialect` selects the language (F66 default / FORTRAN10 superset). `options` is a
     `SourceOptions` for source-recovery handling (orthogonal to the dialect; default is
-    faithful, no recovery). `include_dir` is the base directory INCLUDE targets resolve
+    no recovery). `include_dir` is the base directory INCLUDE targets resolve
     against (default the current directory; the CLI passes the source file's directory).
 
     Raises ``ParseError`` on malformed source, with every diagnostic in the message --

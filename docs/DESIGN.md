@@ -59,14 +59,14 @@ lexer. It turns column-oriented text into a list of `Statement(label, text, line
 
 - Column 1 `C`/`*` → comment; columns 1–5 label; column 6 non-blank → continuation
   (joined onto the previous statement); 7–72 body; 73–80 sequence field dropped
-  unconditionally (faithful F10/F66 — both real compilers do this).
+  unconditionally (as both real F10/F66 compilers do).
 - **DEC extensions, gated by the `Dialect`:** TAB-format lines (`_tab_split`) and trailing
   `!` inline comments (`_split_inline_comment`). `;` statement separation is handled here
   too (`_split_semicolons`).
 - **Source recovery, via `SourceOptions` (NOT the dialect):** `recover_shifted_cols` keeps
   statement text that spilled past col 72 in re-indented decks (`_trim_seqfield`). It copes
   with imperfect *input*, not a dialect of the *language*, so it sits off the dialect axis;
-  default is faithful (drop 73+).
+  the default drops 73+ (matching real FORTRAN-10).
 - `INCLUDE`/related directives are resolved by `expand_includes` after the scan.
 
 ### 2.2 Lexer — `lexer.py`
@@ -108,8 +108,8 @@ FORTRAN-66 has no stack-allocated locals and no heap. forterp mirrors that:
   two units with different variable layouts overlay the same words. `EQUIVALENCE` is laid
   out by `_layout_equivalence`, which also extends/aliases COMMON.
 - **Locals are static per unit.** FORTRAN-10 allocated locals statically, so they *persist
-  across calls* — forterp keeps them in the `UnitRT`, not in the call frame. This is faithful
-  behavior programs sometimes depend on.
+  across calls* — forterp keeps them in the `UnitRT`, not in the call frame. This matches
+  FORTRAN-10, and programs sometimes depend on it.
 - **Arguments are passed by reference.** The engine never copies a value into a callee; it
   passes a *reference cell* so the callee can write back. The reference abstraction has
   several shapes: `CellRef` (into an array/COMMON store), `DictRef` (a local), `TempRef`
@@ -119,7 +119,7 @@ FORTRAN-66 has no stack-allocated locals and no heap. forterp mirrors that:
 - **`DATA` initialization** runs at build time (`_apply_data`, `_const_eval_int`), with
   repeat counts.
 
-Out-of-bounds access is handled *faithfully*, not defensively: `OobError`/`_oob_event`
+Out-of-bounds access mirrors the real machine rather than guarding defensively: `OobError`/`_oob_event`
 reproduce the documented 1978 behavior (e.g. an `ENEMYM` array overrun that read adjacent
 PDP-10 memory) rather than raising a clean Python error.
 
@@ -176,7 +176,7 @@ retargeted:
 
 | Seam | Mechanism | Default |
 |------|-----------|---------|
-| **Machine value model** | `Engine(target=…)`, a `Target` object; the engine routes its wrap / pack / truthy / logical sites through `self.tgt` | `NATIVE` (64-bit, 8-bit ASCII, boolean logicals) default; `PDP10` (36-bit, 5×7-bit, `.TRUE.`=−1, bit-wise) for faithfulness |
+| **Machine value model** | `Engine(target=…)`, a `Target` object; the engine routes its wrap / pack / truthy / logical sites through `self.tgt` | `NATIVE` (64-bit, 8-bit ASCII, boolean logicals) default; `PDP10` (36-bit, 5×7-bit, `.TRUE.`=−1, bit-wise) for PDP-10 fidelity |
 | **Front-end dialect** | `Dialect` threaded through `scan_file`/`tokenize`/`parse_units` (and `free_form_input` to the engine) | `F66` (default, ANSI) vs `FORTRAN10` (DEC superset) |
 | **OPEN devices** | `eng.register_device(name, fn)`; the core knows only TTY + ordinary files | empty (games register e.g. `GAM:`) |
 | **Unformatted-I/O codec** | `eng.binio`, installed by `install_runtime`; engine calls `self._binio()` (clear error if absent) | `forterp.forbin` (FOROTS records + DEC-10 float) |
@@ -245,7 +245,7 @@ prints a PASS/ERROR tally to the line printer, which the runner captures and par
 corpus is **curated F66**: the F77 audit routines (those using the `CHARACTER` type, absent
 from F66) were removed from the original 192-file FCVS set, so every file in `tests/fcvs/`
 parses and runs — a parse failure is now a regression, not "out of scope." The corpus is
-run across **both seams**: the value-model axis (pinned to `PDP10`, the faithful target the
+run across **both seams**: the value-model axis (pinned to `PDP10`, the target the
 unit suite asserts, and again under the default `NATIVE`) and the front-end-dialect axis
 (under `F66`, since the audits are pure ANSI). All runs produce the identical conformance
 aggregate — independent evidence both seams preserve standard behavior. 471 tests pass

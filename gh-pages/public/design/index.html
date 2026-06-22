@@ -109,14 +109,14 @@ lexer. It turns column-oriented text into a list of <code>Statement(label, text,
 <ul>
 <li>Column 1 <code>C</code>/<code>*</code> → comment; columns 1–5 label; column 6 non-blank → continuation
 (joined onto the previous statement); 7–72 body; 73–80 sequence field dropped
-unconditionally (faithful F10/F66 — both real compilers do this).</li>
+unconditionally (as both real F10/F66 compilers do).</li>
 <li><strong>DEC extensions, gated by the <code>Dialect</code>:</strong> TAB-format lines (<code>_tab_split</code>) and trailing
 <code>!</code> inline comments (<code>_split_inline_comment</code>). <code>;</code> statement separation is handled here
 too (<code>_split_semicolons</code>).</li>
 <li><strong>Source recovery, via <code>SourceOptions</code> (NOT the dialect):</strong> <code>recover_shifted_cols</code> keeps
 statement text that spilled past col 72 in re-indented decks (<code>_trim_seqfield</code>). It copes
 with imperfect <em>input</em>, not a dialect of the <em>language</em>, so it sits off the dialect axis;
-default is faithful (drop 73+).</li>
+the default drops 73+ (matching real FORTRAN-10).</li>
 <li><code>INCLUDE</code>/related directives are resolved by <code>expand_includes</code> after the scan.</li>
 </ul>
 <h3 id="2-2-lexer-lexer-py">2.2 Lexer — <code>lexer.py</code></h3>
@@ -151,8 +151,8 @@ association is real: each unit's variables are mapped onto <em>offsets</em> into
 two units with different variable layouts overlay the same words. <code>EQUIVALENCE</code> is laid
 out by <code>_layout_equivalence</code>, which also extends/aliases COMMON.</li>
 <li><strong>Locals are static per unit.</strong> FORTRAN-10 allocated locals statically, so they <em>persist
-across calls</em> — forterp keeps them in the <code>UnitRT</code>, not in the call frame. This is faithful
-behavior programs sometimes depend on.</li>
+across calls</em> — forterp keeps them in the <code>UnitRT</code>, not in the call frame. This matches
+FORTRAN-10, and programs sometimes depend on it.</li>
 <li><strong>Arguments are passed by reference.</strong> The engine never copies a value into a callee; it
 passes a <em>reference cell</em> so the callee can write back. The reference abstraction has
 several shapes: <code>CellRef</code> (into an array/COMMON store), <code>DictRef</code> (a local), <code>TempRef</code>
@@ -162,7 +162,7 @@ several shapes: <code>CellRef</code> (into an array/COMMON store), <code>DictRef
 <li><strong><code>DATA</code> initialization</strong> runs at build time (<code>_apply_data</code>, <code>_const_eval_int</code>), with
 repeat counts.</li>
 </ul>
-<p>Out-of-bounds access is handled <em>faithfully</em>, not defensively: <code>OobError</code>/<code>_oob_event</code>
+<p>Out-of-bounds access mirrors the real machine rather than guarding defensively: <code>OobError</code>/<code>_oob_event</code>
 reproduce the documented 1978 behavior (e.g. an <code>ENEMYM</code> array overrun that read adjacent
 PDP-10 memory) rather than raising a clean Python error.</p>
 <hr />
@@ -221,7 +221,7 @@ retargeted:</p>
 <tr>
 <td><strong>Machine value model</strong></td>
 <td><code>Engine(target=…)</code>, a <code>Target</code> object; the engine routes its wrap / pack / truthy / logical sites through <code>self.tgt</code></td>
-<td><code>NATIVE</code> (64-bit, 8-bit ASCII, boolean logicals) default; <code>PDP10</code> (36-bit, 5×7-bit, <code>.TRUE.</code>=−1, bit-wise) for faithfulness</td>
+<td><code>NATIVE</code> (64-bit, 8-bit ASCII, boolean logicals) default; <code>PDP10</code> (36-bit, 5×7-bit, <code>.TRUE.</code>=−1, bit-wise) for PDP-10 fidelity</td>
 </tr>
 <tr>
 <td><strong>Front-end dialect</strong></td>
@@ -339,7 +339,7 @@ prints a PASS/ERROR tally to the line printer, which the runner captures and par
 corpus is <strong>curated F66</strong>: the F77 audit routines (those using the <code>CHARACTER</code> type, absent
 from F66) were removed from the original 192-file FCVS set, so every file in <code>tests/fcvs/</code>
 parses and runs — a parse failure is now a regression, not &quot;out of scope.&quot; The corpus is
-run across <strong>both seams</strong>: the value-model axis (pinned to <code>PDP10</code>, the faithful target the
+run across <strong>both seams</strong>: the value-model axis (pinned to <code>PDP10</code>, the target the
 unit suite asserts, and again under the default <code>NATIVE</code>) and the front-end-dialect axis
 (under <code>F66</code>, since the audits are pure ANSI). All runs produce the identical conformance
 aggregate — independent evidence both seams preserve standard behavior. 471 tests pass

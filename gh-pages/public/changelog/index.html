@@ -40,7 +40,7 @@
 <li><a class="section-nav__link section-nav__link--l3" href="#2026-06-19">2026-06-19</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#2026-06-18-standalone-and-a-pluggable-machine">2026-06-18 — standalone, and a pluggable machine</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#2026-06-19-cli-monitor-repl-debugger-and-the-conformance-review-work">2026-06-19 — CLI, monitor, REPL, debugger — and the conformance + review work</a></li>
-<li><a class="section-nav__link section-nav__link--l2" href="#2026-06-20-faithful-defaults-host-marshalling">2026-06-20 — faithful defaults, host marshalling</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#2026-06-20-real-machine-defaults-host-marshalling">2026-06-20 — real-machine defaults, host marshalling</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#2026-06-21-a-documentation-site-genuine-source-demos-and-the-fixes-they-flushed-out">2026-06-21 — a documentation site, genuine-source demos, and the fixes they flushed out</a></li>
 </ul>
         </nav>
@@ -73,7 +73,7 @@ game-ward couplings were severed (a pluggable <code>OPEN</code> device registry,
 value model, a parameterized <code>Dialect</code>, and FOROTS binary I/O moved into a <code>fortran10</code>
 layer), at which point the interpreter was provably standalone and was split into its own
 repository. A configurable FORTRAN-66 interpreter is reusable well beyond those games, while
-the PDP-10 target specifically remains load-bearing for running them faithfully.</p>
+the PDP-10 target specifically remains load-bearing for running them as the real machine did.</p>
 <p>Below are the interpreter-core milestones from that era; the hashes reference <code>pdp10-empire</code>,
 not this repo. (The TOPS-10 monitor, the DECWAR multiplayer port, and the instrumented
 terminal / god-view from this period stayed behind in the monorepo and are not part of
@@ -105,7 +105,7 @@ terminal / god-view from this period stayed behind in the monorepo and are not p
 <ul>
 <li><strong>13:44</strong> — Initial commit: the FORTRAN-66 interpreter, lifted out of the original monorepo into its own <code>src/</code> package with a clean public API and the FCVS conformance corpus.</li>
 <li><strong>14:09–14:30</strong> — Routed the value model through a pluggable <code>Target</code>, three steps at a time: the <code>INT</code>-family / <code>LSH</code> intrinsics, the logical algebra, then the character codec.</li>
-<li><strong>14:47</strong> — Added the <code>NATIVE</code> 64-bit target and <strong>made it the default</strong> — <code>PDP10</code> becomes the opt-in faithful machine.</li>
+<li><strong>14:47</strong> — Added the <code>NATIVE</code> 64-bit target and <strong>made it the default</strong> — <code>PDP10</code> becomes the opt-in real-machine target.</li>
 <li><strong>15:19</strong> — A provisional, <em>unvalidated</em> <code>VAX</code> target plus the seam knobs it needs (little-endian, low-bit truth).</li>
 <li><strong>15:39</strong> — Curated the FCVS corpus to F66-only — removed the 140 F77 / <code>CHARACTER</code> routines.</li>
 <li><strong>16:25–16:38</strong> — Adopted <code>ruff</code> lint + <code>ruff format</code> (Black-standard) across the tree.</li>
@@ -127,9 +127,9 @@ terminal / god-view from this period stayed behind in the monorepo and are not p
 <li><strong>22:36</strong> — <code>test_interpreter.py</code> pins the prebuilt-interpreter API contract.</li>
 <li><strong>23:06–23:41</strong> — R3: list-directed + NAMELIST bad fields now raise like formatted; <code>forbin</code> raises a coherent error on unrepresentable floats (no more silent exponent wrap); the REPL's reserved prompt words documented.</li>
 </ul>
-<h2 id="2026-06-20-faithful-defaults-host-marshalling">2026-06-20 — faithful defaults, host marshalling</h2>
+<h2 id="2026-06-20-real-machine-defaults-host-marshalling">2026-06-20 — real-machine defaults, host marshalling</h2>
 <ul>
-<li><strong>00:00</strong> — The <code>fortran10</code> preset is <strong>faithful on columns by default</strong> (cols 73+ dropped, like real FORTRAN-10); shifted-column recovery is opt-in via <code>source_options</code>, for a driver that needs it.</li>
+<li><strong>00:00</strong> — The <code>fortran10</code> preset <strong>drops cols 73+ by default</strong> (like real FORTRAN-10); shifted-column recovery is opt-in via <code>source_options</code>, for a driver that needs it.</li>
 <li><strong>17:03</strong> — <code>hostlib</code>: a declarative marshalling layer for host builtins.</li>
 </ul>
 <h2 id="2026-06-21-a-documentation-site-genuine-source-demos-and-the-fixes-they-flushed-out">2026-06-21 — a documentation site, genuine-source demos, and the fixes they flushed out</h2>

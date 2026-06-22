@@ -1,5 +1,5 @@
 """General FORTRAN-66 features for broad coverage (beyond a minimal subset, but a
-faithful F66 interpreter should support them): statement functions, PAUSE, ASSIGN/
+conformant F66 interpreter should support them): statement functions, PAUSE, ASSIGN/
 assigned GOTO, type size modifiers, blank common, Hollerith nH literals, multiple
 RETURN."""
 

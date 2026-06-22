@@ -46,8 +46,8 @@ DEBUG_COL1 = set("Dd")
 class SourceOptions:
     """Source-recovery knobs -- ORTHOGONAL to the language `Dialect`. These cope with
     imperfect *input* (mechanically re-indented decks, download artifacts), not with
-    FORTRAN language features, so they are kept off the dialect axis. Default = faithful,
-    no recovery (statement is cols 7-72, the sequence field is dropped)."""
+    FORTRAN language features, so they are kept off the dialect axis. Default = no recovery
+    (statement is cols 7-72, the sequence field is dropped)."""
 
     recover_shifted_cols: bool = False  # keep statement text nudged into cols 73-80
     # (period source re-indented past its col-7 origin); see _trim_seqfield.

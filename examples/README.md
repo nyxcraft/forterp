@@ -16,7 +16,7 @@ python examples/run_and_capture.py
 |--------|-------|
 | [`run_and_capture.py`](run_and_capture.py) | The minimal call: `run_source(text, printer=...)` to run a program and capture what it prints. |
 | [`dialects.py`](dialects.py) | `F66` (strict ANSI, default) vs `FORTRAN10` (DEC superset); collecting diagnostics with an `on_error` callback instead of raising. |
-| [`targets.py`](targets.py) | The pluggable value model — the same integer overflow on the 64-bit `NATIVE` word vs a faithful 36-bit `PDP10` word. |
+| [`targets.py`](targets.py) | The pluggable value model — the same integer overflow on the 64-bit `NATIVE` word vs a 36-bit `PDP10` word. |
 | [`fortran_as_kernel.py`](fortran_as_kernel.py) | Driving a routine as a compute kernel: feed input via `readline`, read results straight out of `eng.commons[...]`. |
 | [`parse_and_inspect.py`](parse_and_inspect.py) | Parsing without running — `parse_source` returns a `{name: ProgramUnit}` dict to inspect (kinds, names) for tooling. |
 

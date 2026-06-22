@@ -123,7 +123,7 @@ END
 > **DO-loop semantics (F66, not F77).** The body executes **at least once** even when the
 > initial value already exceeds the limit (the "one-trip DO"). On normal exit the index
 > variable retains the value it had on the last iteration — it is *not* reset. `forterp`
-> reproduces this faithfully; it is a real behavioral difference from FORTRAN-77.
+> reproduces this exactly; it is a real behavioral difference from FORTRAN-77.
 > A GO TO may also leave a DO's range and later jump back into it (the F66 §7.1.2.8.2
 > "extended range"); the loop resumes its iteration when control returns.
 
@@ -326,11 +326,11 @@ of the dialect or the value model:
   `COMMON` block counts as **one** slot, so the block is one word short per such member and
   **every following member shifts by a word**: `COMMON /CB/ D,K` lays out as length 2, not
   3, so a different unit overlaying the block reads `K` at the wrong word. The rule:
-  **a `COMMON` block is word-faithful iff every member is `INTEGER`, single `REAL`, or
+  **a `COMMON` block is word-accurate iff every member is `INTEGER`, single `REAL`, or
   `LOGICAL`** — the moment a `COMPLEX` or `DOUBLE PRECISION` appears, slot index stops
   tracking machine-word index for that member and everything after it. This follows from
   the deliberate value-slot cell model (the same one that makes integer `COMMON` *exactly*
-  word-faithful and keeps the runtime target-agnostic); a faithful two-word layout is
+  word-accurate and keeps the runtime target-agnostic); a true two-word layout is
   deferred to the macroterp bridge — where `common_layout` must report true word offsets
   and flag multi-word members — rather than retrofitted into the cell here.
 - **Non-fatal arithmetic.** Integer/real divide-by-zero yields `0` and continues rather

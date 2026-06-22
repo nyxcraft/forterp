@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """The machine value model is pluggable. The same integer overflow yields different
-results on a 64-bit host word (NATIVE, the default) versus a faithful 36-bit PDP-10
+results on a 64-bit host word (NATIVE, the default) versus a 36-bit PDP-10
 word -- forterp models each target's arithmetic, not Python's unbounded integers.
 """
 
