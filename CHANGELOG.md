@@ -2,6 +2,7 @@
 
 ## 2026-06-22 — host services for the embedder
 
+- **13:17** — CLI: `--recover-shifted-cols` exposes the shifted-column source recovery (off by default — a faithful FORTRAN-10 compiler drops cols 73+), so a deck reindented past col 72 runs without an embedding wrapper. A dropped-in `*.py` may now also define a `register(eng)` hook (called after the engine is built) to do setup the auto-discovered builtins can't — register an OPEN device, prime COMMON, inject a host-services facade; `run_source` gained the matching `setup=fn(eng)`. Together these let a whole game run on the bare CLI from its `*.py` + `*.FOR` alone.
 - **12:33** — `hostlib` gains the host-routine *services* half: a baseline `HostServices` facade (`tty`/`files`/`clock`, over the engine's host seam only) and an `@uuo` decorator that injects it as the body's first arg — the counterpart to `@fcall` (a new alias of `@builtin`) for routines that talk to the host rather than compute. The facade is injectable (`eng.host_services`, threaded through `make_engine`/`build_engine`): set a richer subclass and `@uuo` routines receive it instead of the baseline, so a fuller monitor layers on without forterp depending on it. `@builtin`/`@fcall`/`@uuo` also gain `alias=`/`origin=`, and `builtins_in` discovers aliases.
 
 ## 2026-06-16 — And so it begins...

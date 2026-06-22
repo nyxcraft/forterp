@@ -25,11 +25,15 @@ _DIALECTS = forterp.dialect.DIALECTS
 
 
 def _load_builtins(paths):
-    """Import each ``.py`` path as a module and collect the host routines it provides into a
-    single ``{name: fn}`` table (see `forterp.hostlib.builtins_in`). The file's directory is
-    put on ``sys.path`` so sibling modules can import each other; the module executes on import
-    (it is host code, like any plugin loader)."""
-    table = {}
+    """Import each ``.py`` path as a module and collect what it provides: the host routines it
+    declares (``{name: fn}``, via `forterp.hostlib.builtins_in`) and any module-level
+    ``register(eng)`` hook. The file's directory is put on ``sys.path`` so sibling modules can
+    import each other; the module executes on import (it is host code, like any plugin loader).
+
+    Returns ``(table, hooks)``. ``register(eng)`` lets a dropped-in module do engine setup the
+    auto-discovered builtins can't express -- register an OPEN device (``eng.register_device``),
+    prime COMMON, inject a host-services facade -- and is called after the engine is built."""
+    table, hooks = {}, []
     for path in paths:
         directory = os.path.dirname(os.path.abspath(path)) or "."
         if directory not in sys.path:
@@ -40,7 +44,10 @@ def _load_builtins(paths):
         sys.modules[modname] = module  # so dataclasses / sibling imports resolve by name
         spec.loader.exec_module(module)
         table.update(forterp.hostlib.builtins_in(module))
-    return table
+        hook = getattr(module, "register", None)
+        if callable(hook):
+            hooks.append(hook)
+    return table, hooks
 
 
 def _run(argv, dialect, prog, *, allow_std):
@@ -49,9 +56,10 @@ def _run(argv, dialect, prog, *, allow_std):
     ap.add_argument(
         "file",
         nargs="*",
-        help="FORTRAN source file(s) to run (several are linked by unit name, like "
-        "`f77 main.f lib.f`); any *.py argument is imported and its @builtin host routines "
-        "registered (omit all for interactive mode)",
+        help="FORTRAN source file(s) to run (several are linked together by unit name into one "
+        "program); any *.py argument is imported and its @builtin/@uuo/@fcall host routines "
+        "registered, and its optional register(eng) hook called for engine setup "
+        "(OPEN devices, COMMON priming); omit all for interactive mode",
     )
     ap.add_argument(
         "--target",
@@ -67,6 +75,12 @@ def _run(argv, dialect, prog, *, allow_std):
         action="store_true",
         help="parse and report all diagnostics; do not run (compile-check)",
     )
+    ap.add_argument(
+        "--recover-shifted-cols",
+        action="store_true",
+        help="recover statement text reindented past column 72 (off by default -- a faithful "
+        "FORTRAN-10 compiler drops cols 73+); for a deck nudged a column or two to the right",
+    )
     if allow_std:
         ap.add_argument(
             "--std",
@@ -77,6 +91,7 @@ def _run(argv, dialect, prog, *, allow_std):
     args = ap.parse_args(argv)
     std = args.std if allow_std else ("fortran10" if dialect is forterp.FORTRAN10 else "f66")
     dialect = _DIALECTS[std]
+    options = forterp.SourceOptions(recover_shifted_cols=args.recover_shifted_cols)
 
     # *.py args are Python host-routine modules; everything else is FORTRAN source.
     py_files = [p for p in args.file if p.endswith(".py")]
@@ -91,7 +106,7 @@ def _run(argv, dialect, prog, *, allow_std):
 
         return Monitor(std=std, target=args.target, program=args.program).run()
 
-    try:  # several FORTRAN files are concatenated, then linked by unit name (`f77 a.f b.f`)
+    try:  # several FORTRAN files are concatenated, then linked together by unit name
         text = "\n".join(open(p, "r", errors="replace").read() for p in src_files)
     except OSError as e:
         ap.error(str(e))
@@ -102,7 +117,11 @@ def _run(argv, dialect, prog, *, allow_std):
     if args.check:  # compile-check: list every %FTN diagnostic, don't run
         diags = []
         units = forterp.parse_source(
-            text, dialect=dialect, include_dir=include_dir, on_error=lambda st, m: diags.append(m)
+            text,
+            dialect=dialect,
+            include_dir=include_dir,
+            options=options,
+            on_error=lambda st, m: diags.append(m),
         )
         if diags:
             print(f"?{name}: {len(diags)} error(s)", file=sys.stderr)
@@ -113,7 +132,7 @@ def _run(argv, dialect, prog, *, allow_std):
         return 0
 
     try:  # a bad builtins module is a clean ?-diagnostic, not a traceback
-        builtins = _load_builtins(py_files) if py_files else None
+        builtins, hooks = _load_builtins(py_files) if py_files else ({}, [])
     except Exception as e:
         print(f"?loading {', '.join(py_files)}: {e}", file=sys.stderr)
         return 1
@@ -123,9 +142,11 @@ def _run(argv, dialect, prog, *, allow_std):
             text,
             program=args.program,
             dialect=dialect,
+            options=options,
             include_dir=include_dir,
             target=_TARGETS[args.target],
-            builtins=builtins,  # host routines from the *.py args (after STDLIB, so they win)
+            builtins=builtins or None,  # host routines from the *.py args (after STDLIB)
+            setup=(lambda eng: [h(eng) for h in hooks]) if hooks else None,  # register(eng) hooks
             emit=sys.stdout.write,  # TYPE / terminal output -> stdout
             printer=sys.stdout.write,  # line-printer (units 3/6) -> stdout
             readline=sys.stdin.readline,  # READ / ACCEPT <- stdin

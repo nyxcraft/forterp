@@ -82,7 +82,7 @@ unit. `--check` parses and lists every diagnostic without running (a compile-che
 version, `--help` the usage. Before install, use `python -m forterp …`.
 
 Pass several source files and they are linked together by unit name, the way a compiler
-links `f77 main.f lib.f` — so a driver and a separately-held library run as one program:
+links separately-compiled units — so a driver and a separately-held library run as one program:
 
 ```sh
 forterp main.for lib.for           # main.for's PROGRAM calls SUBROUTINEs in lib.for

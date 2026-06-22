@@ -104,15 +104,22 @@ def parse_source(text, dialect=F66, on_error=None, options=None, include_dir="."
     return units
 
 
-def run_source(text, program=None, dialect=F66, options=None, include_dir=".", **kwargs):
+def run_source(
+    text, program=None, dialect=F66, options=None, include_dir=".", setup=None, **kwargs
+):
     """Parse + run a FORTRAN source string; return the Engine to inspect its state.
     `program` selects the main PROGRAM (defaults to the first program unit). `options`
     is an optional `SourceOptions` for source-recovery handling. `include_dir` is the
-    base directory for INCLUDE resolution (default the current directory)."""
+    base directory for INCLUDE resolution (default the current directory). `setup` is an
+    optional `fn(eng)` called after the engine is built and the runtime/builtins installed,
+    but before the program runs -- the place to register OPEN devices, prime COMMON, or do
+    any host-side engine setup the program needs."""
     from forterp.runtime import make_engine
 
     units = parse_source(text, dialect=dialect, options=options, include_dir=include_dir)
     eng = make_engine(units, dialect=dialect, **kwargs)
+    if setup is not None:
+        setup(eng)
     return eng.run_program(program)
 
 
