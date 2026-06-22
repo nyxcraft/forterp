@@ -50,7 +50,7 @@ def _load_builtins(paths):
     return table, hooks
 
 
-def _run(argv, dialect, prog, *, allow_std):
+def _run(argv, dialect, prog, *, allow_std, default_target="native"):
     ap = argparse.ArgumentParser(prog=prog, description=__doc__.strip().splitlines()[0])
     ap.add_argument("--version", action="version", version=f"%(prog)s {forterp.__version__}")
     ap.add_argument(
@@ -64,8 +64,8 @@ def _run(argv, dialect, prog, *, allow_std):
     ap.add_argument(
         "--target",
         choices=_TARGETS,
-        default="native",
-        help="machine value model (default: native)",
+        default=default_target,
+        help=f"machine value model (default: {default_target} for {prog})",
     )
     ap.add_argument(
         "--program", metavar="NAME", help="main PROGRAM unit to run (default: the first)"
@@ -175,8 +175,12 @@ def f66_main(argv=None):
 
 
 def f10_main(argv=None):
-    """`pyfortran10`: run a source file as DEC FORTRAN-10 (the DEC superset)."""
-    return _run(argv, forterp.FORTRAN10, "pyfortran10", allow_std=False)
+    """`pyfortran10`: run a source file as DEC FORTRAN-10 (the DEC superset) on the PDP-10 machine.
+
+    Defaults to the PDP10 target -- matching the prebuilt `forterp.fortran10` interpreter -- since
+    DEC FORTRAN-10 *is* the DECsystem-10 (36-bit words, packed ASCII, .TRUE.=-1); pass
+    `--target native` for the DEC language on the portable 64-bit machine instead."""
+    return _run(argv, forterp.FORTRAN10, "pyfortran10", allow_std=False, default_target="pdp10")
 
 
 def main(argv=None):
