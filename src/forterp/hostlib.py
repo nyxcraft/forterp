@@ -36,7 +36,28 @@ convention for its messy 30%.
 (``CellRef``/``ArrayView``/``TempRef``) behind ``get``/``set`` (plus ``get_at``/``set_at``
 and the raw ``store``/``base`` for the rare block op), so host code stops reaching into
 engine internals directly.
+
+Two kinds of host routine, two decorators
+-----------------------------------------
+The PDP-10 programs this serves had host routines of two kinds: pure *computation* called
+through the FORTRAN calling sequence, and routines that *talk to the operating system*
+(terminal I/O, file reads, the clock). forterp is an interpreter, not an emulator, so there
+is no literal UUO trap -- a "system call" is just a CALL to a host subroutine -- but the
+*services* such a routine needs are real and generic, so this module provides them:
+
+- ``@fcall`` (an alias of ``@builtin``) -- a FORTRAN-callable computation.
+- ``@uuo`` -- a routine that talks to the host: its body receives a baseline ``HostServices``
+  facade (``mon``: ``tty`` / ``files`` / ``clock``, over the engine's host seam) as its first
+  argument.
+
+The facade is **injectable**: an embedder may set ``eng.host_services`` to a *richer* facade
+(one that adds OS-level identity, locks, shared memory, ...) before the engine runs, and
+``@uuo`` routines receive that instead of the baseline. So a fuller monitor layers on without
+forterp depending on it -- the baseline alone is enough to run a program that only needs basic
+I/O.
 """
+
+import os
 
 __all__ = [
     "Mode",
@@ -48,8 +69,12 @@ __all__ = [
     "ARRAY",
     "OutRef",
     "builtin",
+    "fcall",
+    "uuo",
     "make_builtin",
     "builtins_in",
+    "HostServices",
+    "host_services",
 ]
 
 
@@ -159,18 +184,39 @@ def make_builtin(fn, *, args=None, raw=False):
     return wrapper
 
 
-def builtin(name, *, args=None, raw=False):
+def _aliases(alias):
+    """Normalize an ``alias=`` argument to a tuple of extra names."""
+    if not alias:
+        return ()
+    return tuple(alias) if isinstance(alias, (list, tuple)) else (alias,)
+
+
+def _tag(wrapper, name, fn, alias=(), origin=None):
+    """Attach the discovery/introspection metadata a registry reads off a wrapped builtin:
+    its primary ``builtin_name``, any ``builtin_aliases`` (extra names registered to the same
+    routine), an optional ``builtin_origin`` (free-form provenance, e.g. a source-file name),
+    and ``fcall_fn`` -- the original documented body, for the doc lint and introspection."""
+    wrapper.builtin_name = name
+    wrapper.builtin_aliases = _aliases(alias)
+    wrapper.builtin_origin = origin
+    wrapper.fcall_fn = fn
+    return wrapper
+
+
+def builtin(name, *, args=None, raw=False, alias=(), origin=None):
     """Decorator: declare a builtin's calling convention. Attaches ``builtin_name`` and the
     original ``fcall_fn`` so a registry can collect ``{name: wrapper}`` and still reach the
-    documented body."""
+    documented body. ``alias`` registers the same routine under extra names (a str or a
+    list/tuple); ``origin`` records free-form provenance both surfaced via ``builtins_in``."""
 
     def deco(fn):
         wrapper = make_builtin(fn, args=args, raw=raw)
-        wrapper.builtin_name = name
-        wrapper.fcall_fn = fn
-        return wrapper
+        return _tag(wrapper, name, fn, alias=alias, origin=origin)
 
     return deco
+
+
+fcall = builtin  # a FORTRAN-callable computation -- the PDP-10 authoring name for @builtin
 
 
 def builtins_in(module):
@@ -190,7 +236,149 @@ def builtins_in(module):
         name = getattr(value, "builtin_name", None)
         if name and callable(value):
             table[name] = value
+            for a in getattr(value, "builtin_aliases", ()):
+                table[a] = value
     extra = getattr(module, "BUILTINS", None)
     if isinstance(extra, dict):
         table.update(extra)
     return table
+
+
+# --------------------------------------------------------------------------------------------
+# Baseline host services + the @uuo authoring decorator
+#
+# A @uuo routine talks to the host through a HostServices facade ("mon") rather than reaching
+# eng.emit / eng.root / eng.clock itself, so "talks to the OS" is one explicit dependency. The
+# baseline facade below is built over the engine's host seam only (no OS-level state); a richer
+# facade is layered on by setting eng.host_services (see host_services()).
+# --------------------------------------------------------------------------------------------
+
+
+class _Tty:
+    """The terminal: the (emit, getch, readline) seam, tracking the horizontal cursor column
+    so a newline/space/tab can be column-aware."""
+
+    def __init__(self, eng):
+        self._eng = eng
+        self.col = 0
+
+    def write(self, s):
+        if not s:
+            return
+        self._eng.emit(s)
+        nl = s.rfind("\n")
+        self.col = (len(s) - nl - 1) if nl >= 0 else self.col + len(s)
+
+    def crlf(self):
+        """A smart newline: only if not already at the left margin (no double blanks)."""
+        if self.col > 0:
+            self.write("\n")
+
+    def space(self, n=1):
+        self.write(" " * max(0, n))
+
+    def tab(self, col):
+        """Advance to absolute column `col` (no-op if already past it)."""
+        if col > self.col:
+            self.write(" " * (col - self.col))
+
+    def getch(self):
+        return self._eng.getch()
+
+    def readline(self):
+        return self._eng.readline()
+
+
+class _Files:
+    """Bundled read-only data files. The original routines OPEN/LOOKUP a host file; this reads
+    a real file under the engine's root (or save root)."""
+
+    def __init__(self, eng):
+        self._eng = eng
+
+    def root_path(self, name):
+        return os.path.join(self._eng.root, name)
+
+    def save_path(self, name):
+        return os.path.join(self._eng.save_root, name)
+
+    def read(self, name, *, missing=None, errors=None):
+        """Read a file under the engine root; return `missing` if it isn't there."""
+        try:
+            with open(self.root_path(name), errors=errors) as fh:
+                return fh.read()
+        except OSError:
+            return missing
+
+
+class _Clock:
+    """The clock the time UUOs read: the engine's fixed millisecond reading, plus a monotonic
+    tick that advances a little per query so elapsed times stay positive."""
+
+    def __init__(self, eng):
+        self._eng = eng
+        self._ms = 0
+
+    @property
+    def ms(self):
+        return self._eng.clock
+
+    def tick(self):
+        self._ms += 100
+        return self._ms
+
+
+class HostServices:
+    """The baseline host-services facade (``mon``) passed to ``@uuo`` routines: ``tty`` (the
+    terminal seam), ``files`` (bundled data under the engine root), and ``clock``. Built over
+    the engine's host seam only -- it carries no OS-level state, so it runs anywhere the engine
+    does. A richer facade subclasses this (adding services, e.g. identity/locks) and is injected
+    via ``eng.host_services`` (see ``host_services``)."""
+
+    def __init__(self, eng):
+        self.eng = eng
+        self.tty = _Tty(eng)
+        self.files = _Files(eng)
+        self.clock = _Clock(eng)
+
+
+def host_services(eng):
+    """The engine's ``HostServices`` facade, building (and caching on ``eng.host_services``) the
+    baseline on first use. An embedder may set ``eng.host_services`` to a richer facade before
+    the engine runs to override the baseline -- ``@uuo`` routines then receive that instead."""
+    mon = getattr(eng, "host_services", None)
+    if mon is None:
+        mon = HostServices(eng)
+        eng.host_services = mon
+    return mon
+
+
+def uuo(name, *, args=None, raw=True, alias=(), origin=None):
+    """Decorator for a host routine that talks to the host. Its body's first parameter is the
+    ``HostServices`` facade (``mon``); with ``raw=True`` (the default) the rest of the body is
+    ``(eng, frame, arg_nodes)``, otherwise the declared ``args`` modes follow ``mon`` (each
+    actual marshalled exactly as for ``@builtin``). ``alias``/``origin`` behave as for
+    ``@builtin``. Registered/discovered identically -- the only difference from ``@fcall`` is
+    the injected ``mon`` first argument."""
+
+    def deco(fn):
+        if raw:
+
+            def wrapper(eng, frame, arg_nodes):
+                return fn(host_services(eng), eng, frame, arg_nodes)
+
+        else:
+            modes = tuple(args or ())
+
+            def wrapper(eng, frame, arg_nodes):
+                bound = [
+                    m.bind(eng, frame, arg_nodes[i] if i < len(arg_nodes) else None)
+                    for i, m in enumerate(modes)
+                ]
+                return fn(host_services(eng), *bound)
+
+        wrapper.__name__ = getattr(fn, "__name__", name)
+        wrapper.__doc__ = fn.__doc__
+        return _tag(wrapper, name, fn, alias=alias, origin=origin)
+
+    return deco

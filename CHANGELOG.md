@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-06-22 — host services for the embedder
+
+- **12:33** — `hostlib` gains the host-routine *services* half: a baseline `HostServices` facade (`tty`/`files`/`clock`, over the engine's host seam only) and an `@uuo` decorator that injects it as the body's first arg — the counterpart to `@fcall` (a new alias of `@builtin`) for routines that talk to the host rather than compute. The facade is injectable (`eng.host_services`, threaded through `make_engine`/`build_engine`): set a richer subclass and `@uuo` routines receive it instead of the baseline, so a fuller monitor layers on without forterp depending on it. `@builtin`/`@fcall`/`@uuo` also gain `alias=`/`origin=`, and `builtins_in` discovers aliases.
+
 ## 2026-06-16 — And so it begins...
 
 - **15:29** — Initial FORTRAN-10 / F66 interpreter: lexer, parser, AST, tree-walking engine, the FORMAT runtime, the `forlib` library, diagnostics.

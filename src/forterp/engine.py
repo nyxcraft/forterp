@@ -335,6 +335,8 @@ class Engine:
 
         self.tgt = target if target is not None else NATIVE  # default value model (portable)
         self.binio = binio  # unformatted-I/O codec (FOROTS); injected by the runtime
+        self.host_services = None  # injectable HostServices facade for @uuo (forterp.hostlib);
+        # None -> the baseline (tty/files/clock) is built on first use; set it to a richer facade
         # Two dialect-derived knobs the engine needs at run time (else dialect-agnostic):
         #  - free_form_input: widthless input fields read free-form (FORTRAN-10) vs column (F66)
         #  - dec_intrinsics: expose the DEC/F77 extra library functions beyond F66 Tables 3 & 4
