@@ -8,6 +8,7 @@ dist/
 .venv/
 venv/
 *.prt
+.claude/          # local Claude Code settings (settings.local.json, etc.)
 
 # Note: gh-pages/public/ (the built docs site) IS committed and kept in sync by the
 # pre-commit hook in .githooks/ -- see .githooks/README.md.
