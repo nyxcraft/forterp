@@ -33,6 +33,11 @@
         <p class="docs-sidebar__eyebrow">On this page</p>
         <nav class="section-nav" aria-label="On this page">
 <ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#pre-extraction-in-pdp10-empire-before-the-2026-06-19-split">Pre-extraction — in `pdp10-empire`, before the 2026-06-19 split</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#2026-06-16">2026-06-16</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#2026-06-17">2026-06-17</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#2026-06-18">2026-06-18</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#2026-06-19">2026-06-19</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#2026-06-18-standalone-and-a-pluggable-machine">2026-06-18 — standalone, and a pluggable machine</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#2026-06-19-cli-monitor-repl-debugger-and-the-conformance-review-work">2026-06-19 — CLI, monitor, REPL, debugger — and the conformance + review work</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#2026-06-20-faithful-defaults-host-marshalling">2026-06-20 — faithful defaults, host marshalling</a></li>
@@ -49,9 +54,53 @@
           <p class="docs-article__source">Changelog</p>
         </header>
         <div class="prose">
-<p>The life of the <strong>standalone</strong> <code>forterp</code> repository, in order. The pre-standalone origin —
-how a single-purpose PDP-10 FORTRAN interpreter became a separable, configurable product —
-is told in the project history. Times are local commit times (US Eastern).</p>
+<p>In order, oldest-first. It opens with the <strong>pre-extraction</strong> lineage — the interpreter's
+life inside the <code>pdp10-empire</code> monorepo before <code>forterp</code> was split into its own repository
+(2026-06-19) — then follows the standalone <code>forterp</code> repository. Bullets use local commit
+times (US Eastern); pre-extraction bullets additionally cite their <code>pdp10-empire</code> commit.</p>
+<h2 id="pre-extraction-in-pdp10-empire-before-the-2026-06-19-split">Pre-extraction — in <code>pdp10-empire</code>, before the 2026-06-19 split</h2>
+<p><code>forterp</code> began on 2026-06-16 as a FORTRAN-10 interpreter inside the <code>pdp10-empire</code> monorepo,
+written to run real 1970s DEC FORTRAN — Walter Bright's 1978 <em>Empire</em> and UT Austin's 1979
+<em>DECWAR</em> — <strong>unmodified</strong>. That goal set the north star the project still follows:
+<strong>faithfulness over polish</strong>, reproducing PDP-10 / FORTRAN-10 behavior and its quirks rather
+than cleaning them up. It also forced the load-bearing design decision — a real machine value
+model (36-bit two's-complement words, 5-character packed ASCII, <code>.TRUE.</code> = −1) — because a
+naive interpreter would run the games subtly <em>wrong</em>.</p>
+<p>The monorepo grew in layers — a language core (<code>f66</code>), a TOPS-10 operating environment (the
+interactive monitor), and the games on top — and the language core never imported the layers
+above it. That discipline is what let <code>f66</code> be lifted out cleanly: over three days the few
+game-ward couplings were severed (a pluggable <code>OPEN</code> device registry, a pluggable <code>Target</code>
+value model, a parameterized <code>Dialect</code>, and FOROTS binary I/O moved into a <code>fortran10</code>
+layer), at which point the interpreter was provably standalone and was split into its own
+repository. A configurable FORTRAN-66 interpreter is reusable well beyond those games, while
+the PDP-10 target specifically remains load-bearing for running them faithfully.</p>
+<p>Below are the interpreter-core milestones from that era; the hashes reference <code>pdp10-empire</code>,
+not this repo. (The TOPS-10 monitor, the DECWAR multiplayer port, and the instrumented
+terminal / god-view from this period stayed behind in the monorepo and are not part of
+<code>forterp</code>.)</p>
+<h3 id="2026-06-16">2026-06-16</h3>
+<ul>
+<li><strong>15:29</strong> — Initial FORTRAN-10 / F66 interpreter — fixed-form lexer and parser, AST, tree-walking engine, the <code>FORMAT</code> runtime, the intrinsic/runtime library (<code>forlib</code>), and diagnostics. (<code>dfaeda7</code>)</li>
+<li><strong>16:07</strong> — Honor F66 §3.1.6 — blanks are insignificant within tokens, via a tokenizer parse-retry. (<code>268deb8</code>)</li>
+<li><strong>18:49</strong> — <code>RAN</code>/<code>SETRAN</code> intrinsics; <code>COMPLEX</code> formatted input; <code>NAMELIST</code> I/O; random-access (direct) I/O; <code>%FTNLID</code>-style listing warnings. (<code>7a3a7a3</code>)</li>
+<li><strong>18:51</strong> — FOROTS binary-record codec — LSCW framing + DEC-10 floating point — <code>MODE='BINARY'</code>. (<code>cbb06e8</code>)</li>
+<li><strong>23:12</strong> — Front-end: DEC TAB-format source lines, the bare (unnamed) main program, and integer-vs-<code>.EQ.</code> lexing. (<code>07c2c5f</code>)</li>
+</ul>
+<h3 id="2026-06-17">2026-06-17</h3>
+<ul>
+<li><strong>22:49</strong> — <code>COMMON</code>-block sizing, dummy procedures, continuation-line comments, and lowercase <code>nH</code> Hollerith. (<code>4ca49c0</code>)</li>
+</ul>
+<h3 id="2026-06-18">2026-06-18</h3>
+<ul>
+<li><strong>08:58</strong> — A pluggable <code>OPEN</code> device registry — decouples file/device I/O from the host application. (<code>55c91fb</code>)</li>
+<li><strong>09:23</strong> — Extracted the machine value model behind a pluggable <code>Target</code> (36-bit word semantics). (<code>5abce63</code>)</li>
+<li><strong>09:43</strong> — Parameterized the source dialect (<code>Dialect</code>) on the front-end. (<code>9bf7b93</code>)</li>
+<li><strong>11:23</strong> — Introduced a <code>fortran10</code> layer atop the <code>f66</code> core, and relocated FOROTS binary I/O into it. (<code>92f9113</code>)</li>
+</ul>
+<h3 id="2026-06-19">2026-06-19</h3>
+<ul>
+<li><strong>23:26</strong> — <strong>Split out into the standalone <code>forterp</code> repository</strong> — by then restructured under <code>sixbit/f66/</code> and named <em>SIXBIT FORTRAN 66</em>; <code>pdp10-empire</code> became a downstream consumer. (Later renamed <code>pyf66</code> → <code>forterp</code>; the standalone repo's own history continues below, from its 2026-06-18 initial commit.) (<code>2be5df5</code>)</li>
+</ul>
 <h2 id="2026-06-18-standalone-and-a-pluggable-machine">2026-06-18 — standalone, and a pluggable machine</h2>
 <ul>
 <li><strong>13:44</strong> — Initial commit: the FORTRAN-66 interpreter, lifted out of the original monorepo into its own <code>src/</code> package with a clean public API and the FCVS conformance corpus.</li>

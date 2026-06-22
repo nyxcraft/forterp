@@ -25,7 +25,8 @@ These docs are also published as a site via GitHub Pages — the build machinery
 the primary sources are:
 
 - **ANSI X3.9-1966, "FORTRAN"** — the FORTRAN 66 standard (the first standardized
-  FORTRAN). This is the base language. The standard is archived by the ISO/IEC JTC1/SC22/WG5 Fortran committee.
+  FORTRAN). This is the base language. The standard is archived by the ISO/IEC
+  JTC1/SC22/WG5 Fortran committee (<https://wg5-fortran.org/ARCHIVE/Fortran66.pdf>).
 - **DECsystem-10 FORTRAN-10 Language Manual (V5)** — the DEC dialect `forterp` actually
   reproduces (the 36-bit word model, SIXBIT/A5 packing, octal/Hollerith literals,
   `IAND`/`IOR`/shift intrinsics, FOROTS binary I/O, tab-format source). This is the

@@ -1,8 +1,56 @@
 # Changelog
 
-The life of the **standalone** `forterp` repository, in order. The pre-standalone origin —
-how a single-purpose PDP-10 FORTRAN interpreter became a separable, configurable product —
-is told in the project history. Times are local commit times (US Eastern).
+In order, oldest-first. It opens with the **pre-extraction** lineage — the interpreter's
+life inside the `pdp10-empire` monorepo before `forterp` was split into its own repository
+(2026-06-19) — then follows the standalone `forterp` repository. Bullets use local commit
+times (US Eastern); pre-extraction bullets additionally cite their `pdp10-empire` commit.
+
+## Pre-extraction — in `pdp10-empire`, before the 2026-06-19 split
+
+`forterp` began on 2026-06-16 as a FORTRAN-10 interpreter inside the `pdp10-empire` monorepo,
+written to run real 1970s DEC FORTRAN — Walter Bright's 1978 *Empire* and UT Austin's 1979
+*DECWAR* — **unmodified**. That goal set the north star the project still follows:
+**faithfulness over polish**, reproducing PDP-10 / FORTRAN-10 behavior and its quirks rather
+than cleaning them up. It also forced the load-bearing design decision — a real machine value
+model (36-bit two's-complement words, 5-character packed ASCII, `.TRUE.` = −1) — because a
+naive interpreter would run the games subtly *wrong*.
+
+The monorepo grew in layers — a language core (`f66`), a TOPS-10 operating environment (the
+interactive monitor), and the games on top — and the language core never imported the layers
+above it. That discipline is what let `f66` be lifted out cleanly: over three days the few
+game-ward couplings were severed (a pluggable `OPEN` device registry, a pluggable `Target`
+value model, a parameterized `Dialect`, and FOROTS binary I/O moved into a `fortran10`
+layer), at which point the interpreter was provably standalone and was split into its own
+repository. A configurable FORTRAN-66 interpreter is reusable well beyond those games, while
+the PDP-10 target specifically remains load-bearing for running them faithfully.
+
+Below are the interpreter-core milestones from that era; the hashes reference `pdp10-empire`,
+not this repo. (The TOPS-10 monitor, the DECWAR multiplayer port, and the instrumented
+terminal / god-view from this period stayed behind in the monorepo and are not part of
+`forterp`.)
+
+### 2026-06-16
+
+- **15:29** — Initial FORTRAN-10 / F66 interpreter — fixed-form lexer and parser, AST, tree-walking engine, the `FORMAT` runtime, the intrinsic/runtime library (`forlib`), and diagnostics. (`dfaeda7`)
+- **16:07** — Honor F66 §3.1.6 — blanks are insignificant within tokens, via a tokenizer parse-retry. (`268deb8`)
+- **18:49** — `RAN`/`SETRAN` intrinsics; `COMPLEX` formatted input; `NAMELIST` I/O; random-access (direct) I/O; `%FTNLID`-style listing warnings. (`7a3a7a3`)
+- **18:51** — FOROTS binary-record codec — LSCW framing + DEC-10 floating point — `MODE='BINARY'`. (`cbb06e8`)
+- **23:12** — Front-end: DEC TAB-format source lines, the bare (unnamed) main program, and integer-vs-`.EQ.` lexing. (`07c2c5f`)
+
+### 2026-06-17
+
+- **22:49** — `COMMON`-block sizing, dummy procedures, continuation-line comments, and lowercase `nH` Hollerith. (`4ca49c0`)
+
+### 2026-06-18
+
+- **08:58** — A pluggable `OPEN` device registry — decouples file/device I/O from the host application. (`55c91fb`)
+- **09:23** — Extracted the machine value model behind a pluggable `Target` (36-bit word semantics). (`5abce63`)
+- **09:43** — Parameterized the source dialect (`Dialect`) on the front-end. (`9bf7b93`)
+- **11:23** — Introduced a `fortran10` layer atop the `f66` core, and relocated FOROTS binary I/O into it. (`92f9113`)
+
+### 2026-06-19
+
+- **23:26** — **Split out into the standalone `forterp` repository** — by then restructured under `sixbit/f66/` and named *SIXBIT FORTRAN 66*; `pdp10-empire` became a downstream consumer. (Later renamed `pyf66` → `forterp`; the standalone repo's own history continues below, from its 2026-06-18 initial commit.) (`2be5df5`)
 
 ## 2026-06-18 — standalone, and a pluggable machine
 

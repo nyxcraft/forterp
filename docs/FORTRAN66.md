@@ -2,8 +2,8 @@
 
 A working reference for the dialect `forterp` implements: **ANSI X3.9-1966** ("FORTRAN
 66") as the base language, plus the **DEC FORTRAN-10** extensions that the interpreter
-reproduces. The authoritative base document is the ANSI X3.9-1966 standard; this file summarizes it as implemented and
-calls out where the DEC dialect diverges or extends.
+reproduces. The authoritative base document is the ANSI X3.9-1966 standard; this file
+summarizes it as implemented and calls out where the DEC dialect diverges or extends.
 
 > Notation: items marked **[DEC]** are FORTRAN-10 extensions, not part of ANSI X3.9-1966.
 > The default dialect is `forterp.F66` (ANSI); select `forterp.FORTRAN10` to turn these extensions

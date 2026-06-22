@@ -1,7 +1,8 @@
 """PROVISIONAL VAX-11 target -- a best-effort GUESS, not yet validated against a real VAX
 FORTRAN compiler/manual or a driver. These tests pin the value model *as currently
 implemented* so it doesn't drift silently; they are NOT evidence the model is correct.
-What needs checking against a VAX FORTRAN reference is listed in the VAX comment in target.py.
+What needs checking against a VAX FORTRAN reference is listed in the VAX comment in
+target.py.
 
 Encoded model: 32-bit two's-complement integers; 8-bit ASCII packed 4-per-longword
 LITTLE-ENDIAN (char 0 in the low byte -> Hollerith-in-INTEGER is NOT string-monotonic);
