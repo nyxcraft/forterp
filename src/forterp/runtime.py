@@ -9,6 +9,7 @@ here to build and drive engines yourself.
 from forterp import forbin
 from forterp.engine import ArrayView, Engine, Frame, StopExecution, TempRef
 from forterp.forlib import STDLIB
+from forterp.uuolib import UUOLIB
 
 __all__ = [
     "Engine",
@@ -30,9 +31,14 @@ def install_runtime(eng):
 
     The DEC library (RAN, DATE, ERRSET, ...) is a DEC facility, absent from strict ANSI
     F66 -- so it is installed only when the engine's `dec_intrinsics` is on. A library
-    name that the program defines itself is never shadowed (the program's unit wins)."""
+    name that the program defines itself is never shadowed (the program's unit wins).
+
+    The standard TOPS-10 monitor UUOs (OUTSTR/OUTCHR/MSTIME/SLEEP/GETTAB; see `uuolib`) install
+    on the same FORTRAN-10 gate, so a program that CALLs them just runs; a host registering its
+    own (richer/translated) variant afterward overrides these baseline ones."""
     if eng.dec_intrinsics:
         eng.register_builtins({k: v for k, v in STDLIB.items() if k not in eng.units})
+        eng.register_builtins({k: v for k, v in UUOLIB.items() if k not in eng.units})
     eng.binio = forbin
     return eng
 
