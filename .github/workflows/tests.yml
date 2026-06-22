@@ -28,3 +28,25 @@ jobs:
         run: ruff check src tests
       - name: Test
         run: pytest -q
+
+  # Backstop for the .githooks pre-commit hook: a commit that changed a site source but did
+  # not rebuild gh-pages/public/ (e.g. made without the hook enabled) fails here.
+  docs-fresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install docs deps
+        run: pip install -e ".[docs]"
+      - name: Rebuild the site
+        run: python3 gh-pages/build_site.py
+      - name: Verify the committed site is up to date
+        run: |
+          if ! git diff --quiet -- gh-pages/public; then
+            echo "::error::gh-pages/public is stale. Rebuild it (python3 gh-pages/build_site.py)"
+            echo "::error::and commit, or enable the hook: git config core.hooksPath .githooks"
+            git diff --stat -- gh-pages/public
+            exit 1
+          fi

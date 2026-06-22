@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>forterp | FORTRAN-66 / DEC FORTRAN-10 interpreter</title>
+  <meta name="description" content="Written in pure Python, with two pluggable axes: the front-end dialect — strict ANSI FORTRAN 66 by default, the DEC FORTRAN-10 superset on demand — and the machine value model, a 64-bit default or a 36-bit PDP-10. Conformance is checked against the FCVS corpus; the PDP-10 model, against the DEC FORTRAN-10 V5 manual and real 1970s code.">
+  <link rel="stylesheet" href="assets/site.css?v=1bed40a7">
+</head>
+<body class="site-home">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header">
+      <a class="brand" href="index.html">
+        <img class="brand__icon" src="assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="docs/index.html">Docs</a>
+        <a href="reference/index.html">Reference</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <main id="main-content" tabindex="-1">
+      <section class="hero">
+        <div class="hero__copy">
+          <h1>A FORTRAN interpreter<span class="hero__sub">ANSI&nbsp;FORTRAN&nbsp;66 or the DEC&nbsp;FORTRAN&#8209;10 superset</span></h1>
+          <div class="hero__attr"><p>Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.</p><p>Code Synthesized via Anthropic Claude Code / Opus 4.8.</p><p>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p></div>
+          <p class="hero__lede">Written in pure Python, with two pluggable axes: the front-end dialect — strict ANSI FORTRAN 66 by default, the DEC FORTRAN-10 superset on demand — and the machine value model, a 64-bit default or a 36-bit PDP-10. Conformance is checked against the FCVS corpus; the PDP-10 model, against the DEC FORTRAN-10 V5 manual and real 1970s code.</p>
+          <div class="hero__actions">
+            <a class="button button--primary" href="reference/index.html">Get started</a>
+            <a class="button" href="design/index.html">How it works</a>
+          </div>
+        </div>
+        <div class="hero__visual" role="img" aria-label="The forterp pipeline, top to bottom: source; lexer and parser, set by the dialect (F66 or FORTRAN10); the engine, set by the target (NATIVE 64-bit or PDP-10 36-bit); then the running program.">
+          <div class="flow">
+            <div class="flow__node"><span>Source .FOR</span><strong>fixed-form · tab-format · INCLUDE</strong></div>
+            <div class="flow__arrow" aria-hidden="true">↓</div>
+            <div class="flow__node"><span>Lexer · Parser</span><strong>set by the <em>dialect</em> — F66 or FORTRAN10</strong></div>
+            <div class="flow__arrow" aria-hidden="true">↓</div>
+            <div class="flow__node flow__node--hub"><span>Engine</span><strong>set by the <em>target</em> — NATIVE 64-bit or PDP-10 36-bit</strong></div>
+            <div class="flow__arrow" aria-hidden="true">↓</div>
+            <div class="flow__node"><span>Running program</span><strong>COMMON · FORMAT · FOROTS binary I/O</strong></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="feature-strip" aria-label="Core ideas">
+        <article>
+          <h2>Two dialects, one core</h2>
+          <p>A plain <code>import forterp</code> is strict ANSI FORTRAN 66 — it <em>rejects</em> non-F66 constructs, not merely runs standard ones. Flip to <code>FORTRAN10</code> for the DEC superset: octal, Hollerith, <code>IMPLICIT</code>, apostrophe strings, random-access I/O. Eighteen gated knobs separate the two.</p>
+        </article>
+        <article>
+          <h2>Pluggable machine target</h2>
+          <p>The value model is a <code>Target</code>: word width and overflow, the logical-truth convention, the character codec. <code>NATIVE</code> (64-bit, ASCII) is the portable default; <code>PDP10</code> is the 36-bit, 5×7-bit packed-ASCII, <code>.TRUE.</code>=−1 DEC machine (integers and packing exact; <code>REAL</code> is a host double, so floats diverge at the rounding/exponent edges).</p>
+        </article>
+        <article>
+          <h2>Validated against real code</h2>
+          <p>The PDP-10 target was exercised against real 1970s DEC FORTRAN — full programs, not toy snippets — and checked against the DEC FORTRAN-10 V5 manual and the <strong>FCVS</strong> conformance corpus.</p>
+        </article>
+      </section>
+
+      <section class="docs-panel">
+        <div class="section-heading">
+          <p class="eyebrow">Documentation</p>
+          <h2>Use it, build on it, and see how it works.</h2>
+        </div>
+        <div class="doc-grid">
+<article class="doc-card">
+  <h3><a href="reference/index.html">Language reference</a></h3>
+  <p>The FORTRAN dialect forterp implements: standard FORTRAN-66 plus the DEC FORTRAN-10 extensions, written for users of the interpreter — with the deliberate divergences spelled out.</p>
+  <a class="doc-card__link" href="reference/index.html">Open</a>
+</article>
+<article class="doc-card">
+  <h3><a href="design/index.html">Architecture &amp; design</a></h3>
+  <p>How it works inside and why: the source → lexer → parser → engine pipeline, the pluggable Target value model and Dialect axis, the memory/control models, and the seams that make it standalone.</p>
+  <a class="doc-card__link" href="design/index.html">Open</a>
+</article>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="index.html">forterp</a> is <a href="license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+</body>
+</html>

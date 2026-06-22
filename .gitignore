@@ -9,5 +9,5 @@ dist/
 venv/
 *.prt
 
-# Built docs site (published by the pages workflow; not committed)
-gh-pages/public/
+# Note: gh-pages/public/ (the built docs site) IS committed and kept in sync by the
+# pre-commit hook in .githooks/ -- see .githooks/README.md.

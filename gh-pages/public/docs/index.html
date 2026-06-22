@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Documentation | forterp</title>
+  <meta name="description" content="Index of the forterp documentation and the authoritative standards it targets.">
+  <link rel="stylesheet" href="../assets/site.css?v=1bed40a7">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../index.html">
+        <img class="brand__icon" src="../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="index.html">Docs</a>
+        <a href="../reference/index.html">Reference</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">Documentation</span>
+    </nav>
+
+    <!-- Simple full-width page (no left rail, no section viewer) -- used for the docs index. -->
+    <main id="main-content" class="page-main" tabindex="-1">
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>Documentation</h1>
+          <p class="docs-article__summary">Index of the forterp documentation and the authoritative standards it targets.</p>
+        </header>
+        <div class="prose">
+<ul>
+<li><strong><a href="../reference/index.html">FORTRAN66.md</a></strong> — a language reference for the
+FORTRAN dialect <code>forterp</code> implements (standard FORTRAN-66 plus the DEC FORTRAN-10
+extensions), written for users of this interpreter.</li>
+<li><strong><a href="../design/index.html">DESIGN.md</a></strong> — the interpreter's architecture: the pipeline (source →
+lexer → parser → engine), the machine value model, memory/control models, and the four
+seams that make it standalone. For someone modifying forterp.</li>
+<li><strong><a href="../changelog/index.html">CHANGELOG.md</a></strong> — dated history of the standalone interpreter.</li>
+</ul>
+<p>Runnable material lives outside <code>docs/</code>:</p>
+<ul>
+<li><strong><a href="../examples/"><code>examples/</code></a></strong> — short Python scripts showing how to drive forterp as a
+library (run source, capture output, pick a dialect/target, read results from <code>COMMON</code>).</li>
+<li><strong><a href="../demos/"><code>demos/</code></a></strong> — genuine 1970s FORTRAN to run through the interpreter:
+verbatim netlib libraries with drivers, DECsystem-10 tape sources, and a 1971 Game of Life.</li>
+</ul>
+<p>These docs are also published as a site via GitHub Pages — the build machinery lives in
+<code>gh-pages/</code> (a small <code>markdown-it-py</code> static-site generator) and is deployed by
+<code>.github/workflows/pages.yml</code>; no built output is committed.</p>
+<h2 id="authoritative-standards">Authoritative standards</h2>
+<p><code>forterp</code> targets two specifications. The reference above summarizes them as implemented;
+the primary sources are:</p>
+<ul>
+<li><strong>ANSI X3.9-1966, &quot;FORTRAN&quot;</strong> — the FORTRAN 66 standard (the first standardized
+FORTRAN). This is the base language. The standard is archived by the ISO/IEC JTC1/SC22/WG5 Fortran committee.</li>
+<li><strong>DECsystem-10 FORTRAN-10 Language Manual (V5)</strong> — the DEC dialect <code>forterp</code> actually
+reproduces (the 36-bit word model, SIXBIT/A5 packing, octal/Hollerith literals,
+<code>IAND</code>/<code>IOR</code>/shift intrinsics, FOROTS binary I/O, tab-format source). This is the
+document the interpreter was validated against.</li>
+</ul>
+<h2 id="conformance">Conformance</h2>
+<p>The interpreter is exercised against the <strong>FCVS</strong> (FORTRAN Compiler Validation System)
+audit corpus — see <code>tests/fcvs/</code> — which checks conformance to the FORTRAN-66 standard.
+Run <code>pytest</code> to execute it.</p>
+<h2 id="security-trust-model">Security &amp; trust model</h2>
+<p>forterp is an <strong>interpreter, not a sandbox</strong>: a program runs with the invoking process's
+privileges and its <code>OPEN</code>/<code>READ</code>/<code>WRITE</code> reach the real filesystem (absolute or <code>..</code> paths
+escape <code>save_root</code>). There is no network, <code>eval</code>, or subprocess reachable from FORTRAN, and
+execution and allocation are bounded (<code>eng.max_steps</code>, <code>eng.max_array_words</code>) — but do not
+run untrusted source expecting containment; confine it at the OS level instead. See the
+<strong>Security &amp; trust model</strong> section of the top-level <a href="index.html#security--trust-model">README</a>.</p>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../index.html">forterp</a> is <a href="../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+</body>
+</html>

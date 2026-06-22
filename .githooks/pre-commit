@@ -1,0 +1,29 @@
+#!/bin/sh
+# Keep the committed docs site (gh-pages/public/) in sync with its sources.
+#
+# Whenever a commit touches a site input -- docs/, CHANGELOG.md, or the gh-pages/ build
+# script / config / templates / assets -- rebuild the site and re-stage gh-pages/public/
+# so the committed output never drifts from the source it was generated from. Commits that
+# touch nothing site-related skip the rebuild entirely (no per-commit cost).
+#
+# Enable once per clone:  git config core.hooksPath .githooks
+# (The CI "site freshness" guard catches commits made without the hook.)
+
+set -e
+
+# Only the staged source files matter; gh-pages/public/ itself is excluded so re-staging
+# the rebuilt output doesn't re-trigger the rebuild.
+if git diff --cached --name-only \
+    | grep -Eq '^(docs/|CHANGELOG\.md|gh-pages/(build_site\.py|site\.json|templates/|assets/))'; then
+
+    if ! python3 -c 'import markdown_it' 2>/dev/null; then
+        echo "pre-commit: markdown-it-py is not installed -- skipping the gh-pages rebuild." >&2
+        echo "            Install it (pip install markdown-it-py) and re-commit, or the" >&2
+        echo "            committed site may go stale (CI will flag it)." >&2
+        exit 0
+    fi
+
+    echo "pre-commit: site source changed -- rebuilding gh-pages/public ..." >&2
+    python3 gh-pages/build_site.py >/dev/null
+    git add gh-pages/public
+fi

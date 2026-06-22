@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Changelog | forterp</title>
+  <meta name="description" content="Dated history of the standalone interpreter, in order: the target/dialect axes, the CLI and monitor, the conformance work, and the review sweep.">
+  <link rel="stylesheet" href="../assets/site.css?v=1bed40a7">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../index.html">
+        <img class="brand__icon" src="../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../docs/index.html">Docs</a>
+        <a href="../reference/index.html">Reference</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">Changelog</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#2026-06-18-standalone-and-a-pluggable-machine">2026-06-18 — standalone, and a pluggable machine</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#2026-06-19-cli-monitor-repl-debugger-and-the-conformance-review-work">2026-06-19 — CLI, monitor, REPL, debugger — and the conformance + review work</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#2026-06-20-faithful-defaults-host-marshalling">2026-06-20 — faithful defaults, host marshalling</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#2026-06-21-a-documentation-site-genuine-source-demos-and-the-fixes-they-flushed-out">2026-06-21 — a documentation site, genuine-source demos, and the fixes they flushed out</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>Changelog</h1>
+          <p class="docs-article__summary">Dated history of the standalone interpreter, in order: the target/dialect axes, the CLI and monitor, the conformance work, and the review sweep.</p>
+          <p class="docs-article__source">Changelog</p>
+        </header>
+        <div class="prose">
+<p>The life of the <strong>standalone</strong> <code>forterp</code> repository, in order. The pre-standalone origin —
+how a single-purpose PDP-10 FORTRAN interpreter became a separable, configurable product —
+is told in the project history. Times are local commit times (US Eastern).</p>
+<h2 id="2026-06-18-standalone-and-a-pluggable-machine">2026-06-18 — standalone, and a pluggable machine</h2>
+<ul>
+<li><strong>13:44</strong> — Initial commit: the FORTRAN-66 interpreter, lifted out of the original monorepo into its own <code>src/</code> package with a clean public API and the FCVS conformance corpus.</li>
+<li><strong>14:09–14:30</strong> — Routed the value model through a pluggable <code>Target</code>, three steps at a time: the <code>INT</code>-family / <code>LSH</code> intrinsics, the logical algebra, then the character codec.</li>
+<li><strong>14:47</strong> — Added the <code>NATIVE</code> 64-bit target and <strong>made it the default</strong> — <code>PDP10</code> becomes the opt-in faithful machine.</li>
+<li><strong>15:19</strong> — A provisional, <em>unvalidated</em> <code>VAX</code> target plus the seam knobs it needs (little-endian, low-bit truth).</li>
+<li><strong>15:39</strong> — Curated the FCVS corpus to F66-only — removed the 140 F77 / <code>CHARACTER</code> routines.</li>
+<li><strong>16:25–16:38</strong> — Adopted <code>ruff</code> lint + <code>ruff format</code> (Black-standard) across the tree.</li>
+<li><strong>23:59</strong> — Renamed the package <code>f66</code> → <strong><code>forterp</code></strong> and made <code>F66</code> the default dialect (futureproofing the name for a multi-dialect interpreter).</li>
+</ul>
+<h2 id="2026-06-19-cli-monitor-repl-debugger-and-the-conformance-review-work">2026-06-19 — CLI, monitor, REPL, debugger — and the conformance + review work</h2>
+<ul>
+<li><strong>00:00</strong> — Three console front-ends: <code>pyf66</code>, <code>pyfortran10</code>, and <code>forterp --std</code> — thin dialect presets over one engine, like <code>g77</code>/<code>gfortran</code> over gcc.</li>
+<li><strong>00:48–01:06</strong> — Gated the DEC I/O surface, the DEC intrinsics, and random-access I/O under F66; added the V5 math / rotate intrinsics.</li>
+<li><strong>01:11</strong> — <code>--check</code>: parse and list every diagnostic without running — a strict-ANSI-F66 conformance linter.</li>
+<li><strong>10:16</strong> — An interactive <strong>command monitor</strong> — a small, FORTRAN-focused descendant of the TOPS-10 <code>.</code> prompt (<code>RUN</code>/<code>LOAD</code>/<code>SET</code>/<code>SHOW</code>/…).</li>
+<li><strong>10:20–10:52</strong> — An immediate-mode <strong>REPL</strong> (statements run as you type; <code>DO</code> blocks collected across lines), then refactored onto two reusable engine/parser primitives.</li>
+<li><strong>11:03</strong> — Factored target/dialect config into shared registries + <code>engine_kwargs</code> (one source of truth).</li>
+<li><strong>12:31</strong> — An <strong>off-by-default per-statement tracer hook</strong> + frame stack — and on it, an interactive <strong>debugger + statement profiler</strong> in the monitor. A plain run pays nothing.</li>
+<li><strong>14:24–16:08</strong> — Formatted-input conformance: bad-field errors, short-record blank-extension, the BZ-into-exponent behavior pinned and documented; the random-access <code>WRITE(u'0)</code> clobber fixed; CLI error hygiene.</li>
+<li><strong>21:10–21:42</strong> — Exposed the embedding API as public surface; added the prebuilt <code>forterp.fortran10</code> / <code>forterp.f66</code> interpreters (the easy path).</li>
+<li><strong>21:47</strong> — <strong>Gated every non-F66 feature behind a <code>Dialect</code> flag</strong> (18 knobs) — so F66 genuinely <em>rejects</em> non-F66 constructs; the test harness now dual-runs F66-compliant programs under both dialects and asserts they agree.</li>
+<li><strong>22:11</strong> — R4: illegal <code>EQUIVALENCE</code> shapes (backward COMMON extension, cross-COMMON, contradictory) now raise instead of silently mis-laying; the multi-word <code>COMPLEX</code>/<code>DOUBLE</code> storage boundary documented.</li>
+<li><strong>22:36</strong> — <code>test_interpreter.py</code> pins the prebuilt-interpreter API contract.</li>
+<li><strong>23:06–23:41</strong> — R3: list-directed + NAMELIST bad fields now raise like formatted; <code>forbin</code> raises a coherent error on unrepresentable floats (no more silent exponent wrap); the REPL's reserved prompt words documented.</li>
+</ul>
+<h2 id="2026-06-20-faithful-defaults-host-marshalling">2026-06-20 — faithful defaults, host marshalling</h2>
+<ul>
+<li><strong>00:00</strong> — The <code>fortran10</code> preset is <strong>faithful on columns by default</strong> (cols 73+ dropped, like real FORTRAN-10); shifted-column recovery is opt-in via <code>source_options</code>, for a driver that needs it.</li>
+<li><strong>17:03</strong> — <code>hostlib</code>: a declarative marshalling layer for host builtins.</li>
+</ul>
+<h2 id="2026-06-21-a-documentation-site-genuine-source-demos-and-the-fixes-they-flushed-out">2026-06-21 — a documentation site, genuine-source demos, and the fixes they flushed out</h2>
+<ul>
+<li><strong>GitHub Pages site</strong> — a small <code>markdown-it-py</code> static-site generator (<code>gh-pages/</code>) publishing the docs and changelog, DEC-maroon themed with content-hash cache-busting; deployed by <code>.github/workflows/pages.yml</code>.</li>
+<li><strong><code>demos/</code></strong> — a corpus of genuine 1970s FORTRAN run as-is: verbatim netlib numerical libraries (<strong>EISPACK</strong>, <strong>LINPACK</strong>, <strong>FFT</strong>, <strong>RKF45</strong>), each with a small <code>EXAMPLEn.FOR</code> driver; DECsystem-10 sources recovered from DECUS tapes (WKDAY, NORMAL, ASTRO, WGMM11, CHARTR); and Paul Boltwood's 1971 Game of Life. EISPACK is byte-for-byte netlib; NORMAL had its SOS line-sequence numbers stripped as transport residue; the 1971 Life had one OCR'd list-terminator constant corrected against the page scan.</li>
+<li><strong><code>examples/</code></strong> — short Python scripts showing how to drive forterp as a library: run + capture output, dialect selection, the pluggable target, FORTRAN-as-compute-kernel via <code>COMMON</code>, and parse-only inspection.</li>
+<li><strong>Multi-file linking</strong> — the CLI now accepts several source files and links them by unit name, like <code>f77 main.f lib.f</code>, so a driver and a separately-held library run as one program.</li>
+<li><strong>Dialect gaps closed</strong>, each flushed out by real period source and correctly gated (F66 still rejects them): the optional comma before an I/O list (<code>WRITE(u,f),list</code>), the two-word <code>END FILE</code> spelling, and <code>DATA</code> usable as an ordinary array name.</li>
+<li><strong><code>READ</code>/<code>ACCEPT</code> EOF fix</strong> — terminal input past end-of-stream now branches to <code>END=</code> (or stops cleanly) instead of looping forever; it had recognized only an in-band CONTROL-Z, never an empty <code>readline()</code>.</li>
+<li><strong>Sequence-association fix</strong> — an array element passed where the dummy is an array (<code>CALL SUB(X(I), …)</code>) is now re-viewed as an array based at that element rather than crashing; this is exactly how LINPACK and RKF45 pass the start of a work vector.</li>
+</ul>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../index.html">forterp</a> is <a href="../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>
