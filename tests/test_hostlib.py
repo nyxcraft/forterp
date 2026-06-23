@@ -12,6 +12,7 @@ from forterp.hostlib import (
     IN,
     INT,
     OUT,
+    STR,
     HostServices,
     OutRef,
     builtin,
@@ -46,6 +47,23 @@ def test_in_modes_pass_values_with_coercion():
     rv = f(FakeEng(), None, ["x", 7.9, 3])
     assert rv == 42  # the body's return value propagates (function-reference dispatch)
     assert seen == {"a": "x", "b": 7, "c": 3.0}  # INT/FLOAT coerce; IN is verbatim
+
+
+def test_str_mode_resolves_literal_packed_and_plain():
+    from forterp import PDP10
+    from forterp.ast import StrLit
+
+    class E:  # eval returns the node as its value; STR also needs the target's char codec
+        tgt = PDP10
+
+        def eval(self, node, frame):
+            return node
+
+    e = E()
+    assert STR.bind(e, None, StrLit("EMPIRE.DAT")) == "EMPIRE.DAT"  # quoted literal -> text
+    assert STR.bind(e, None, PDP10.pack("HI")) == "HI   "  # packed word -> decoded via the target
+    assert STR.bind(e, None, "plain") == "plain"  # already a string
+    assert STR.bind(e, None, None) is None  # fewer actuals than declared modes
 
 
 def test_missing_actual_binds_none():

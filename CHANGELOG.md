@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-06-23 — a string arg mode
+
+- **02:17** — `hostlib` gains a `STR` arg mode: declare `args=(STR,)` and the body receives a Python `str`, with the quoted-literal-vs-packed-word resolution (a `StrLit`'s text verbatim, or a packed word decoded through the target's char codec) handled by the marshalling layer instead of repeated `eng.eval`/`tgt.unpack` in each body. The reusable shape behind filename/string args (OUTSTR, OPEN's `FILE=`, a save-detect).
+
 ## 2026-06-22 — host services for the embedder
 
 - **16:21** — `uuolib`: the standard TOPS-10 monitor UUOs a FORTRAN-10 program expects to exist — `OUTSTR`, `OUTCHR`, `MSTIME`, `SLEEP`, `GETTAB` — installed (like the DEC library) only under the FORTRAN-10 dialect, on the engine's host seam (`emit`/`clock`). So a program that `CALL`s `OUTSTR` just runs, rather than each program bundling its own glue; a host that wants a richer or terminal-aware variant registers it afterward and overrides the baseline (the same never-shadow-a-defined-routine rule as `STDLIB`).

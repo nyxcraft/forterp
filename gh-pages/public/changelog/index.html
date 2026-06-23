@@ -34,6 +34,7 @@
         <p class="docs-sidebar__eyebrow">On this page</p>
         <nav class="section-nav" aria-label="On this page">
 <ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#2026-06-23-a-string-arg-mode">2026-06-23 — a string arg mode</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#2026-06-22-host-services-for-the-embedder">2026-06-22 — host services for the embedder</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#2026-06-16-and-so-it-begins">2026-06-16 — And so it begins...</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#2026-06-17-hardening-for-the-next-program">2026-06-17 — hardening for the next program</a></li>
@@ -53,6 +54,10 @@
           <p class="docs-article__source">Changelog</p>
         </header>
         <div class="prose">
+<h2 id="2026-06-23-a-string-arg-mode">2026-06-23 — a string arg mode</h2>
+<ul>
+<li><strong>02:17</strong> — <code>hostlib</code> gains a <code>STR</code> arg mode: declare <code>args=(STR,)</code> and the body receives a Python <code>str</code>, with the quoted-literal-vs-packed-word resolution (a <code>StrLit</code>'s text verbatim, or a packed word decoded through the target's char codec) handled by the marshalling layer instead of repeated <code>eng.eval</code>/<code>tgt.unpack</code> in each body. The reusable shape behind filename/string args (OUTSTR, OPEN's <code>FILE=</code>, a save-detect).</li>
+</ul>
 <h2 id="2026-06-22-host-services-for-the-embedder">2026-06-22 — host services for the embedder</h2>
 <ul>
 <li><strong>16:21</strong> — <code>uuolib</code>: the standard TOPS-10 monitor UUOs a FORTRAN-10 program expects to exist — <code>OUTSTR</code>, <code>OUTCHR</code>, <code>MSTIME</code>, <code>SLEEP</code>, <code>GETTAB</code> — installed (like the DEC library) only under the FORTRAN-10 dialect, on the engine's host seam (<code>emit</code>/<code>clock</code>). So a program that <code>CALL</code>s <code>OUTSTR</code> just runs, rather than each program bundling its own glue; a host that wants a richer or terminal-aware variant registers it afterward and overrides the baseline (the same never-shadow-a-defined-routine rule as <code>STDLIB</code>).</li>

@@ -59,11 +59,14 @@ I/O.
 
 import os
 
+from forterp.ast import StrLit
+
 __all__ = [
     "Mode",
     "IN",
     "INT",
     "FLOAT",
+    "STR",
     "OUT",
     "INOUT",
     "ARRAY",
@@ -104,6 +107,24 @@ class _In(Mode):
 IN = _In()  # raw value (whatever eval returns: an int word, float, packed string, ...)
 INT = _In(int)  # the overwhelmingly common case: an integer word
 FLOAT = _In(float)
+
+
+class _Str(Mode):
+    """A string actual, as a Python ``str``: a quoted literal's text verbatim, or a packed-word
+    value decoded through the target's char codec. Encapsulates the StrLit-vs-packed-word
+    resolution that string/filename args (OUTSTR, OPEN's ``FILE=``, a save-detect) all repeat,
+    so the body doesn't reach for ``eng.eval``/``tgt.unpack`` itself."""
+
+    def bind(self, eng, frame, node):
+        if node is None:
+            return None
+        if isinstance(node, StrLit):  # a quoted literal -> its text verbatim (no word-packing)
+            return node.value
+        v = eng.eval(node, frame)
+        return eng.tgt.unpack(v) if isinstance(v, int) else str(v)
+
+
+STR = _Str()  # a string / filename arg -> Python str (literal text, or a packed word decoded)
 
 
 class OutRef:
