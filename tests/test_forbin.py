@@ -9,9 +9,15 @@ import pytest
 from forterp.forbin import (
     Dec10FloatError,
     dec10_to_double,
+    decode_binary_file,
     decode_record,
+    decode_sequential,
     double_to_dec10,
+    encode_binary_file,
     encode_record,
+    encode_sequential,
+    pack_core_dump,
+    unpack_core_dump,
 )
 
 
@@ -44,6 +50,79 @@ def test_decode_two_consecutive_records():
     d1, p1 = decode_record(words, 0)
     d2, p2 = decode_record(words, p1)
     assert d1 == [5] * 100 and d2 == [7] * 100 and p2 == len(words)
+
+
+# ---- sequential framing: the manual's D-7/D-8 two-record example (GROUND TRUTH) ----
+def test_sequential_matches_manual_continue_example():
+    # Manual D.5.2 p.D-8: WRITE(1)(I,J=1,100) then WRITE(1)(J,K=1,100). Record 1 (102
+    # words) fits in block 0; record 2 starts at word 0o146 and crosses the 0o200 boundary.
+    words = encode_sequential([[5] * 100, [7] * 100])
+    assert words[0] == 0o001000000145  # rec1 START: count 0o145 = 101
+    assert words[0o145] == 0o003000000146  # rec1 END: total 0o146 = 102
+    assert words[0o146] == 0o001000000032  # rec2 START at 0o146: count 0o32 = 26 (to boundary)
+    assert words[0o200] == 0o002000000114  # CONTINUE at 0o200 boundary: count 0o114 = 76
+    assert (words[0o200 + 0o114] >> 27) == 0o3  # END follows the 76-word continuation segment
+
+
+def test_sequential_round_trips_multiblock_records():
+    recs = [list(range(300)), [42] * 2574, [1, 2, 3], list(range(1, 130))]  # D- and MAPS-sized
+    assert decode_sequential(encode_sequential(recs)) == recs
+
+
+def test_sequential_short_record_has_no_continue():
+    words = encode_sequential([[9] * 10])  # 12 words << 128: START + data + END only
+    assert [w >> 27 for w in words] == [0o1] + [0] * 10 + [0o3]
+
+
+# ---- core-dump byte packing -------------------------------------------------
+def test_core_dump_known_vector():
+    # the START LSCW 0o001000000145 -> 5 left-justified bytes
+    assert pack_core_dump([0o001000000145]) == bytes((0x00, 0x80, 0x00, 0x06, 0x50))
+
+
+def test_core_dump_round_trips_full_width():
+    words = [0, 1, (1 << 36) - 1, 0o001000000145, 0o525252525252, 0o252525252525]
+    assert unpack_core_dump(pack_core_dump(words)) == words
+
+
+def test_core_dump_rejects_misaligned_bytes():
+    import pytest
+
+    with pytest.raises(ValueError):
+        unpack_core_dump(b"\x00\x01\x02")  # not a multiple of 5
+
+
+def test_binary_file_round_trips_records():
+    recs = [list(range(300)), [7] * 2574, [0o777777777777, 0]]
+    assert decode_binary_file(encode_binary_file(recs)) == recs
+
+
+# ---- engine: dec_files writes/reads REAL FOROTS binary files (opt-in) ----------
+def test_dec_files_engine_writes_real_binary_and_round_trips(tmp_path):
+    import forterp
+
+    src = """      PROGRAM T
+      COMMON /OUT/ MB(5), II, JJ, KK
+      INTEGER MA(5)
+      DATA MA /10,20,30,40,50/
+      OPEN(UNIT=1,FILE='T.DAT',ACCESS='SEQOUT')
+      WRITE(1) MA
+      WRITE(1) 7, 8, 9
+      CLOSE(UNIT=1)
+      OPEN(UNIT=1,FILE='T.DAT',ACCESS='SEQIN')
+      READ(1) MB
+      READ(1) II, JJ, KK
+      CLOSE(UNIT=1)
+      END
+"""
+    eng = forterp.run_source(
+        src, dialect=forterp.FORTRAN10, target=forterp.PDP10, root=str(tmp_path), dec_files=True
+    )
+    out = eng.commons["OUT"]
+    assert out[:5] == [10, 20, 30, 40, 50] and out[5:8] == [7, 8, 9]  # round-tripped through disk
+    raw = (tmp_path / "T.DAT").read_bytes()
+    assert raw[:1] == b"\x00"  # a real FOROTS file (core-dump START LSCW), not JSON's b"["
+    assert decode_binary_file(raw) == [[10, 20, 30, 40, 50], [7, 8, 9]]  # external readers agree
 
 
 # ---- DECsystem-10 single-precision floating point --------------------------

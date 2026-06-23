@@ -143,28 +143,160 @@ available as `forterp.<namespace>`):
 
 ## Custom host routines (builtins)
 
-A host can add its own intrinsics/subprograms. The low-level contract is a callable
-`fn(eng, frame, arg_nodes)` registered with `eng.register_builtins({...})`. `forterp.hostlib`
-generates the argument marshalling so the body is clean Python — declare each parameter's
-*mode*:
+A host can add its own routines that FORTRAN `CALL`s or references — the
+geometry/bit-packing/pathfinding helpers and the "system calls" (terminal I/O, file reads,
+the clock) that programs of this era kept in hand-written assembly. `forterp.hostlib` is the
+authoring layer: declare each parameter's *mode* and write a clean Python body; the argument
+marshalling is generated. (For *how* it is generated, see the [design notes](DESIGN.md).)
+
+### Two decorators
+
+The programs being run had host routines of two kinds, and there is a decorator for each:
+
+- **`@fcall`** (alias `@builtin`) — a FORTRAN-callable *computation*. The body receives the
+  marshalled arguments and nothing else.
+- **`@uuo`** — a routine that *talks to the host* (terminal, files, clock). Its body receives
+  a `HostServices` facade (`mon`) as its first argument, then the marshalled arguments.
+  (forterp is an interpreter, not an emulator, so there is no literal UUO trap — a "system
+  call" is just a `CALL` to a host subroutine — but the *services* such a routine needs are
+  real, so `@uuo` provides them.)
 
 ```python
-from forterp.hostlib import builtin, INT, OUT, ARRAY
+from forterp.hostlib import fcall, uuo, INT
 
-@builtin("IDIST", args=(INT, INT))      # two integer-word inputs
+@fcall("IDIST", args=(INT, INT))         # a computation
 def idist(a, b):
-    return abs(a - b)                    # return value used as the function result
+    return max(abs(a // 100 - b // 100), abs(a % 100 - b % 100))
 
-eng.register_builtins({"IDIST": idist})
+@uuo("DECPRT", args=(INT,))              # talks to the terminal
+def decprt(mon, n):
+    mon.tty.write(str(n))
 ```
 
-Modes: `IN` (raw value), `INT`, `FLOAT` (typed inputs), `OUT`/`INOUT` (write-back via a
-reference), `ARRAY` (a based array view). A builtin is dispatched identically whether called
-as a function (its return value is used) or via `CALL` (ignored).
+Both are dispatched identically whether called as a function (the return value is the result)
+or via `CALL` (return ignored) — a routine that is both a function *and* writes its arguments
+just `return`s and writes its `OUT` handles; there is no separate "subroutine" decorator. Both
+take `alias=` (extra names for the same routine — a str or list) and `origin=` (free-form
+provenance, e.g. the source-file name), surfaced by `builtins_in`.
 
-Pluggable `OPEN` devices use the same idea: `eng.register_device("GAM",
-fn(eng, unit, specs, frame))` lets a program `OPEN(…, DEVICE='GAM')` route to your handler;
-the core knows only TTY + files.
+### Argument modes
+
+Declare `args=(MODE, …)`, one mode per parameter; each actual is bound per its mode before the
+body runs. A missing trailing actual binds `None`.
+
+| Mode | The body receives |
+|------|-------------------|
+| `IN` | the raw evaluated value (int word, float, or packed string — whatever `eval` returns) |
+| `INT` / `FLOAT` | the value coerced to a Python `int` / `float` |
+| `STR` | a Python `str` — a quoted literal's text verbatim, or a packed word decoded through the target's char codec |
+| `OUT` | an `OutRef` write handle (`.set(v)`) |
+| `INOUT` | an `OutRef` — read `.get()`, then `.set(v)` |
+| `ARRAY` | an `OutRef` over a whole array (`.get_at(i)` / `.set_at(i, v)` / `.loc(i)`) |
+
+`OutRef` deliberately hides the engine's private reference objects behind `get`/`set` (plus
+`get_at`/`set_at`/`loc`, and `store`/`base` for the rare block op), so host code never touches
+`CellRef`/`ArrayView`/`TempRef` directly.
+
+```python
+from forterp.hostlib import fcall, ARRAY, INT, IN
+
+@fcall("SET", args=(ARRAY, INT, IN))     # fill the first DIM elements with VAL
+def set_(arr, dim, val):
+    for i in range(dim):
+        arr.set_at(i, val)
+```
+
+### The raw escape hatch
+
+A routine that genuinely needs the AST nodes and engine internals — block moves, by-name
+`COMMON` access, variadics — declares `raw=True`, and the body is the unwrapped uniform
+callable: `(eng, frame, arg_nodes)` for `@fcall`, and `(mon, eng, frame, arg_nodes)` for
+`@uuo`. The escape hatch lives in the *same* registry, so a host never forks into a second
+low-level convention for its messy 30%. The toolkit a raw body uses:
+
+| Call | What |
+|------|------|
+| `eng.eval(node, frame)` | evaluate an argument node to its value |
+| `eng.arg_ref(node, frame)` | a write handle (`CellRef`/`ArrayView`) for a by-reference actual: `.read()` / `.write(v)`, and `.loc(i)` for an array |
+| `OutRef(eng.arg_ref(node, frame))` | wrap that handle in the same `get`/`set`/`get_at`/`set_at` surface the modes hand you |
+| `eng.commons["BLK"]` | a `COMMON` block as a flat mutable list of words |
+| `eng.arrayview(frame, "NAME")` | a based `ArrayView` over a local/`COMMON` array by name |
+
+```python
+from forterp.hostlib import fcall
+
+@fcall("PATH", raw=True, origin="PATH.MAC")
+def path(eng, frame, nodes):
+    beg = int(eng.eval(nodes[0], frame))      # scalars by value
+    okview = eng.arg_ref(nodes[3], frame)     # a 5-element array, by reference
+    flagref = eng.arg_ref(nodes[4], frame)    # an OUT scalar
+    OK = [okview.loc(i).read() for i in range(5)]
+    IARROW = eng.commons["IARROW"]            # read COMMON directly
+    ...
+    flagref.write(flag)
+    return move
+```
+
+The design line: pure computation over the arguments → use modes (the body never sees the
+engine); a routine that reaches engine state, `COMMON`, or the AST → `raw=True` (or `@uuo`,
+if it only needs host *services*). Don't blur it — a non-raw body touching `.store`/`.idx` is
+a smell.
+
+### Registering them
+
+```python
+from forterp.hostlib import builtins_in
+eng.register_builtins(builtins_in(my_module))   # every @fcall/@uuo + a module-level BUILTINS dict
+```
+
+`builtins_in(module)` collects every decorated routine by its name (and aliases), plus a
+module-level `BUILTINS` dict merged on top. The CLI uses it to load `.py` host modules dropped
+in beside FORTRAN source; any embedder can too. Or register one routine directly:
+`eng.register_builtins({"IDIST": idist})`. Host routines never shadow a routine the program
+defines itself.
+
+### The host-services model
+
+A `@uuo` body's `mon` is a `HostServices` facade over the engine's host seam:
+
+- `mon.tty` — the terminal: `write(s)` (column-tracking), `crlf()` (smart newline),
+  `space(n)`, `tab(col)`, `getch()`, `readline()`.
+- `mon.files` — read-only data under the engine root: `read(name, missing=…)`,
+  `root_path(name)`, `save_path(name)`.
+- `mon.clock` — `ms` (the engine's fixed clock reading) and a monotonic `tick()`.
+
+The baseline carries no OS-level state, so it runs anywhere the engine does. It is
+**injectable**: set `eng.host_services` to a richer facade (subclass `HostServices` to add OS
+identity, locks, shared memory, …) before the engine runs and `@uuo` routines receive that
+instead — `make_engine(host_services=fn)` and `Interpreter.build_engine(host_services=fn)`
+thread the factory through. `host_services(eng)` returns the current facade, building and
+caching the baseline on first use. So a fuller monitor layers on without forterp depending on
+it — the baseline alone runs a program that needs only basic I/O.
+
+### Standard monitor UUOs (`forterp.uuolib`)
+
+A FORTRAN-10 program expects certain TOPS-10 monitor calls to simply exist. `forterp.uuolib`
+provides them, so a program that `CALL`s one just runs rather than bundling its own glue:
+
+| Routine | What |
+|---------|------|
+| `OUTSTR(STR)` | write a string to the terminal |
+| `OUTCHR(CH)` | write one character (low 7 bits) |
+| `MSTIME(T)` | the job's millisecond runtime clock, returned into `T` |
+| `SLEEP(SECS)` | suspend the job — a no-op under the interpreter |
+| `GETTAB(…)` | read a monitor table word — returns `0` (no tables modeled) |
+
+These are installed by `install_runtime` only under the **FORTRAN-10 dialect** (like the DEC
+library `STDLIB`), and like every host routine they never shadow one the program — or the host
+— defines: a host that wants a richer or terminal-aware variant (a translated `OUTCHR`, a real
+`GETTAB` over modeled tables) registers it afterward and it wins. They are *monitor* facilities
+— distinct from `forlib.STDLIB`, the FORTRAN-10 V5 *language library* (`TIME`/`DATE`/`EXIT`/
+`RAN`/…).
+
+### Pluggable `OPEN` devices
+
+A related seam: `eng.register_device("GAM", fn(eng, unit, specs, frame))` lets a program
+`OPEN(…, DEVICE='GAM')` route to your handler; the core knows only TTY + ordinary files.
 
 ## Instrumentation: the OOB census
 

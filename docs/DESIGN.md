@@ -216,6 +216,54 @@ Two distinct tables:
 > constants (packed at use via `Engine._const_value`, not at parse time) — now routes
 > through the `Target`; there are no known PDP-10 pins left in the core.
 
+### 7a. Host-routine marshalling (`hostlib`) — the decorator pattern
+
+`INTRINSICS` and `STDLIB` are forterp's *own* routines. A third category is the routines the
+**host** supplies: the geometry/bit-packing/pathfinding helpers and "system calls" the
+programs of this era kept in hand-written assembly and `CALL`ed. `forterp.hostlib` is the
+authoring layer for those. The user-facing how-to is in the [API guide](API.md); this section is
+how it is *built*, because the mechanism — a decorator that rewrites a function's calling
+convention from a tuple of declared modes — is a small worked example of a few Python features
+worth naming.
+
+**The pieces of the mechanism:**
+
+- **A decorator** is just a function that takes a function and returns a replacement.
+  `@builtin("IDIST", args=(INT, INT))` is the call `builtin("IDIST", args=(INT, INT))`
+  returning the real decorator `deco`, which is then applied to the body: `idist = deco(idist)`.
+  So `deco` gets the clean body and returns the uniform `fn(eng, frame, arg_nodes)` callable
+  the engine actually dispatches.
+- **The modes are values, not type annotations.** `IN`/`INT`/`OUT`/`ARRAY`/… are *instances*
+  of small `Mode` classes, passed in the `args=` tuple. Each has one method, `bind(eng, frame,
+  node) -> value-or-handle`, that turns one actual-argument AST node into what the body should
+  receive — `INT` does `int(eng.eval(node, frame))`, `OUT` wraps `eng.arg_ref(node, frame)` in
+  an `OutRef`. New host-specific modes are new `Mode` subclasses (`STR` is one — it knows the
+  target's char codec). This is deliberately *not* Python's `def f(a: int)` annotation syntax:
+  a mode carries behavior (the bind step), and one parameter can need a handle rather than a
+  value, which a type annotation can't express.
+- **The generated wrapper** closes over the mode tuple and the body. On each call it binds
+  every actual through its mode and splats the results into the body
+  (`fn(*bound)`); `raw=True` skips all of this and returns the body unchanged (it *is* already
+  the uniform callable). The body's return value propagates — used by the function-reference
+  dispatch path, ignored by `CALL` — which is why one decorator serves both functions and
+  subroutines.
+- **Attributes on a function.** Functions are objects, so the wrapper carries its metadata as
+  plain attributes: `builtin_name`, `builtin_aliases`, `builtin_origin`, and `fcall_fn` (the
+  original documented body, kept reachable for introspection). `builtins_in(module)` discovers
+  routines by reading `builtin_name` off every module global — no registration list to keep in
+  sync, which is what lets a `.py` file drop in beside FORTRAN source.
+
+`@fcall` is literally `fcall = builtin` (an alias chosen to read right next to PDP-10 source).
+`@uuo` is the same shape with one addition: its wrapper injects `host_services(eng)` as the
+body's first argument before the marshalled actuals (or before `(eng, frame, arg_nodes)` when
+`raw=True`). That facade is the one piece of *state* the layer owns — see §6's environment
+seams; it reads `eng.emit`/`eng.clock`/`eng.root` and nothing OS-level, and an embedder can
+inject a richer subclass via `eng.host_services`.
+
+The whole module is ~120 lines of marshalling and ~80 of facade. The payoff is that a host
+body is the logic and nothing else, and the messy minority that needs the AST stays in the
+*same* registry behind `raw=True` rather than forking a second, lower-level convention.
+
 ---
 
 ## 8. Module map
@@ -231,6 +279,8 @@ What each module **owns** (responsibilities age better than line counts):
 | `ast_nodes.py` | the AST dataclasses + the `Expr`/`IoItem`/`FormatRef`/`Dims` contract aliases |
 | `lexer.py` | tokenizer; gates the DEC lexical extensions on the `Dialect` |
 | `forlib.py` | `STDLIB` — the FORTRAN-10 library subroutines (TIME/DATE/EXIT/ERRSNS/RAN/…) |
+| `uuolib.py` | `UUOLIB` — the standard TOPS-10 monitor UUOs (OUTSTR/OUTCHR/MSTIME/SLEEP/GETTAB); installed only under the FORTRAN-10 dialect |
+| `hostlib.py` | the host-routine authoring layer: the `@fcall`/`@uuo`/`@builtin` decorators + arg modes (`IN`/`INT`/`STR`/`OUT`/`ARRAY`), `OutRef`, `builtins_in`, and the baseline injectable `HostServices` facade |
 | `forbin.py` | FOROTS unformatted-record framing (LSCW) + DEC-10 float — the `binio` codec |
 | `diagnostics.py` | V5 Appendix-F message rendering (`?FTNxxx` / `%FTNxxx`) |
 | `target.py` | the `Target` value-model seam (`PDP10` / `NATIVE` / `VAX`) |

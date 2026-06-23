@@ -330,11 +330,16 @@ class Engine:
         free_form_input=False,
         dec_intrinsics=True,
         max_array_words=50_000_000,
+        dec_files=False,
     ):
         import random
 
         self.tgt = target if target is not None else NATIVE  # default value model (portable)
         self.binio = binio  # unformatted-I/O codec (FOROTS); injected by the runtime
+        # Opt-in: persist unformatted files as real FOROTS binary (LSCW records, core-dump
+        # bytes) instead of the default JSON word-list -- a file a PDP-10 could read. Off by
+        # default so the portable on-disk form (and float precision) is unchanged for everyone.
+        self.dec_files = dec_files
         self.host_services = None  # injectable HostServices facade for @uuo (forterp.hostlib);
         # None -> the baseline (tty/files/clock) is built on first use; set it to a richer facade
         # Two dialect-derived knobs the engine needs at run time (else dialect-agnostic):
@@ -1783,7 +1788,12 @@ class Engine:
                 # (ANSI X3.9-1966 7.1.3.3); pos then advances. Normal writing has pos == len,
                 # so this is an append.
                 pos = st["pos"]
-                st["recs"][pos:] = [self._unf_values(s.items, frame)]
+                rec = (
+                    self._bin_words(s.items, frame)  # real FOROTS data words (type-aware)
+                    if st.get("dec")
+                    else self._unf_values(s.items, frame)
+                )
+                st["recs"][pos:] = [rec]
                 st["pos"] = pos + 1
             return None
         return self._unf_record_read(st, s, frame)
@@ -1824,8 +1834,11 @@ class Engine:
             return None
         rec = recs[st["pos"]]
         st["pos"] += 1
-        for ref, w in zip(self._unf_refs(s.items, frame), rec):
-            ref.write(w)
+        if st.get("dec"):  # a real FOROTS word record -> decode per declared type (REAL=dec10)
+            self._assign_words(s.items, rec, frame)
+        else:
+            for ref, w in zip(self._unf_refs(s.items, frame), rec):
+                ref.write(w)
         self.last_io_error = IO_OK  # successful read clears the status
         return None
 
@@ -1877,29 +1890,25 @@ class Engine:
                 fname = self.tgt.unpack(fspec).strip() if isinstance(fspec, int) else str(fspec)
                 path = self._open_path(fname)
                 if access == "SEQOUT":
-                    self.io[unit] = {"recs": [], "pos": 0, "mode": "w", "path": path}
+                    self.io[unit] = {
+                        "recs": [],
+                        "pos": 0,
+                        "mode": "w",
+                        "path": path,
+                        "dec": self.dec_files,
+                    }
                 else:
-                    try:  # our binary save is a JSON record list
-                        with open(path) as fh:
-                            recs = json.load(fh)
-                        self.io[unit] = {"recs": recs, "pos": 0, "mode": "r", "path": path}
-                    except ValueError:  # not JSON -> a formatted text data
-                        with open(path, errors="replace") as fh:  # an ordinary text data file
-                            self.io[unit] = {
-                                "lines": fh.read().splitlines(),
-                                "pos": 0,
-                                "mode": "r",
-                                "text": True,
-                                "path": path,
-                            }
-                    except OSError:  # missing/empty
-                        self.io[unit] = {"recs": [], "pos": 0, "mode": "r", "path": path}
+                    self.io[unit] = self._open_read_unit(path)
             return None
         if s.verb == "CLOSE":
             st = self.io.pop(unit, None)
             if st and st.get("mode") == "w":
-                with open(st["path"], "w") as fh:
-                    json.dump(st["recs"], fh)
+                if st.get("dec"):  # real FOROTS binary: LSCW-framed words, core-dumped to bytes
+                    with open(st["path"], "wb") as fh:
+                        fh.write(self._binio().encode_binary_file(st["recs"]))
+                else:
+                    with open(st["path"], "w") as fh:
+                        json.dump(st["recs"], fh)
             return None
         # device control: REWIND / BACKSPACE / ENDFILE / SKIP RECORD / SKIP FILE
         st = self.io.get(unit)
@@ -1916,6 +1925,33 @@ class Engine:
             elif s.verb == "SKIPFILE":
                 st["pos"] = len(recs)
         return None
+
+    def _open_read_unit(self, path):
+        """Open an existing file for sequential read, detecting its on-disk form: a real
+        FOROTS binary file (core-dump words; only when `dec_files`) -> word-list records; our
+        JSON record list (the portable default and legacy saves); else ordinary text data."""
+        import json
+
+        try:
+            raw = open(path, "rb").read()
+        except OSError:  # missing/empty -> an empty unit (a fresh READ hits END=)
+            return {"recs": [], "pos": 0, "mode": "r", "path": path}
+        if self.dec_files and raw[:1] == b"\x00":  # a core-dump START LSCW begins with 0x00
+            try:
+                recs = self._binio().decode_binary_file(raw)
+                return {"recs": recs, "pos": 0, "mode": "r", "path": path, "dec": True}
+            except ValueError:  # not actually FOROTS binary -> fall through
+                pass
+        try:  # our portable form / legacy saves: a JSON record list
+            return {"recs": json.loads(raw or b"[]"), "pos": 0, "mode": "r", "path": path}
+        except ValueError:  # not JSON -> a formatted text data file
+            return {
+                "lines": raw.decode(errors="replace").splitlines(),
+                "pos": 0,
+                "mode": "r",
+                "text": True,
+                "path": path,
+            }
 
     def _open_path(self, name):
         """Resolve an OPEN file-spec to a host path relative to save_root: try the name

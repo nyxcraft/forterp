@@ -45,6 +45,7 @@
 <li><a class="section-nav__link section-nav__link--l2" href="#5-i-o-and-format">5. I/O and FORMAT</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#6-the-four-seams-why-forterp-is-standalone-and-composable">6. The four seams (why forterp is standalone and composable)</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#7-intrinsics-vs-library-builtins">7. Intrinsics vs. library builtins</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#7a-host-routine-marshalling-hostlib-the-decorator-pattern">7a. Host-routine marshalling (`hostlib`) — the decorator pattern</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#8-module-map">8. Module map</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#9-testing">9. Testing</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#10-engine-runtime-state-reference">10. Engine runtime state (reference)</a></li>
@@ -273,6 +274,49 @@ algebra, the character codec, the <code>O</code>-descriptor width, and Hollerith
 constants (packed at use via <code>Engine._const_value</code>, not at parse time) — now routes
 through the <code>Target</code>; there are no known PDP-10 pins left in the core.</p>
 </blockquote>
+<h3 id="7a-host-routine-marshalling-hostlib-the-decorator-pattern">7a. Host-routine marshalling (<code>hostlib</code>) — the decorator pattern</h3>
+<p><code>INTRINSICS</code> and <code>STDLIB</code> are forterp's <em>own</em> routines. A third category is the routines the
+<strong>host</strong> supplies: the geometry/bit-packing/pathfinding helpers and &quot;system calls&quot; the
+programs of this era kept in hand-written assembly and <code>CALL</code>ed. <code>forterp.hostlib</code> is the
+authoring layer for those. The user-facing how-to is in the <a href="../api/index.html">API guide</a>; this section is
+how it is <em>built</em>, because the mechanism — a decorator that rewrites a function's calling
+convention from a tuple of declared modes — is a small worked example of a few Python features
+worth naming.</p>
+<p><strong>The pieces of the mechanism:</strong></p>
+<ul>
+<li><strong>A decorator</strong> is just a function that takes a function and returns a replacement.
+<code>@builtin(&quot;IDIST&quot;, args=(INT, INT))</code> is the call <code>builtin(&quot;IDIST&quot;, args=(INT, INT))</code>
+returning the real decorator <code>deco</code>, which is then applied to the body: <code>idist = deco(idist)</code>.
+So <code>deco</code> gets the clean body and returns the uniform <code>fn(eng, frame, arg_nodes)</code> callable
+the engine actually dispatches.</li>
+<li><strong>The modes are values, not type annotations.</strong> <code>IN</code>/<code>INT</code>/<code>OUT</code>/<code>ARRAY</code>/… are <em>instances</em>
+of small <code>Mode</code> classes, passed in the <code>args=</code> tuple. Each has one method, <code>bind(eng, frame, node) -&gt; value-or-handle</code>, that turns one actual-argument AST node into what the body should
+receive — <code>INT</code> does <code>int(eng.eval(node, frame))</code>, <code>OUT</code> wraps <code>eng.arg_ref(node, frame)</code> in
+an <code>OutRef</code>. New host-specific modes are new <code>Mode</code> subclasses (<code>STR</code> is one — it knows the
+target's char codec). This is deliberately <em>not</em> Python's <code>def f(a: int)</code> annotation syntax:
+a mode carries behavior (the bind step), and one parameter can need a handle rather than a
+value, which a type annotation can't express.</li>
+<li><strong>The generated wrapper</strong> closes over the mode tuple and the body. On each call it binds
+every actual through its mode and splats the results into the body
+(<code>fn(*bound)</code>); <code>raw=True</code> skips all of this and returns the body unchanged (it <em>is</em> already
+the uniform callable). The body's return value propagates — used by the function-reference
+dispatch path, ignored by <code>CALL</code> — which is why one decorator serves both functions and
+subroutines.</li>
+<li><strong>Attributes on a function.</strong> Functions are objects, so the wrapper carries its metadata as
+plain attributes: <code>builtin_name</code>, <code>builtin_aliases</code>, <code>builtin_origin</code>, and <code>fcall_fn</code> (the
+original documented body, kept reachable for introspection). <code>builtins_in(module)</code> discovers
+routines by reading <code>builtin_name</code> off every module global — no registration list to keep in
+sync, which is what lets a <code>.py</code> file drop in beside FORTRAN source.</li>
+</ul>
+<p><code>@fcall</code> is literally <code>fcall = builtin</code> (an alias chosen to read right next to PDP-10 source).
+<code>@uuo</code> is the same shape with one addition: its wrapper injects <code>host_services(eng)</code> as the
+body's first argument before the marshalled actuals (or before <code>(eng, frame, arg_nodes)</code> when
+<code>raw=True</code>). That facade is the one piece of <em>state</em> the layer owns — see §6's environment
+seams; it reads <code>eng.emit</code>/<code>eng.clock</code>/<code>eng.root</code> and nothing OS-level, and an embedder can
+inject a richer subclass via <code>eng.host_services</code>.</p>
+<p>The whole module is ~120 lines of marshalling and ~80 of facade. The payoff is that a host
+body is the logic and nothing else, and the messy minority that needs the AST stays in the
+<em>same</em> registry behind <code>raw=True</code> rather than forking a second, lower-level convention.</p>
 <hr />
 <h2 id="8-module-map">8. Module map</h2>
 <p>What each module <strong>owns</strong> (responsibilities age better than line counts):</p>
@@ -311,6 +355,14 @@ through the <code>Target</code>; there are no known PDP-10 pins left in the core
 <tr>
 <td><code>forlib.py</code></td>
 <td><code>STDLIB</code> — the FORTRAN-10 library subroutines (TIME/DATE/EXIT/ERRSNS/RAN/…)</td>
+</tr>
+<tr>
+<td><code>uuolib.py</code></td>
+<td><code>UUOLIB</code> — the standard TOPS-10 monitor UUOs (OUTSTR/OUTCHR/MSTIME/SLEEP/GETTAB); installed only under the FORTRAN-10 dialect</td>
+</tr>
+<tr>
+<td><code>hostlib.py</code></td>
+<td>the host-routine authoring layer: the <code>@fcall</code>/<code>@uuo</code>/<code>@builtin</code> decorators + arg modes (<code>IN</code>/<code>INT</code>/<code>STR</code>/<code>OUT</code>/<code>ARRAY</code>), <code>OutRef</code>, <code>builtins_in</code>, and the baseline injectable <code>HostServices</code> facade</td>
 </tr>
 <tr>
 <td><code>forbin.py</code></td>
