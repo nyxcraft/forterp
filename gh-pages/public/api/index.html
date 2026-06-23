@@ -449,8 +449,8 @@ provides them, so a program that <code>CALL</code>s one just runs rather than bu
 <td>suspend the job — a no-op under the interpreter</td>
 </tr>
 <tr>
-<td><code>GETTAB(…)</code></td>
-<td>read a monitor table word — returns <code>0</code> (no tables modeled)</td>
+<td><code>GETTAB(TABLE,ITEM)</code></td>
+<td>read a monitor table word — recognized: <code>(2,-1)</code> <code>.GTPPN</code> → guest <code>[0,0]</code>, <code>(120,-1)</code> octal <code>.GTJTC</code> → <code>0</code> (unclassed); a table in <code>eng.gettab</code> → its value (override/add); any other raises <code>UnmodeledMonitorTable</code> (register it, or catch it at the driver)</td>
 </tr>
 </tbody>
 </table>

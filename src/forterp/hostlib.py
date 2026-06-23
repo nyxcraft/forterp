@@ -61,6 +61,15 @@ import os
 
 from forterp.ast import StrLit
 
+try:
+    import pwd
+except ImportError:  # non-POSIX host
+    pwd = None
+try:
+    import grp
+except ImportError:  # non-POSIX host
+    grp = None
+
 __all__ = [
     "Mode",
     "IN",
@@ -78,6 +87,8 @@ __all__ = [
     "builtins_in",
     "Host",
     "host",
+    "host_ppn",
+    "host_user",
 ]
 
 
@@ -377,18 +388,98 @@ class _Clock:
         return self._ms
 
 
+# --- host identity: the OS user, mapped onto the TOPS-10 fields monitor calls report ----------
+
+_PPN_HALF = 0o777777  # an 18-bit half of a TOPS-10 [project,,programmer] PPN word
+
+
+def _guest_ids():
+    """A safe, in-range, unprivileged (gid, uid) for when the real ids don't fit a PPN half:
+    'nogroup'/'nobody' (the Unix unprivileged identity), else (0, 0) -- TOPS-10's null/'no PPN'
+    sentinel. Always in range, never privileged."""
+    uid = gid = 0
+    if pwd is not None:
+        try:
+            uid = pwd.getpwnam("nobody").pw_uid
+        except KeyError:
+            uid = 0
+    if grp is not None:
+        for name in ("nogroup", "nobody"):
+            try:
+                gid = grp.getgrnam(name).gr_gid
+                break
+            except KeyError:
+                continue
+    return (gid, uid) if (0 <= gid <= _PPN_HALF and 0 <= uid <= _PPN_HALF) else (0, 0)
+
+
+def host_ppn():
+    """The host process identity as a TOPS-10 PPN word -- [project,,programmer] mapped to gid,,uid
+    (group = project, user = programmer), the natural host analogue. A uid/gid that overflows an
+    18-bit PPN half (modern Linux allows 32-bit ids) falls back to a safe unprivileged PPN rather
+    than being silently truncated to a wrong/colliding one."""
+    uid = os.getuid() if hasattr(os, "getuid") else 0
+    gid = os.getgid() if hasattr(os, "getgid") else 0
+    if not (0 <= gid <= _PPN_HALF and 0 <= uid <= _PPN_HALF):
+        gid, uid = _guest_ids()
+    return ((gid & _PPN_HALF) << 18) | (uid & _PPN_HALF)
+
+
+def host_user():
+    """The host login name (for the monitor calls that report it, e.g. USRNAM)."""
+    uid = os.getuid() if hasattr(os, "getuid") else 0
+    if pwd is not None:
+        try:
+            return pwd.getpwuid(uid).pw_name
+        except KeyError:
+            pass
+    return str(uid)
+
+
+class _Identity:
+    """The host process identity (the job tables a monitor reports): the OS user mapped onto
+    TOPS-10 fields -- uid/gid, the login name, and a [project,,programmer] PPN word (gid,,uid).
+    On a real PDP-10 these came from the monitor; here, from the host OS. This is the *real*
+    identity service; a host that wants GETTAB(2,-1) to report it registers `eng.gettab[2]`
+    (GETTAB defaults to the guest PPN [0,0] rather than presuming this)."""
+
+    @property
+    def uid(self):
+        return os.getuid() if hasattr(os, "getuid") else 0
+
+    @property
+    def gid(self):
+        return os.getgid() if hasattr(os, "getgid") else 0
+
+    @property
+    def user(self):
+        return host_user()
+
+    @property
+    def ppn(self):
+        return host_ppn()
+
+
 class Host:
     """The baseline host-services facade (``mon``) passed to ``@uuo`` routines: ``tty`` (the
-    terminal seam), ``files`` (bundled data under the engine root), and ``clock``. Built over
-    the engine's host seam only -- it carries no OS-level state, so it runs anywhere the engine
-    does. A richer facade subclasses this (adding services, e.g. identity/locks) and is injected
-    via ``eng.host`` (see ``host``)."""
+    terminal seam), ``files`` (bundled data under the engine root), ``clock``, and ``identity``
+    (the host OS user mapped onto TOPS-10 fields -- uid/gid/name/PPN). Built over the engine's
+    host seam plus read-only host facts, so it runs anywhere the engine does. A richer facade
+    subclasses this (adding services, e.g. locks, shared memory) and is injected via ``eng.host``
+    (see ``host``)."""
 
     def __init__(self, eng):
         self.eng = eng
         self.tty = _Tty(eng)
         self.files = _Files(eng)
         self.clock = _Clock(eng)
+
+    @property
+    def identity(self):
+        """The host OS user as a TOPS-10 identity (uid/gid/login name/PPN); see _Identity. A
+        property, not an __init__ attribute, so a richer subclass facade can override it without
+        an assignment collision (``super().__init__`` must not try to set a read-only override)."""
+        return _Identity()
 
 
 def host(eng):

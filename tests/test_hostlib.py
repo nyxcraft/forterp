@@ -316,3 +316,47 @@ def test_injected_facade_overrides_baseline():
     eng.host = RichMon(eng)  # inject a richer facade before running
     assert whoami(eng, None, []) == "identity"  # @uuo receives the injected one, not baseline
     assert not isinstance(eng.host, Host)  # baseline never built
+
+
+def test_host_ppn_maps_gid_uid_and_falls_back_when_oversized(monkeypatch):
+    """host_ppn packs [gid,,uid] into an 18-bit-half PPN word, falling back to a safe in-range
+    PPN when a modern 32-bit uid/gid won't fit -- rather than silently truncating it."""
+    import forterp.hostlib as H
+
+    monkeypatch.setattr(H.os, "getuid", lambda: 1000)
+    monkeypatch.setattr(H.os, "getgid", lambda: 1000)
+    assert H.host_ppn() == (1000 << 18) | 1000  # normal ids -> [gid,,uid]
+
+    monkeypatch.setattr(H.os, "getuid", lambda: 1_000_000)  # larger than an 18-bit half
+    monkeypatch.setattr(H.os, "getgid", lambda: 1_000_000)
+    ppn = H.host_ppn()
+    assert 0 <= (ppn >> 18) <= 0o777777 and 0 <= (ppn & 0o777777) <= 0o777777  # in range
+    assert ppn != (((1_000_000 & 0o777777) << 18) | (1_000_000 & 0o777777))  # not truncated
+
+
+def test_identity_service_on_the_baseline_facade():
+    """The baseline Host exposes the host identity (uid/gid/user/ppn), so monitor calls get it
+    even in the bare drop-in (no injected facade)."""
+    import forterp.hostlib as H
+
+    mon = H.Host(FakeHostEng())
+    assert mon.identity.ppn == H.host_ppn()
+    assert isinstance(mon.identity.user, str)
+
+
+def test_gettab_recognized_tables_raise_on_unmodeled_and_honor_the_registry():
+    """forterp answers the tables it can give a faithful generic value -- .GTPPN(2,-1) -> guest
+    [0,0], .GTJTC(0o120,-1) -> 0 (a forterp job is unclassed) -- raises UnmodeledMonitorTable on
+    any other table (rather than guessing 0), and lets eng.gettab override per table."""
+    import pytest
+
+    from forterp.uuolib import _GUEST_PPN, UnmodeledMonitorTable, b_GETTAB
+
+    eng = FakeHostEng()
+    assert b_GETTAB(eng, None, [2, -1]) == _GUEST_PPN  # .GTPPN -> guest [0,0]
+    assert b_GETTAB(eng, None, [0o120, -1]) == 0  # .GTJTC -> 0 (no class scheduler)
+    with pytest.raises(UnmodeledMonitorTable):  # an unrecognized table -> fail loud, no blind 0
+        b_GETTAB(eng, None, [0o161, -1])
+
+    eng.gettab = {2: 1.5}  # a host maps a table it cares about
+    assert b_GETTAB(eng, None, [2, -1]) == 1.5  # the registry overrides a recognized default

@@ -46,6 +46,7 @@ from forterp.interpreter import Interpreter, f66, fortran10
 from forterp.parser import ParseError
 from forterp.source import SourceOptions
 from forterp.target import NATIVE, PDP10, VAX, Target
+from forterp.uuolib import UnmodeledMonitorTable
 
 # The one place the version is written. pyproject.toml reads it via
 # [tool.setuptools.dynamic] (attr = "forterp.__version__"), so the package metadata and
@@ -74,6 +75,7 @@ __all__ = [
     # commonly-needed types
     "ParseError",
     "SourceOptions",
+    "UnmodeledMonitorTable",
 ]
 
 

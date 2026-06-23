@@ -289,7 +289,7 @@ provides them, so a program that `CALL`s one just runs rather than bundling its 
 | `OUTCHR(CH)` | write one character (low 7 bits) |
 | `MSTIME(T)` | the job's millisecond runtime clock, returned into `T` |
 | `SLEEP(SECS)` | suspend the job — a no-op under the interpreter |
-| `GETTAB(…)` | read a monitor table word — returns `0` (no tables modeled) |
+| `GETTAB(TABLE,ITEM)` | read a monitor table word — recognized: `(2,-1)` `.GTPPN` → guest `[0,0]`, `(120,-1)` octal `.GTJTC` → `0` (unclassed); a table in `eng.gettab` → its value (override/add); any other raises `UnmodeledMonitorTable` (register it, or catch it at the driver) |
 
 These are installed by `install_runtime` only under the **FORTRAN-10 dialect** (like the DEC
 library `STDLIB`), and like every host routine they never shadow one the program — or the host
