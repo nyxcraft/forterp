@@ -324,6 +324,7 @@ class Engine:
         emit=None,
         getch=None,
         readline=None,
+        set_echo=None,
         printer=None,
         target=None,
         binio=None,
@@ -340,7 +341,7 @@ class Engine:
         # bytes) instead of the default JSON word-list -- a file a PDP-10 could read. Off by
         # default so the portable on-disk form (and float precision) is unchanged for everyone.
         self.dec_files = dec_files
-        self.host_services = None  # injectable HostServices facade for @uuo (forterp.hostlib);
+        self.host = None  # injectable Host facade for @uuo (forterp.hostlib);
         # None -> the baseline (tty/files/clock) is built on first use; set it to a richer facade
         # Two dialect-derived knobs the engine needs at run time (else dialect-agnostic):
         #  - free_form_input: widthless input fields read free-form (FORTRAN-10) vs column (F66)
@@ -407,6 +408,7 @@ class Engine:
         self._emit = emit or (lambda s: self.out.append(s))
         self._getch = getch
         self._readline = readline
+        self._set_echo = set_echo  # front-end hook to change the real terminal echo mode
         self._printer = printer
         self._build()
 
@@ -419,6 +421,13 @@ class Engine:
 
     def readline(self):
         return self._readline() if self._readline else ""
+
+    def set_echo(self, on):
+        """Change the terminal echo mode through the injected front-end hook (no-op if unwired).
+        A program toggles echo for raw single-key input; a front-end that owns a real terminal
+        flips its actual echo (its manual line-echo, or a tty's ECHO bit)."""
+        if self._set_echo:
+            self._set_echo(bool(on))
 
     def printer(self, s):
         # Line-printer (LPT) sink. The driver attaches a spool file; with no driver

@@ -46,11 +46,11 @@ is no literal UUO trap -- a "system call" is just a CALL to a host subroutine --
 *services* such a routine needs are real and generic, so this module provides them:
 
 - ``@fcall`` (an alias of ``@builtin``) -- a FORTRAN-callable computation.
-- ``@uuo`` -- a routine that talks to the host: its body receives a baseline ``HostServices``
+- ``@uuo`` -- a routine that talks to the host: its body receives a baseline ``Host``
   facade (``mon``: ``tty`` / ``files`` / ``clock``, over the engine's host seam) as its first
   argument.
 
-The facade is **injectable**: an embedder may set ``eng.host_services`` to a *richer* facade
+The facade is **injectable**: an embedder may set ``eng.host`` to a *richer* facade
 (one that adds OS-level identity, locks, shared memory, ...) before the engine runs, and
 ``@uuo`` routines receive that instead of the baseline. So a fuller monitor layers on without
 forterp depending on it -- the baseline alone is enough to run a program that only needs basic
@@ -76,8 +76,8 @@ __all__ = [
     "uuo",
     "make_builtin",
     "builtins_in",
-    "HostServices",
-    "host_services",
+    "Host",
+    "host",
 ]
 
 
@@ -268,20 +268,35 @@ def builtins_in(module):
 # --------------------------------------------------------------------------------------------
 # Baseline host services + the @uuo authoring decorator
 #
-# A @uuo routine talks to the host through a HostServices facade ("mon") rather than reaching
+# A @uuo routine talks to the host through a Host facade ("mon") rather than reaching
 # eng.emit / eng.root / eng.clock itself, so "talks to the OS" is one explicit dependency. The
 # baseline facade below is built over the engine's host seam only (no OS-level state); a richer
-# facade is layered on by setting eng.host_services (see host_services()).
+# facade is layered on by setting eng.host (see host()).
 # --------------------------------------------------------------------------------------------
 
 
 class _Tty:
     """The terminal: the (emit, getch, readline) seam, tracking the horizontal cursor column
-    so a newline/space/tab can be column-aware."""
+    so a newline/space/tab can be column-aware, plus ``echo`` -- the terminal's echo mode the
+    program toggles (the monitor's TTY echo, e.g. a TOPS-10 SETSTS/INIT for raw single-key
+    input). Assigning ``echo`` drives the engine's ``set_echo`` hook, so the front-end changes
+    its *actual* terminal mode; with no hook wired it just records the requested state."""
 
     def __init__(self, eng):
         self._eng = eng
         self.col = 0
+        self._echo = True
+
+    @property
+    def echo(self):
+        return self._echo
+
+    @echo.setter
+    def echo(self, on):
+        self._echo = bool(on)
+        setter = getattr(self._eng, "set_echo", None)
+        if setter:  # drive the real terminal-mode change (front-ends that own a terminal)
+            setter(self._echo)
 
     def write(self, s):
         if not s:
@@ -349,12 +364,12 @@ class _Clock:
         return self._ms
 
 
-class HostServices:
+class Host:
     """The baseline host-services facade (``mon``) passed to ``@uuo`` routines: ``tty`` (the
     terminal seam), ``files`` (bundled data under the engine root), and ``clock``. Built over
     the engine's host seam only -- it carries no OS-level state, so it runs anywhere the engine
     does. A richer facade subclasses this (adding services, e.g. identity/locks) and is injected
-    via ``eng.host_services`` (see ``host_services``)."""
+    via ``eng.host`` (see ``host``)."""
 
     def __init__(self, eng):
         self.eng = eng
@@ -363,20 +378,20 @@ class HostServices:
         self.clock = _Clock(eng)
 
 
-def host_services(eng):
-    """The engine's ``HostServices`` facade, building (and caching on ``eng.host_services``) the
-    baseline on first use. An embedder may set ``eng.host_services`` to a richer facade before
+def host(eng):
+    """The engine's ``Host`` facade, building (and caching on ``eng.host``) the
+    baseline on first use. An embedder may set ``eng.host`` to a richer facade before
     the engine runs to override the baseline -- ``@uuo`` routines then receive that instead."""
-    mon = getattr(eng, "host_services", None)
+    mon = getattr(eng, "host", None)
     if mon is None:
-        mon = HostServices(eng)
-        eng.host_services = mon
+        mon = Host(eng)
+        eng.host = mon
     return mon
 
 
 def uuo(name, *, args=None, raw=True, alias=(), origin=None):
     """Decorator for a host routine that talks to the host. Its body's first parameter is the
-    ``HostServices`` facade (``mon``); with ``raw=True`` (the default) the rest of the body is
+    ``Host`` facade (``mon``); with ``raw=True`` (the default) the rest of the body is
     ``(eng, frame, arg_nodes)``, otherwise the declared ``args`` modes follow ``mon`` (each
     actual marshalled exactly as for ``@builtin``). ``alias``/``origin`` behave as for
     ``@builtin``. Registered/discovered identically -- the only difference from ``@fcall`` is
@@ -386,7 +401,7 @@ def uuo(name, *, args=None, raw=True, alias=(), origin=None):
         if raw:
 
             def wrapper(eng, frame, arg_nodes):
-                return fn(host_services(eng), eng, frame, arg_nodes)
+                return fn(host(eng), eng, frame, arg_nodes)
 
         else:
             modes = tuple(args or ())
@@ -396,7 +411,7 @@ def uuo(name, *, args=None, raw=True, alias=(), origin=None):
                     m.bind(eng, frame, arg_nodes[i] if i < len(arg_nodes) else None)
                     for i, m in enumerate(modes)
                 ]
-                return fn(host_services(eng), *bound)
+                return fn(host(eng), *bound)
 
         wrapper.__name__ = getattr(fn, "__name__", name)
         wrapper.__doc__ = fn.__doc__

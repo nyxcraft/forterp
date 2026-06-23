@@ -254,11 +254,11 @@ worth naming.
   sync, which is what lets a `.py` file drop in beside FORTRAN source.
 
 `@fcall` is literally `fcall = builtin` (an alias chosen to read right next to PDP-10 source).
-`@uuo` is the same shape with one addition: its wrapper injects `host_services(eng)` as the
+`@uuo` is the same shape with one addition: its wrapper injects `host(eng)` as the
 body's first argument before the marshalled actuals (or before `(eng, frame, arg_nodes)` when
 `raw=True`). That facade is the one piece of *state* the layer owns — see §6's environment
 seams; it reads `eng.emit`/`eng.clock`/`eng.root` and nothing OS-level, and an embedder can
-inject a richer subclass via `eng.host_services`.
+inject a richer subclass via `eng.host`.
 
 The whole module is ~120 lines of marshalling and ~80 of facade. The payoff is that a host
 body is the logic and nothing else, and the messy minority that needs the AST stays in the
@@ -280,7 +280,7 @@ What each module **owns** (responsibilities age better than line counts):
 | `lexer.py` | tokenizer; gates the DEC lexical extensions on the `Dialect` |
 | `forlib.py` | `STDLIB` — the FORTRAN-10 library subroutines (TIME/DATE/EXIT/ERRSNS/RAN/…) |
 | `uuolib.py` | `UUOLIB` — the standard TOPS-10 monitor UUOs (OUTSTR/OUTCHR/MSTIME/SLEEP/GETTAB); installed only under the FORTRAN-10 dialect |
-| `hostlib.py` | the host-routine authoring layer: the `@fcall`/`@uuo`/`@builtin` decorators + arg modes (`IN`/`INT`/`STR`/`OUT`/`ARRAY`), `OutRef`, `builtins_in`, and the baseline injectable `HostServices` facade |
+| `hostlib.py` | the host-routine authoring layer: the `@fcall`/`@uuo`/`@builtin` decorators + arg modes (`IN`/`INT`/`STR`/`OUT`/`ARRAY`), `OutRef`, `builtins_in`, and the baseline injectable `Host` facade |
 | `forbin.py` | FOROTS unformatted-record framing (LSCW) + DEC-10 float — the `binio` codec |
 | `diagnostics.py` | V5 Appendix-F message rendering (`?FTNxxx` / `%FTNxxx`) |
 | `target.py` | the `Target` value-model seam (`PDP10` / `NATIVE` / `VAX`) |

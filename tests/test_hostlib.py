@@ -13,12 +13,12 @@ from forterp.hostlib import (
     INT,
     OUT,
     STR,
-    HostServices,
+    Host,
     OutRef,
     builtin,
     builtins_in,
     fcall,
-    host_services,
+    host,
     make_builtin,
     uuo,
 )
@@ -175,7 +175,7 @@ def test_builtins_in_registers_name_aliases_and_module_BUILTINS():
     assert table["EXTRA"] is corr  # module-level BUILTINS merged on top
 
 
-# ---- the baseline HostServices facade ------------------------------------------------------
+# ---- the baseline Host facade ------------------------------------------------------
 
 
 class FakeHostEng(FakeEng):
@@ -200,7 +200,7 @@ class FakeHostEng(FakeEng):
 
 def test_baseline_tty_tracks_column():
     eng = FakeHostEng()
-    mon = HostServices(eng)
+    mon = Host(eng)
     mon.tty.write("abc")
     assert eng.out == ["abc"] and mon.tty.col == 3
     mon.tty.tab(6)  # advance to absolute column 6
@@ -211,9 +211,27 @@ def test_baseline_tty_tracks_column():
     assert eng.out[-1] == "xy\n"
 
 
+def test_baseline_tty_echo_defaults_on_and_toggles():
+    mon = Host(FakeHostEng())  # no set_echo hook -> just records the state
+    assert mon.tty.echo is True  # a normal terminal echoes typed input
+    mon.tty.echo = False  # e.g. raw single-key input (ECHOFF)
+    assert mon.tty.echo is False
+
+
+def test_baseline_tty_echo_drives_the_set_echo_hook():
+    calls = []
+    eng = FakeHostEng()
+    eng.set_echo = calls.append  # a front-end that owns a real terminal wires this
+    mon = Host(eng)
+    mon.tty.echo = False  # ECHOFF
+    mon.tty.echo = True  # ECHOON
+    assert calls == [False, True]  # each assignment changed the actual terminal mode
+    assert mon.tty.echo is True
+
+
 def test_baseline_clock_reads_engine_and_ticks():
     eng = FakeHostEng()
-    mon = HostServices(eng)
+    mon = Host(eng)
     assert mon.clock.ms == 1234  # the engine's fixed reading
     assert mon.clock.tick() == 100 and mon.clock.tick() == 200  # monotonic per query
 
@@ -221,18 +239,18 @@ def test_baseline_clock_reads_engine_and_ticks():
 def test_baseline_files_read_under_root(tmp_path):
     (tmp_path / "HELLO.TXT").write_text("hi there")
     eng = FakeHostEng(root=str(tmp_path))
-    mon = HostServices(eng)
+    mon = Host(eng)
     assert mon.files.read("HELLO.TXT") == "hi there"
     assert mon.files.read("NOPE.TXT", missing="<none>") == "<none>"  # absent -> the sentinel
     assert mon.files.root_path("X").endswith("X")
 
 
-def test_host_services_builds_and_caches_baseline():
+def test_host_builds_and_caches_baseline():
     eng = FakeHostEng()
-    mon1 = host_services(eng)
-    assert isinstance(mon1, HostServices) and mon1.eng is eng
-    assert host_services(eng) is mon1  # cached
-    assert eng.host_services is mon1  # on the engine's injectable slot
+    mon1 = host(eng)
+    assert isinstance(mon1, Host) and mon1.eng is eng
+    assert host(eng) is mon1  # cached
+    assert eng.host is mon1  # on the engine's injectable slot
 
 
 # ---- the @uuo decorator --------------------------------------------------------------------
@@ -250,10 +268,10 @@ def test_uuo_injects_baseline_facade_then_engine_frame_nodes():
     eng = FakeHostEng()
     rv = outstr(eng, "FR", ["n0"])
     assert rv == 7  # return value still propagates (function-reference dispatch)
-    assert isinstance(captured["mon"], HostServices)
+    assert isinstance(captured["mon"], Host)
     assert captured["eng"] is eng and captured["frame"] == "FR" and captured["nodes"] == ["n0"]
     assert eng.out == ["hello"]
-    assert eng.host_services is captured["mon"]  # the baseline was cached on the engine
+    assert eng.host is captured["mon"]  # the baseline was cached on the engine
 
 
 def test_uuo_nonraw_marshals_actuals_after_mon():
@@ -264,7 +282,7 @@ def test_uuo_nonraw_marshals_actuals_after_mon():
         seen.update(mon=mon, n=n)
 
     setit(FakeHostEng(), None, [4.9])
-    assert isinstance(seen["mon"], HostServices)
+    assert isinstance(seen["mon"], Host)
     assert seen["n"] == 4  # INT coerces the actual, bound after mon
 
 
@@ -279,6 +297,6 @@ def test_injected_facade_overrides_baseline():
         return mon.extra
 
     eng = FakeHostEng()
-    eng.host_services = RichMon(eng)  # inject a richer facade before running
+    eng.host = RichMon(eng)  # inject a richer facade before running
     assert whoami(eng, None, []) == "identity"  # @uuo receives the injected one, not baseline
-    assert not isinstance(eng.host_services, HostServices)  # baseline never built
+    assert not isinstance(eng.host, Host)  # baseline never built

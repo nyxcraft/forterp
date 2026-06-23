@@ -156,7 +156,7 @@ The programs being run had host routines of two kinds, and there is a decorator 
 - **`@fcall`** (alias `@builtin`) — a FORTRAN-callable *computation*. The body receives the
   marshalled arguments and nothing else.
 - **`@uuo`** — a routine that *talks to the host* (terminal, files, clock). Its body receives
-  a `HostServices` facade (`mon`) as its first argument, then the marshalled arguments.
+  a `Host` facade (`mon`) as its first argument, then the marshalled arguments.
   (forterp is an interpreter, not an emulator, so there is no literal UUO trap — a "system
   call" is just a `CALL` to a host subroutine — but the *services* such a routine needs are
   real, so `@uuo` provides them.)
@@ -257,19 +257,21 @@ defines itself.
 
 ### The host-services model
 
-A `@uuo` body's `mon` is a `HostServices` facade over the engine's host seam:
+A `@uuo` body's `mon` is a `Host` facade over the engine's host seam:
 
 - `mon.tty` — the terminal: `write(s)` (column-tracking), `crlf()` (smart newline),
-  `space(n)`, `tab(col)`, `getch()`, `readline()`.
+  `space(n)`, `tab(col)`, `getch()`, `readline()`, and `echo` — the terminal echo mode
+  (default on); assigning it drives the engine's `set_echo` hook, so a front-end that owns a
+  real terminal flips its *actual* echo (a program sets it off for raw single-key input).
 - `mon.files` — read-only data under the engine root: `read(name, missing=…)`,
   `root_path(name)`, `save_path(name)`.
 - `mon.clock` — `ms` (the engine's fixed clock reading) and a monotonic `tick()`.
 
 The baseline carries no OS-level state, so it runs anywhere the engine does. It is
-**injectable**: set `eng.host_services` to a richer facade (subclass `HostServices` to add OS
+**injectable**: set `eng.host` to a richer facade (subclass `Host` to add OS
 identity, locks, shared memory, …) before the engine runs and `@uuo` routines receive that
-instead — `make_engine(host_services=fn)` and `Interpreter.build_engine(host_services=fn)`
-thread the factory through. `host_services(eng)` returns the current facade, building and
+instead — `make_engine(host=fn)` and `Interpreter.build_engine(host=fn)`
+thread the factory through. `host(eng)` returns the current facade, building and
 caching the baseline on first use. So a fuller monitor layers on without forterp depending on
 it — the baseline alone runs a program that needs only basic I/O.
 
