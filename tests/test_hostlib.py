@@ -229,6 +229,22 @@ def test_baseline_tty_echo_drives_the_set_echo_hook():
     assert mon.tty.echo is True
 
 
+def test_baseline_tty_autowrap_defaults_on_and_drives_the_hook():
+    calls = []
+    eng = FakeHostEng()
+    eng.set_autowrap = calls.append  # an ANSI front-end wires this (ESC[?7l / ESC[?7h)
+    mon = Host(eng)
+    assert mon.tty.autowrap is True  # terminals wrap at the right margin by default
+    mon.tty.autowrap = False  # TRMOP2: set .TONFC (no free CR-LF) for a full-screen display
+    assert mon.tty.autowrap is False and calls == [False]
+
+
+def test_baseline_tty_autowrap_records_without_a_hook():
+    mon = Host(FakeHostEng())  # no set_autowrap hook -> just records the state
+    mon.tty.autowrap = False
+    assert mon.tty.autowrap is False
+
+
 def test_baseline_clock_reads_engine_and_ticks():
     eng = FakeHostEng()
     mon = Host(eng)

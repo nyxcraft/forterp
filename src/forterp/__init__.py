@@ -114,13 +114,24 @@ def run_source(
     optional `fn(eng)` called after the engine is built and the runtime/builtins installed,
     but before the program runs -- the place to register OPEN devices, prime COMMON, or do
     any host-side engine setup the program needs."""
-    from forterp.runtime import make_engine
+    from forterp.runtime import default_terminal_echo, make_engine
 
     units = parse_source(text, dialect=dialect, options=options, include_dir=include_dir)
     eng = make_engine(units, dialect=dialect, **kwargs)
+    # Default terminal-echo control: unless the caller wired its own `set_echo`, honor the
+    # program's ECHOON/ECHOFF on an interactive tty (no-op off a terminal), restored after.
+    restore = None
+    if "set_echo" not in kwargs:
+        set_echo, restore = default_terminal_echo()
+        if set_echo is not None:
+            eng._set_echo = set_echo
     if setup is not None:
         setup(eng)
-    return eng.run_program(program)
+    try:
+        return eng.run_program(program)
+    finally:
+        if restore is not None:
+            restore()
 
 
 # Expert namespaces -- the organized API beyond the focused public names above:

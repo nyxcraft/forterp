@@ -22,6 +22,7 @@ __all__ = [
     "make_engine",
     "install_runtime",
     "engine_kwargs",
+    "default_terminal_echo",
 ]
 
 
@@ -72,3 +73,44 @@ def make_engine(units, dialect=None, builtins=None, host=None, **kwargs):
     if builtins:
         eng.register_builtins(dict(builtins))
     return eng
+
+
+def default_terminal_echo(fd=None):
+    """The default terminal-echo control for `eng.set_echo`: flip the controlling tty's termios
+    `ECHO` bit, lazily saving the original on first use. Returns `(set_echo, restore)`, or
+    `(None, None)` when `fd` (default stdin) isn't a terminal -- piped/redirected, or no termios
+    -- so it's a clean no-op there.
+
+    A program's `ECHOON`/`ECHOFF` (e.g. a TOPS-10 SETSTS/INIT host routine) drives `eng.set_echo`;
+    `run_source` installs this by default so that "just works" on an interactive terminal without
+    each front-end re-rolling termios. A front-end that owns the terminal differently (a raw
+    char-mode reader, a GUI) passes its own `set_echo` instead, and `restore()` undoes any change
+    at the end of the run (so a program that left echo off can't leave the shell silent)."""
+    import sys
+
+    try:
+        import termios
+
+        if fd is None:
+            fd = sys.stdin.fileno()
+        termios.tcgetattr(fd)  # raises unless fd is a real terminal
+    except Exception:
+        return None, None
+
+    saved = []
+
+    def set_echo(on):
+        if not saved:  # capture the entry state once, so restore() can put it back
+            saved.append(termios.tcgetattr(fd))
+        mode = termios.tcgetattr(fd)
+        mode[3] = (mode[3] | termios.ECHO) if on else (mode[3] & ~termios.ECHO)  # lflag ECHO
+        termios.tcsetattr(fd, termios.TCSANOW, mode)
+
+    def restore():
+        if saved:
+            try:
+                termios.tcsetattr(fd, termios.TCSADRAIN, saved[0])
+            except Exception:
+                pass
+
+    return set_echo, restore

@@ -325,6 +325,7 @@ class Engine:
         getch=None,
         readline=None,
         set_echo=None,
+        set_autowrap=None,
         printer=None,
         target=None,
         binio=None,
@@ -409,6 +410,7 @@ class Engine:
         self._getch = getch
         self._readline = readline
         self._set_echo = set_echo  # front-end hook to change the real terminal echo mode
+        self._set_autowrap = set_autowrap  # front-end hook to set autowrap (TOPS-10 free CR-LF)
         self._printer = printer
         self._build()
 
@@ -428,6 +430,14 @@ class Engine:
         flips its actual echo (its manual line-echo, or a tty's ECHO bit)."""
         if self._set_echo:
             self._set_echo(bool(on))
+
+    def set_autowrap(self, on):
+        """Change the terminal autowrap mode through the injected front-end hook (no-op if
+        unwired). The PDP-10 'free CR-LF' switch (TRMOP. .TONFC): a program disables autowrap so
+        a full-screen, cursor-addressed display isn't scrolled when output reaches the margin. A
+        front-end that renders to an ANSI terminal honors it (ESC[?7l / ESC[?7h)."""
+        if self._set_autowrap:
+            self._set_autowrap(bool(on))
 
     def printer(self, s):
         # Line-printer (LPT) sink. The driver attaches a spool file; with no driver

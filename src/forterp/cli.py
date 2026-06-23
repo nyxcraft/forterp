@@ -137,25 +137,6 @@ def _run(argv, dialect, prog, *, allow_std, default_target="native"):
         print(f"?loading {', '.join(py_files)}: {e}", file=sys.stderr)
         return 1
 
-    # Terminal echo control: a program can turn the tty's echo on/off through eng.set_echo (e.g.
-    # an ECHOON/ECHOFF host routine doing the original SETSTS/INIT). On a real terminal, honor it
-    # by flipping the termios ECHO bit; always restore the tty on exit so a program that left echo
-    # off doesn't leave the shell silent. Off a terminal (piped/redirected, or no termios) it's a
-    # no-op, so READ from a pipe is unaffected.
-    echo_fd = echo_saved = set_echo = None
-    try:
-        import termios
-
-        echo_fd = sys.stdin.fileno()
-        echo_saved = termios.tcgetattr(echo_fd)
-
-        def set_echo(on):
-            mode = termios.tcgetattr(echo_fd)
-            mode[3] = (mode[3] | termios.ECHO) if on else (mode[3] & ~termios.ECHO)  # lflag ECHO
-            termios.tcsetattr(echo_fd, termios.TCSANOW, mode)
-    except Exception:  # not a real terminal, or no termios (Windows) -> echo control is a no-op
-        echo_fd = echo_saved = set_echo = None
-
     try:
         forterp.run_source(
             text,
@@ -169,7 +150,7 @@ def _run(argv, dialect, prog, *, allow_std, default_target="native"):
             emit=sys.stdout.write,  # TYPE / terminal output -> stdout
             printer=sys.stdout.write,  # line-printer (units 3/6) -> stdout
             readline=sys.stdin.readline,  # READ / ACCEPT <- stdin
-            set_echo=set_echo,  # ECHOON/ECHOFF -> the real tty echo mode
+            # echo control (ECHOON/ECHOFF) -> run_source's default_terminal_echo on a real tty
         )
     except forterp.ParseError as e:
         print(e, file=sys.stderr)
@@ -186,12 +167,6 @@ def _run(argv, dialect, prog, *, allow_std, default_target="native"):
         # never a raw traceback
         print(f"?{e}", file=sys.stderr)
         return 1
-    finally:
-        if echo_saved is not None:  # restore the tty's original echo mode on the way out
-            try:
-                termios.tcsetattr(echo_fd, termios.TCSADRAIN, echo_saved)
-            except Exception:
-                pass
     return 0
 
 

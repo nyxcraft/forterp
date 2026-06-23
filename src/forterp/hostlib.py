@@ -276,16 +276,18 @@ def builtins_in(module):
 
 
 class _Tty:
-    """The terminal: the (emit, getch, readline) seam, tracking the horizontal cursor column
-    so a newline/space/tab can be column-aware, plus ``echo`` -- the terminal's echo mode the
-    program toggles (the monitor's TTY echo, e.g. a TOPS-10 SETSTS/INIT for raw single-key
-    input). Assigning ``echo`` drives the engine's ``set_echo`` hook, so the front-end changes
-    its *actual* terminal mode; with no hook wired it just records the requested state."""
+    """The terminal: the (emit, getch, readline) seam, tracking the horizontal cursor column so
+    a newline/space/tab can be column-aware, plus two terminal modes the program toggles --
+    ``echo`` (the monitor's TTY echo, e.g. a TOPS-10 SETSTS/INIT for raw single-key input) and
+    ``autowrap`` (the 'free CR-LF' switch, TRMOP. .TONFC -- whether output wraps/scrolls at the
+    right margin). Assigning either drives the matching engine hook (``set_echo``/``set_autowrap``)
+    so the front-end changes its real terminal mode; with no hook wired it just records it."""
 
     def __init__(self, eng):
         self._eng = eng
         self.col = 0
         self._echo = True
+        self._autowrap = True
 
     @property
     def echo(self):
@@ -297,6 +299,17 @@ class _Tty:
         setter = getattr(self._eng, "set_echo", None)
         if setter:  # drive the real terminal-mode change (front-ends that own a terminal)
             setter(self._echo)
+
+    @property
+    def autowrap(self):
+        return self._autowrap
+
+    @autowrap.setter
+    def autowrap(self, on):
+        self._autowrap = bool(on)
+        setter = getattr(self._eng, "set_autowrap", None)
+        if setter:  # a front-end that renders to a terminal toggles autowrap (ANSI ESC[?7l/?7h)
+            setter(self._autowrap)
 
     def write(self, s):
         if not s:

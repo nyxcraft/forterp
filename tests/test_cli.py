@@ -181,3 +181,33 @@ def test_py_module_without_fortran_is_an_error(capsys):
     finally:
         os.unlink(pf)
     assert "no FORTRAN source" in capsys.readouterr().err
+
+
+# ---- the default terminal-echo control (run_source installs it on a real tty) --------------
+def test_default_terminal_echo_flips_and_restores_on_a_tty():
+    import pty
+    import termios
+
+    from forterp.runtime import default_terminal_echo
+
+    _, slave = pty.openpty()  # a real tty
+    set_echo, restore = default_terminal_echo(slave)
+    assert set_echo is not None
+    assert termios.tcgetattr(slave)[3] & termios.ECHO  # a fresh tty echoes
+    set_echo(False)  # ECHOFF
+    assert not (termios.tcgetattr(slave)[3] & termios.ECHO)  # ECHO bit really cleared
+    set_echo(True)  # ECHOON
+    assert termios.tcgetattr(slave)[3] & termios.ECHO
+    set_echo(False)  # a program that forgot to ECHOON before exit
+    restore()  # run_source calls this at the end of the run
+    assert termios.tcgetattr(slave)[3] & termios.ECHO  # restored to the entry state
+
+
+def test_default_terminal_echo_is_a_noop_off_a_terminal():
+    import os
+
+    from forterp.runtime import default_terminal_echo
+
+    r, _ = os.pipe()  # a pipe fd is not a tty
+    set_echo, restore = default_terminal_echo(r)
+    assert set_echo is None and restore is None  # clean no-op; run_source skips it

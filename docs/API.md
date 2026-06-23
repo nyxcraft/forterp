@@ -112,6 +112,8 @@ stays host-agnostic:
 | `printer` | sink for the line printer (units 3/6) |
 | `readline` | source for `READ`/`ACCEPT` — returns one line (`""` at EOF) |
 | `getch` | single-character input, if needed |
+| `set_echo` | `bool -> None` — change the terminal echo mode (a program's `ECHOON`/`ECHOFF`); `run_source` defaults it to `runtime.default_terminal_echo` (flips termios `ECHO` on a tty, restored after) |
+| `set_autowrap` | `bool -> None` — change autowrap / the PDP-10 "free CR-LF" mode (`TRMOP.` `.TONFC`); an ANSI front-end emits `ESC[?7l`/`?7h`. No default — only a front-end that renders to a terminal acts |
 | `target` | the value model (default `NATIVE`) |
 | `root` | base directory for `INCLUDE` and `OPEN` file specs |
 | `max_array_words` | cap on a single array/`COMMON` allocation (default 50M) |
@@ -260,9 +262,10 @@ defines itself.
 A `@uuo` body's `mon` is a `Host` facade over the engine's host seam:
 
 - `mon.tty` — the terminal: `write(s)` (column-tracking), `crlf()` (smart newline),
-  `space(n)`, `tab(col)`, `getch()`, `readline()`, and `echo` — the terminal echo mode
-  (default on); assigning it drives the engine's `set_echo` hook, so a front-end that owns a
-  real terminal flips its *actual* echo (a program sets it off for raw single-key input).
+  `space(n)`, `tab(col)`, `getch()`, `readline()`, and two terminal modes — `echo` (default on;
+  drives `set_echo`, e.g. off for raw single-key input) and `autowrap` (default on; drives
+  `set_autowrap`, e.g. off for a full-screen cursor display — the PDP-10 "free CR-LF" switch).
+  Assigning either drives the matching hook so a front-end flips its *actual* terminal mode.
 - `mon.files` — read-only data under the engine root: `read(name, missing=…)`,
   `root_path(name)`, `save_path(name)`.
 - `mon.clock` — `ms` (the engine's fixed clock reading) and a monotonic `tick()`.

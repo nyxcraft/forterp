@@ -195,6 +195,14 @@ stays host-agnostic:</p>
 <td>single-character input, if needed</td>
 </tr>
 <tr>
+<td><code>set_echo</code></td>
+<td><code>bool -&gt; None</code> — change the terminal echo mode (a program's <code>ECHOON</code>/<code>ECHOFF</code>); <code>run_source</code> defaults it to <code>runtime.default_terminal_echo</code> (flips termios <code>ECHO</code> on a tty, restored after)</td>
+</tr>
+<tr>
+<td><code>set_autowrap</code></td>
+<td><code>bool -&gt; None</code> — change autowrap / the PDP-10 &quot;free CR-LF&quot; mode (<code>TRMOP.</code> <code>.TONFC</code>); an ANSI front-end emits <code>ESC[?7l</code>/<code>?7h</code>. No default — only a front-end that renders to a terminal acts</td>
+</tr>
+<tr>
 <td><code>target</code></td>
 <td>the value model (default <code>NATIVE</code>)</td>
 </tr>
@@ -398,9 +406,10 @@ defines itself.</p>
 <p>A <code>@uuo</code> body's <code>mon</code> is a <code>Host</code> facade over the engine's host seam:</p>
 <ul>
 <li><code>mon.tty</code> — the terminal: <code>write(s)</code> (column-tracking), <code>crlf()</code> (smart newline),
-<code>space(n)</code>, <code>tab(col)</code>, <code>getch()</code>, <code>readline()</code>, and <code>echo</code> — the terminal echo mode
-(default on); assigning it drives the engine's <code>set_echo</code> hook, so a front-end that owns a
-real terminal flips its <em>actual</em> echo (a program sets it off for raw single-key input).</li>
+<code>space(n)</code>, <code>tab(col)</code>, <code>getch()</code>, <code>readline()</code>, and two terminal modes — <code>echo</code> (default on;
+drives <code>set_echo</code>, e.g. off for raw single-key input) and <code>autowrap</code> (default on; drives
+<code>set_autowrap</code>, e.g. off for a full-screen cursor display — the PDP-10 &quot;free CR-LF&quot; switch).
+Assigning either drives the matching hook so a front-end flips its <em>actual</em> terminal mode.</li>
 <li><code>mon.files</code> — read-only data under the engine root: <code>read(name, missing=…)</code>,
 <code>root_path(name)</code>, <code>save_path(name)</code>.</li>
 <li><code>mon.clock</code> — <code>ms</code> (the engine's fixed clock reading) and a monotonic <code>tick()</code>.</li>
