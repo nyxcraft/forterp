@@ -47,6 +47,8 @@ class Dialect:
     # .XOR. and the symbolic relationals stay DEC-only under dec_operators)
     stmt_separator: bool = False  # `;` multi-statement lines (F66 is one statement per line)
     array_lower_bounds: bool = False  # DIMENSION A(lo:hi) explicit lower bounds (F66 is 1..n)
+    slash_dim_bound: bool = False  # DEC's A(lo/hi) bound form (V5 6.2); off for F77, where the
+    # only bound separator is ':' and '/' inside a bound is ordinary division (e.g. A(6/3:9))
     parameter_stmt: bool = False  # the PARAMETER statement (added in F77; not in ANSI F66)
     star_sizes: bool = False  # INTEGER*4 / REAL*8 byte-size type specifiers (DEC/F77)
     alt_return: bool = False  # alternate-return actual args in CALL ($n/&n/*n) (F77/DEC)
@@ -77,6 +79,7 @@ FORTRAN10 = Dialect(  # DEC FORTRAN-10 V5 superset: every extension on
     eqv_operators=True,
     stmt_separator=True,
     array_lower_bounds=True,
+    slash_dim_bound=True,  # DEC A(lo/hi) bound form
     parameter_stmt=True,
     star_sizes=True,
     alt_return=True,

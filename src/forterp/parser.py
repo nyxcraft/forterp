@@ -1041,11 +1041,13 @@ class StatementParser:
     def parse_dims(self, consts):
         self.expect_op("(")
         dims = []
-        saved, self._no_div = self._no_div, True  # V5 6.2: ':' OR '/' delimits bounds
+        # DEC (V5 6.2) lets '/' delimit bounds too -- A(lo/hi); under F77 '/' is division, so
+        # only suppress it as a divisor when the dialect actually uses the slash-bound form.
+        saved, self._no_div = self._no_div, self.dialect.slash_dim_bound
         try:
             while True:
                 lo_n = self.parse_expr()
-                if self.accept_op(":") or self.accept_op("/"):
+                if self.accept_op(":") or (self.dialect.slash_dim_bound and self.accept_op("/")):
                     if not self.dialect.array_lower_bounds:
                         raise ParseError(
                             "explicit array lower bound (lo:hi) is a FORTRAN-10 extension; "
@@ -1216,7 +1218,17 @@ class StatementParser:
                 else:
                     name = self.expect_id()
                     if self.is_op("("):
-                        targets.append(self._ref(name))
+                        if self.dialect.character_type and self._paren_has_colon():
+                            targets.append(self._substring(A.Var(name)))  # CVN(lo:hi) substring
+                        else:
+                            t = self._ref(name)
+                            if (
+                                self.dialect.character_type
+                                and self.is_op("(")
+                                and self._paren_has_colon()
+                            ):
+                                t = self._substring(t)  # array-element substring A(k)(lo:hi)
+                            targets.append(t)
                     else:
                         targets.append(A.Var(name))
                 if not self.accept_op(","):

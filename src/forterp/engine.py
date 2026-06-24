@@ -687,6 +687,11 @@ class Engine:
             # consume, so chained itertools.repeat bounds memory to what is actually used.
             streams = []
             for count, v in values:
+                if isinstance(v, A.StrLit) and self.character_type:
+                    # CHARACTER DATA value: keep the raw str -- _data_assign fits it to each
+                    # target (pad/truncate for a CHARACTER target, pack for a numeric Hollerith).
+                    streams.append(itertools.repeat(v.value, count))
+                    continue
                 # a literal longer than one word (5 chars) spans consecutive
                 # variables/elements: 'ABCDEFGHIJKL' -> 'ABCDE','FGHIJ','KL   '
                 if isinstance(v, A.StrLit) and len(v.value) > self.tgt.chars_per_word:
@@ -722,18 +727,46 @@ class Engine:
             return v
         return self.tgt.wrap(v) if isinstance(v, int) else v
 
+    def _fit_data_value(self, val, unit, name):
+        """Fit a pulled DATA value to its target: a CHARACTER target takes a str padded/truncated
+        to its declared length; a Hollerith str into a numeric slot is packed via the target."""
+        if isinstance(val, str):
+            if self.type_of(unit, name) == "CHARACTER":
+                n = self.char_length(unit, name)
+                return val[:n].ljust(n) if n else val
+            return self.tgt.pack(val)
+        return val
+
     def _data_assign(self, rt, unit, tgt, it):
         if isinstance(tgt, A.Var):
             if tgt.name in unit.arrays:
                 view, dims = self._static_array(rt, unit, tgt.name)
                 for i in range(array_size(dims)):
-                    view.loc(i).write(next(it))
+                    view.loc(i).write(self._fit_data_value(next(it), unit, tgt.name))
             else:
-                self._scalar_static_ref(rt, unit, tgt.name).write(next(it))
+                self._scalar_static_ref(rt, unit, tgt.name).write(
+                    self._fit_data_value(next(it), unit, tgt.name)
+                )
         elif isinstance(tgt, A.Ref):
             view, dims = self._static_array(rt, unit, tgt.name)
             subs = [self._const_eval_int(a, unit) for a in tgt.args]
-            view.loc(linidx(subs, dims)).write(next(it))
+            view.loc(linidx(subs, dims)).write(self._fit_data_value(next(it), unit, tgt.name))
+        elif isinstance(tgt, A.Substring):  # DATA CVN001(lo:hi) / value / -- splice into the base
+            base = tgt.base
+            n = self.char_length(unit, base.name)
+            if isinstance(base, A.Ref):
+                view, dims = self._static_array(rt, unit, base.name)
+                subs = [self._const_eval_int(a, unit) for a in base.args]
+                ref = view.loc(linidx(subs, dims))
+            else:
+                ref = self._scalar_static_ref(rt, unit, base.name)
+            lo = self._const_eval_int(tgt.lo, unit) if tgt.lo is not None else 1
+            hi = self._const_eval_int(tgt.hi, unit) if tgt.hi is not None else n
+            cur = ref.read()
+            cur = cur.ljust(n)[:n] if isinstance(cur, str) else " " * n
+            width = max(hi - lo + 1, 0)
+            rhs = str(next(it))[:width].ljust(width)
+            ref.write((cur[: lo - 1] + rhs + cur[hi:])[:n].ljust(n))
         elif isinstance(tgt, A.ImpliedDo):
             lo = self._const_eval_int(tgt.start, unit)
             hi = self._const_eval_int(tgt.stop, unit)

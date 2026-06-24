@@ -365,6 +365,33 @@ def test_list_directed_write_and_read():
     assert _run_io(src, stdin="42\n").commons["O"][0] == 42
 
 
+def test_character_data_initialization():
+    # DATA initialises a CHARACTER scalar to the blank-padded string (not a packed Hollerith word).
+    src = (
+        "      PROGRAM T\n      CHARACTER R*5\n      COMMON /O/ R\n      DATA R /'HI'/\n      END\n"
+    )
+    assert _out(src)[0] == "HI   "
+
+
+def test_data_substring_target():
+    # DATA into a CHARACTER substring splices into the base, leaving the rest untouched.
+    src = (
+        "      PROGRAM T\n      CHARACTER R*5\n      COMMON /O/ R\n"
+        "      DATA R /'.....'/\n      DATA R(2:3) /'XY'/\n      END\n"
+    )
+    assert _out(src)[0] == ".XY.."
+
+
+def test_f77_array_bound_slash_is_division():
+    # Under F77 the only array-bound separator is ':'; a '/' in a bound is ordinary division,
+    # so A(6/3:9) has lower bound 2 (the DEC A(lo/hi) bound form is FORTRAN-10 only).
+    src = (
+        "      PROGRAM T\n      DIMENSION A(6/3:9)\n      COMMON /O/ N(8)\n"
+        "      A(2)=1.0\n      A(9)=2.0\n      N(1)=7\n      END\n"
+    )
+    assert _out(src)[0] == 7
+
+
 def test_character_parametrised_length():
     # F77 §5.1: CHARACTER*(expr) -- a parenthesised integer-constant length (here a PARAMETER).
     src = (
