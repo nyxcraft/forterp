@@ -6,6 +6,9 @@ name: Publish to PyPI
 # `release.yml`, environment `forterp-pypi`. Cut a release by tagging, e.g.:
 #     git tag v0.1.0 && git push origin v0.1.0
 # The tag should match forterp.__version__ (the version baked into the build).
+#
+# A tag-triggered run pauses at the `gate` job for one manual approval before anything is
+# published -- a required reviewer on the `release` GitHub environment is the approval gate.
 
 on:
   push:
@@ -46,8 +49,17 @@ jobs:
           name: dist
           path: dist/
 
-  publish:
+  # Single human approval gate: the `release` environment carries a required reviewer, so a
+  # tag-triggered run stops here until a maintainer approves -- nothing publishes before that.
+  gate:
     needs: build
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - run: echo "Release approved -- publishing forterp to PyPI."
+
+  publish:
+    needs: [build, gate]
     runs-on: ubuntu-latest
     environment: forterp-pypi
     permissions:
