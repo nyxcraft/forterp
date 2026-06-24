@@ -1864,6 +1864,34 @@ class Engine:
                 return Goto(s.specs["END"])
         return None
 
+    def _is_internal_unit(self, node, frame):
+        """True if an I/O unit designator is a CHARACTER variable -- an F77 internal file
+        (READ/WRITE to/from the variable's text), not an integer unit number."""
+        return (
+            self.character_type
+            and isinstance(node, (A.Var, A.Ref))
+            and self.type_of(frame.rt.unit, node.name) == "CHARACTER"
+        )
+
+    def _internal_io(self, s, frame):
+        """F77 internal-file I/O (X3.9-1978 12.2.2): the 'unit' is a CHARACTER variable. WRITE
+        formats the list into it per the FORMAT (fitting the record to the declared length, like
+        ENCODE); READ parses its current text into the list. Scalar var = a single record; no
+        device and no carriage control."""
+        from forterp.fmt import read_values, render
+
+        items = self._parsed(self._fmt_spec(s.fmt, frame))
+        if s.mode == "READ":
+            text = str(self.eval(s.unit, frame))
+            reads = read_values(items, text, self.tgt, self.free_form_input, self.character_type)
+            self._assign_reads(s.items, reads, frame)
+        else:  # WRITE: render the list, store into the CHARACTER variable (truncate / blank-pad)
+            text = render(items, self._unf_values(s.items, frame), self.tgt)[0]
+            n = self.char_length(frame.rt.unit, s.unit.name)
+            self.arg_ref(s.unit, frame).write(text[:n].ljust(n) if n else text)
+        self.last_io_error = IO_OK
+        return None
+
     def do_io(self, s, frame):
         """READ/WRITE on a unit -- a dispatcher over the I/O forms. FileCtl, NAMELIST,
         random-access, terminal input, formatted text-file READ, formatted/sequential WRITE,
@@ -1871,6 +1899,8 @@ class Engine:
         at EOF; records are modeled as an ordered list (one statement = one record)."""
         if isinstance(s, A.FileCtl):
             return self._file_ctl(s, frame)
+        if self._is_internal_unit(s.unit, frame):  # F77 internal file: the unit is a CHARACTER var
+            return self._internal_io(s, frame)
         unit = int(self.eval(s.unit, frame))  # the unit number keys self.io -- coerce to int
         nml = self._nml_name(s.fmt, frame)
         if nml is not None:  # READ/WRITE(unit, NAMELIST)

@@ -326,6 +326,38 @@ def test_a_output_right_justifies_when_field_wider_than_value():
     assert "".join(_run_io(_cprog(body)).out).rstrip("\n").endswith("   HI")
 
 
+# ---- internal files: READ/WRITE to a CHARACTER variable (Phase 3) ---------------------------
+def test_internal_write_formats_into_a_character_var():
+    body = (
+        "      CHARACTER R*10\n      INTEGER N\n      N=42\n      WRITE(R,10) N\n   10 FORMAT(I5)\n"
+    )
+    assert _out(_cprog(body))[0] == "   42     "  # I5 of 42, blank-padded to length 10
+
+
+def test_internal_read_parses_from_a_character_var():
+    body = (
+        "      CHARACTER S*10\n      INTEGER R\n"
+        "      S='  123'\n      READ(S,10) R\n   10 FORMAT(I5)\n"
+    )
+    assert _out(_cprog(body))[0] == 123
+
+
+def test_internal_file_round_trip():
+    body = (
+        "      CHARACTER S*8\n      INTEGER N, R\n      N=7\n"
+        "      WRITE(S,10) N\n      READ(S,10) R\n   10 FORMAT(I4)\n"
+    )
+    assert _out(_cprog(body))[0] == 7
+
+
+def test_internal_write_mixed_a_and_i():
+    body = (
+        "      CHARACTER R*12, W*5\n      INTEGER K\n"
+        "      W='ITEM'\n      K=9\n      WRITE(R,10) W, K\n   10 FORMAT(A5,I3)\n"
+    )
+    assert _out(_cprog(body))[0] == "ITEM   9    "
+
+
 def test_concat_operator_only_tokenized_under_character_type():
     # // is the concat operator only when CHARACTER is in play; FORTRAN-10 must not see it.
     src = "      PROGRAM T\n      COMMON /O/ S\n      CHARACTER S*4\n      S='A'//'B'\n      END\n"
