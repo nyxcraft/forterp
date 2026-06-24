@@ -15,7 +15,6 @@ from forterp.hostlib import (
     STR,
     Host,
     OutRef,
-    builtin,
     builtins_in,
     fcall,
     host,
@@ -39,7 +38,7 @@ class FakeEng:
 def test_in_modes_pass_values_with_coercion():
     seen = {}
 
-    @builtin("F", args=(IN, INT, FLOAT))
+    @fcall("F", args=(IN, INT, FLOAT))
     def f(a, b, c):
         seen.update(a=a, b=b, c=c)
         return 42
@@ -69,7 +68,7 @@ def test_str_mode_resolves_literal_packed_and_plain():
 def test_missing_actual_binds_none():
     seen = {}
 
-    @builtin("F", args=(INT, INT))
+    @fcall("F", args=(INT, INT))
     def f(a, b):
         seen.update(a=a, b=b)
 
@@ -81,7 +80,7 @@ def test_out_writes_through_the_reference():
     store = [10, 20, 30]
     ref = CellRef(store, 1)
 
-    @builtin("SET2", args=(OUT,))
+    @fcall("SET2", args=(OUT,))
     def set2(x):
         assert x.get() == 20  # reads the current actual
         x.set(99)
@@ -94,7 +93,7 @@ def test_array_mode_reaches_elements_and_backing_store():
     store = [0, 0, 0, 0, 0]
     view = ArrayView(store, 1)  # base offset 1
 
-    @builtin("FILL", args=(ARRAY, INT))
+    @fcall("FILL", args=(ARRAY, INT))
     def fill(arr, n):
         for i in range(n):
             arr.set_at(i, i + 1)
@@ -114,7 +113,7 @@ def test_outref_base_falls_back_to_cellref_idx():
 def test_raw_passes_engine_frame_and_nodes_through():
     captured = {}
 
-    @builtin("RAWFN", raw=True)
+    @fcall("RAWFN", raw=True)
     def rawfn(eng, frame, nodes):
         captured.update(eng=eng, frame=frame, nodes=nodes)
         return "ok"
@@ -132,7 +131,7 @@ def test_make_builtin_matches_decorator_and_carries_metadata():
     wrapped = make_builtin(body, args=(INT,))
     assert wrapped(FakeEng(), None, [4.6]) == 4
 
-    @builtin("NAMED", args=(INT,))
+    @fcall("NAMED", args=(INT,))
     def named(a):
         return a
 
@@ -146,7 +145,7 @@ def test_make_builtin_matches_decorator_and_carries_metadata():
 
 
 def test_builtin_alias_and_origin_metadata():
-    @builtin("CORR", args=(INT,), alias="ICORR", origin="CURSOR.MAC")
+    @fcall("CORR", args=(INT,), alias="ICORR", origin="CURSOR.MAC")
     def corr(x):
         return x
 
@@ -154,7 +153,6 @@ def test_builtin_alias_and_origin_metadata():
     assert corr.builtin_aliases == ("ICORR",)  # str alias normalized to a 1-tuple
     assert corr.builtin_origin == "CURSOR.MAC"
     assert corr.fcall_fn is not None
-    assert fcall is builtin  # @fcall is the PDP-10 authoring name for @builtin
 
 
 def test_builtins_in_registers_name_aliases_and_module_BUILTINS():
@@ -162,7 +160,7 @@ def test_builtins_in_registers_name_aliases_and_module_BUILTINS():
 
     mod = types.ModuleType("fake_host_module")
 
-    @builtin("CORR", alias=("ICORR", "JCORR"))
+    @fcall("CORR", alias=("ICORR", "JCORR"))
     def corr():
         return 0
 

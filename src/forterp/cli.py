@@ -57,7 +57,7 @@ def _run(argv, dialect, prog, *, allow_std, default_target="native"):
         "file",
         nargs="*",
         help="FORTRAN source file(s) to run (several are linked together by unit name into one "
-        "program); any *.py argument is imported and its @builtin/@uuo/@fcall host routines "
+        "program); any *.py argument is imported and its @fcall/@uuo host routines "
         "registered, and its optional register(eng) hook called for engine setup "
         "(OPEN devices, COMMON priming); omit all for interactive mode",
     )

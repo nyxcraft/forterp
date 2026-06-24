@@ -11,13 +11,13 @@ forgotten by-reference handle).
 This module lets a host declare each parameter's *mode* instead, so the body is clean
 Python and the marshalling is generated::
 
-    from forterp.hostlib import builtin, INT, OUT, ARRAY
+    from forterp.hostlib import fcall, INT, OUT, ARRAY
 
-    @builtin("IDIST", args=(INT, INT))
+    @fcall("IDIST", args=(INT, INT))
     def idist(a, b):                       # inputs arrive as plain Python values
         return max(abs(a // 100 - b // 100), abs(a % 100 - b % 100))
 
-    @builtin("SWAP", args=(OUT, OUT))      # by-reference outputs arrive as handles
+    @fcall("SWAP", args=(OUT, OUT))        # by-reference outputs arrive as handles
     def swap(x, y):
         a, b = x.get(), y.get()
         x.set(b); y.set(a)
@@ -45,7 +45,7 @@ through the FORTRAN calling sequence, and routines that *talk to the operating s
 is no literal UUO trap -- a "system call" is just a CALL to a host subroutine -- but the
 *services* such a routine needs are real and generic, so this module provides them:
 
-- ``@fcall`` (an alias of ``@builtin``) -- a FORTRAN-callable computation.
+- ``@fcall`` -- a FORTRAN-callable computation.
 - ``@uuo`` -- a routine that talks to the host: its body receives a baseline ``Host``
   facade (``mon``: ``tty`` / ``files`` / ``clock``, over the engine's host seam) as its first
   argument.
@@ -80,7 +80,6 @@ __all__ = [
     "INOUT",
     "ARRAY",
     "OutRef",
-    "builtin",
     "fcall",
     "uuo",
     "make_builtin",
@@ -236,11 +235,14 @@ def _tag(wrapper, name, fn, alias=(), origin=None):
     return wrapper
 
 
-def builtin(name, *, args=None, raw=False, alias=(), origin=None):
-    """Decorator: declare a builtin's calling convention. Attaches ``builtin_name`` and the
-    original ``fcall_fn`` so a registry can collect ``{name: wrapper}`` and still reach the
-    documented body. ``alias`` registers the same routine under extra names (a str or a
-    list/tuple); ``origin`` records free-form provenance both surfaced via ``builtins_in``."""
+def fcall(name, *, args=None, raw=False, alias=(), origin=None):
+    """Decorator: declare a FORTRAN-callable computation (a "builtin"). Attaches ``builtin_name``
+    and the original ``fcall_fn`` so a registry can collect ``{name: wrapper}`` and still reach
+    the documented body. ``alias`` registers the same routine under extra names (a str or a
+    list/tuple); ``origin`` records free-form provenance -- both surfaced via ``builtins_in``.
+
+    ``@fcall`` and ``@uuo`` are the two authoring decorators; both produce a *builtin* -- the
+    umbrella the registry collects (``register_builtins`` / ``builtins_in`` / ``builtin_name``)."""
 
     def deco(fn):
         wrapper = make_builtin(fn, args=args, raw=raw)
@@ -249,16 +251,13 @@ def builtin(name, *, args=None, raw=False, alias=(), origin=None):
     return deco
 
 
-fcall = builtin  # a FORTRAN-callable computation -- the PDP-10 authoring name for @builtin
-
-
 def builtins_in(module):
     """Collect the host builtins a module provides, as ``{name: wrapper}``.
 
     Two conventions, so a Python module can be dropped in beside FORTRAN source and have its
     routines discovered without a hand-written registry:
 
-    - every ``@builtin``-decorated callable, keyed by its ``builtin_name``;
+    - every ``@fcall``/``@uuo``-decorated callable, keyed by its ``builtin_name``;
     - a module-level ``BUILTINS`` dict (e.g. one a registry built), merged on top.
 
     Used by the CLI to register host routines from ``.py`` arguments, and available to any
@@ -502,8 +501,8 @@ def uuo(name, *, args=None, raw=True, alias=(), origin=None):
     """Decorator for a host routine that talks to the host. Its body's first parameter is the
     ``Host`` facade (``mon``); with ``raw=True`` (the default) the rest of the body is
     ``(eng, frame, arg_nodes)``, otherwise the declared ``args`` modes follow ``mon`` (each
-    actual marshalled exactly as for ``@builtin``). ``alias``/``origin`` behave as for
-    ``@builtin``. Registered/discovered identically -- the only difference from ``@fcall`` is
+    actual marshalled exactly as for ``@fcall``). ``alias``/``origin`` behave as for
+    ``@fcall``. Registered/discovered identically -- the only difference from ``@fcall`` is
     the injected ``mon`` first argument."""
 
     def deco(fn):

@@ -113,10 +113,13 @@ stays host-agnostic:
 | `readline` | source for `READ`/`ACCEPT` — returns one line (`""` at EOF) |
 | `getch` | single-character input, if needed |
 | `set_echo` | `bool -> None` — change the terminal echo mode (a program's `ECHOON`/`ECHOFF`); `run_source` defaults it to `runtime.default_terminal_echo` (flips termios `ECHO` on a tty, restored after) |
-| `set_autowrap` | `bool -> None` — change autowrap / the PDP-10 "free CR-LF" mode (`TRMOP.` `.TONFC`); an ANSI front-end emits `ESC[?7l`/`?7h`. No default — only a front-end that renders to a terminal acts |
+| `set_autowrap` | `bool -> None` — *optional* extra hook for the PDP-10 "free CR-LF" mode (`TRMOP.` `.TONFC`). Under the DEC dialect the engine already wraps terminal output at `tty_width` host-side, so this is only for a front-end that renders elsewhere (e.g. an ANSI terminal emitting `ESC[?7l`/`?7h`) |
 | `target` | the value model (default `NATIVE`) |
 | `root` | base directory for `INCLUDE` and `OPEN` file specs |
 | `max_array_words` | cap on a single array/`COMMON` allocation (default 50M) |
+| `dec_files` | read/write unformatted sequential files as real FOROTS binary (opt-in; default off — the portable JSON word-list otherwise) |
+| `tty_width` | terminal carriage width for the FORTRAN-10 free-CR-LF wrap (default 80; `0` = no wrap) |
+| `tty_autowrap` | whether terminal output wraps at `tty_width` (default on; a program toggles it via `TRMOP.` `.TONFC`) |
 
 ```python
 out = []
@@ -155,7 +158,7 @@ marshalling is generated. (For *how* it is generated, see the [design notes](DES
 
 The programs being run had host routines of two kinds, and there is a decorator for each:
 
-- **`@fcall`** (alias `@builtin`) — a FORTRAN-callable *computation*. The body receives the
+- **`@fcall`** — a FORTRAN-callable *computation*. The body receives the
   marshalled arguments and nothing else.
 - **`@uuo`** — a routine that *talks to the host* (terminal, files, clock). Its body receives
   a `Host` facade (`mon`) as its first argument, then the marshalled arguments.
@@ -262,18 +265,22 @@ defines itself.
 A `@uuo` body's `mon` is a `Host` facade over the engine's host seam:
 
 - `mon.tty` — the terminal: `write(s)` (column-tracking), `crlf()` (smart newline),
-  `space(n)`, `tab(col)`, `getch()`, `readline()`, and two terminal modes — `echo` (default on;
-  drives `set_echo`, e.g. off for raw single-key input) and `autowrap` (default on; drives
-  `set_autowrap`, e.g. off for a full-screen cursor display — the PDP-10 "free CR-LF" switch).
-  Assigning either drives the matching hook so a front-end flips its *actual* terminal mode.
+  `space(n)`, `tab(col)`, `getch()`, `readline()`, the carriage `width` (the free-CR-LF margin;
+  `0` = no wrap), and two terminal modes — `echo` (default on; off for raw single-key input) and
+  `autowrap` (default on; the "free CR-LF" switch, off for a full-screen cursor display). Under
+  the DEC dialect the engine wraps output at `width` host-side, as the TOPS-10 monitor did;
+  assigning a mode changes the real behavior (and also notifies the matching front-end hook).
 - `mon.files` — read-only data under the engine root: `read(name, missing=…)`,
   `root_path(name)`, `save_path(name)`.
 - `mon.clock` — `ms` (the engine's fixed clock reading) and a monotonic `tick()`.
+- `mon.identity` — the host OS user mapped onto TOPS-10 fields: `uid`/`gid`, `user` (the login
+  name), and `ppn` (the `[project,,programmer]` word, `gid,,uid`). Read-only host facts in the
+  baseline — what a monitor call like `GETTAB(2,-1)` or `USRNAM` reports.
 
-The baseline carries no OS-level state, so it runs anywhere the engine does. It is
-**injectable**: set `eng.host` to a richer facade (subclass `Host` to add OS
-identity, locks, shared memory, …) before the engine runs and `@uuo` routines receive that
-instead — `make_engine(host=fn)` and `Interpreter.build_engine(host=fn)`
+The baseline reads only read-only host facts and the engine's own seam, so it runs anywhere the
+engine does. It is **injectable**: set `eng.host` to a richer facade (subclass `Host` to add
+OS-level services — locks, shared memory, a privileged identity, …) before the engine runs and
+`@uuo` routines receive that instead — `make_engine(host=fn)` and `Interpreter.build_engine(host=fn)`
 thread the factory through. `host(eng)` returns the current facade, building and
 caching the baseline on first use. So a fuller monitor layers on without forterp depending on
 it — the baseline alone runs a program that needs only basic I/O.

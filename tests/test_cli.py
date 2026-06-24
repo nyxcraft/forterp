@@ -145,8 +145,8 @@ def test_check_reports_ok_on_clean_source(capsys):
 # A flat host-routine module dropped in beside FORTRAN source -- discovered and registered
 # by basename, no registry/__init__ needed.
 _PY_BUILTIN = (
-    "from forterp.hostlib import builtin, INT\n\n\n"
-    "@builtin('IDIST', args=(INT, INT))\n"
+    "from forterp.hostlib import fcall, INT\n\n\n"
+    "@fcall('IDIST', args=(INT, INT))\n"
     "def idist(a, b):\n"
     "    return abs(a - b)\n"
 )

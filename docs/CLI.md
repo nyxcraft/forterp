@@ -41,6 +41,8 @@ forterp main.for lib.for      # main.for's PROGRAM calls SUBROUTINEs defined in 
 | `--target native\|pdp10\|vax` | machine value model (default `native`). `pdp10` = the faithful 36-bit DEC machine; `vax` is provisional. |
 | `--program NAME` | which `PROGRAM`/`SUBROUTINE` unit to run as the main (default: the first). |
 | `--check` | parse and list every diagnostic **without running** — a compile-check. `pyf66 --check prog.for` is a strict-ANSI-F66 conformance linter. |
+| `--recover-shifted-cols` | recover statement text reindented past column 72 (off by default — a faithful FORTRAN-10 compiler drops cols 73+); for a deck nudged a column or two right. |
+| `--no-wrap` | disable the FORTRAN-10 terminal free-CR-LF wrap at column 80 (TOPS-10 `.TONFC`); no effect under strict F66, which never wraps. |
 | `--version` | print `<prog> <version>` and exit. |
 | `--help`, `-h` | usage and exit. |
 

@@ -229,7 +229,7 @@ worth naming.
 **The pieces of the mechanism:**
 
 - **A decorator** is just a function that takes a function and returns a replacement.
-  `@builtin("IDIST", args=(INT, INT))` is the call `builtin("IDIST", args=(INT, INT))`
+  `@fcall("IDIST", args=(INT, INT))` is the call `fcall("IDIST", args=(INT, INT))`
   returning the real decorator `deco`, which is then applied to the body: `idist = deco(idist)`.
   So `deco` gets the clean body and returns the uniform `fn(eng, frame, arg_nodes)` callable
   the engine actually dispatches.
@@ -281,7 +281,7 @@ What each module **owns** (responsibilities age better than line counts):
 | `forlib.py` | `STDLIB` — the FORTRAN-10 library subroutines (TIME/DATE/EXIT/ERRSNS/RAN/…) |
 | `uuolib.py` | `UUOLIB` — the standard TOPS-10 monitor UUOs (OUTSTR/OUTCHR/MSTIME/SLEEP/GETTAB); installed only under the FORTRAN-10 dialect |
 | `hostlib.py` | the host-routine authoring layer: the `@fcall`/`@uuo`/`@builtin` decorators + arg modes (`IN`/`INT`/`STR`/`OUT`/`ARRAY`), `OutRef`, `builtins_in`, and the baseline injectable `Host` facade |
-| `forbin.py` | FOROTS unformatted-record framing (LSCW) + DEC-10 float — the `binio` codec |
+| `forbin.py` | FOROTS unformatted-record framing (LSCW) + DEC-10 float (incl. the two-word DOUBLE PRECISION doubleword) — the `binio` codec |
 | `diagnostics.py` | V5 Appendix-F message rendering (`?FTNxxx` / `%FTNxxx`) |
 | `target.py` | the `Target` value-model seam (`PDP10` / `NATIVE` / `VAX`) |
 | `dialect.py` | the `Dialect` front-end seam (`F66` default / `FORTRAN10` superset) |

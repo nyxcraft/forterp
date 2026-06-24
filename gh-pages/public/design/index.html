@@ -285,7 +285,7 @@ worth naming.</p>
 <p><strong>The pieces of the mechanism:</strong></p>
 <ul>
 <li><strong>A decorator</strong> is just a function that takes a function and returns a replacement.
-<code>@builtin(&quot;IDIST&quot;, args=(INT, INT))</code> is the call <code>builtin(&quot;IDIST&quot;, args=(INT, INT))</code>
+<code>@fcall(&quot;IDIST&quot;, args=(INT, INT))</code> is the call <code>fcall(&quot;IDIST&quot;, args=(INT, INT))</code>
 returning the real decorator <code>deco</code>, which is then applied to the body: <code>idist = deco(idist)</code>.
 So <code>deco</code> gets the clean body and returns the uniform <code>fn(eng, frame, arg_nodes)</code> callable
 the engine actually dispatches.</li>
@@ -366,7 +366,7 @@ body is the logic and nothing else, and the messy minority that needs the AST st
 </tr>
 <tr>
 <td><code>forbin.py</code></td>
-<td>FOROTS unformatted-record framing (LSCW) + DEC-10 float — the <code>binio</code> codec</td>
+<td>FOROTS unformatted-record framing (LSCW) + DEC-10 float (incl. the two-word DOUBLE PRECISION doubleword) — the <code>binio</code> codec</td>
 </tr>
 <tr>
 <td><code>diagnostics.py</code></td>
