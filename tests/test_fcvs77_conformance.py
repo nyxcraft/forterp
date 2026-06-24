@@ -15,17 +15,18 @@ Unlike the F66 corpus, this one is a WORK-IN-PROGRESS baseline: F77 support is p
 so parse "gaps" here are *tracked feature gaps*, not regressions. The numbers below are
 pinned so that both regressions and improvements are visible and force a conscious update.
 
-Current gaps (3 files fail to parse under the F77 front-end):
-   2  blanks within a .NE./.EQ. operator     -- "C10VK. NE. 'YES'"
+Current gaps (1 file fails to parse under the F77 front-end):
    1  assumed-size / adjustable array bounds in a CHARACTER decl -- A(2,1:*), A(I:J,5:7)
-Of the 137 that run: 1388 sub-tests PASS, 155 ERRORS, 47 print-and-eyeball (no summary).
+       (FM701; needs runtime dummy-array shapes -- a larger, separate feature)
+Of the 139 that run: 1388 sub-tests PASS, 155 ERRORS, 49 print-and-eyeball (no summary).
 
 Landed since the restore: IMPLICIT CHARACTER*<len> (the audit-harness preamble, +30
 routines / +467 sub-tests), the optional comma after a DO label, LOGICAL/COMPLEX PARAMETER
 constants, the widthless A descriptor, list-directed I/O and .EQV./.NEQV. (each split into
 its own dialect flag), the keyword=value I/O control list, OPEN's positional unit + keyword
 specifiers, blank COMMON // spellings, CHARACTER*(<param>) parametrised length, the F77
-array-bound ':' (vs DEC '/') reading, and correct CHARACTER DATA init + DATA substrings.
+array-bound ':' (vs DEC '/') reading, correct CHARACTER DATA init + DATA substrings, and
+blanks within a dotted operator (. NE .).
 """
 
 import glob
@@ -48,11 +49,11 @@ def test_corpus_is_the_full_restored_f77_set():
 def test_f77_conformance_baseline():
     # Pinned WIP baseline. When an F77 feature lands, these numbers move up -- update
     # them here in lockstep with the fix so the gain is recorded, not silently absorbed.
-    assert R["n_run"] == 137
-    assert R["n_gap"] == 3
+    assert R["n_run"] == 139
+    assert R["n_gap"] == 1
     assert R["total_pass"] == 1388
     assert R["total_err"] == 155
-    assert len(R["nosummary"]) == 47
+    assert len(R["nosummary"]) == 49
 
 
 def test_running_routines_mostly_pass():

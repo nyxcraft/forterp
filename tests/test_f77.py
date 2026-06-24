@@ -365,6 +365,15 @@ def test_list_directed_write_and_read():
     assert _run_io(src, stdin="42\n").commons["O"][0] == 42
 
 
+def test_blanks_within_a_dotted_operator():
+    # Fixed-form blanks are insignificant: "C10VK. NE. 'YES'" reads as .NE. (FCVS FM915/FM920).
+    src = (
+        "      PROGRAM T\n      CHARACTER C10VK*3\n      COMMON /O/ N(8)\n"
+        "      C10VK='NO'\n      N(1)=0\n      IF (C10VK. NE. 'YES') N(1)=4\n      END\n"
+    )
+    assert _out(src)[0] == 4
+
+
 def test_character_data_initialization():
     # DATA initialises a CHARACTER scalar to the blank-padded string (not a packed Hollerith word).
     src = (

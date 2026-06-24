@@ -231,13 +231,21 @@ def tokenize(s: str, dialect=F66) -> list[Token]:
 
 
 def _match_dot(s: str, i: int):
-    """If s[i:] begins with a dotted word like .AND./.TRUE., return (WORD, end)."""
+    """If s[i:] begins with a dotted word like .AND./.TRUE., return (WORD, end). Fixed-form
+    blanks are insignificant, so ``. NE .`` reads as ``.NE.`` (the word is rebuilt from the
+    letters alone) -- e.g. FCVS writes ``C10VK. NE. 'YES'``."""
     n = len(s)
     j = i + 1
+    while j < n and s[j] in " \t":  # blanks after the opening dot
+        j += 1
+    start = j
     while j < n and s[j].isalpha():
         j += 1
-    if j < n and s[j] == "." and j > i + 1:
-        word = s[i : j + 1].upper()
+    letters = s[start:j]
+    while j < n and s[j] in " \t":  # blanks before the closing dot
+        j += 1
+    if j < n and s[j] == "." and letters:
+        word = "." + letters.upper() + "."
         if word in DOTOPS or word in (".TRUE.", ".FALSE."):
             return word, j + 1
     return None
