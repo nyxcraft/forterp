@@ -45,7 +45,7 @@
 <li><a class="section-nav__link section-nav__link--l3" href="#argument-modes">Argument modes</a></li>
 <li><a class="section-nav__link section-nav__link--l3" href="#the-raw-escape-hatch">The raw escape hatch</a></li>
 <li><a class="section-nav__link section-nav__link--l3" href="#registering-them">Registering them</a></li>
-<li><a class="section-nav__link section-nav__link--l3" href="#the-host-services-model">The host-services model</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#the-monitor-uuo-s-mon">The monitor (`@uuo`&#x27;s `mon`)</a></li>
 <li><a class="section-nav__link section-nav__link--l3" href="#standard-monitor-uuos-forterp-uuolib">Standard monitor UUOs (`forterp.uuolib`)</a></li>
 <li><a class="section-nav__link section-nav__link--l3" href="#pluggable-open-devices">Pluggable `OPEN` devices</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#instrumentation-the-oob-census">Instrumentation: the OOB census</a></li>
@@ -414,8 +414,9 @@ module-level <code>BUILTINS</code> dict merged on top. The CLI uses it to load <
 in beside FORTRAN source; any embedder can too. Or register one routine directly:
 <code>eng.register_builtins({&quot;IDIST&quot;: idist})</code>. Host routines never shadow a routine the program
 defines itself.</p>
-<h3 id="the-host-services-model">The host-services model</h3>
-<p>A <code>@uuo</code> body's <code>mon</code> is a <code>Monitor</code> facade over the engine's host seam:</p>
+<h3 id="the-monitor-uuo-s-mon">The monitor (<code>@uuo</code>'s <code>mon</code>)</h3>
+<p>A <code>@uuo</code> body's first argument, <code>mon</code>, is a <code>Monitor</code> — the program's view of the host
+executive (the thing a UUO calls), a facade over the engine's host seam. Its services:</p>
 <ul>
 <li><code>mon.tty</code> — the terminal: <code>write(s)</code> (column-tracking), <code>crlf()</code> (smart newline),
 <code>space(n)</code>, <code>tab(col)</code>, <code>getch()</code>, <code>readline()</code>, the carriage <code>width</code> (the free-CR-LF margin;
@@ -431,12 +432,63 @@ name), and <code>ppn</code> (the <code>[project,,programmer]</code> word, <code>
 baseline — what a monitor call like <code>GETTAB(2,-1)</code> or <code>USRNAM</code> reports.</li>
 </ul>
 <p>The baseline reads only read-only host facts and the engine's own seam, so it runs anywhere the
-engine does. It is <strong>injectable</strong>: set <code>eng.monitor</code> to a richer facade (subclass <code>Monitor</code> to add
-OS-level services — locks, shared memory, a privileged identity, …) before the engine runs and
-<code>@uuo</code> routines receive that instead — <code>make_engine(monitor=fn)</code> and <code>Interpreter.build_engine(monitor=fn)</code>
-thread the factory through. <code>monitor(eng)</code> returns the current facade, building and
-caching the baseline on first use. So a fuller monitor layers on without forterp depending on
-it — the baseline alone runs a program that needs only basic I/O.</p>
+engine does — enough for a program that needs only basic terminal I/O, files, and the clock.</p>
+<h4 id="overriding-the-monitor-with-your-own">Overriding the monitor with your own</h4>
+<p>The facade is <strong>replaceable</strong>: subclass <code>Monitor</code> to override a service, add a new one, or
+report a different identity, and every <code>@uuo</code> routine you write receives <em>your</em> monitor instead
+of the baseline. (See the next section for how this relates to the bundled <code>uuolib</code> UUOs.)</p>
+<pre><code class="language-python">import time
+import forterp
+from forterp.hostlib import Monitor, uuo, INT
+
+class RealClock:                       # replaces the baseline's fixed reading
+    def __init__(self):
+        self._t0 = time.monotonic()
+    @property
+    def ms(self):
+        return int((time.monotonic() - self._t0) * 1000)
+    def tick(self):
+        return self.ms
+
+class OperIdentity:                    # what GETTAB(.GTPPN) / USRNAM should report
+    uid, gid = 0o67, 0o1234
+    user = &quot;OPER&quot;
+    ppn = (0o1234 &lt;&lt; 18) | 0o67        # [project,,programmer]
+
+class GameMonitor(Monitor):
+    &quot;&quot;&quot;A richer monitor for an embedded run: a real clock, a fixed login identity, and a
+    `locks` service the baseline doesn't have.&quot;&quot;&quot;
+    def __init__(self, eng, locks):
+        super().__init__(eng)          # keep the baseline tty / files
+        self.clock = RealClock()       # override a service: mon.clock.ms is now wall time
+        self.locks = locks             # add a new one — @uuo routines can reach mon.locks
+
+    @property                          # identity is a *property* on the base, so override it
+    def identity(self):
+        return OperIdentity()
+</code></pre>
+<p>A <code>@uuo</code> body just reaches through <code>mon</code>, so the override is invisible to the routine — this
+custom monitor call uses the added <code>locks</code> service:</p>
+<pre><code class="language-python">@uuo(&quot;LOCK&quot;, args=(INT,), raw=False)
+def lock(mon, channel):
+    mon.locks.acquire(channel)
+</code></pre>
+<p><strong>Inject it</strong> as a factory <code>fn(eng) -&gt; Monitor</code>, by any entry point (all equivalent):</p>
+<pre><code class="language-python">mk = lambda eng: GameMonitor(eng, my_locks)
+
+forterp.fortran10.run_source(src, monitor=mk)                    # a prebuilt interpreter
+forterp.run_source(src, dialect=forterp.FORTRAN10, monitor=mk)   # the top-level helper
+eng = forterp.runtime.make_engine(units, dialect=forterp.FORTRAN10, monitor=mk)
+eng = forterp.fortran10.build_engine(units, monitor=mk)
+</code></pre>
+<p>…or set it directly on an already-built engine, any time before the first <code>@uuo</code> runs:</p>
+<pre><code class="language-python">eng = forterp.fortran10.build_engine(units)
+eng.monitor = GameMonitor(eng, my_locks)
+eng.run_program()
+</code></pre>
+<p>Under the hood a <code>@uuo</code> routine fetches the facade through <code>hostlib.monitor(eng)</code>, which
+returns <code>eng.monitor</code> if you set one and otherwise builds and caches the baseline on first use —
+so injecting before the run is all it takes, and nothing is built until a <code>@uuo</code> actually runs.</p>
 <h3 id="standard-monitor-uuos-forterp-uuolib">Standard monitor UUOs (<code>forterp.uuolib</code>)</h3>
 <p>A FORTRAN-10 program expects certain TOPS-10 monitor calls to simply exist. <code>forterp.uuolib</code>
 provides them, so a program that <code>CALL</code>s one just runs rather than bundling its own glue:</p>
@@ -471,11 +523,28 @@ provides them, so a program that <code>CALL</code>s one just runs rather than bu
 </tbody>
 </table>
 <p>These are installed by <code>install_runtime</code> only under the <strong>FORTRAN-10 dialect</strong> (like the DEC
-library <code>STDLIB</code>), and like every host routine they never shadow one the program — or the host
-— defines: a host that wants a richer or terminal-aware variant (a translated <code>OUTCHR</code>, a real
-<code>GETTAB</code> over modeled tables) registers it afterward and it wins. They are <em>monitor</em> facilities
-— distinct from <code>forlib.STDLIB</code>, the FORTRAN-10 V5 <em>language library</em> (<code>TIME</code>/<code>DATE</code>/<code>EXIT</code>/
-<code>RAN</code>/…).</p>
+library <code>STDLIB</code>). They are <em>monitor</em> facilities — distinct from <code>forlib.STDLIB</code>, the
+FORTRAN-10 V5 <em>language library</em> (<code>TIME</code>/<code>DATE</code>/<code>EXIT</code>/<code>RAN</code>/…).</p>
+<p><strong>They read the engine seam directly, not the <code>Monitor</code> facade.</strong> The bundled UUOs are plain
+<code>fn(eng, frame, arg_nodes)</code> builtins that reach <code>eng.emit</code> / <code>eng.clock</code> / <code>eng.tgt</code> themselves
+(the same way <code>STDLIB</code> does), so injecting an <code>eng.monitor</code> does <em>not</em> by itself change <code>OUTSTR</code>
+or <code>MSTIME</code> — those follow the engine's <a href="#embedding-and-io">I/O callbacks</a> (<code>emit</code>, <code>clock</code>),
+which is the lowest seam to override if you only want to redirect their output.</p>
+<p>To override a bundled call itself, <strong>register your own routine for that name</strong> — a host routine
+registered after the runtime wins over the bundled one (it never shadows a routine the <em>program</em>
+defines). Your replacement can be a <code>@uuo</code>, so it routes through your injected monitor:</p>
+<pre><code class="language-python">from forterp.hostlib import uuo, STR
+
+@uuo(&quot;OUTSTR&quot;, args=(STR,), raw=False)        # wins over uuolib's OUTSTR
+def outstr(mon, s):
+    mon.tty.write(s.rstrip())                  # now OUTSTR goes through your Monitor
+
+eng = forterp.fortran10.build_engine(units, monitor=mk, builtins={&quot;OUTSTR&quot;: outstr})
+</code></pre>
+<p>For <code>GETTAB</code> specifically there's a lighter hook: map the tables you care about through the
+<code>eng.gettab</code> registry (<code>{table: value | fn(eng, item) -&gt; value}</code>) instead of replacing the
+routine — e.g. <code>eng.gettab[2] = lambda eng, item: monitor(eng).identity.ppn</code> to report your
+injected identity's PPN for <code>.GTPPN</code>.</p>
 <h3 id="pluggable-open-devices">Pluggable <code>OPEN</code> devices</h3>
 <p>A related seam: <code>eng.register_device(&quot;GAM&quot;, fn(eng, unit, specs, frame))</code> lets a program
 <code>OPEN(…, DEVICE='GAM')</code> route to your handler; the core knows only TTY + ordinary files.</p>
