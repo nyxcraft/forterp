@@ -11,14 +11,13 @@ a bogus second `PROGRAM FMnnn` line to the 40 routines that test the PROGRAM sta
 gfortran and forterp both rejected the duplicate; that single synthetic line was removed
 to recover pristine FCVS, verified against gfortran. Nothing else was touched.)
 
-All 140 routines now parse and run under the F77 front-end (no parse-gaps). The numbers
-below are pinned so that any regression -- or a future gain -- is visible and forces a
-conscious update.
+All 140 routines parse and run under the F77 front-end, and every self-checking routine
+passes with ZERO errors. The numbers below are pinned so any regression is visible.
 
-Of the 140 that run: 1532 sub-tests PASS, 11 ERRORS, 51 print-and-eyeball (no summary).
-The remaining 11 errors are all in FM107, which combines a 16-slash record skip with repeat
-groups and relies on read-side FORMAT reversion across records (the I/O list outlasting the
-format re-scans and advances a record) -- not yet modeled by the formatted-text reader.
+Of the 140 that run: 1543 sub-tests PASS, 0 ERRORS. The other 51 routines are
+print-and-eyeball (they print values for visual inspection and report no PASS/FAIL
+summary), so they contribute no self-checked sub-tests -- validating their output is
+separate work (a differential check against gfortran).
 
 Landed since the restore: IMPLICIT CHARACTER*<len> (the audit-harness preamble), the
 optional comma after a DO label, LOGICAL/COMPLEX PARAMETER constants, the widthless A
@@ -57,13 +56,11 @@ def test_f77_conformance_baseline():
     # the fix (a gain) or investigate (a regression).
     assert R["n_run"] == 140
     assert R["n_gap"] == 0
-    assert R["total_pass"] == 1532
-    assert R["total_err"] == 11
+    assert R["total_pass"] == 1543
+    assert R["total_err"] == 0
     assert len(R["nosummary"]) == 51
 
 
-def test_running_routines_mostly_pass():
-    # Sanity floor independent of the exact pins: the routines that DO parse are
-    # overwhelmingly passing their self-checks (>80% of sub-tests), so the F77 features
-    # we have implemented are behaving, not just parsing.
-    assert R["total_pass"] > 4 * R["total_err"]
+def test_no_self_check_errors():
+    # Every self-checking routine passes: zero conformance errors across the corpus.
+    assert R["total_err"] == 0

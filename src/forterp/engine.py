@@ -2050,22 +2050,39 @@ class Engine:
             self._ld_in(line, self._unf_refs(s.items, frame))
             self.last_io_error = IO_OK
             return None
-        groups = [[]]  # split the format items into one field-group per record (at each `/`)
-        for it in self._parsed(self._fmt_spec(s.fmt, frame)):
-            if it.kind == "/":
-                groups.append([])
-            else:
-                groups[-1].append(it)
-        vals = []
-        for g in groups:
-            if st["pos"] >= len(recs):
-                self.last_io_error = IO_EOF
-                if "END" in s.specs:
-                    return Goto(s.specs["END"])
-                break
-            line = recs[st["pos"]]
-            st["pos"] += 1
-            vals += read_values(g, line, self.tgt, self.free_form_input, self.character_type)
+        items = self._parsed(self._fmt_spec(s.fmt, frame))
+        rev = getattr(items, "rev", 0)  # FORMAT reversion restart (last top-level group)
+
+        def split(seq):  # one field-group per record (split at each top-level `/`)
+            groups = [[]]
+            for it in seq:
+                groups.append([]) if it.kind == "/" else groups[-1].append(it)
+            return groups
+
+        # The I/O list drives how much to read: count its element slots (a COMPLEX takes two
+        # real fields). Keep consuming records -- advancing at each `/` and, when the list
+        # outlasts the format, reverting to `rev` for a fresh record -- until the list is full.
+        needed = sum(
+            2 if ty == "COMPLEX" else 1
+            for it in s.items
+            for _, ty in self._item_refs_typed(it, frame)
+        )
+        vals, start, eof = [], 0, False
+        while len(vals) < needed and not eof:
+            for g in split(items[start:]):
+                if st["pos"] >= len(recs):
+                    eof = True
+                    break
+                line = recs[st["pos"]]
+                st["pos"] += 1
+                vals += read_values(g, line, self.tgt, self.free_form_input, self.character_type)
+                if len(vals) >= needed:
+                    break
+            start = rev  # subsequent passes restart at the reversion point
+        if eof and len(vals) < needed:
+            self.last_io_error = IO_EOF
+            if "END" in s.specs:
+                return Goto(s.specs["END"])
         self._assign_reads(s.items, vals, frame)
         self.last_io_error = IO_OK
         return None

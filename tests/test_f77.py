@@ -492,6 +492,18 @@ def test_formatted_file_slash_record_break_round_trip():
     assert out[0] == 11 and out[1] == 22
 
 
+def test_formatted_file_read_reversion():
+    # Read-side FORMAT reversion (X3.9-1978 13.3): a format shorter than the I/O list re-scans
+    # and advances a record. M is written under (2I3) -> 2 records; K reads it back the same way.
+    src = (
+        "      PROGRAM T\n      COMMON /O/ N(8)\n      DIMENSION M(4),K(4)\n"
+        "      M(1)=7\n      M(2)=8\n      M(3)=9\n      M(4)=5\n"
+        "      WRITE(7,10) M\n   10 FORMAT(2I3)\n      REWIND 7\n"
+        "      READ(7,10) K\n      DO 1 I=1,4\n    1 N(I)=K(I)\n      END\n"
+    )
+    assert _out(src)[:4] == [7, 8, 9, 5]
+
+
 def test_a_format_reads_a_character():
     src = _cprog("      CHARACTER R*5\n      READ(5,10) R\n   10 FORMAT(A5)\n")
     assert _run_io(src, stdin="WORLD\n").commons["O"][0] == "WORLD"
