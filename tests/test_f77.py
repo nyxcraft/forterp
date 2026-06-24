@@ -374,6 +374,17 @@ def test_blanks_within_a_dotted_operator():
     assert _out(src)[0] == 4
 
 
+def test_assumed_size_array_dummy():
+    # F77 assumed-size dummy array A(*): the last upper bound is the actual's; element reads
+    # alias the actual (column-major linidx never needs the last dim's extent).
+    src = (
+        "      PROGRAM T\n      COMMON /O/ N(8)\n      DIMENSION A(5)\n"
+        "      DO 1 I=1,5\n    1 A(I)=I*10\n      CALL S(A,N(1))\n      END\n"
+        "      SUBROUTINE S(A, R)\n      DIMENSION A(*)\n      R=A(3)\n      RETURN\n      END\n"
+    )
+    assert _out(src)[0] == 30
+
+
 def test_character_data_initialization():
     # DATA initialises a CHARACTER scalar to the blank-padded string (not a packed Hollerith word).
     src = (

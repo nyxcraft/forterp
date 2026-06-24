@@ -11,22 +11,21 @@ a bogus second `PROGRAM FMnnn` line to the 40 routines that test the PROGRAM sta
 gfortran and forterp both rejected the duplicate; that single synthetic line was removed
 to recover pristine FCVS, verified against gfortran. Nothing else was touched.)
 
-Unlike the F66 corpus, this one is a WORK-IN-PROGRESS baseline: F77 support is partial,
-so parse "gaps" here are *tracked feature gaps*, not regressions. The numbers below are
-pinned so that both regressions and improvements are visible and force a conscious update.
+All 140 routines now parse and run under the F77 front-end (no parse-gaps). The numbers
+below are pinned so that any regression -- or a future gain -- is visible and forces a
+conscious update.
 
-Current gaps (1 file fails to parse under the F77 front-end):
-   1  assumed-size / adjustable array bounds in a CHARACTER decl -- A(2,1:*), A(I:J,5:7)
-       (FM701; needs runtime dummy-array shapes -- a larger, separate feature)
-Of the 139 that run: 1388 sub-tests PASS, 155 ERRORS, 49 print-and-eyeball (no summary).
+Of the 140 that run: 1423 sub-tests PASS, 155 ERRORS, 49 print-and-eyeball (no summary).
+The 155 errors are pre-existing value-model / numeric-precision differences (not parse or
+control-flow failures); driving them down is separate, ongoing conformance work.
 
-Landed since the restore: IMPLICIT CHARACTER*<len> (the audit-harness preamble, +30
-routines / +467 sub-tests), the optional comma after a DO label, LOGICAL/COMPLEX PARAMETER
-constants, the widthless A descriptor, list-directed I/O and .EQV./.NEQV. (each split into
-its own dialect flag), the keyword=value I/O control list, OPEN's positional unit + keyword
-specifiers, blank COMMON // spellings, CHARACTER*(<param>) parametrised length, the F77
-array-bound ':' (vs DEC '/') reading, correct CHARACTER DATA init + DATA substrings, and
-blanks within a dotted operator (. NE .).
+Landed since the restore: IMPLICIT CHARACTER*<len> (the audit-harness preamble), the
+optional comma after a DO label, LOGICAL/COMPLEX PARAMETER constants, the widthless A
+descriptor, list-directed I/O and .EQV./.NEQV. (each split into its own dialect flag), the
+keyword=value I/O control list, OPEN's positional unit + keyword specifiers, blank COMMON //
+spellings, CHARACTER*(<param>) parametrised length, the F77 array-bound ':' (vs DEC '/')
+reading, correct CHARACTER DATA init + DATA substrings, blanks within a dotted operator
+(. NE .), and assumed-size array declarators A(...,*).
 """
 
 import glob
@@ -46,12 +45,18 @@ def test_corpus_is_the_full_restored_f77_set():
     assert len(glob.glob(os.path.join(CORPUS77, "FM*.FOR"))) == 140
 
 
+def test_f77_corpus_fully_parses_and_runs():
+    # Every restored F77 routine parses and runs -- no parse-gaps remain.
+    assert R["n_gap"] == 0
+    assert R["n_run"] == 140
+
+
 def test_f77_conformance_baseline():
-    # Pinned WIP baseline. When an F77 feature lands, these numbers move up -- update
-    # them here in lockstep with the fix so the gain is recorded, not silently absorbed.
-    assert R["n_run"] == 139
-    assert R["n_gap"] == 1
-    assert R["total_pass"] == 1388
+    # Pinned baseline. A change means real behavior moved: update these in lockstep with
+    # the fix (a gain) or investigate (a regression).
+    assert R["n_run"] == 140
+    assert R["n_gap"] == 0
+    assert R["total_pass"] == 1423
     assert R["total_err"] == 155
     assert len(R["nosummary"]) == 49
 

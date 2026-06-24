@@ -1046,6 +1046,13 @@ class StatementParser:
         saved, self._no_div = self._no_div, self.dialect.slash_dim_bound
         try:
             while True:
+                if self.is_op("*"):  # A(*) assumed-size (implicit lower bound 1)
+                    self._require_assumed_size()
+                    self.advance()
+                    dims.append((1, ASSUMED_SIZE_HI))
+                    if not self.accept_op(","):
+                        break
+                    continue
                 lo_n = self.parse_expr()
                 if self.accept_op(":") or (self.dialect.slash_dim_bound and self.accept_op("/")):
                     if not self.dialect.array_lower_bounds:
@@ -1054,8 +1061,13 @@ class StatementParser:
                             "F66 arrays are 1..n",
                             "NRC",
                         )
-                    hi_n = self.parse_expr()
-                    dims.append((_dim_bound(lo_n, consts), _dim_bound(hi_n, consts)))
+                    if self.is_op("*"):  # A(lo:*) assumed-size upper bound
+                        self._require_assumed_size()
+                        self.advance()
+                        dims.append((_dim_bound(lo_n, consts), ASSUMED_SIZE_HI))
+                    else:
+                        hi_n = self.parse_expr()
+                        dims.append((_dim_bound(lo_n, consts), _dim_bound(hi_n, consts)))
                 else:
                     dims.append((1, _dim_bound(lo_n, consts)))
                 if not self.accept_op(","):
@@ -1064,6 +1076,10 @@ class StatementParser:
             self._no_div = saved
         self.expect_op(")")
         return dims
+
+    def _require_assumed_size(self):
+        if not self.dialect.array_lower_bounds:  # assumed-size A(*) is F77 / FORTRAN-10
+            raise ParseError("assumed-size array (*) requires FORTRAN-77 / FORTRAN-10", "NRC")
 
     def opt_size(self):
         """Consume an optional *n size modifier (e.g. REAL*8); return n or None."""
@@ -1291,6 +1307,13 @@ def _has_var(node):
     if isinstance(node, A.Binary):
         return _has_var(node.left) or _has_var(node.right)
     return False
+
+
+# Assumed-size upper bound A(...,*): the true extent is the actual argument's, unknown at
+# declaration. Column-major linidx never uses the LAST dim's upper bound, and an assumed-size
+# array is always a dummy (it aliases the actual -- array_size is not used to allocate it), so
+# this sentinel is never consulted for a valid use; it only stands in as an int hi.
+ASSUMED_SIZE_HI = 1 << 20
 
 
 def _dim_bound(node, consts):
