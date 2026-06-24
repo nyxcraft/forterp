@@ -261,6 +261,35 @@ def test_lexical_comparison_intrinsics():
     assert _out(_cprog(body))[0] == 3
 
 
+# ---- substrings S(i:j) (Phase 2c) -----------------------------------------------------------
+def test_substring_read():
+    assert _out(_cprog("      CHARACTER S*5, R*3\n      S='HELLO'\n      R=S(2:4)\n"))[0] == "ELL"
+
+
+def test_substring_open_bounds():
+    assert _out(_cprog("      CHARACTER S*5, R*3\n      S='HELLO'\n      R=S(:3)\n"))[0] == "HEL"
+    assert _out(_cprog("      CHARACTER S*5, R*2\n      S='HELLO'\n      R=S(4:)\n"))[0] == "LO"
+
+
+def test_substring_assignment_splices_in_place():
+    assert _out(_cprog("      CHARACTER R*5\n      R='HELLO'\n      R(2:3)='XY'\n"))[0] == "HXYLO"
+
+
+def test_substring_assignment_fits_rhs_to_the_slice_width():
+    # RHS 'Z' is blank-padded to the 3-char slice; the rest of R is untouched.
+    assert _out(_cprog("      CHARACTER R*5\n      R='AAAAA'\n      R(2:4)='Z'\n"))[0] == "AZ  A"
+
+
+def test_array_element_substring_read():
+    body = "      CHARACTER W(2)*5, R*2\n      W(1)='WORLD'\n      R=W(1)(2:3)\n"
+    assert _out(_cprog(body))[0] == "OR"
+
+
+def test_array_element_substring_assignment():
+    body = "      CHARACTER R*3\n      R='ABC'\n      R(1:2)='XY'\n"
+    assert _out(_cprog(body))[0] == "XYC"
+
+
 def test_concat_operator_only_tokenized_under_character_type():
     # // is the concat operator only when CHARACTER is in play; FORTRAN-10 must not see it.
     src = "      PROGRAM T\n      COMMON /O/ S\n      CHARACTER S*4\n      S='A'//'B'\n      END\n"

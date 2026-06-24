@@ -225,6 +225,32 @@ class StatementParser:
             self.warn(name)
         return name[:6]
 
+    def _paren_has_colon(self):
+        """At a '(': does its parenthesised group contain a top-level ':'? (i.e. is it a
+        CHARACTER substring NAME(lo:hi), not an array element / call). Pure token lookahead."""
+        depth = 0
+        for k in range(self.pos, len(self.toks)):
+            tk = self.toks[k]
+            if tk.kind == "OP" and tk.value == "(":
+                depth += 1
+            elif tk.kind == "OP" and tk.value == ")":
+                depth -= 1
+                if depth == 0:
+                    return False
+            elif tk.kind == "OP" and tk.value == ":" and depth == 1:
+                return True
+        return False
+
+    def _substring(self, base):
+        """Parse a CHARACTER substring suffix ``(lo:hi)`` on `base` (a Var or array Ref). Either
+        bound may be omitted: ``(:)`` / ``(lo:)`` / ``(:hi)`` (defaults 1 and LEN at run time)."""
+        self.expect_op("(")
+        lo = None if self.is_op(":") else self.parse_expr()
+        self.expect_op(":")
+        hi = None if self.is_op(")") else self.parse_expr()
+        self.expect_op(")")
+        return A.Substring(base, lo, hi)
+
     def _ref(self, name):
         """Build NAME(args). Under strict F66, if NAME is a declared array, validate that
         each subscript is a legal form (F66 5.1.3.3: k, v, v±k, c*v, c*v±k)."""
@@ -403,7 +429,15 @@ class StatementParser:
         if t.kind == "ID":
             name = self._name6(self.advance().value)  # V5 3.3: 6-char name limit
             if self.is_op("("):
-                return self._ref(name)
+                # NAME(...) is a CHARACTER substring if the group holds a top-level ':',
+                # else an array element / function reference (which may itself be substringed:
+                # A(k)(lo:hi)).
+                if self.dialect.character_type and self._paren_has_colon():
+                    return self._substring(A.Var(name))
+                node = self._ref(name)
+                if self.dialect.character_type and self.is_op("(") and self._paren_has_colon():
+                    return self._substring(node)
+                return node
             return A.Var(name)
         if t.kind == "OP" and t.value == "(":
             self.advance()
@@ -959,7 +993,12 @@ class StatementParser:
             name += self.advance().value
         name = self._name6(name)  # V5 3.3: 6-char name limit (after merge)
         if self.is_op("("):
-            target = self._ref(name)
+            if self.dialect.character_type and self._paren_has_colon():
+                target = self._substring(A.Var(name))  # CHARACTER substring target S(lo:hi)=
+            else:
+                target = self._ref(name)
+                if self.dialect.character_type and self.is_op("(") and self._paren_has_colon():
+                    target = self._substring(target)  # array-element substring A(k)(lo:hi)=
         else:
             target = A.Var(name)
         self.expect_op("=")

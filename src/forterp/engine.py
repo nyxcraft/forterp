@@ -863,6 +863,11 @@ class Engine:
             return self.tgt.from_bool(node.value)  # FORTRAN-10 .TRUE.=-1, .FALSE.=0
         if t is A.Complex:  # (re, im) complex constant
             return complex(float(self.eval(node.re, frame)), float(self.eval(node.im, frame)))
+        if t is A.Substring:  # CHARACTER substring NAME(lo:hi) -- 1-based, inclusive
+            s = str(self.eval(node.base, frame))
+            lo = int(self.eval(node.lo, frame)) if node.lo is not None else 1
+            hi = int(self.eval(node.hi, frame)) if node.hi is not None else len(s)
+            return s[lo - 1 : hi]
         raise RuntimeError(f"cannot eval {node}")
 
     def _name_is_unbound(self, name, frame, unit, *, exclude_assigned=True):
@@ -1237,7 +1242,24 @@ class Engine:
                 return Goto(err)
             raise
 
+    def _assign_substring(self, s, frame):
+        """Assign to a CHARACTER substring target ``S(lo:hi) = expr``: splice the RHS (fitted to
+        the substring width -- truncate / blank-pad) into the base's stored value, preserving its
+        declared length (X3.9-1978 14.4). The rest of the base string is left unchanged."""
+        sub = s.target
+        ref = self.arg_ref(sub.base, frame)
+        n = self.char_length(frame.rt.unit, sub.base.name)
+        cur = ref.read()
+        cur = cur.ljust(n)[:n] if isinstance(cur, str) else " " * n
+        lo = int(self.eval(sub.lo, frame)) if sub.lo is not None else 1
+        hi = int(self.eval(sub.hi, frame)) if sub.hi is not None else n
+        width = max(hi - lo + 1, 0)
+        rhs = str(self.eval(s.expr, frame))[:width].ljust(width)
+        ref.write((cur[: lo - 1] + rhs + cur[hi:])[:n].ljust(n))
+
     def do_assign(self, s, frame):
+        if isinstance(s.target, A.Substring):
+            return self._assign_substring(s, frame)
         val = self.eval(s.expr, frame)
         tgt = s.target
         # numeric conversion at the type boundary -- but a Hollerith/char constant

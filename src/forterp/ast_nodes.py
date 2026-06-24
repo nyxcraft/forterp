@@ -77,6 +77,13 @@ class Ref:
 
 
 @dataclass
+class Substring:  # F77 CHARACTER substring NAME(lo:hi) -- base is a Var or Ref (array element)
+    base: Expr
+    lo: Optional[Expr] = None  # None -> 1
+    hi: Optional[Expr] = None  # None -> LEN(base)
+
+
+@dataclass
 class Unary:
     op: str  # 'NOT' | '-' | '+'
     operand: Expr
