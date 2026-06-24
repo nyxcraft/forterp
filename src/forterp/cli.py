@@ -32,7 +32,7 @@ def _load_builtins(paths):
 
     Returns ``(table, hooks)``. ``register(eng)`` lets a dropped-in module do engine setup the
     auto-discovered builtins can't express -- register an OPEN device (``eng.register_device``),
-    prime COMMON, inject a host-services facade -- and is called after the engine is built."""
+    prime COMMON, inject a monitor facade -- and is called after the engine is built."""
     table, hooks = {}, []
     for path in paths:
         directory = os.path.dirname(os.path.abspath(path)) or "."

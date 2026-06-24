@@ -309,11 +309,11 @@ routines by reading <code>builtin_name</code> off every module global — no reg
 sync, which is what lets a <code>.py</code> file drop in beside FORTRAN source.</li>
 </ul>
 <p><code>@fcall</code> is literally <code>fcall = builtin</code> (an alias chosen to read right next to PDP-10 source).
-<code>@uuo</code> is the same shape with one addition: its wrapper injects <code>host(eng)</code> as the
+<code>@uuo</code> is the same shape with one addition: its wrapper injects <code>monitor(eng)</code> as the
 body's first argument before the marshalled actuals (or before <code>(eng, frame, arg_nodes)</code> when
 <code>raw=True</code>). That facade is the one piece of <em>state</em> the layer owns — see §6's environment
 seams; it reads <code>eng.emit</code>/<code>eng.clock</code>/<code>eng.root</code> and nothing OS-level, and an embedder can
-inject a richer subclass via <code>eng.host</code>.</p>
+inject a richer subclass via <code>eng.monitor</code>.</p>
 <p>The whole module is ~120 lines of marshalling and ~80 of facade. The payoff is that a host
 body is the logic and nothing else, and the messy minority that needs the AST stays in the
 <em>same</em> registry behind <code>raw=True</code> rather than forking a second, lower-level convention.</p>
@@ -362,7 +362,7 @@ body is the logic and nothing else, and the messy minority that needs the AST st
 </tr>
 <tr>
 <td><code>hostlib.py</code></td>
-<td>the host-routine authoring layer: the <code>@fcall</code>/<code>@uuo</code>/<code>@builtin</code> decorators + arg modes (<code>IN</code>/<code>INT</code>/<code>STR</code>/<code>OUT</code>/<code>ARRAY</code>), <code>OutRef</code>, <code>builtins_in</code>, and the baseline injectable <code>Host</code> facade</td>
+<td>the host-routine authoring layer: the <code>@fcall</code>/<code>@uuo</code>/<code>@builtin</code> decorators + arg modes (<code>IN</code>/<code>INT</code>/<code>STR</code>/<code>OUT</code>/<code>ARRAY</code>), <code>OutRef</code>, <code>builtins_in</code>, and the baseline injectable <code>Monitor</code> facade</td>
 </tr>
 <tr>
 <td><code>forbin.py</code></td>

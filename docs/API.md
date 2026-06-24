@@ -161,7 +161,7 @@ The programs being run had host routines of two kinds, and there is a decorator 
 - **`@fcall`** — a FORTRAN-callable *computation*. The body receives the
   marshalled arguments and nothing else.
 - **`@uuo`** — a routine that *talks to the host* (terminal, files, clock). Its body receives
-  a `Host` facade (`mon`) as its first argument, then the marshalled arguments.
+  a `Monitor` facade (`mon`) as its first argument, then the marshalled arguments.
   (forterp is an interpreter, not an emulator, so there is no literal UUO trap — a "system
   call" is just a `CALL` to a host subroutine — but the *services* such a routine needs are
   real, so `@uuo` provides them.)
@@ -262,7 +262,7 @@ defines itself.
 
 ### The host-services model
 
-A `@uuo` body's `mon` is a `Host` facade over the engine's host seam:
+A `@uuo` body's `mon` is a `Monitor` facade over the engine's host seam:
 
 - `mon.tty` — the terminal: `write(s)` (column-tracking), `crlf()` (smart newline),
   `space(n)`, `tab(col)`, `getch()`, `readline()`, the carriage `width` (the free-CR-LF margin;
@@ -278,10 +278,10 @@ A `@uuo` body's `mon` is a `Host` facade over the engine's host seam:
   baseline — what a monitor call like `GETTAB(2,-1)` or `USRNAM` reports.
 
 The baseline reads only read-only host facts and the engine's own seam, so it runs anywhere the
-engine does. It is **injectable**: set `eng.host` to a richer facade (subclass `Host` to add
+engine does. It is **injectable**: set `eng.monitor` to a richer facade (subclass `Monitor` to add
 OS-level services — locks, shared memory, a privileged identity, …) before the engine runs and
-`@uuo` routines receive that instead — `make_engine(host=fn)` and `Interpreter.build_engine(host=fn)`
-thread the factory through. `host(eng)` returns the current facade, building and
+`@uuo` routines receive that instead — `make_engine(monitor=fn)` and `Interpreter.build_engine(monitor=fn)`
+thread the factory through. `monitor(eng)` returns the current facade, building and
 caching the baseline on first use. So a fuller monitor layers on without forterp depending on
 it — the baseline alone runs a program that needs only basic I/O.
 

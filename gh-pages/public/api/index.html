@@ -285,7 +285,7 @@ marshalling is generated. (For <em>how</em> it is generated, see the <a href="..
 <li><strong><code>@fcall</code></strong> — a FORTRAN-callable <em>computation</em>. The body receives the
 marshalled arguments and nothing else.</li>
 <li><strong><code>@uuo</code></strong> — a routine that <em>talks to the host</em> (terminal, files, clock). Its body receives
-a <code>Host</code> facade (<code>mon</code>) as its first argument, then the marshalled arguments.
+a <code>Monitor</code> facade (<code>mon</code>) as its first argument, then the marshalled arguments.
 (forterp is an interpreter, not an emulator, so there is no literal UUO trap — a &quot;system
 call&quot; is just a <code>CALL</code> to a host subroutine — but the <em>services</em> such a routine needs are
 real, so <code>@uuo</code> provides them.)</li>
@@ -415,7 +415,7 @@ in beside FORTRAN source; any embedder can too. Or register one routine directly
 <code>eng.register_builtins({&quot;IDIST&quot;: idist})</code>. Host routines never shadow a routine the program
 defines itself.</p>
 <h3 id="the-host-services-model">The host-services model</h3>
-<p>A <code>@uuo</code> body's <code>mon</code> is a <code>Host</code> facade over the engine's host seam:</p>
+<p>A <code>@uuo</code> body's <code>mon</code> is a <code>Monitor</code> facade over the engine's host seam:</p>
 <ul>
 <li><code>mon.tty</code> — the terminal: <code>write(s)</code> (column-tracking), <code>crlf()</code> (smart newline),
 <code>space(n)</code>, <code>tab(col)</code>, <code>getch()</code>, <code>readline()</code>, the carriage <code>width</code> (the free-CR-LF margin;
@@ -431,10 +431,10 @@ name), and <code>ppn</code> (the <code>[project,,programmer]</code> word, <code>
 baseline — what a monitor call like <code>GETTAB(2,-1)</code> or <code>USRNAM</code> reports.</li>
 </ul>
 <p>The baseline reads only read-only host facts and the engine's own seam, so it runs anywhere the
-engine does. It is <strong>injectable</strong>: set <code>eng.host</code> to a richer facade (subclass <code>Host</code> to add
+engine does. It is <strong>injectable</strong>: set <code>eng.monitor</code> to a richer facade (subclass <code>Monitor</code> to add
 OS-level services — locks, shared memory, a privileged identity, …) before the engine runs and
-<code>@uuo</code> routines receive that instead — <code>make_engine(host=fn)</code> and <code>Interpreter.build_engine(host=fn)</code>
-thread the factory through. <code>host(eng)</code> returns the current facade, building and
+<code>@uuo</code> routines receive that instead — <code>make_engine(monitor=fn)</code> and <code>Interpreter.build_engine(monitor=fn)</code>
+thread the factory through. <code>monitor(eng)</code> returns the current facade, building and
 caching the baseline on first use. So a fuller monitor layers on without forterp depending on
 it — the baseline alone runs a program that needs only basic I/O.</p>
 <h3 id="standard-monitor-uuos-forterp-uuolib">Standard monitor UUOs (<code>forterp.uuolib</code>)</h3>

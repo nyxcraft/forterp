@@ -344,7 +344,7 @@ class Engine:
         # bytes) instead of the default JSON word-list -- a file a PDP-10 could read. Off by
         # default so the portable on-disk form (and float precision) is unchanged for everyone.
         self.dec_files = dec_files
-        self.host = None  # injectable Host facade for @uuo (forterp.hostlib);
+        self.monitor = None  # injectable Monitor facade for @uuo (forterp.hostlib);
         # None -> the baseline (tty/files/clock) is built on first use; set it to a richer facade
         # Two dialect-derived knobs the engine needs at run time (else dialect-agnostic):
         #  - free_form_input: widthless input fields read free-form (FORTRAN-10) vs column (F66)

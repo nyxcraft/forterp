@@ -13,12 +13,12 @@ from forterp.hostlib import (
     INT,
     OUT,
     STR,
-    Host,
+    Monitor,
     OutRef,
     builtins_in,
     fcall,
-    host,
     make_builtin,
+    monitor,
     uuo,
 )
 
@@ -173,7 +173,7 @@ def test_builtins_in_registers_name_aliases_and_module_BUILTINS():
     assert table["EXTRA"] is corr  # module-level BUILTINS merged on top
 
 
-# ---- the baseline Host facade ------------------------------------------------------
+# ---- the baseline Monitor facade ------------------------------------------------------
 
 
 class FakeHostEng(FakeEng):
@@ -210,7 +210,7 @@ class FakeHostEng(FakeEng):
 
 def test_baseline_tty_tracks_column():
     eng = FakeHostEng()
-    mon = Host(eng)
+    mon = Monitor(eng)
     mon.tty.write("abc")
     assert eng.out == ["abc"] and mon.tty.col == 3
     mon.tty.tab(6)  # advance to absolute column 6
@@ -222,7 +222,7 @@ def test_baseline_tty_tracks_column():
 
 
 def test_baseline_tty_echo_defaults_on_and_toggles():
-    mon = Host(FakeHostEng())  # no set_echo hook -> just records the state
+    mon = Monitor(FakeHostEng())  # no set_echo hook -> just records the state
     assert mon.tty.echo is True  # a normal terminal echoes typed input
     mon.tty.echo = False  # e.g. raw single-key input (ECHOFF)
     assert mon.tty.echo is False
@@ -232,7 +232,7 @@ def test_baseline_tty_echo_drives_the_set_echo_hook():
     calls = []
     eng = FakeHostEng()
     eng.set_echo = calls.append  # a front-end that owns a real terminal wires this
-    mon = Host(eng)
+    mon = Monitor(eng)
     mon.tty.echo = False  # ECHOFF
     mon.tty.echo = True  # ECHOON
     assert calls == [False, True]  # each assignment changed the actual terminal mode
@@ -243,21 +243,21 @@ def test_baseline_tty_autowrap_defaults_on_and_drives_the_hook():
     calls = []
     eng = FakeHostEng()
     eng._set_autowrap = calls.append  # an ANSI front-end wires this hook (ESC[?7l / ESC[?7h)
-    mon = Host(eng)
+    mon = Monitor(eng)
     assert mon.tty.autowrap is True  # terminals wrap at the right margin by default
     mon.tty.autowrap = False  # TRMOP2: set .TONFC (no free CR-LF) for a full-screen display
     assert mon.tty.autowrap is False and calls == [False]
 
 
 def test_baseline_tty_autowrap_records_without_a_hook():
-    mon = Host(FakeHostEng())  # no set_autowrap hook -> just records the state
+    mon = Monitor(FakeHostEng())  # no set_autowrap hook -> just records the state
     mon.tty.autowrap = False
     assert mon.tty.autowrap is False
 
 
 def test_baseline_clock_reads_engine_and_ticks():
     eng = FakeHostEng()
-    mon = Host(eng)
+    mon = Monitor(eng)
     assert mon.clock.ms == 1234  # the engine's fixed reading
     assert mon.clock.tick() == 100 and mon.clock.tick() == 200  # monotonic per query
 
@@ -265,7 +265,7 @@ def test_baseline_clock_reads_engine_and_ticks():
 def test_baseline_files_read_under_root(tmp_path):
     (tmp_path / "HELLO.TXT").write_text("hi there")
     eng = FakeHostEng(root=str(tmp_path))
-    mon = Host(eng)
+    mon = Monitor(eng)
     assert mon.files.read("HELLO.TXT") == "hi there"
     assert mon.files.read("NOPE.TXT", missing="<none>") == "<none>"  # absent -> the sentinel
     assert mon.files.root_path("X").endswith("X")
@@ -273,10 +273,10 @@ def test_baseline_files_read_under_root(tmp_path):
 
 def test_host_builds_and_caches_baseline():
     eng = FakeHostEng()
-    mon1 = host(eng)
-    assert isinstance(mon1, Host) and mon1.eng is eng
-    assert host(eng) is mon1  # cached
-    assert eng.host is mon1  # on the engine's injectable slot
+    mon1 = monitor(eng)
+    assert isinstance(mon1, Monitor) and mon1.eng is eng
+    assert monitor(eng) is mon1  # cached
+    assert eng.monitor is mon1  # on the engine's injectable slot
 
 
 # ---- the @uuo decorator --------------------------------------------------------------------
@@ -294,10 +294,10 @@ def test_uuo_injects_baseline_facade_then_engine_frame_nodes():
     eng = FakeHostEng()
     rv = outstr(eng, "FR", ["n0"])
     assert rv == 7  # return value still propagates (function-reference dispatch)
-    assert isinstance(captured["mon"], Host)
+    assert isinstance(captured["mon"], Monitor)
     assert captured["eng"] is eng and captured["frame"] == "FR" and captured["nodes"] == ["n0"]
     assert eng.out == ["hello"]
-    assert eng.host is captured["mon"]  # the baseline was cached on the engine
+    assert eng.monitor is captured["mon"]  # the baseline was cached on the engine
 
 
 def test_uuo_nonraw_marshals_actuals_after_mon():
@@ -308,7 +308,7 @@ def test_uuo_nonraw_marshals_actuals_after_mon():
         seen.update(mon=mon, n=n)
 
     setit(FakeHostEng(), None, [4.9])
-    assert isinstance(seen["mon"], Host)
+    assert isinstance(seen["mon"], Monitor)
     assert seen["n"] == 4  # INT coerces the actual, bound after mon
 
 
@@ -323,9 +323,9 @@ def test_injected_facade_overrides_baseline():
         return mon.extra
 
     eng = FakeHostEng()
-    eng.host = RichMon(eng)  # inject a richer facade before running
+    eng.monitor = RichMon(eng)  # inject a richer facade before running
     assert whoami(eng, None, []) == "identity"  # @uuo receives the injected one, not baseline
-    assert not isinstance(eng.host, Host)  # baseline never built
+    assert not isinstance(eng.monitor, Monitor)  # baseline never built
 
 
 def test_host_ppn_maps_gid_uid_and_falls_back_when_oversized(monkeypatch):
@@ -345,11 +345,11 @@ def test_host_ppn_maps_gid_uid_and_falls_back_when_oversized(monkeypatch):
 
 
 def test_identity_service_on_the_baseline_facade():
-    """The baseline Host exposes the host identity (uid/gid/user/ppn), so monitor calls get it
+    """The baseline Monitor exposes the host identity (uid/gid/user/ppn), so monitor calls get it
     even in the bare drop-in (no injected facade)."""
     import forterp.hostlib as H
 
-    mon = H.Host(FakeHostEng())
+    mon = H.Monitor(FakeHostEng())
     assert mon.identity.ppn == H.host_ppn()
     assert isinstance(mon.identity.user, str)
 

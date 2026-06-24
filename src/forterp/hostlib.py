@@ -46,11 +46,11 @@ is no literal UUO trap -- a "system call" is just a CALL to a host subroutine --
 *services* such a routine needs are real and generic, so this module provides them:
 
 - ``@fcall`` -- a FORTRAN-callable computation.
-- ``@uuo`` -- a routine that talks to the host: its body receives a baseline ``Host``
+- ``@uuo`` -- a routine that talks to the host: its body receives a baseline ``Monitor``
   facade (``mon``: ``tty`` / ``files`` / ``clock``, over the engine's host seam) as its first
   argument.
 
-The facade is **injectable**: an embedder may set ``eng.host`` to a *richer* facade
+The facade is **injectable**: an embedder may set ``eng.monitor`` to a *richer* facade
 (one that adds OS-level identity, locks, shared memory, ...) before the engine runs, and
 ``@uuo`` routines receive that instead of the baseline. So a fuller monitor layers on without
 forterp depending on it -- the baseline alone is enough to run a program that only needs basic
@@ -84,8 +84,8 @@ __all__ = [
     "uuo",
     "make_builtin",
     "builtins_in",
-    "Host",
-    "host",
+    "Monitor",
+    "monitor",
     "host_ppn",
     "host_user",
 ]
@@ -279,10 +279,10 @@ def builtins_in(module):
 # --------------------------------------------------------------------------------------------
 # Baseline host services + the @uuo authoring decorator
 #
-# A @uuo routine talks to the host through a Host facade ("mon") rather than reaching
+# A @uuo routine talks to the host through a Monitor facade ("mon") rather than reaching
 # eng.emit / eng.root / eng.clock itself, so "talks to the OS" is one explicit dependency. The
 # baseline facade below is built over the engine's host seam only (no OS-level state); a richer
-# facade is layered on by setting eng.host (see host()).
+# facade is layered on by setting eng.monitor (see host()).
 # --------------------------------------------------------------------------------------------
 
 
@@ -464,13 +464,13 @@ class _Identity:
         return host_ppn()
 
 
-class Host:
-    """The baseline host-services facade (``mon``) passed to ``@uuo`` routines: ``tty`` (the
+class Monitor:
+    """The baseline monitor facade (``mon``) passed to ``@uuo`` routines: ``tty`` (the
     terminal seam), ``files`` (bundled data under the engine root), ``clock``, and ``identity``
     (the host OS user mapped onto TOPS-10 fields -- uid/gid/name/PPN). Built over the engine's
     host seam plus read-only host facts, so it runs anywhere the engine does. A richer facade
-    subclasses this (adding services, e.g. locks, shared memory) and is injected via ``eng.host``
-    (see ``host``)."""
+    subclasses this (adding services, e.g. locks, shared memory) and is injected via ``eng.monitor``
+    (see ``monitor``)."""
 
     def __init__(self, eng):
         self.eng = eng
@@ -486,20 +486,20 @@ class Host:
         return _Identity()
 
 
-def host(eng):
-    """The engine's ``Host`` facade, building (and caching on ``eng.host``) the
-    baseline on first use. An embedder may set ``eng.host`` to a richer facade before
+def monitor(eng):
+    """The engine's ``Monitor`` facade, building (and caching on ``eng.monitor``) the
+    baseline on first use. An embedder may set ``eng.monitor`` to a richer facade before
     the engine runs to override the baseline -- ``@uuo`` routines then receive that instead."""
-    mon = getattr(eng, "host", None)
+    mon = getattr(eng, "monitor", None)
     if mon is None:
-        mon = Host(eng)
-        eng.host = mon
+        mon = Monitor(eng)
+        eng.monitor = mon
     return mon
 
 
 def uuo(name, *, args=None, raw=True, alias=(), origin=None):
     """Decorator for a host routine that talks to the host. Its body's first parameter is the
-    ``Host`` facade (``mon``); with ``raw=True`` (the default) the rest of the body is
+    ``Monitor`` facade (``mon``); with ``raw=True`` (the default) the rest of the body is
     ``(eng, frame, arg_nodes)``, otherwise the declared ``args`` modes follow ``mon`` (each
     actual marshalled exactly as for ``@fcall``). ``alias``/``origin`` behave as for
     ``@fcall``. Registered/discovered identically -- the only difference from ``@fcall`` is
@@ -509,7 +509,7 @@ def uuo(name, *, args=None, raw=True, alias=(), origin=None):
         if raw:
 
             def wrapper(eng, frame, arg_nodes):
-                return fn(host(eng), eng, frame, arg_nodes)
+                return fn(monitor(eng), eng, frame, arg_nodes)
 
         else:
             modes = tuple(args or ())
@@ -519,7 +519,7 @@ def uuo(name, *, args=None, raw=True, alias=(), origin=None):
                     m.bind(eng, frame, arg_nodes[i] if i < len(arg_nodes) else None)
                     for i, m in enumerate(modes)
                 ]
-                return fn(host(eng), *bound)
+                return fn(monitor(eng), *bound)
 
         wrapper.__name__ = getattr(fn, "__name__", name)
         wrapper.__doc__ = fn.__doc__
