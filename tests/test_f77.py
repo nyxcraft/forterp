@@ -241,6 +241,26 @@ def test_character_declaration_rejected_without_the_character_type_dialect():
             )
 
 
+def test_char_and_ichar_round_trip():
+    assert _out(_cprog("      CHARACTER R*1\n      R = CHAR(65)\n"))[0] == "A"
+    assert _out(_cprog("      INTEGER R\n      R = ICHAR('Z')\n"))[0] == 90
+
+
+def test_index_is_one_based_and_zero_when_absent():
+    assert _out(_cprog("      INTEGER R\n      R = INDEX('HELLO', 'LL')\n"))[0] == 3
+    assert _out(_cprog("      INTEGER R\n      R = INDEX('HELLO', 'X')\n"))[0] == 0
+
+
+def test_lexical_comparison_intrinsics():
+    body = (
+        "      INTEGER R\n      R = 0\n"
+        "      IF (LGT('ABD','ABC')) R = R + 1\n"  # ABD > ABC -> +1
+        "      IF (LLE('AB','AB')) R = R + 1\n"  # AB <= AB -> +1
+        "      IF (.NOT. LLT('ABC','ABC')) R = R + 1\n"  # not (ABC < ABC) -> +1
+    )
+    assert _out(_cprog(body))[0] == 3
+
+
 def test_concat_operator_only_tokenized_under_character_type():
     # // is the concat operator only when CHARACTER is in play; FORTRAN-10 must not see it.
     src = "      PROGRAM T\n      COMMON /O/ S\n      CHARACTER S*4\n      S='A'//'B'\n      END\n"

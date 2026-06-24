@@ -921,7 +921,9 @@ class Engine:
             return self._call_entry_func(name, node.args, frame)
         if name in unit.externals and name in self.units and self.units[name].kind == "function":
             return self.call_function(name, node.args, frame)  # V5 15.3: EXTERNAL beats intrinsic
-        if name in INTRINSICS and (self.dec_intrinsics or name in _F66_INTRINSICS):
+        if (name in INTRINSICS or name in _CHAR_LOGICAL) and (
+            self.dec_intrinsics or name in _F66_INTRINSICS
+        ):
             return self._apply_intrinsic(name, [self.eval(a, frame) for a in node.args])
         if name in self.units and self.units[name].kind == "function":
             return self.call_function(name, node.args, frame)
@@ -973,6 +975,10 @@ class Engine:
             return _lsh(self.tgt, args[0], args[1])
         if name == "ROT":  # PDP-10 logical word rotate: width from the target
             return _rot(self.tgt, args[0], args[1])
+        if name in _CHAR_LOGICAL:  # LGE/LGT/LLE/LLT: blank-padded lexical compare -> logical
+            a, b = str(args[0]), str(args[1])
+            w = max(len(a), len(b))
+            return self.tgt.from_bool(_CHAR_LOGICAL[name](a.ljust(w), b.ljust(w)))
         if args and isinstance(args[0], complex) and name in _COMPLEX_GENERIC:
             name = _COMPLEX_GENERIC[name]  # F77 generic: a complex arg picks the C-variant
         try:
@@ -2294,6 +2300,15 @@ _COMPLEX_GENERIC = {
     "COS": "CCOS",
 }
 
+# F77 lexical-comparison intrinsics (X3.9-1978 15.10): compare two CHARACTER values on the
+# ASCII collating sequence, blank-padded to equal length, returning a logical.
+_CHAR_LOGICAL = {
+    "LGE": lambda a, b: a >= b,
+    "LGT": lambda a, b: a > b,
+    "LLE": lambda a, b: a <= b,
+    "LLT": lambda a, b: a < b,
+}
+
 # The ANSI X3.9-1966 standard library: Table 3 (intrinsic) + Table 4 (basic external), 55
 # functions. Everything else in INTRINSICS (TAN, NINT/ANINT, the DTAN.../TAND... families,
 # LSH, MAX/MIN, ...) is a DEC/F77 extension, exposed only when the dialect's dec_intrinsics
@@ -2372,6 +2387,9 @@ INTRINSICS = {
     "LOG10": lambda a: math.log10(a[0]),  # F77 generic common log (F66: ALOG10)
     # ---- F77 CHARACTER (operands/results are Python str under the character_type dialect) ----
     "LEN": lambda a: len(a[0]),  # declared length (fixed-length vars are stored blank-padded)
+    "CHAR": lambda a: chr(int(a[0]) & 0x7F),  # ASCII code -> the 1-character string
+    "ICHAR": lambda a: ord(a[0][0]) if a[0] else 0,  # 1st char -> its ASCII code
+    "INDEX": lambda a: a[0].find(a[1]) + 1,  # 1-based position of a[1] in a[0] (0 = not found)
     # ---- trigonometric / hyperbolic ----
     "SIN": lambda a: math.sin(a[0]),
     "DSIN": lambda a: math.sin(a[0]),
