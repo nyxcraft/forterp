@@ -41,8 +41,10 @@ class Dialect:
     # exposes only the 55 standard functions; set this (e.g. Dialect(dec_intrinsics=True))
     # to opt into the DEC library under F66 without the rest of the FORTRAN10 superset.
     dec_operators: bool = False  # operators beyond ANSI X3.9-1966 §6.1: the symbolic
-    # relationals (== # < > <= >=, vs .EQ./.NE./.LT./.LE./.GT./.GE.), the extended logicals
-    # (.XOR./.EQV./.NEQV., vs .NOT./.AND./.OR.), and `^` as a power operator (`**` is ANSI).
+    # relationals (== # < > <= >=, vs .EQ./.NE./.LT./.LE./.GT./.GE.), .XOR., and `^` as a
+    # power operator (`**` is ANSI). .EQV./.NEQV. are F77-standard -- see eqv_operators.
+    eqv_operators: bool = False  # the .EQV./.NEQV. logical-equivalence operators (F77 §6.6;
+    # .XOR. and the symbolic relationals stay DEC-only under dec_operators)
     stmt_separator: bool = False  # `;` multi-statement lines (F66 is one statement per line)
     array_lower_bounds: bool = False  # DIMENSION A(lo:hi) explicit lower bounds (F66 is 1..n)
     parameter_stmt: bool = False  # the PARAMETER statement (added in F77; not in ANSI F66)
@@ -72,6 +74,7 @@ FORTRAN10 = Dialect(  # DEC FORTRAN-10 V5 superset: every extension on
     bare_format_width=True,
     dec_intrinsics=True,
     dec_operators=True,
+    eqv_operators=True,
     stmt_separator=True,
     array_lower_bounds=True,
     parameter_stmt=True,
@@ -100,6 +103,7 @@ F77 = Dialect(
     intrinsic_stmt=True,
     character_type=True,
     list_directed_io=True,  # F77 §12 standardized list-directed I/O
+    eqv_operators=True,  # F77 §6.6 has .EQV./.NEQV.
 )
 
 # CLI / front-end name -> dialect, so every caller resolves the same names in one place.

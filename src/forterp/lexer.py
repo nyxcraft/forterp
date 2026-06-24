@@ -178,9 +178,14 @@ def tokenize(s: str, dialect=F66) -> list[Token]:
                 elif word == ".FALSE.":
                     toks.append(Token("LOGIC", False, i))
                 else:
-                    if word in (".XOR.", ".EQV.", ".NEQV.") and not dialect.dec_operators:
+                    if word == ".XOR." and not dialect.dec_operators:
                         raise LexError(
-                            f"{word} is a FORTRAN-10 extension (F66 §6.1: .NOT./.AND./.OR.)", i
+                            ".XOR. is a FORTRAN-10 extension (F66 §6.1: .NOT./.AND./.OR.)", i
+                        )
+                    if word in (".EQV.", ".NEQV.") and not dialect.eqv_operators:
+                        raise LexError(
+                            f"{word} requires FORTRAN-77 / FORTRAN-10 (F66 §6.1: .NOT./.AND./.OR.)",
+                            i,
                         )
                     toks.append(Token("DOTOP", word, i))
                 i = i2

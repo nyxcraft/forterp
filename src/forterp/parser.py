@@ -996,6 +996,7 @@ class StatementParser:
             # positional unit "REWIND(1)" vs keyword specs "OPEN(UNIT=1,...)"
             if not (self.is_id() and self.peek_next() and self.peek_next().value == "="):
                 specs["UNIT"] = self.parse_expr()
+                self.accept_op(",")  # comma between the positional unit and the keyword specs
             while not self.is_op(")"):
                 kt = self.peek()  # OPEN keyword: NOT a 6-char symbolic name
                 if kt is None or kt.kind != "ID":

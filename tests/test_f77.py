@@ -365,6 +365,20 @@ def test_list_directed_write_and_read():
     assert _run_io(src, stdin="42\n").commons["O"][0] == 42
 
 
+def test_eqv_and_neqv_operators():
+    # F77 §6.6: logical equivalence .EQV. and non-equivalence .NEQV.
+    eqv = (
+        "      PROGRAM T\n      LOGICAL L\n      COMMON /O/ N(8)\n"
+        "      L = .TRUE. .EQV. .FALSE.\n      N(1)=0\n      IF (.NOT. L) N(1)=5\n      END\n"
+    )
+    assert _out(eqv)[0] == 5
+    neqv = (
+        "      PROGRAM T\n      LOGICAL L\n      COMMON /O/ N(8)\n"
+        "      L = .TRUE. .NEQV. .FALSE.\n      N(1)=0\n      IF (L) N(1)=9\n      END\n"
+    )
+    assert _out(neqv)[0] == 9
+
+
 def test_keyword_io_control_list():
     # F77 §12.8: a READ/WRITE keyword control list -- UNIT=/FMT= route to the unit & format.
     eng = _run_io(
