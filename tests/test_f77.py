@@ -365,6 +365,26 @@ def test_list_directed_write_and_read():
     assert _run_io(src, stdin="42\n").commons["O"][0] == 42
 
 
+def test_character_parametrised_length():
+    # F77 §5.1: CHARACTER*(expr) -- a parenthesised integer-constant length (here a PARAMETER).
+    src = (
+        "      PROGRAM T\n      PARAMETER (LPI=5)\n      CHARACTER*(LPI) S\n"
+        "      COMMON /O/ S\n      S='HI'\n      END\n"
+    )
+    assert _out(src)[0] == "HI   "
+
+
+def test_blank_common_slash_forms_parse():
+    # The three // blank-common spellings FM302 exercises: a leading //, a // between member
+    # groups, and a comma before a // specifier. Layout/value semantics are checked by the
+    # FCVS FM302 routine; here we just guard that the F77 // (concat) token doesn't break them.
+    src = (
+        "      PROGRAM T\n      COMMON //A\n      COMMON RVCN01//B\n"
+        "      COMMON D, //E\n      A=1.0\n      END\n"
+    )
+    assert forterp.run_source(src, dialect=forterp.F77, target=forterp.NATIVE) is not None
+
+
 def test_eqv_and_neqv_operators():
     # F77 §6.6: logical equivalence .EQV. and non-equivalence .NEQV.
     eqv = (

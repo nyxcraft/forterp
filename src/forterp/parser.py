@@ -1085,10 +1085,11 @@ class StatementParser:
             if not self.accept_op(","):
                 break
 
-    def _char_len(self):
-        """An optional CHARACTER length suffix: ``*n`` | ``*(n)`` | ``*(*)``. Returns the int
-        length, 0 for assumed length ``*(*)`` (a dummy takes the actual's length), or None when
-        there is no ``*len``."""
+    def _char_len(self, consts=None):
+        """An optional CHARACTER length suffix: ``*n`` | ``*(intexpr)`` | ``*(*)``. Returns the
+        int length, 0 for assumed length ``*(*)`` (a dummy takes the actual's length), or None
+        when there is no ``*len``. A parenthesised length may be any integer-constant expression
+        -- e.g. a PARAMETER, ``CHARACTER*(LPI)`` (F77 §5.1)."""
         if not self.is_op("*"):
             return None
         self.advance()  # *
@@ -1098,7 +1099,7 @@ class StatementParser:
                 self.advance()
                 self.expect_op(")")
                 return 0
-            n = self.expect_int()
+            n = const_eval(self.parse_expr(), consts or {})
             self.expect_op(")")
             return n
         return self.expect_int()
@@ -1107,11 +1108,11 @@ class StatementParser:
         """``CHARACTER [*len] name[(dims)][*len] [, ...]`` -- the keyword ``*len`` is the default
         length; a per-name ``*len`` (before or after any (dims)) overrides it. Records each name
         as type CHARACTER with its length (and as an array if dimensioned)."""
-        klen = self._char_len()  # optional length on the CHARACTER keyword
+        klen = self._char_len(unit.consts)  # optional length on the CHARACTER keyword
         while not self.at_end():
             name = self.expect_id()
             dims = self.parse_dims(unit.consts) if self.is_op("(") else None
-            vlen = self._char_len()  # per-name length (name*len or name(dims)*len)
+            vlen = self._char_len(unit.consts)  # per-name length (name*len or name(dims)*len)
             if dims is None and self.is_op("("):  # the name*len(dims) ordering
                 dims = self.parse_dims(unit.consts)
             unit.types[name] = "CHARACTER"
@@ -1132,9 +1133,12 @@ class StatementParser:
     def parse_common(self, unit):
         self.advance()  # COMMON
         while not self.at_end():
-            if self.is_op("/"):
+            if self.is_op("//"):  # blank common written // -- the lexer fuses the slashes (F77 //)
                 self.advance()
-                block = self.expect_id() if self.is_id() else ""  # /name/ or // (blank)
+                block = ""
+            elif self.is_op("/"):
+                self.advance()
+                block = self.expect_id() if self.is_id() else ""  # /name/ or / / (blank)
                 self.expect_op("/")
             else:
                 block = ""  # COMMON list  ->  blank (unlabeled) common
@@ -1146,9 +1150,11 @@ class StatementParser:
                     dims = self.parse_dims(unit.consts)
                     unit.arrays[name] = dims
                 members.append((name, dims))
-                if self.is_op("/") or self.at_end():
-                    break
+                if self.is_op("/") or self.is_op("//") or self.at_end():
+                    break  # next block (/name/ or // blank) starts here
                 self.expect_op(",")
+                if self.is_op("/") or self.is_op("//"):
+                    break  # a comma may precede the next block specifier (COMMON A, //B)
             unit.commons.append((block, members))
 
     def parse_parameter(self, unit):
@@ -1170,7 +1176,9 @@ class StatementParser:
             if typ == "DOUBLE" and self.is_id("PRECISION"):
                 self.advance()
                 typ = "DOUBLE PRECISION"
-            clen = self._char_len()  # *len: the CHARACTER length (numeric *byte sizes are ignored)
+            clen = self._char_len(
+                unit.consts
+            )  # *len CHARACTER length (numeric *byte sizes ignored)
             self.expect_op("(")
 
             def assign(letter):
