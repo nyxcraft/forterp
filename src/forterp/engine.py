@@ -1956,12 +1956,17 @@ class Engine:
                 raw = fh.read()
         except OSError:  # missing/empty -> an empty unit (a fresh READ hits END=)
             return {"recs": [], "pos": 0, "mode": "r", "path": path}
-        if self.dec_files and raw[:1] == b"\x00":  # a core-dump START LSCW begins with 0x00
+        if raw[:1] == b"\x00":  # a core-dump START LSCW begins 0x00 -> this is a FOROTS binary file
+            if not self.dec_files:  # config mismatch: a binary file, unit not in dec mode
+                raise OSError(
+                    f"{path}: looks like a FOROTS binary file, but this unit is not in binary "
+                    "mode (dec_files off) -- refusing to read it as garbage text"
+                )
             try:
                 recs = self._binio().decode_binary_file(raw)
-                return {"recs": recs, "pos": 0, "mode": "r", "path": path, "dec": True}
-            except ValueError:  # not actually FOROTS binary -> fall through
-                pass
+            except ValueError as e:  # NUL-led but won't parse: truncated/corrupt, not silent text
+                raise OSError(f"{path}: not a valid FOROTS binary file ({e})") from e
+            return {"recs": recs, "pos": 0, "mode": "r", "path": path, "dec": True}
         try:  # our portable form / legacy saves: a JSON record list
             return {"recs": json.loads(raw or b"[]"), "pos": 0, "mode": "r", "path": path}
         except ValueError:  # not JSON -> a formatted text data file
@@ -2025,15 +2030,19 @@ class Engine:
     def _unf_refs(self, items, frame):
         return [r for it in items for r in self._item_refs(it, frame)]
 
-    def _item_refs_cx(self, it, frame):
-        """Like _item_refs but pairs each ref with whether its declared type is
-        COMPLEX, so formatted input can consume TWO real fields per complex element
-        (V5 Ch4: a complex datum transfers as two reals under format control)."""
+    def _item_refs_typed(self, it, frame):
+        """(ref, declared-type-name) for each element of one I/O-list item, following array
+        and implied-DO expansion. The per-element type drives FOROTS binary word coding
+        (REAL = one DEC-10 single, DOUBLE PRECISION = a two-word double, COMPLEX = two
+        singles, INTEGER/LOGICAL = one word) and complex's two-reals-per-element formatted
+        transfer (V5 Ch4). Resolving the type per element keeps it correct inside an
+        implied-DO -- (D(I),I=1,N) over a DOUBLE PRECISION array reports DOUBLE, not the
+        loop index's INTEGER type."""
         unit = frame.rt.unit
         if isinstance(it, A.Var) and it.name in unit.arrays:
-            cx = self.type_of(unit, it.name) == "COMPLEX"
+            ty = self.type_of(unit, it.name)
             view = self.arrayview(frame, it.name)
-            return [(view.loc(i), cx) for i in range(array_size(unit.arrays[it.name]))]
+            return [(view.loc(i), ty) for i in range(array_size(unit.arrays[it.name]))]
         if isinstance(it, A.ImpliedDo):
             out = []
             lo = self.eval(it.start, frame)
@@ -2044,64 +2053,63 @@ class Engine:
             while (step > 0 and i <= hi) or (step < 0 and i >= hi):
                 vref.write(i)
                 for sub in it.items:
-                    out.extend(self._item_refs_cx(sub, frame))
+                    out.extend(self._item_refs_typed(sub, frame))
                 i += step
             return out
-        cx = isinstance(it, (A.Var, A.Ref)) and self.type_of(unit, it.name) == "COMPLEX"
-        return [(self.arg_ref(it, frame), cx)]
-
-    def _item_refs_typed(self, items, frame):
-        """(ref, declared-type-name) for each I/O-list element, via _item_refs_cx's
-        traversal -- used to encode/decode FOROTS binary words per target type."""
-        unit = frame.rt.unit
-        out = []
-        for it in items:
-            name = getattr(it, "name", None)
-            ty = self.type_of(unit, name) if name else "INTEGER"
-            for ref, _cx in self._item_refs_cx(it, frame):
-                out.append((ref, ty))
-        return out
+        ty = self.type_of(unit, it.name) if isinstance(it, (A.Var, A.Ref)) else "INTEGER"
+        return [(self.arg_ref(it, frame), ty)]
 
     def _bin_words(self, items, frame):
-        """Encode the I/O list's values to FOROTS data words (V5 D.5.2 word forms)."""
-        d2d = self._binio().double_to_dec10
+        """Encode the I/O list's values to FOROTS data words per declared type (V5 D.5.2):
+        REAL -> one DEC-10 single; DOUBLE PRECISION -> a two-word double (62-bit fraction);
+        COMPLEX -> two singles (re, im); INTEGER/LOGICAL -> one two's-complement word."""
+        bn = self._binio()
         words = []
-        for v in self._unf_values(items, frame):
-            if isinstance(v, complex):
-                words += [d2d(v.real), d2d(v.imag)]
-            elif isinstance(v, float):
-                words.append(d2d(v))
-            else:
-                words.append(self.tgt.wrap(int(v)))
+        for it in items:
+            for ref, ty in self._item_refs_typed(it, frame):
+                v = ref.read()
+                if ty == "DOUBLE PRECISION":
+                    words += list(bn.double_to_dec10_pair(float(v)))
+                elif ty == "COMPLEX" or isinstance(v, complex):
+                    c = v if isinstance(v, complex) else complex(float(v), 0.0)
+                    words += [bn.double_to_dec10(c.real), bn.double_to_dec10(c.imag)]
+                elif isinstance(v, float):
+                    words.append(bn.double_to_dec10(v))
+                else:
+                    words.append(self.tgt.wrap(int(v)))
         return words
 
     def _assign_words(self, items, words, frame):
-        """Assign FOROTS binary data words to the I/O list, decoding each word per the
-        target's declared type (REAL -> DEC-10 float; COMPLEX -> two words)."""
-        dec2d = self._binio().dec10_to_double
+        """Assign FOROTS binary data words to the I/O list, decoding each per the target's
+        declared type: REAL -> one DEC-10 single; DOUBLE PRECISION -> a two-word double;
+        COMPLEX -> two singles; INTEGER/LOGICAL -> one two's-complement word."""
+        bn = self._binio()
         wi = iter(words)
-        for ref, ty in self._item_refs_typed(items, frame):
-            try:
-                w = next(wi)
-            except StopIteration:
-                break
-            if ty == "COMPLEX":
-                ref.write(complex(dec2d(w), dec2d(next(wi, 0))))
-            elif ty in ("REAL", "DOUBLE PRECISION"):
-                ref.write(dec2d(w))
-            else:
-                ref.write(self.tgt.wrap(w))  # integer/logical: 2's-complement value
+        for it in items:
+            for ref, ty in self._item_refs_typed(it, frame):
+                try:
+                    w = next(wi)
+                except StopIteration:
+                    return  # record exhausted: leave the remaining list items untouched
+                if ty == "DOUBLE PRECISION":
+                    ref.write(bn.dec10_pair_to_double(w, next(wi, 0)))
+                elif ty == "COMPLEX":
+                    ref.write(complex(bn.dec10_to_double(w), bn.dec10_to_double(next(wi, 0))))
+                elif ty == "REAL":
+                    ref.write(bn.dec10_to_double(w))
+                else:
+                    ref.write(self.tgt.wrap(w))  # integer/logical: 2's-complement value
 
     def _assign_reads(self, items, reads, frame):
         """Write formatted-input values to the I/O list. A COMPLEX target consumes
         two consecutive real fields -> complex(re, im) (V5 Ch4)."""
         vals = iter(v for (_, v) in reads)
-        for ref, cx in (p for it in items for p in self._item_refs_cx(it, frame)):
+        for ref, ty in (p for it in items for p in self._item_refs_typed(it, frame)):
             try:
                 v = next(vals)
             except StopIteration:
                 break
-            if cx and not isinstance(v, complex):
+            if ty == "COMPLEX" and not isinstance(v, complex):
                 v = complex(float(v), float(next(vals, 0.0)))
             ref.write(v)
 

@@ -8,11 +8,13 @@ import pytest
 
 from forterp.forbin import (
     Dec10FloatError,
+    dec10_pair_to_double,
     dec10_to_double,
     decode_binary_file,
     decode_record,
     decode_sequential,
     double_to_dec10,
+    double_to_dec10_pair,
     encode_binary_file,
     encode_record,
     encode_sequential,
@@ -167,3 +169,81 @@ def test_dec10_in_range_extremes_still_encode():
     # just inside the representable range (|exponent| ~ 127) still round-trips
     for x in (1.0e37, 1.0e-37):
         assert math.isclose(dec10_to_double(double_to_dec10(x)), x, rel_tol=1e-6)
+
+
+# ---- DECsystem-10 double-precision floating point (two-word KL10 format) ----
+def test_dec10_double_one_is_single_high_word_plus_zero_low():
+    # the high word equals the single-precision 1.0; the low word is 0
+    assert double_to_dec10_pair(1.0) == (0o201400000000, 0)
+
+
+def test_dec10_double_zero():
+    assert double_to_dec10_pair(0.0) == (0, 0)
+    assert dec10_pair_to_double(0, 0) == 0.0
+
+
+def test_dec10_double_round_trips_a_python_float_exactly():
+    # 62 fraction bits hold a 53-bit Python double with no loss -> exact equality, not isclose
+    for x in (0.1, -0.1, 3.141592653589793, 1.0 / 3.0, -2.5, 1.0e10 + 0.5, 1.0e-9, 123456.789):
+        assert dec10_pair_to_double(*double_to_dec10_pair(x)) == x, x
+
+
+def test_dec10_double_keeps_precision_a_single_would_lose():
+    # the whole point of two words: 0.1 survives the double round-trip but not the single one
+    assert dec10_pair_to_double(*double_to_dec10_pair(0.1)) == 0.1
+    assert dec10_to_double(double_to_dec10(0.1)) != 0.1
+
+
+def test_dec10_double_negative_is_twos_complement_of_the_doubleword():
+    hi_p, lo_p = double_to_dec10_pair(2.5)
+    hi_n, lo_n = double_to_dec10_pair(-2.5)
+    pos = (hi_p << 36) | lo_p
+    neg = (hi_n << 36) | lo_n
+    assert neg == ((-pos) & ((1 << 72) - 1))
+
+
+@pytest.mark.parametrize("x", [float("inf"), float("-inf"), float("nan"), 1.0e40, 1.0e-50])
+def test_dec10_double_rejects_unrepresentable(x):
+    with pytest.raises(Dec10FloatError):
+        double_to_dec10_pair(x)
+
+
+def test_dec_files_double_precision_round_trips_as_two_words(tmp_path):
+    import forterp
+
+    src = """      PROGRAM T
+      COMMON /OUT/ E(3)
+      DOUBLE PRECISION D(3), E
+      DATA D /0.1D0, 3.141592653589793D0, -2.5D0/
+      OPEN(UNIT=1,FILE='D.DAT',ACCESS='SEQOUT')
+      WRITE(1) D
+      CLOSE(UNIT=1)
+      OPEN(UNIT=1,FILE='D.DAT',ACCESS='SEQIN')
+      READ(1) E
+      CLOSE(UNIT=1)
+      END
+"""
+    eng = forterp.run_source(
+        src, dialect=forterp.FORTRAN10, target=forterp.PDP10, root=str(tmp_path), dec_files=True
+    )
+    e = eng.commons["OUT"]
+    assert e[0] == 0.1 and e[2] == -2.5  # exact (62-bit) round-trip, not 27-bit truncation
+    assert math.isclose(e[1], 3.141592653589793, rel_tol=1e-15)
+    rec = decode_binary_file((tmp_path / "D.DAT").read_bytes())
+    assert len(rec) == 1 and len(rec[0]) == 6  # 3 doubles -> SIX words (two each), not three
+
+
+def test_open_binary_file_without_dec_files_errors_instead_of_silent_text(tmp_path):
+    import forterp
+
+    # a real FOROTS binary file opened on a unit that isn't in dec_files mode used to be read
+    # as garbage text; now it's a clean I/O error (the config mismatch surfaces)
+    (tmp_path / "B.DAT").write_bytes(encode_binary_file([[1, 2, 3]]))
+    src = """      PROGRAM T
+      DIMENSION M(3)
+      OPEN(UNIT=1,FILE='B.DAT',ACCESS='SEQIN')
+      READ(1) M
+      END
+"""
+    with pytest.raises(OSError):
+        forterp.run_source(src, dialect=forterp.FORTRAN10, target=forterp.PDP10, root=str(tmp_path))

@@ -22,9 +22,11 @@ is  001000000145 , 100*000000000005 , 003000000146  (octal).
 
 Data words are DECsystem-10 machine words (manual 13.x): INTEGER = 36-bit two's
 complement; REAL = DEC-10 single float (sign / excess-128 exponent / 27-bit
-fraction, the whole word two's-complemented when negative). DOUBLE/COMPLEX = two
-such words. This is the on-the-wire form; in memory we keep Python int/float, so
-encode/decode happens only at the binary-I/O boundary (like packed ASCII).
+fraction, the whole word two's-complemented when negative); COMPLEX = two such
+single words (real, imag); DOUBLE PRECISION = a two-word KL10 double (the 27 high
+fraction bits in a single-float-format first word, the 35 low bits in the second).
+This is the on-the-wire form; in memory we keep Python int/float, so encode/decode
+happens only at the binary-I/O boundary (like packed ASCII).
 """
 
 from __future__ import annotations
@@ -73,6 +75,57 @@ def dec10_to_double(word: int) -> float:
         word = (-word) & MASK36  # undo two's complement -> magnitude form
     expfield = (word >> 27) & 0o377
     frac = (word & MASK27) / (1 << 27)
+    val = math.ldexp(frac, expfield - 128)
+    return -val if neg else val
+
+
+# ---- DECsystem-10 double-precision floating point (KL10 two-word format) -------
+# Manual 13.x / KL10 hardware double: the high word is a single-precision float (sign,
+# excess-128 exponent, the 27 high fraction bits); the low word carries the next 35 fraction
+# bits in bits 1-35 (bit 0 = 0). The 62-bit fraction is normalized 0.5 <= f < 1. A negative
+# value is the two's complement of the *whole 72-bit doubleword* (so the low word's sign bit
+# ends up matching the high word's) -- exactly what the KL10 DMOVN instruction produces.
+MASK35 = (1 << 35) - 1
+MASK72 = (1 << 72) - 1
+
+
+def double_to_dec10_pair(x: float) -> tuple:
+    """Encode a Python float as a DEC-10 double-precision word pair ``(high, low)``.
+    1.0 -> (0o201400000000, 0): the high word is exactly the single-precision 1.0, low word 0.
+    The 62-bit fraction holds a Python double (53-bit) without loss, so this round-trips
+    exactly where the 27-bit single would round."""
+    if x == 0.0:
+        return (0, 0)
+    if not math.isfinite(x):  # inf / nan have no DEC-10 representation
+        raise Dec10FloatError(f"cannot encode {x!r} as a DEC-10 double")
+    neg = x < 0
+    m, e = math.frexp(abs(x))  # abs(x) = m * 2**e, 0.5 <= m < 1.0
+    frac = int(round(m * (1 << 62)))  # 62-bit fraction
+    if frac > (1 << 62) - 1:  # rounding carried into 1.0
+        frac >>= 1
+        e += 1
+    if not (-128 <= e <= 127):  # same 8-bit excess-128 exponent field as the single
+        raise Dec10FloatError(f"{x!r} is out of DEC-10 double-precision range")
+    hi = (((e + 128) & 0o377) << 27) | ((frac >> 35) & MASK27)  # bit0=0 (positive)
+    lo = frac & MASK35  # the 35 low fraction bits in bits 1-35; bit0=0
+    if neg:  # two's-complement the whole 72-bit doubleword
+        comb = (-((hi << 36) | lo)) & MASK72
+        hi, lo = comb >> 36, comb & MASK36
+    return hi, lo
+
+
+def dec10_pair_to_double(hi: int, lo: int) -> float:
+    """Decode a DEC-10 double-precision word pair ``(high, low)`` to a Python float
+    (`double_to_dec10_pair`'s inverse)."""
+    comb = ((hi & MASK36) << 36) | (lo & MASK36)
+    if comb == 0:
+        return 0.0
+    neg = (comb >> 71) & 1  # sign bit = bit 0 of the high word = bit 71 of the doubleword
+    if neg:
+        comb = (-comb) & MASK72  # undo two's complement -> magnitude doubleword
+    hi, lo = comb >> 36, comb & MASK36
+    expfield = (hi >> 27) & 0o377
+    frac = (((hi & MASK27) << 35) | (lo & MASK35)) / (1 << 62)
     val = math.ldexp(frac, expfield - 128)
     return -val if neg else val
 
