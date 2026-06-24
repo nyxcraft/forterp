@@ -136,3 +136,44 @@ def test_prebuilt_f77_interpreter_runs_block_if():
 def test_unterminated_block_if_is_a_clean_parse_error():
     with pytest.raises(forterp.ParseError):
         forterp.run_source(_prog("      IF (.TRUE.) THEN\n      N(1)=1\n"), dialect=forterp.F77)
+
+
+# ---- generic intrinsics ---------------------------------------------------------------------
+def _rprog(body):  # a REAL/COMPLEX result block
+    return "      PROGRAM T\n      COMMON /O/ R(4)\n      COMPLEX Z\n" + body + "      END\n"
+
+
+def test_f77_generic_log_and_log10_names():
+    # F77's generic spellings LOG / LOG10 (F66 used ALOG / ALOG10).
+    r = _out(_rprog("      R(1)=LOG(2.718281828459045)\n      R(2)=LOG10(1000.0)\n"))
+    assert abs(r[0] - 1.0) < 1e-9 and abs(r[1] - 3.0) < 1e-9
+
+
+def test_generic_sqrt_on_complex_dispatches_to_cmath():
+    # SQRT of a complex argument resolves to the complex sqrt (CSQRT): sqrt(-4) = 2i.
+    r = _out(
+        _rprog("      Z=(-4.0,0.0)\n      Z=SQRT(Z)\n      R(1)=REAL(Z)\n      R(2)=AIMAG(Z)\n")
+    )
+    assert abs(r[0]) < 1e-9 and abs(r[1] - 2.0) < 1e-9
+
+
+def test_generic_exp_on_complex():
+    # EXP(i) = cos(1) + i*sin(1); generic EXP must not choke on a complex arg.
+    r = _out(_rprog("      Z=(0.0,1.0)\n      Z=EXP(Z)\n      R(1)=REAL(Z)\n      R(2)=AIMAG(Z)\n"))
+    assert abs(r[0] - 0.540302) < 1e-5 and abs(r[1] - 0.841471) < 1e-5
+
+
+def test_generic_abs_is_polymorphic():
+    # ABS already works for int / real / complex (|3-4i| = 5).
+    r = _out(_rprog("      Z=(3.0,4.0)\n      R(1)=ABS(Z)\n      R(2)=ABS(-7.0)\n"))
+    assert r[0] == 5.0 and r[1] == 7.0
+
+
+# ---- INTRINSIC statement (a no-op: intrinsics already resolve by name) ----------------------
+def test_intrinsic_statement_is_accepted_and_harmless():
+    assert _out(_rprog("      INTRINSIC SQRT, SIN\n      R(1)=SQRT(9.0)\n"))[0] == 3.0
+
+
+def test_intrinsic_statement_rejected_under_f66():
+    with pytest.raises(forterp.ParseError):
+        forterp.run_source("      PROGRAM T\n      INTRINSIC SIN\n      END\n", dialect=forterp.F66)

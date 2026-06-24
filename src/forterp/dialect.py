@@ -49,6 +49,7 @@ class Dialect:
     block_if: bool = False  # block IF...THEN / ELSE IF / ELSE / END IF (F77; also FORTRAN-10 V5)
     do_while: bool = False  # DO WHILE (cond) / END DO (DEC/F90 ext; NOT in ANSI X3.9-1978)
     save_stmt: bool = False  # the SAVE statement (F77; a no-op here -- locals are already static)
+    intrinsic_stmt: bool = False  # the INTRINSIC statement (F77; declares names as intrinsic)
 
 
 F66 = Dialect()  # ANSI X3.9-1966 -- the default dialect
@@ -74,6 +75,7 @@ FORTRAN10 = Dialect(  # DEC FORTRAN-10 V5 superset: every extension on
     block_if=True,  # block IF is a FORTRAN-10 V5 construct
     do_while=True,  # DEC FORTRAN-10 has DO WHILE
     save_stmt=True,
+    intrinsic_stmt=True,
 )
 # ANSI X3.9-1978 (FORTRAN 77): the standard between F66 and the DEC superset. Reuses the
 # knobs F77 standardized; DEC-only extensions (octal `"`, tab format, free-form input, TYPE/
@@ -90,6 +92,7 @@ F77 = Dialect(
     dec_intrinsics=True,  # the F77 generic intrinsic library (a superset is fine for now)
     block_if=True,
     save_stmt=True,
+    intrinsic_stmt=True,
 )
 
 # CLI / front-end name -> dialect, so every caller resolves the same names in one place.

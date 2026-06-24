@@ -961,6 +961,8 @@ class Engine:
             return _lsh(self.tgt, args[0], args[1])
         if name == "ROT":  # PDP-10 logical word rotate: width from the target
             return _rot(self.tgt, args[0], args[1])
+        if args and isinstance(args[0], complex) and name in _COMPLEX_GENERIC:
+            name = _COMPLEX_GENERIC[name]  # F77 generic: a complex arg picks the C-variant
         try:
             r = INTRINSICS[name](args)
         except ValueError:  # math domain error (negative / out of range)
@@ -2255,6 +2257,19 @@ _LIB_RECOVER = {
 
 _INT_RESULT = frozenset({"INT", "IFIX", "IDINT", "NINT", "IDNINT"})  # take the target's int wrap
 
+# F77 generic dispatch: a generic transcendental called with a COMPLEX argument resolves to the
+# complex (cmath) variant. The real/double cases already go through math.* (REAL is a Python
+# double here); only complex needs redirecting. ABS/MAX/MIN are already polymorphic (Python
+# abs/max/min), so they need no entry. (CLOG10 has no FOROTS name; LOG10 of complex is unused.)
+_COMPLEX_GENERIC = {
+    "SQRT": "CSQRT",
+    "EXP": "CEXP",
+    "LOG": "CLOG",
+    "ALOG": "CLOG",
+    "SIN": "CSIN",
+    "COS": "CCOS",
+}
+
 # The ANSI X3.9-1966 standard library: Table 3 (intrinsic) + Table 4 (basic external), 55
 # functions. Everything else in INTRINSICS (TAN, NINT/ANINT, the DTAN.../TAND... families,
 # LSH, MAX/MIN, ...) is a DEC/F77 extension, exposed only when the dialect's dec_intrinsics
@@ -2329,6 +2344,8 @@ INTRINSICS = {
     "DLOG": lambda a: math.log(a[0]),
     "ALOG10": lambda a: math.log10(a[0]),
     "DLOG10": lambda a: math.log10(a[0]),
+    "LOG": lambda a: math.log(a[0]),  # F77 generic natural log (F66 spelled it ALOG)
+    "LOG10": lambda a: math.log10(a[0]),  # F77 generic common log (F66: ALOG10)
     # ---- trigonometric / hyperbolic ----
     "SIN": lambda a: math.sin(a[0]),
     "DSIN": lambda a: math.sin(a[0]),
