@@ -22,6 +22,16 @@ The program's terminal output (`TYPE`, list-directed `PRINT *`, unit 5) and its
 line-printer output (units 3/6) go to **stdout**; `READ`/`ACCEPT` read from **stdin**. A
 normal end or `STOP` exits 0.
 
+Instead of a file you can pass the program inline with `-c` or read it from **stdin** with `-`:
+
+```sh
+pyfortran10 -c '      PRINT *, 2+2'$'\n''      END'   # program as a string
+cat prog.for | forterp --std fortran10 -              # program from stdin
+```
+
+A `#!` shebang works with `-x` (which skips the source's first line), so a `.for` file can be
+made executable: `#!/usr/bin/env -S pyfortran10 -x`.
+
 ### Linking several files
 
 Pass multiple source files and they are linked by unit name, the way a compiler links
@@ -43,8 +53,14 @@ forterp main.for lib.for      # main.for's PROGRAM calls SUBROUTINEs defined in 
 | `--check` | parse and list every diagnostic **without running** — a compile-check. `pyf66 --check prog.for` is a strict-ANSI-F66 conformance linter. |
 | `--recover-shifted-cols` | recover statement text reindented past column 72 (off by default — a faithful FORTRAN-10 compiler drops cols 73+); for a deck nudged a column or two right. |
 | `--no-wrap` | disable the FORTRAN-10 terminal free-CR-LF wrap at column 80 (TOPS-10 `.TONFC`); no effect under strict F66, which never wraps. |
-| `--version` | print `<prog> <version>` and exit. |
-| `--help`, `-h` | usage and exit. |
+| `-c CMD` | run the FORTRAN program passed as a string (instead of a file). |
+| `-` (as a file) | read the program from **stdin**. |
+| `-x` | skip the source's first line (e.g. a `#!` shebang), so a `.for` file can be a runnable script. |
+| `-i` | after running, drop into the interactive command processor — inspect `SHOW /BLOCK/`, `IMMEDIATE`, continue (cf. `python -i`). |
+| `-q`, `--quiet` | suppress the interactive startup banner. |
+| `-u` | force unbuffered stdout/stderr. |
+| `--version`, `-V` | print `<prog> <version>` and exit; `-VV` adds the dialect/target/host build line. |
+| `--help`, `-h`, `-?` | usage and exit. |
 
 ## Exit codes
 

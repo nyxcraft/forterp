@@ -75,14 +75,35 @@ def _load_builtins(paths):
 
 def _run(argv, dialect, prog, *, allow_std, default_target="native"):
     ap = argparse.ArgumentParser(prog=prog, description=__doc__.strip().splitlines()[0])
-    ap.add_argument("--version", action="version", version=f"%(prog)s {forterp.__version__}")
+    ap.add_argument("-?", action="help", default=argparse.SUPPRESS, help="show this help and exit")
+    ap.add_argument(
+        "-V",
+        "--version",
+        action="count",
+        default=0,
+        dest="version",
+        help="print the version and exit; repeat (-VV) for dialect/target/host build info",
+    )
     ap.add_argument(
         "file",
         nargs="*",
-        help="FORTRAN source file(s) to run (several are linked together by unit name into one "
-        "program); any *.py argument is imported and its @fcall/@uuo host routines "
-        "registered, and its optional register(eng) hook called for engine setup "
+        help="FORTRAN source file(s) to run (several are linked by unit name into one program); "
+        "'-' reads the program from stdin; any *.py argument is imported and its @fcall/@uuo "
+        "host routines registered, with its optional register(eng) hook called for engine setup "
         "(OPEN devices, COMMON priming); omit all for interactive mode",
+    )
+    ap.add_argument("-c", metavar="CMD", help="run the FORTRAN program passed as a string")
+    ap.add_argument(
+        "-i",
+        action="store_true",
+        help="after running, enter the interactive command processor (inspect COMMON, continue)",
+    )
+    ap.add_argument(
+        "-q", "--quiet", action="store_true", help="suppress the interactive startup banner"
+    )
+    ap.add_argument("-u", action="store_true", help="force unbuffered stdout/stderr")
+    ap.add_argument(
+        "-x", action="store_true", help="skip the first line of the source (e.g. a #! shebang)"
     )
     ap.add_argument(
         "--target",
@@ -119,29 +140,62 @@ def _run(argv, dialect, prog, *, allow_std, default_target="native"):
         )
     args = ap.parse_args(argv)
     std = args.std if allow_std else ("fortran10" if dialect is forterp.FORTRAN10 else "f66")
+
+    if args.version:  # -V / --version (and -VV for the build line); print and exit
+        line = f"{prog} {forterp.__version__}"
+        if args.version >= 2:
+            import platform
+
+            dia = {"f66": "FORTRAN-66", "fortran10": "DEC FORTRAN-10"}.get(std, std)
+            host = f"{platform.python_implementation()} {platform.python_version()}"
+            line += f" ({dia}, {args.target.upper()} target) [{host}] on {sys.platform}"
+        print(line)
+        return 0
+
     dialect = _DIALECTS[std]
     options = forterp.SourceOptions(recover_shifted_cols=args.recover_shifted_cols)
 
-    # *.py args are Python host-routine modules; everything else is FORTRAN source.
+    if args.u:  # unbuffered output (cf. python -u)
+        for stream in (sys.stdout, sys.stderr):
+            try:
+                stream.reconfigure(write_through=True)
+            except (AttributeError, ValueError):
+                pass
+
+    # *.py args are Python host-routine modules; everything else is FORTRAN source ("-" = stdin).
     py_files = [p for p in args.file if p.endswith(".py")]
     src_files = [p for p in args.file if not p.endswith(".py")]
 
-    if not src_files:  # no FORTRAN to run
+    if args.c is None and not src_files:  # nothing to run -> interactive command processor
         if py_files:
             ap.error("Python builtin module(s) given but no FORTRAN source to run")
         if args.check:
             ap.error("--check requires a file")
         from forterp.command import CommandProcessor
 
-        return CommandProcessor(std=std, target=args.target, program=args.program).run()
+        return CommandProcessor(
+            std=std, target=args.target, program=args.program, quiet=args.quiet
+        ).run()
 
-    try:  # several FORTRAN files are concatenated, then linked together by unit name
-        text = "\n".join(open(p, "r", errors="replace").read() for p in src_files)
-    except OSError as e:
-        ap.error(str(e))
-    name = " + ".join(os.path.basename(p) for p in src_files)
-    # INCLUDE targets resolve against the (first) source file's directory, not the cwd.
-    include_dir = os.path.dirname(src_files[0]) or "."
+    # Gather the source: a -c string, or the file args ("-" reads stdin).
+    if args.c is not None:
+        pieces, name, include_dir = [args.c], "<command>", "."
+    else:
+        pieces = []
+        for p in src_files:
+            if p == "-":
+                pieces.append(sys.stdin.read())
+            else:
+                try:
+                    pieces.append(open(p, "r", errors="replace").read())
+                except OSError as e:
+                    ap.error(str(e))
+        name = " + ".join("<stdin>" if p == "-" else os.path.basename(p) for p in src_files)
+        first = next((p for p in src_files if p != "-"), None)  # INCLUDE base dir (skip stdin)
+        include_dir = (os.path.dirname(first) or ".") if first else "."
+    if args.x:  # skip the first line of each piece (e.g. a #! shebang)
+        pieces = [p.split("\n", 1)[1] if "\n" in p else "" for p in pieces]
+    text = "\n".join(pieces)
 
     if args.check:  # compile-check: list every %FTN diagnostic, don't run
         diags = []
@@ -166,6 +220,14 @@ def _run(argv, dialect, prog, *, allow_std, default_target="native"):
         print(f"?loading {', '.join(py_files)}: {e}", file=sys.stderr)
         return 1
 
+    captured = {}
+
+    def _setup(eng):  # capture the engine (so -i can inspect it) and run any register() hooks
+        captured["eng"] = eng
+        for h in hooks:
+            h(eng)
+
+    rc = 0
     try:
         forterp.run_source(
             text,
@@ -175,7 +237,7 @@ def _run(argv, dialect, prog, *, allow_std, default_target="native"):
             include_dir=include_dir,
             target=_TARGETS[args.target],
             builtins=builtins or None,  # host routines from the *.py args (after STDLIB)
-            setup=(lambda eng: [h(eng) for h in hooks]) if hooks else None,  # register(eng) hooks
+            setup=_setup,
             emit=sys.stdout.write,  # TYPE / terminal output -> stdout
             printer=sys.stdout.write,  # line-printer (units 3/6) -> stdout
             readline=sys.stdin.readline,  # READ / ACCEPT <- stdin
@@ -184,23 +246,30 @@ def _run(argv, dialect, prog, *, allow_std, default_target="native"):
         )
     except forterp.ParseError as e:
         print(e, file=sys.stderr)
-        return 1
+        rc = 1
     except (forterp.fmt.InputConversionError, Dec10FloatError) as e:
         # bad numeric field / unrepresentable float in binary I/O, no ERR= -> clean halt
         print(f"?{e}", file=sys.stderr)
-        return 1
+        rc = 1
     except forterp.engine.StopExecution:
-        return 0  # explicit STOP: normal termination (run_program also swallows it)
+        rc = 0  # explicit STOP: normal termination (run_program also swallows it)
     except KeyboardInterrupt:  # ^C while a program runs -> clean halt, not a traceback
         print("?Interrupted", file=sys.stderr)
-        return 130
+        rc = 130
     except (RuntimeError, ValueError, ArithmeticError, RecursionError, OSError, ImportError) as e:
         # any other runtime fault (undefined unit/label/routine, step budget, bad dimension,
         # deep recursion, a file error, or a host .py module whose basename shadows a stdlib
         # import) -> a clean ?-diagnostic, never a raw traceback
         print(f"?{e}", file=sys.stderr)
-        return 1
-    return 0
+        rc = 1
+
+    if args.i:  # inspect interactively after the run (cf. python -i): SHOW /BLOCK/, IMMEDIATE, ...
+        from forterp.command import CommandProcessor
+
+        cp = CommandProcessor(std=std, target=args.target, program=args.program, quiet=args.quiet)
+        cp.last_engine = captured.get("eng")
+        return cp.run()
+    return rc
 
 
 def f66_main(argv=None):

@@ -89,6 +89,12 @@ forterp --std fortran10 prog.for
 <p>The program's terminal output (<code>TYPE</code>, list-directed <code>PRINT *</code>, unit 5) and its
 line-printer output (units 3/6) go to <strong>stdout</strong>; <code>READ</code>/<code>ACCEPT</code> read from <strong>stdin</strong>. A
 normal end or <code>STOP</code> exits 0.</p>
+<p>Instead of a file you can pass the program inline with <code>-c</code> or read it from <strong>stdin</strong> with <code>-</code>:</p>
+<pre><code class="language-sh">pyfortran10 -c '      PRINT *, 2+2'$'\n''      END'   # program as a string
+cat prog.for | forterp --std fortran10 -              # program from stdin
+</code></pre>
+<p>A <code>#!</code> shebang works with <code>-x</code> (which skips the source's first line), so a <code>.for</code> file can be
+made executable: <code>#!/usr/bin/env -S pyfortran10 -x</code>.</p>
 <h3 id="linking-several-files">Linking several files</h3>
 <p>Pass multiple source files and they are linked by unit name, the way a compiler links
 <code>f77 main.f lib.f</code> — a driver and a separately-held library run as one program:</p>
@@ -129,11 +135,35 @@ normal end or <code>STOP</code> exits 0.</p>
 <td>disable the FORTRAN-10 terminal free-CR-LF wrap at column 80 (TOPS-10 <code>.TONFC</code>); no effect under strict F66, which never wraps.</td>
 </tr>
 <tr>
-<td><code>--version</code></td>
-<td>print <code>&lt;prog&gt; &lt;version&gt;</code> and exit.</td>
+<td><code>-c CMD</code></td>
+<td>run the FORTRAN program passed as a string (instead of a file).</td>
 </tr>
 <tr>
-<td><code>--help</code>, <code>-h</code></td>
+<td><code>-</code> (as a file)</td>
+<td>read the program from <strong>stdin</strong>.</td>
+</tr>
+<tr>
+<td><code>-x</code></td>
+<td>skip the source's first line (e.g. a <code>#!</code> shebang), so a <code>.for</code> file can be a runnable script.</td>
+</tr>
+<tr>
+<td><code>-i</code></td>
+<td>after running, drop into the interactive command processor — inspect <code>SHOW /BLOCK/</code>, <code>IMMEDIATE</code>, continue (cf. <code>python -i</code>).</td>
+</tr>
+<tr>
+<td><code>-q</code>, <code>--quiet</code></td>
+<td>suppress the interactive startup banner.</td>
+</tr>
+<tr>
+<td><code>-u</code></td>
+<td>force unbuffered stdout/stderr.</td>
+</tr>
+<tr>
+<td><code>--version</code>, <code>-V</code></td>
+<td>print <code>&lt;prog&gt; &lt;version&gt;</code> and exit; <code>-VV</code> adds the dialect/target/host build line.</td>
+</tr>
+<tr>
+<td><code>--help</code>, <code>-h</code>, <code>-?</code></td>
 <td>usage and exit.</td>
 </tr>
 </tbody>

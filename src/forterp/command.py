@@ -86,10 +86,12 @@ class CommandProcessor:
         write=None,
         errwrite=None,
         readline=None,
+        quiet=False,
     ):
         self.std = std
         self.target = target
         self.program = program
+        self.quiet = quiet  # suppress the startup banner (the CLI's -q / --quiet)
         self.units = None  # parsed-but-not-run program (from LOAD)
         self.loaded_path = None
         self.last_engine = None  # last engine that ran (for SHOW /BLOCK/)
@@ -129,7 +131,8 @@ class CommandProcessor:
     def run(self):
         """Read-eval-print over commands until EXIT or EOF. Returns 0."""
         self._running = True
-        self.write(self._banner())
+        if not self.quiet:
+            self.write(self._banner())
         while self._running:
             self.write(self._prompt())
             try:

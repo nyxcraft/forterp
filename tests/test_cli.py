@@ -238,3 +238,67 @@ def test_default_terminal_echo_is_a_noop_off_a_terminal():
     r, _ = os.pipe()  # a pipe fd is not a tty
     set_echo, restore = default_terminal_echo(r)
     assert set_echo is None and restore is None  # clean no-op; run_source skips it
+
+
+def test_version_flag_long_and_short(capsys):
+    # --version and -V both print "<prog> <version>" and exit 0, Python-style.
+    import forterp
+
+    for flag in ("--version", "-V"):
+        assert f10_main([flag]) == 0
+        assert capsys.readouterr().out.strip() == f"pyfortran10 {forterp.__version__}"
+    # -VV adds the dialect/target/host build line
+    assert f10_main(["-VV"]) == 0
+    out = capsys.readouterr().out
+    assert out.startswith("pyfortran10 ") and "target)" in out and "on " in out
+
+
+_END = "\n      END\n"
+
+
+def test_dash_c_runs_a_program_string(capsys):
+    # -c CMD runs the FORTRAN program passed as a string (cf. python -c).
+    assert f10_main(["-c", "      PRINT *, 2+2" + _END]) == 0
+    assert "4" in capsys.readouterr().out
+
+
+def test_dash_reads_program_from_stdin(monkeypatch, capsys):
+    # a "-" file argument reads the program from stdin.
+    monkeypatch.setattr("sys.stdin", io.StringIO("      PROGRAM T\n      PRINT *, 6*7" + _END))
+    assert f10_main(["-"]) == 0
+    assert "42" in capsys.readouterr().out
+
+
+def test_dash_x_skips_the_first_line(capsys):
+    # -x skips the source's first line, so a #! shebang line doesn't reach the parser.
+    p = _src("#!/usr/bin/env forterp\n" + HELLO_F66)
+    try:
+        assert f66_main(["-x", p]) == 0  # runs cleanly with -x
+        assert "HELLO FROM F66" in capsys.readouterr().out
+        assert f66_main([p]) == 1  # without -x the '#!' line is a parse error
+    finally:
+        os.unlink(p)
+
+
+def test_quiet_suppresses_the_banner(monkeypatch, capsys):
+    # -q drops the interactive startup banner; the prompt still appears.
+    monkeypatch.setattr("sys.stdin", io.StringIO("EXIT\n"))
+    assert f66_main(["-q"]) == 0
+    out = capsys.readouterr().out
+    assert "Type HELP" not in out  # banner suppressed
+    assert "f66>" in out  # prompt still shown
+
+
+def test_unbuffered_flag_runs(capsys):
+    # -u reconfigures the streams unbuffered; the program still runs and prints.
+    assert f10_main(["-u", "-c", "      PRINT *, 1+1" + _END]) == 0
+    assert "2" in capsys.readouterr().out
+
+
+def test_inspect_after_run_enters_the_processor(monkeypatch, capsys):
+    # -i runs the program, then drops into the command processor with the engine available,
+    # so SHOW /BLOCK/ can inspect what the run left in COMMON.
+    monkeypatch.setattr("sys.stdin", io.StringIO("SHOW /OUT/\nEXIT\n"))
+    prog = "      COMMON /OUT/ N\n      N = 99" + _END
+    assert f10_main(["-i", "-q", "-c", prog]) == 0
+    assert "99" in capsys.readouterr().out  # SHOW /OUT/ reported the post-run value
