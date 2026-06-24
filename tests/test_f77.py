@@ -365,6 +365,20 @@ def test_list_directed_write_and_read():
     assert _run_io(src, stdin="42\n").commons["O"][0] == 42
 
 
+def test_keyword_io_control_list():
+    # F77 §12.8: a READ/WRITE keyword control list -- UNIT=/FMT= route to the unit & format.
+    eng = _run_io(
+        "      PROGRAM T\n      I=7\n      WRITE(UNIT=6,FMT=10) I\n"
+        "   10 FORMAT(1H ,I3)\n      END\n"
+    )
+    assert "".join(eng.out).strip() == "7"
+    src = (
+        "      PROGRAM T\n      COMMON /O/ N(8)\n      READ(UNIT=5,FMT=10) N(1)\n"
+        "   10 FORMAT(I3)\n      END\n"
+    )
+    assert _run_io(src, stdin=" 42\n").commons["O"][0] == 42
+
+
 def test_widthless_a_writes_full_character_value():
     # F77 §13.5.11: a widthless A takes the list item's CHARACTER length (here 5). Strict
     # F66 rejects a widthless descriptor; the relaxation is gated on the CHARACTER type.

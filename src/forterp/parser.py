@@ -879,31 +879,48 @@ class StatementParser:
             return A.TypeStmt(fmt=fmt, items=items)
         return A.AcceptStmt(fmt=fmt, items=items, reread=(kw == "REREAD"))
 
+    def _io_keyword_ahead(self):
+        """True when the next control-list item is a `KEY=` specifier (UNIT=/FMT=/END=/...)
+        rather than a positional unit or format."""
+        return (
+            self.is_id()
+            and self.peek().value in IO_SPEC_KEYS
+            and self.peek_next()
+            and self.peek_next().kind == "OP"
+            and self.peek_next().value == "="
+        )
+
     def parse_readwrite(self, kw):
         """Parse READ/WRITE(unit ...) into an IoStmt, covering the FORTRAN-10 forms:
         sequential vs random (u#r / u'r record number), formatted (label) / list-directed
         (*) / unformatted (no fmt), and END=/ERR=/REC= control specs."""
         self.advance()  # READ / WRITE
         self.expect_op("(")
-        unit = self.p_add()  # arithmetic only, so '#'/'\'' (rec sep) survive
         fmt = None
         specs = {}
-        if self.is_op("#") or self.is_op("'"):  # V5 10.3.5: random record  u#r / u'r
-            if not self.dialect.extended_io:  # F66 has no random-access I/O
-                raise ParseError("random-access record (u#r) is a FORTRAN-10 extension", "NRC")
-            self.advance()
-            specs["REC"] = self.p_add()
-        while self.accept_op(","):
-            if (
-                self.is_id()
-                and self.peek().value in IO_SPEC_KEYS
-                and self.peek_next()
-                and self.peek_next().kind == "OP"
-                and self.peek_next().value == "="
-            ):
+        unit = None
+        # A keyword control list -- READ(UNIT=u, FMT=f, ...) -- has no positional unit (F77 §12.8);
+        # otherwise the first item is the unit (arithmetic only, so '#'/'\'' rec-sep survive).
+        first = self._io_keyword_ahead()
+        if not first:
+            unit = self.p_add()
+            if self.is_op("#") or self.is_op("'"):  # V5 10.3.5: random record  u#r / u'r
+                if not self.dialect.extended_io:  # F66 has no random-access I/O
+                    raise ParseError("random-access record (u#r) is a FORTRAN-10 extension", "NRC")
+                self.advance()
+                specs["REC"] = self.p_add()
+        while first or self.accept_op(","):
+            first = False
+            if self._io_keyword_ahead():
                 key = self.advance().value
                 self.advance()  # '='
-                if self.peek() and self.peek().kind in ("INT", "OCTAL"):
+                if self.accept_op("*"):
+                    if not self.dialect.list_directed_io:
+                        raise ParseError(
+                            "list-directed I/O (*) requires FORTRAN-77 / FORTRAN-10", "NRC"
+                        )
+                    specs[key] = "*"
+                elif self.peek() and self.peek().kind in ("INT", "OCTAL"):
                     specs[key] = self.advance().value
                 else:
                     specs[key] = self.parse_expr()
@@ -918,6 +935,11 @@ class StatementParser:
             else:
                 fmt = self.parse_expr()
         self.expect_op(")")
+        if "UNIT" in specs:  # route the keyword unit/format into the dedicated fields
+            u = specs.pop("UNIT")
+            unit = A.IntLit(u) if isinstance(u, int) else u
+        if "FMT" in specs:
+            fmt = specs.pop("FMT")
         # DEC FORTRAN-10 accepts an optional comma between the control list and the I/O
         # list -- WRITE(u,f),list -- which ANSI F66 (7.1.2) does not; gate it like the
         # other DEC I/O forms in this routine.
