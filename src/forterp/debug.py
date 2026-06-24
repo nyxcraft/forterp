@@ -205,8 +205,14 @@ class Tracer:
         self.write(f"-- stopped at {frame.rt.unit.name}:{stmt.line} ({type(stmt).__name__})\n")
         while True:
             self.write("(dbg) ")
-            line = self.readline()
-            if line == "":  # EOF -> detach and continue running
+            try:
+                line = self.readline()
+            except EOFError:  # Ctrl-D via an input()-style reader -> treat as EOF
+                line = ""
+            except KeyboardInterrupt:  # ^C at the debugger prompt: re-prompt, don't crash
+                self.write("\n")
+                continue
+            if line == "":  # EOF (Ctrl-D) -> detach and continue running
                 self.write("\n")
                 return
             cmd = line.strip()

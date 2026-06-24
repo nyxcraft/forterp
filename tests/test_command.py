@@ -167,3 +167,19 @@ def test_ctrl_c_at_the_prompt_reprompts_and_does_not_crash():
     rc = CommandProcessor(write=out.append, errwrite=err.append, readline=readline).run()
     assert rc == 0  # exited cleanly on EXIT after the ^C, no traceback
     assert "".join(out).count("f66>") >= 2  # re-prompted after the interrupt
+
+
+def test_eof_via_empty_readline_exits_cleanly():
+    # ^D on the default reader: sys.stdin.readline returns "" at EOF -> clean exit.
+    out, _ = drive([])  # no input at all
+    assert out.startswith("forterp ")  # banner shown, then exited without raising
+
+
+def test_eof_via_eoferror_exits_cleanly():
+    # ^D on an input()-style reader raises EOFError -> the loop must exit cleanly, not traceback.
+    def readline():
+        raise EOFError
+
+    out, err = [], []
+    rc = CommandProcessor(write=out.append, errwrite=err.append, readline=readline).run()
+    assert rc == 0

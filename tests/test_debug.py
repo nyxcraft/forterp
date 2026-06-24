@@ -198,3 +198,24 @@ def test_oob_counts_are_cumulative_and_log_clears():
     forterp.debug.clear_oob_log()
     assert forterp.debug.oob_log() == []
     forterp.debug.set_oob_mode("off")  # restore the faithful default
+
+
+def test_eof_at_the_debugger_prompt_detaches_and_runs_to_completion():
+    # ^D / EOF at the (dbg) breakpoint prompt detaches and lets the run finish -- no traceback.
+    p = _src(INCR)
+    cmds = iter(["BREAK 5\n", f"RUN {p}\n"])
+
+    def readline():  # input()-style: raises EOFError at end (the (dbg) prompt, then the monitor)
+        try:
+            return next(cmds)
+        except StopIteration:
+            raise EOFError
+
+    out = []
+    try:
+        m = CommandProcessor(write=out.append, errwrite=out.append, readline=readline)
+        m.run()
+    finally:
+        os.unlink(p)
+    assert "(dbg)" in "".join(out)  # we stopped at the breakpoint
+    assert m.last_engine.commons["O"][0] == 43  # detached on EOF and ran to completion (M=42 -> 43)
