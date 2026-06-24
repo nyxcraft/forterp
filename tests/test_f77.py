@@ -469,6 +469,17 @@ def test_widthless_a_writes_full_character_value():
     assert "".join(eng.out).strip() == "HI"
 
 
+def test_sequential_scratch_file_round_trip():
+    # An unconnected unit defaults to a sequential scratch file: WRITE a record, REWIND,
+    # and READ it back (the FCVS FM10x tape/disk routines rely on this).
+    src = (
+        "      PROGRAM T\n      COMMON /O/ N(8)\n"
+        "      WRITE(7,10) 42\n   10 FORMAT(I5)\n      REWIND 7\n"
+        "      READ(7,10) K\n      N(1)=K\n      END\n"
+    )
+    assert _out(src)[0] == 42
+
+
 def test_a_format_reads_a_character():
     src = _cprog("      CHARACTER R*5\n      READ(5,10) R\n   10 FORMAT(A5)\n")
     assert _run_io(src, stdin="WORLD\n").commons["O"][0] == "WORLD"

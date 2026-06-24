@@ -15,9 +15,14 @@ All 140 routines now parse and run under the F77 front-end (no parse-gaps). The 
 below are pinned so that any regression -- or a future gain -- is visible and forces a
 conscious update.
 
-Of the 140 that run: 1423 sub-tests PASS, 155 ERRORS, 49 print-and-eyeball (no summary).
-The 155 errors are pre-existing value-model / numeric-precision differences (not parse or
-control-flow failures); driving them down is separate, ongoing conformance work.
+Of the 140 that run: 1514 sub-tests PASS, 89 ERRORS, 48 print-and-eyeball (no summary).
+The remaining 89 errors are all in 5 routines (FM103/104/105/107/108) that test the `/`
+(record-break) and `X` (column-skip) FORMAT descriptors over a sequential file: forterp's
+sequential-file model stores I/O-list *values* per record, not formatted text, so a format
+that splits or repositions records does not round-trip. Making those pass needs formatted-
+text sequential records (write the rendered line, read it back through the format) -- a
+separate, larger I/O change. Everything else (all parse gaps; the scratch-file round-trip
+behind FM100/101/102/106) is done.
 
 Landed since the restore: IMPLICIT CHARACTER*<len> (the audit-harness preamble), the
 optional comma after a DO label, LOGICAL/COMPLEX PARAMETER constants, the widthless A
@@ -56,9 +61,9 @@ def test_f77_conformance_baseline():
     # the fix (a gain) or investigate (a regression).
     assert R["n_run"] == 140
     assert R["n_gap"] == 0
-    assert R["total_pass"] == 1423
-    assert R["total_err"] == 155
-    assert len(R["nosummary"]) == 49
+    assert R["total_pass"] == 1514
+    assert R["total_err"] == 89
+    assert len(R["nosummary"]) == 48
 
 
 def test_running_routines_mostly_pass():

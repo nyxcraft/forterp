@@ -1952,8 +1952,12 @@ class Engine:
             # Auto-connect to its default device (see default_devices / V5 Table 10-1).
             dev = self.default_devices.get(unit)
             if dev is None:
-                return None
-            st = self.io[unit] = {"mode": dev}
+                # An unconnected unit defaults to a sequential scratch file (FORTRAN-10
+                # FORnn.DAT): WRITE appends value records, REWIND/BACKSPACE reposition, and a
+                # later READ reads them back. Previously such writes were silently dropped.
+                st = self.io[unit] = {"recs": [], "pos": 0, "mode": "w"}
+            else:
+                st = self.io[unit] = {"mode": dev}
         if s.mode == "READ" and st.get("mode") == "term":  # terminal input (e.g. unit 5)
             raw = self.readline()
             line = raw.rstrip("\r\n")
