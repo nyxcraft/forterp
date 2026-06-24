@@ -34,6 +34,7 @@
         <p class="docs-sidebar__eyebrow">On this page</p>
         <nav class="section-nav" aria-label="On this page">
 <ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#2026-06-24-the-monitor-rename-override-docs-and-pypi-release-wiring">2026-06-24 — the monitor rename, override docs, and PyPI release wiring</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#2026-06-23-host-services-terminal-modes-and-real-binary-files">2026-06-23 — host services, terminal modes, and real binary files</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#2026-06-22-host-services-for-the-embedder">2026-06-22 — host services for the embedder</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#2026-06-21-genuine-source-demos-then-the-release-readiness-sweep">2026-06-21 — genuine-source demos, then the release-readiness sweep</a></li>
@@ -54,6 +55,17 @@
           <p class="docs-article__source">Changelog</p>
         </header>
         <div class="prose">
+<h2 id="2026-06-24-the-monitor-rename-override-docs-and-pypi-release-wiring">2026-06-24 — the monitor rename, override docs, and PyPI release wiring</h2>
+<ul>
+<li><strong>09:58</strong> — Dropped the <code>@builtin</code> decorator alias — <code>@fcall</code>/<code>@uuo</code> are the two authoring decorators; &quot;builtin&quot; stays the registry noun (<code>register_builtins</code>/<code>builtins_in</code>/<code>BUILTINS</code>). Synced the guides + CHANGELOG to the host-layer work.</li>
+<li><strong>10:23</strong> — Reformatted this changelog as reverse-chronological day blocks (newest first), terse timed one-liners.</li>
+<li><strong>10:44</strong> — Renamed the interactive shell <code>Monitor</code> → <code>CommandProcessor</code> (<code>forterp.command</code>) and dropped the REPL's <code>MONITOR</code> reserved word — freeing &quot;monitor&quot; for the executive facade.</li>
+<li><strong>10:59</strong> — Renamed the <code>@uuo</code> facade <code>Host</code> → <code>Monitor</code> (<code>monitor(eng)</code>, <code>eng.monitor</code>, the <code>monitor=</code> builder kwarg) — <code>mon</code> now abbreviates its actual type.</li>
+<li><strong>11:09</strong> — API guide: how to override the <code>Monitor</code> facade with your own (subclass + inject via <code>monitor=</code> or <code>eng.monitor</code>; the bundled <code>uuolib</code> UUOs read the engine seam directly, not the facade).</li>
+<li><strong>11:33</strong> — <code>_load_builtins</code> no longer leaks <code>sys.path</code>/<code>sys.modules</code>; the <code>STR</code> arg mode strips a packed word's padding so it equals the literal text.</li>
+<li><strong>11:38</strong> — Documented the <code>hostlib.host_ppn</code>/<code>host_user</code> identity helpers alongside <code>mon.identity</code>.</li>
+<li><strong>11:56</strong> — PyPI release wiring: publish through the <code>forterp-pypi</code> environment, with a manual approval gate (the <code>release</code> environment + a required reviewer) fronting the tag-triggered publish.</li>
+</ul>
 <h2 id="2026-06-23-host-services-terminal-modes-and-real-binary-files">2026-06-23 — host services, terminal modes, and real binary files</h2>
 <ul>
 <li><strong>02:17</strong> — <code>hostlib</code> <code>STR</code> arg mode: <code>args=(STR,)</code> gives the body a Python <code>str</code> (a quoted literal verbatim, or a packed word decoded via the target codec), lifting the StrLit-vs-packed resolution out of each body.</li>

@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-06-24 — the monitor rename, override docs, and PyPI release wiring
+
+- **09:58** — Dropped the `@builtin` decorator alias — `@fcall`/`@uuo` are the two authoring decorators; "builtin" stays the registry noun (`register_builtins`/`builtins_in`/`BUILTINS`). Synced the guides + CHANGELOG to the host-layer work.
+- **10:23** — Reformatted this changelog as reverse-chronological day blocks (newest first), terse timed one-liners.
+- **10:44** — Renamed the interactive shell `Monitor` → `CommandProcessor` (`forterp.command`) and dropped the REPL's `MONITOR` reserved word — freeing "monitor" for the executive facade.
+- **10:59** — Renamed the `@uuo` facade `Host` → `Monitor` (`monitor(eng)`, `eng.monitor`, the `monitor=` builder kwarg) — `mon` now abbreviates its actual type.
+- **11:09** — API guide: how to override the `Monitor` facade with your own (subclass + inject via `monitor=` or `eng.monitor`; the bundled `uuolib` UUOs read the engine seam directly, not the facade).
+- **11:33** — `_load_builtins` no longer leaks `sys.path`/`sys.modules`; the `STR` arg mode strips a packed word's padding so it equals the literal text.
+- **11:38** — Documented the `hostlib.host_ppn`/`host_user` identity helpers alongside `mon.identity`.
+- **11:56** — PyPI release wiring: publish through the `forterp-pypi` environment, with a manual approval gate (the `release` environment + a required reviewer) fronting the tag-triggered publish.
+
 ## 2026-06-23 — host services, terminal modes, and real binary files
 
 - **02:17** — `hostlib` `STR` arg mode: `args=(STR,)` gives the body a Python `str` (a quoted literal verbatim, or a packed word decoded via the target codec), lifting the StrLit-vs-packed resolution out of each body.
