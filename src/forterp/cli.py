@@ -81,6 +81,12 @@ def _run(argv, dialect, prog, *, allow_std, default_target="native"):
         help="recover statement text reindented past column 72 (off by default -- a faithful "
         "FORTRAN-10 compiler drops cols 73+); for a deck nudged a column or two to the right",
     )
+    ap.add_argument(
+        "--no-wrap",
+        action="store_true",
+        help="disable the FORTRAN-10 terminal free-CR-LF wrap at column 80 (TOPS-10 .TONFC); "
+        "no effect under strict F66, which never wraps",
+    )
     if allow_std:
         ap.add_argument(
             "--std",
@@ -150,6 +156,7 @@ def _run(argv, dialect, prog, *, allow_std, default_target="native"):
             emit=sys.stdout.write,  # TYPE / terminal output -> stdout
             printer=sys.stdout.write,  # line-printer (units 3/6) -> stdout
             readline=sys.stdin.readline,  # READ / ACCEPT <- stdin
+            tty_autowrap=not args.no_wrap,  # FORTRAN-10 free-CR-LF wrap at col 80 unless --no-wrap
             # echo control (ECHOON/ECHOFF) -> run_source's default_terminal_echo on a real tty
         )
     except forterp.ParseError as e:

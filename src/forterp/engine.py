@@ -333,6 +333,8 @@ class Engine:
         dec_intrinsics=True,
         max_array_words=50_000_000,
         dec_files=False,
+        tty_width=80,
+        tty_autowrap=True,
     ):
         import random
 
@@ -410,13 +412,57 @@ class Engine:
         self._getch = getch
         self._readline = readline
         self._set_echo = set_echo  # front-end hook to change the real terminal echo mode
-        self._set_autowrap = set_autowrap  # front-end hook to set autowrap (TOPS-10 free CR-LF)
+        self._set_autowrap = set_autowrap  # optional front-end hook, also notified on a change
         self._printer = printer
+        # FORTRAN-10 terminal line discipline ('free CR-LF'): emit() inserts a newline at the
+        # carriage width so terminal output doesn't overrun the margin. `tty_width` is the carriage
+        # width (0 = no wrap); `_autowrap` is the switch a program toggles via TRMOP. .TONFC (our
+        # TRMOP2). Active only under the DEC dialect (dec_intrinsics); strict F66 never wraps.
+        # `_col` tracks the output column (also read by the tty facade's crlf/tab).
+        self._tty_width = tty_width
+        self._autowrap = tty_autowrap
+        self._col = 0
         self._build()
 
     # ---- terminal / RNG plumbing
     def emit(self, s):
+        # FORTRAN-10 'free CR-LF' (TOPS-10 monitor line discipline): wrap terminal output at the
+        # carriage width. Gated on the DEC dialect + the autowrap switch (TRMOP2 / .TONFC disables
+        # it for a cursor-addressed full-screen display); strict F66 never wraps. Either way, track
+        # the output column so the tty facade's crlf/tab stay accurate.
+        if self.dec_intrinsics and self._autowrap and self._tty_width > 0:
+            s = self._wrap_cols(s)
+        else:
+            nl = s.rfind("\n")
+            self._col = (len(s) - nl - 1) if nl >= 0 else self._col + len(s)
         self._emit(s)
+
+    def _wrap_cols(self, s):
+        """Insert a newline at the carriage margin (free CR-LF) and track the output column.
+        Deferred wrap: exactly `_tty_width` printing chars fit on a line; the next one wraps."""
+        w = self._tty_width
+        col = self._col
+        out = []
+        for ch in s:
+            if ch in "\n\r\f":  # newline / return / form-feed -> back to the left margin
+                out.append(ch)
+                col = 0
+            elif ch == "\t":  # tab advances to the next 8-column stop (passes through)
+                out.append(ch)
+                col = (col // 8 + 1) * 8
+            elif ch == "\b":  # backspace
+                out.append(ch)
+                col = col - 1 if col > 0 else 0
+            elif " " <= ch <= "~":  # a printing char: wrap at the margin, then advance
+                if col >= w:
+                    out.append("\n")
+                    col = 0
+                out.append(ch)
+                col += 1
+            else:  # other control (BEL, ESC, ...): passes through, no column change
+                out.append(ch)
+        self._col = col
+        return "".join(out)
 
     def getch(self):
         return self._getch() if self._getch else "\n"
@@ -432,17 +478,20 @@ class Engine:
             self._set_echo(bool(on))
 
     def set_autowrap(self, on):
-        """Change the terminal autowrap mode through the injected front-end hook (no-op if
-        unwired). The PDP-10 'free CR-LF' switch (TRMOP. .TONFC): a program disables autowrap so
-        a full-screen, cursor-addressed display isn't scrolled when output reaches the margin. A
-        front-end that renders to an ANSI terminal honors it (ESC[?7l / ESC[?7h)."""
+        """Set the terminal autowrap / 'free CR-LF' mode (the PDP-10 TRMOP. .TONFC switch -- our
+        TRMOP2). Under the DEC dialect this drives emit()'s own column wrapping, so a program
+        disabling it (for a full-screen, cursor-addressed display) stops the margin newline
+        host-side -- as TOPS-10's monitor did, no terminal escape needed. An optional front-end
+        hook is also notified (e.g. an ANSI renderer that wants ESC[?7l / ESC[?7h)."""
+        self._autowrap = bool(on)
         if self._set_autowrap:
             self._set_autowrap(bool(on))
 
     def printer(self, s):
-        # Line-printer (LPT) sink. The driver attaches a spool file; with no driver
-        # hook we fall back to the terminal so printer output is never silently lost.
-        (self._printer or self.emit)(s)
+        # Line-printer (LPT) sink. The driver attaches a spool file; with no driver hook we fall
+        # back to the raw output sink (NOT emit) so printer output is never silently lost -- and is
+        # not subject to the terminal's free-CR-LF margin wrap (a printer has its own width).
+        (self._printer or self._emit)(s)
 
     def seed_rng(self, n):
         self.rng.seed(n & self.tgt.mask)

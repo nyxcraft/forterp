@@ -180,16 +180,28 @@ def test_builtins_in_registers_name_aliases_and_module_BUILTINS():
 
 class FakeHostEng(FakeEng):
     """FakeEng plus the engine host seam the baseline facade reads (emit/getch/readline,
-    root/save_root, clock)."""
+    root/save_root, clock) and the terminal state it now delegates to (column/width/autowrap,
+    which live on the engine -- emit() owns the column, set_autowrap the free-CR-LF switch)."""
 
     def __init__(self, root="."):
         self.out = []
         self.root = root
         self.save_root = root
         self.clock = 1234
+        self._col = 0
+        self._tty_width = 80
+        self._autowrap = True
+        self._set_autowrap = None  # optional front-end hook (an ANSI renderer wires it)
 
     def emit(self, s):
         self.out.append(s)
+        nl = s.rfind("\n")  # track the column like Engine.emit (the facade reads eng._col)
+        self._col = (len(s) - nl - 1) if nl >= 0 else self._col + len(s)
+
+    def set_autowrap(self, on):
+        self._autowrap = bool(on)
+        if self._set_autowrap:
+            self._set_autowrap(bool(on))
 
     def getch(self):
         return "Q"
@@ -232,7 +244,7 @@ def test_baseline_tty_echo_drives_the_set_echo_hook():
 def test_baseline_tty_autowrap_defaults_on_and_drives_the_hook():
     calls = []
     eng = FakeHostEng()
-    eng.set_autowrap = calls.append  # an ANSI front-end wires this (ESC[?7l / ESC[?7h)
+    eng._set_autowrap = calls.append  # an ANSI front-end wires this hook (ESC[?7l / ESC[?7h)
     mon = Host(eng)
     assert mon.tty.autowrap is True  # terminals wrap at the right margin by default
     mon.tty.autowrap = False  # TRMOP2: set .TONFC (no free CR-LF) for a full-screen display

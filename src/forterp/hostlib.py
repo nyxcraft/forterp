@@ -288,18 +288,28 @@ def builtins_in(module):
 
 
 class _Tty:
-    """The terminal: the (emit, getch, readline) seam, tracking the horizontal cursor column so
-    a newline/space/tab can be column-aware, plus two terminal modes the program toggles --
-    ``echo`` (the monitor's TTY echo, e.g. a TOPS-10 SETSTS/INIT for raw single-key input) and
-    ``autowrap`` (the 'free CR-LF' switch, TRMOP. .TONFC -- whether output wraps/scrolls at the
-    right margin). Assigning either drives the matching engine hook (``set_echo``/``set_autowrap``)
-    so the front-end changes its real terminal mode; with no hook wired it just records it."""
+    """The terminal: the (emit, getch, readline) seam. The output column, carriage ``width`` and
+    ``autowrap`` ('free CR-LF') mode live on the engine -- emit() does the actual margin wrap under
+    the DEC dialect -- so this facade just delegates to them. The program toggles ``echo`` (the
+    monitor's TTY echo, e.g. a TOPS-10 SETSTS/INIT for raw single-key input) and ``autowrap`` (the
+    TRMOP. .TONFC switch); assigning a mode drives the engine, which changes the real behavior."""
 
     def __init__(self, eng):
         self._eng = eng
-        self.col = 0
         self._echo = True
-        self._autowrap = True
+
+    @property
+    def col(self):
+        return self._eng._col
+
+    @property
+    def width(self):
+        """The terminal carriage width (the free-CR-LF margin); 0 = no wrap."""
+        return self._eng._tty_width
+
+    @width.setter
+    def width(self, n):
+        self._eng._tty_width = int(n)
 
     @property
     def echo(self):
@@ -314,21 +324,15 @@ class _Tty:
 
     @property
     def autowrap(self):
-        return self._autowrap
+        return self._eng._autowrap
 
     @autowrap.setter
     def autowrap(self, on):
-        self._autowrap = bool(on)
-        setter = getattr(self._eng, "set_autowrap", None)
-        if setter:  # a front-end that renders to a terminal toggles autowrap (ANSI ESC[?7l/?7h)
-            setter(self._autowrap)
+        self._eng.set_autowrap(on)  # engine flag drives emit()'s free-CR-LF (+ any front-end hook)
 
     def write(self, s):
-        if not s:
-            return
-        self._eng.emit(s)
-        nl = s.rfind("\n")
-        self.col = (len(s) - nl - 1) if nl >= 0 else self.col + len(s)
+        if s:
+            self._eng.emit(s)  # emit() tracks the column (and wraps under the DEC dialect)
 
     def crlf(self):
         """A smart newline: only if not already at the left margin (no double blanks)."""
