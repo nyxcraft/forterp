@@ -9,9 +9,9 @@ Phase 2 -- CHARACTER: declarations with a length, blank-pad/truncate assignment,
 assignable lvalue, incl. array-element substrings). Under the F77 dialect a string literal is a
 CHARACTER constant (a Python str), not a Hollerith packed word.
 
-Phase 3 -- A-format CHARACTER I/O: WRITE/READ a CHARACTER with an A descriptor (the A field is
-a str; input fits to the declared length by the F77 rightmost/blank-fill rule). Internal files
-and INQUIRE are later.
+Phase 3 -- I/O: A-format CHARACTER WRITE/READ (the A field is a str; input fits to the declared
+length by the F77 rightmost/blank-fill rule), internal files (READ/WRITE to a CHARACTER variable),
+and INQUIRE (by FILE / by UNIT: EXIST/OPENED/NUMBER/NAMED/NAME/IOSTAT).
 
 Runs under the F77 dialect (NATIVE target) unless a test says otherwise."""
 
@@ -356,6 +356,33 @@ def test_internal_write_mixed_a_and_i():
         "      W='ITEM'\n      K=9\n      WRITE(R,10) W, K\n   10 FORMAT(A5,I3)\n"
     )
     assert _out(_cprog(body))[0] == "ITEM   9    "
+
+
+# ---- INQUIRE (Phase 3) ----------------------------------------------------------------------
+def test_inquire_exist_by_file(tmp_path):
+    (tmp_path / "THERE.DAT").write_text("hi")
+    root = str(tmp_path)
+    yes = forterp.run_source(
+        _cprog("      LOGICAL R\n      INQUIRE(FILE='THERE.DAT', EXIST=R)\n"),
+        dialect=forterp.F77,
+        target=forterp.NATIVE,
+        root=root,
+    )
+    no = forterp.run_source(
+        _cprog("      LOGICAL R\n      INQUIRE(FILE='GONE.DAT', EXIST=R)\n"),
+        dialect=forterp.F77,
+        target=forterp.NATIVE,
+        root=root,
+    )
+    assert yes.commons["O"][0] and not no.commons["O"][0]
+
+
+def test_inquire_opened_is_false_for_an_unconnected_unit():
+    assert not _out(_cprog("      LOGICAL R\n      INQUIRE(UNIT=9, OPENED=R)\n"))[0]
+
+
+def test_inquire_number_echoes_the_unit():
+    assert _out(_cprog("      INTEGER R\n      INQUIRE(UNIT=7, NUMBER=R)\n"))[0] == 7
 
 
 def test_concat_operator_only_tokenized_under_character_type():

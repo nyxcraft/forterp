@@ -2001,10 +2001,57 @@ class Engine:
         as-is; anything else is an expression node to evaluate in `frame`."""
         return v if (v is None or isinstance(v, (int, str))) else self.eval(v, frame)
 
+    def _inquire(self, s, frame):
+        """F77 INQUIRE (X3.9-1978 12.10) by FILE or by UNIT. Each output specifier names a
+        variable that receives the result; the common ones are supported (EXIST / OPENED /
+        NUMBER / NAMED / NAME / IOSTAT). Unmodeled specifiers are simply ignored."""
+        import os
+
+        specs = s.specs
+        if "FILE" in specs:
+            fspec = self._spec(specs["FILE"], frame)
+            fname = self.tgt.unpack(fspec).strip() if isinstance(fspec, int) else str(fspec).strip()
+            path = self._open_path(fname)
+            number = next((u for u, st in self.io.items() if st.get("path") == path), -1)
+            results = {
+                "EXIST": os.path.exists(path),
+                "OPENED": number != -1,
+                "NUMBER": number,
+                "NAMED": True,
+                "NAME": fname,
+            }
+        else:
+            unit = self._spec(specs.get("UNIT", 1), frame)
+            st = self.io.get(unit)
+            path = st.get("path") if st else None
+            results = {
+                "EXIST": True,  # a unit number is always a valid connection point
+                "OPENED": st is not None,
+                "NUMBER": unit,
+                "NAMED": path is not None,
+                "NAME": os.path.basename(path) if path else "",
+            }
+        results["IOSTAT"] = 0
+        for key, val in results.items():
+            tgt = specs.get(key)
+            if not isinstance(tgt, (A.Var, A.Ref)):  # output specifiers are variables
+                continue
+            ref = self.arg_ref(tgt, frame)
+            if isinstance(val, bool):
+                ref.write(self.tgt.from_bool(val))
+            elif isinstance(val, str):
+                n = self.char_length(frame.rt.unit, tgt.name)
+                ref.write(val[:n].ljust(n) if n else val)
+            else:
+                ref.write(val)
+        return None
+
     def _file_ctl(self, s, frame):
         import json
 
         specs = s.specs
+        if s.verb == "INQUIRE":
+            return self._inquire(s, frame)
         unit = self._spec(specs.get("UNIT", 1), frame)
         if s.verb == "OPEN":
             dev = specs.get("DEVICE")

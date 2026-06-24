@@ -562,7 +562,7 @@ class StatementParser:
             return self.parse_default_io(kw)  # default-device form
         if kw == "DEFINE" and nx and nx.kind == "ID" and nx.value == "FILE":
             return self.parse_define_file()
-        if kw in ("OPEN", "CLOSE") and nx and nx.kind == "OP" and nx.value == "(":
+        if kw in ("OPEN", "CLOSE", "INQUIRE") and nx and nx.kind == "OP" and nx.value == "(":
             return self.parse_filectl(kw)
         if kw in ("REWIND", "BACKSPACE", "ENDFILE"):  # bare unit or (specs)
             return self.parse_filectl(kw)
