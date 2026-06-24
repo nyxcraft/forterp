@@ -38,7 +38,7 @@
 <li><a class="section-nav__link section-nav__link--l3" href="#linking-several-files">Linking several files</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#options">Options</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#exit-codes">Exit codes</a></li>
-<li><a class="section-nav__link section-nav__link--l2" href="#interactive-monitor">Interactive monitor</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#interactive-command-processor">Interactive command processor</a></li>
 <li><a class="section-nav__link section-nav__link--l3" href="#debugging">Debugging</a></li>
 <li><a class="section-nav__link section-nav__link--l3" href="#immediate-a-repl">`IMMEDIATE` (a REPL)</a></li>
 </ul>
@@ -162,8 +162,8 @@ normal end or <code>STOP</code> exits 0.</p>
 </tbody>
 </table>
 <p>Runtime faults are reported as a single <code>?…</code> line on stderr — never a Python traceback.</p>
-<h2 id="interactive-monitor">Interactive monitor</h2>
-<p>Launched with <strong>no file</strong>, each command drops into an interactive monitor — a small,
+<h2 id="interactive-command-processor">Interactive command processor</h2>
+<p>Launched with <strong>no file</strong>, each command drops into an interactive command processor — a small,
 FORTRAN-focused descendant of the TOPS-10 <code>.</code> prompt. It works on whole source files (F66
 has no incremental-execution model), except for <code>IMMEDIATE</code> mode. The command set is the
 same for all three commands; only the starting dialect differs, and <code>SET STD</code> flips it.</p>
@@ -175,12 +175,12 @@ f10&gt; SET STD fortran10        # switch dialect / TARGET / PROGRAM between run
 f10&gt; SET TARGET pdp10
 f10&gt; SHOW /OUT/               # inspect a COMMON block after a run; SHOW = settings
 f10&gt; !ls                      # run a host shell command
-f10&gt; @script.mon              # run monitor commands from a file
+f10&gt; @script.mon              # run commands from a file
 f10&gt; HELP                     # the command list
 f10&gt; EXIT                     # quit                          (alias QUIT)
 </code></pre>
 <h3 id="debugging">Debugging</h3>
-<p>The monitor carries a per-statement debugger/profiler (off by default — a plain <code>RUN</code>
+<p>The command processor carries a per-statement debugger/profiler (off by default — a plain <code>RUN</code>
 pays nothing):</p>
 <pre><code class="language-text">f66&gt; BREAK 7                  # breakpoint at line 7 (no arg = list); UNBREAK to remove
 f66&gt; STEP                     # the next RUN stops at the first statement
@@ -202,9 +202,9 @@ inspection.</p>
 persistent session. <code>COMMON</code>/<code>EQUIVALENCE</code>/<code>NAMELIST</code> are out of scope for immediate mode —
 put them in a file and <code>LOAD</code> it.</p>
 <blockquote>
-<p>The monitor's <code>!</code> shell escape and <code>@file</code> scripts run with your shell's privileges and
+<p>The command processor's <code>!</code> shell escape and <code>@file</code> scripts run with your shell's privileges and
 are <strong>not</strong> reachable from a running FORTRAN program. Treat a command script as trusted
-input; don't wire the monitor to an untrusted source.</p>
+input; don't wire the command processor to an untrusted source.</p>
 </blockquote>
 
         </div>

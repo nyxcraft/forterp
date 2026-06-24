@@ -56,9 +56,9 @@ forterp main.for lib.for      # main.for's PROGRAM calls SUBROUTINEs defined in 
 
 Runtime faults are reported as a single `?…` line on stderr — never a Python traceback.
 
-## Interactive monitor
+## Interactive command processor
 
-Launched with **no file**, each command drops into an interactive monitor — a small,
+Launched with **no file**, each command drops into an interactive command processor — a small,
 FORTRAN-focused descendant of the TOPS-10 `.` prompt. It works on whole source files (F66
 has no incremental-execution model), except for `IMMEDIATE` mode. The command set is the
 same for all three commands; only the starting dialect differs, and `SET STD` flips it.
@@ -72,14 +72,14 @@ f10> SET STD fortran10        # switch dialect / TARGET / PROGRAM between runs
 f10> SET TARGET pdp10
 f10> SHOW /OUT/               # inspect a COMMON block after a run; SHOW = settings
 f10> !ls                      # run a host shell command
-f10> @script.mon              # run monitor commands from a file
+f10> @script.mon              # run commands from a file
 f10> HELP                     # the command list
 f10> EXIT                     # quit                          (alias QUIT)
 ```
 
 ### Debugging
 
-The monitor carries a per-statement debugger/profiler (off by default — a plain `RUN`
+The command processor carries a per-statement debugger/profiler (off by default — a plain `RUN`
 pays nothing):
 
 ```text
@@ -108,6 +108,6 @@ A `DO` loop is collected across lines and run as a block; declarations accumulat
 persistent session. `COMMON`/`EQUIVALENCE`/`NAMELIST` are out of scope for immediate mode —
 put them in a file and `LOAD` it.
 
-> The monitor's `!` shell escape and `@file` scripts run with your shell's privileges and
+> The command processor's `!` shell escape and `@file` scripts run with your shell's privileges and
 > are **not** reachable from a running FORTRAN program. Treat a command script as trusted
-> input; don't wire the monitor to an untrusted source.
+> input; don't wire the command processor to an untrusted source.

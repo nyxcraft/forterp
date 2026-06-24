@@ -1,11 +1,11 @@
-"""Interactive command monitor for the forterp front-ends.
+"""Interactive command processor for the forterp front-ends.
 
-A line-oriented command loop -- a small, FORTRAN-focused descendant of the TOPS-10
-monitor the ``--check`` feature came from. It operates on whole source files (RUN /
-CHECK / LOAD / START), lets you SET the dialect, target, and main unit between runs,
-SHOW the current settings or a COMMON block after a run, ``!`` to shell out, and ``@``
-to run commands from a file. IMMEDIATE drops into interactive statement-at-a-time
-FORTRAN (the REPL in forterp.repl); the monitor itself works at file granularity.
+A line-oriented command loop -- a small, FORTRAN-focused command processor descended from
+the TOPS-10 monitor (it's where the ``--check`` feature came from). It operates on whole
+source files (RUN / CHECK / LOAD / START), lets you SET the dialect, target, and main unit
+between runs, SHOW the current settings or a COMMON block after a run, ``!`` to shell out,
+and ``@`` to run commands from a file. IMMEDIATE drops into interactive statement-at-a-time
+FORTRAN (the REPL in forterp.repl); the command processor itself works at file granularity.
 
 Entered when a front-end (pyf66 / pyfortran10 / forterp) is launched with no file. The
 command set is identical across the three; only the starting dialect differs (pyf66 ->
@@ -42,13 +42,13 @@ Commands (case-insensitive):
   SET / SHOW                  show current settings
   SHOW /BLOCK/                show a COMMON block after a run
   !cmd                        run a host shell command
-  @file                       run monitor commands from a file
+  @file                       run commands from a file
   HELP                        this list
   EXIT                        quit                             (alias QUIT)
 """
 
 
-class Monitor:
+class CommandProcessor:
     """The interactive command loop. I/O is injectable for testing: `write`/`errwrite`
     take a string, `readline` returns one input line ("" at EOF)."""
 
@@ -98,7 +98,7 @@ class Monitor:
 
     # ---- the loop ----
     def run(self):
-        """Read-eval-print over monitor commands until EXIT or EOF. Returns 0."""
+        """Read-eval-print over commands until EXIT or EOF. Returns 0."""
         self._running = True
         self.write(f"forterp interactive ({self.std}).  HELP for commands, EXIT to quit.\n")
         while self._running:
@@ -179,7 +179,7 @@ class Monitor:
 
     def cmd_immediate(self, arg):
         """Drop into interactive immediate-mode FORTRAN (a REPL), sharing the current
-        dialect/target and any LOADed program. EXIT/'.' there returns to the monitor."""
+        dialect/target and any LOADed program. EXIT/'.' there returns to the command processor."""
         from forterp.repl import Immediate
 
         Immediate(

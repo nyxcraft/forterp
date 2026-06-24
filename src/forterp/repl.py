@@ -1,13 +1,13 @@
 """Interactive immediate-mode FORTRAN (a REPL) for the forterp front-ends.
 
-Entered from the command monitor's IMMEDIATE command. Where the monitor operates on
-whole files, this runs FORTRAN *statements* as you type them, against a persistent
-session:
+Entered from the command processor's IMMEDIATE command. Where the command processor
+operates on whole files, this runs FORTRAN *statements* as you type them, against a
+persistent session:
 
   * Tier 1 -- a straight-line statement (assignment, I/O, CALL into a LOADed program)
     runs immediately; a bare expression is evaluated and printed, so the prompt doubles
     as a calculator and as a way to inspect a variable by typing its name -- except the
-    reserved words EXIT / QUIT / MONITOR (and '.'), which always return to the monitor.
+    reserved words EXIT / QUIT (and '.'), which always return to the command processor.
   * Tier 2 -- a DO loop is collected across lines (a continuation prompt) and run as a
     block once its terminator appears.
 
@@ -56,7 +56,7 @@ def _to_fixed(line):
 class Immediate:
     """Immediate-mode FORTRAN loop. I/O is injectable for testing (`write`/`errwrite`
     take a string, `readline` returns a line, "" at EOF). `loaded` is an optional
-    {name: ProgramUnit} from the monitor's LOAD, so the REPL can call into a program."""
+    {name: ProgramUnit} from the command processor's LOAD, so the REPL can call into a program."""
 
     def __init__(
         self,
@@ -81,29 +81,29 @@ class Immediate:
 
     # ---- the loop ----
     def run(self):
-        """Read FORTRAN statements until EXIT / '.' / EOF, then return to the monitor."""
+        """Read FORTRAN statements until EXIT / '.' / EOF, then return to the command processor."""
         self.write(
             f"immediate mode ({self.std}) -- type FORTRAN; a bare expression is "
-            f"evaluated.  '.', EXIT, QUIT, and MONITOR are reserved here and return "
-            f"to the monitor.\n"
+            f"evaluated.  '.', EXIT, and QUIT are reserved here and return "
+            f"to the command processor.\n"
         )
         buf, raw = [], []  # fixed-form lines / raw lines of the chunk being collected
         while True:
             self.write("cont> " if buf else f"{self._tag()}* ")
             line = self.readline()
-            if line == "":  # EOF -> back to the monitor
+            if line == "":  # EOF -> back to the command processor
                 self.write("\n")
                 break
             s = line.strip()
             if not buf:
                 if not s:
                     continue
-                # '.', EXIT, QUIT, MONITOR are reserved words at the prompt -> return to the
-                # monitor. A variable so named is shadowed here and can't be inspected by name
+                # '.', EXIT, QUIT are reserved words at the prompt -> return to the command
+                # processor. A variable so named is shadowed here and can't be inspected by name
                 # (EXIT also names a STDLIB routine, so even `(EXIT)` resolves to the builtin).
                 # Accepted as documented: such names are pathological for a FORTRAN program,
                 # and reserving prompt keywords is normal REPL behavior. (R5, reconciliation.)
-                if s == "." or s.upper() in ("EXIT", "QUIT", "MONITOR"):
+                if s == "." or s.upper() in ("EXIT", "QUIT"):
                     break
             elif not s:  # blank line cancels a half-typed block
                 self._err("(block cancelled)")

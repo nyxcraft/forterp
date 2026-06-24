@@ -4,7 +4,7 @@
   lexer → parser → engine), the machine value model, memory/control models, and the four
   seams that make it standalone. For someone modifying forterp.
 - **[CLI.md](CLI.md)** — the command-line tools (`forterp` / `pyf66` / `pyfortran10`):
-  options, exit codes, multi-file linking, and the interactive monitor.
+  options, exit codes, multi-file linking, and the interactive command processor.
 - **[API.md](API.md)** — the programmer's reference for the `forterp.*` Python API:
   running and parsing, the prebuilt interpreters, the target/dialect axes, embedding the
   engine, the expert namespaces, custom host builtins, and the OOB census.

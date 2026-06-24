@@ -1,7 +1,7 @@
-"""Debugging + profiling via the monitor (forterp.debug.Tracer): PROFILE / COVERAGE /
-TRACE / BREAK / STEP, driven through the command monitor.
+"""Debugging + profiling via the command processor (forterp.debug.Tracer): PROFILE / COVERAGE /
+TRACE / BREAK / STEP, driven through the command processor.
 
-Programs are strict-F66-clean (the monitor defaults to f66). Lines are numbered from 1,
+Programs are strict-F66-clean (the command processor defaults to f66). Lines are numbered from 1,
 so a breakpoint at line N targets that source line."""
 
 import os
@@ -10,7 +10,7 @@ import tempfile
 import pytest
 
 import forterp
-from forterp.monitor import Monitor
+from forterp.command import CommandProcessor
 
 # line 4 N=0, 5 DO, 6 N=N+I (runs 3x), 7 CONTINUE
 LOOP = (
@@ -39,7 +39,7 @@ def _src(text):
 def drive(lines, **kw):
     it = iter(lines)
     out, err = [], []
-    m = Monitor(write=out.append, errwrite=err.append, readline=lambda: next(it, ""), **kw)
+    m = CommandProcessor(write=out.append, errwrite=err.append, readline=lambda: next(it, ""), **kw)
     m.run()
     return m, "".join(out), "".join(err)
 

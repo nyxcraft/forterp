@@ -88,7 +88,7 @@ links separately-compiled units — so a driver and a separately-held library ru
 forterp main.for lib.for           # main.for's PROGRAM calls SUBROUTINEs in lib.for
 ```
 
-Launched with **no file**, each command drops into an interactive monitor (a small,
+Launched with **no file**, each command drops into an interactive command processor (a small,
 FORTRAN-focused descendant of the TOPS-10 `.` prompt — it operates on whole source
 files, not a statement REPL, since F66 has no incremental-execution model):
 
@@ -121,7 +121,7 @@ f66* 2 + 3 * 4               # calculator -> 14
 F66 has no incremental model for control flow, so the unit of work is a statement or a
 DO block, never a bare `GOTO`.)
 
-The monitor also debugs and profiles a `RUN`/`START`. `BREAK <line>` + `STEP` drop into
+The command processor also debugs and profiles a `RUN`/`START`. `BREAK <line>` + `STEP` drop into
 a `(dbg)` prompt where you step (`step`/`next`/`cont`), backtrace (`where`), and inspect
 any expression by typing it; `TRACE` echoes each statement; `PROFILE`/`COVERAGE` report
 per-line execution counts and which lines were reached. The profiler counts *statements*
@@ -207,9 +207,9 @@ absolute or `..` path. These bound resource use; they are not a security sandbox
 access via `OPEN` is unrestricted, so still confine genuinely untrusted source at the OS
 level.
 
-The interactive monitor additionally offers a `!` shell escape and `@file` command scripts
+The interactive command processor additionally offers a `!` shell escape and `@file` command scripts
 (not reachable from a running FORTRAN program); these run with your shell's privileges, so
-treat a command script as trusted input and don't wire the monitor to an untrusted source.
+treat a command script as trusted input and don't wire the command processor to an untrusted source.
 
 ## Authorship & attribution
 

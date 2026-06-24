@@ -1,6 +1,6 @@
-"""Interactive command monitor (forterp.monitor.Monitor): RUN/CHECK/LOAD/START/SET/SHOW.
+"""Interactive command processor (forterp.command.CommandProcessor): RUN/CHECK/LOAD/START/SET/SHOW.
 
-Drives the monitor with a scripted line source and captures its output, pinning the
+Drives the command processor with a scripted line source and captures its output, pinning the
 command set the pyf66 / pyfortran10 / forterp front-ends expose when launched with no
 file. The set is identical across the three; only the starting dialect differs."""
 
@@ -9,9 +9,9 @@ import os
 import tempfile
 
 from forterp.cli import f66_main
-from forterp.monitor import Monitor
+from forterp.command import CommandProcessor
 
-# strict-F66-clean: Hollerith FORMAT (the monitor defaults to f66, which rejects '...')
+# strict-F66-clean: Hollerith FORMAT (the command processor defaults to f66, which rejects '...')
 HELLO = "      PROGRAM T\n      WRITE(6,10)\n   10 FORMAT(7H HI MON)\n      END\n"
 # writes COMMON so SHOW /OUT/ has state to print after a run
 COMMON_PROG = (
@@ -32,10 +32,12 @@ def _src(text):
 
 
 def drive(lines, **kw):
-    """Run the monitor over a scripted command list; return (stdout, stderr)."""
+    """Run the command processor over a scripted command list; return (stdout, stderr)."""
     it = iter(lines)
     out, err = [], []
-    Monitor(write=out.append, errwrite=err.append, readline=lambda: next(it, ""), **kw).run()
+    CommandProcessor(
+        write=out.append, errwrite=err.append, readline=lambda: next(it, ""), **kw
+    ).run()
     return "".join(out), "".join(err)
 
 
@@ -128,13 +130,13 @@ def test_help_lists_the_core_commands():
 
 def test_immediate_command_enters_the_repl():
     # IMMEDIATE drops into the REPL (reading the same input); first EXIT returns to the
-    # monitor, second EXIT quits. The expression's value reaches stdout.
+    # command processor, second EXIT quits. The expression's value reaches stdout.
     out, _ = drive(["IMMEDIATE\n", "2 + 3\n", "EXIT\n", "EXIT\n"])
     assert "immediate mode" in out and "5" in out
 
 
-def test_bare_invocation_enters_the_monitor(monkeypatch, capsys):
-    # pyf66 with no file -> interactive monitor reading from stdin
+def test_bare_invocation_enters_the_command_processor(monkeypatch, capsys):
+    # pyf66 with no file -> interactive command processor reading from stdin
     monkeypatch.setattr("sys.stdin", io.StringIO("HELP\nEXIT\n"))
     rc = f66_main([])
     out = capsys.readouterr().out

@@ -108,9 +108,9 @@ def _run(argv, dialect, prog, *, allow_std, default_target="native"):
             ap.error("Python builtin module(s) given but no FORTRAN source to run")
         if args.check:
             ap.error("--check requires a file")
-        from forterp.monitor import Monitor
+        from forterp.command import CommandProcessor
 
-        return Monitor(std=std, target=args.target, program=args.program).run()
+        return CommandProcessor(std=std, target=args.target, program=args.program).run()
 
     try:  # several FORTRAN files are concatenated, then linked together by unit name
         text = "\n".join(open(p, "r", errors="replace").read() for p in src_files)

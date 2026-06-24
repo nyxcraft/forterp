@@ -108,7 +108,7 @@ def test_blank_line_cancels_a_pending_block():
 
 
 # ---- exit / robustness ----
-def test_dot_returns_to_monitor():
+def test_dot_returns_to_the_command_processor():
     # '.' ends immediate mode; the line after it is never evaluated
     out, _ = drive([".\n", "999\n"])
     assert "999" not in out
