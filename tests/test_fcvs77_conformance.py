@@ -15,23 +15,22 @@ Unlike the F66 corpus, this one is a WORK-IN-PROGRESS baseline: F77 support is p
 so parse "gaps" here are *tracked feature gaps*, not regressions. The numbers below are
 pinned so that both regressions and improvements are visible and force a conscious update.
 
-Current gaps (25 files fail to parse under the F77 front-end):
-   5  keyword=value in a control-list paren  -- "FOUND '=' WHEN EXPECTING ')'"
+Current gaps (22 files fail to parse under the F77 front-end):
+   5  keyword=value in an I/O control list   -- READ(UNIT=u, FMT=f, ...)
    4  widthless FORMAT descriptor            -- F77 allows e.g. A with no width
    4  list-directed I/O (*)                  -- standardized in F77, still gated under the
                                                DEC-only extended_io knob
-   2  bare ',' where an identifier is expected
-   2  substring ':' outside an accepted context
-   2  illegal '.' in source
-   1  PARAMETER with a non-constant LOGICAL value
-   1  PARAMETER with a COMPLEX value
-   2  numeric literal where '=' is expected (DATA/implied-do edge)
-   1  '//' concatenation where an identifier is expected
-   1  keyword where a statement label is expected
-Of the 115 that run: 1236 sub-tests PASS, 155 ERRORS, 36 print-and-eyeball (no summary).
+   2  bare ',' where an identifier is expected -- OPEN(u, ACCESS=..., RECL=...)
+   2  substring ':' in a DATA target
+   2  blanks within a .NE./.EQ. operator     -- "C10VK. NE. 'YES'"
+   1  blank COMMON //
+   1  CHARACTER*(<param>) parametrised length
+   1  .EQV. / .NEQV. logical operators
+Of the 118 that run: 1253 sub-tests PASS, 155 ERRORS, 38 print-and-eyeball (no summary).
 
-The IMPLICIT CHARACTER*<len> preamble -- the largest gap (41 files) -- now parses, which
-unblocked 30 routines and +467 passing sub-tests with no new errors.
+Landed since the restore: IMPLICIT CHARACTER*<len> (the audit-harness preamble, +30
+routines / +467 sub-tests), the optional comma after a DO label, and LOGICAL/COMPLEX
+PARAMETER constants.
 """
 
 import glob
@@ -54,11 +53,11 @@ def test_corpus_is_the_full_restored_f77_set():
 def test_f77_conformance_baseline():
     # Pinned WIP baseline. When an F77 feature lands, these numbers move up -- update
     # them here in lockstep with the fix so the gain is recorded, not silently absorbed.
-    assert R["n_run"] == 115
-    assert R["n_gap"] == 25
-    assert R["total_pass"] == 1236
+    assert R["n_run"] == 118
+    assert R["n_gap"] == 22
+    assert R["total_pass"] == 1253
     assert R["total_err"] == 155
-    assert len(R["nosummary"]) == 36
+    assert len(R["nosummary"]) == 38
 
 
 def test_running_routines_mostly_pass():

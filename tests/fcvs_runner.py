@@ -48,22 +48,25 @@ def _run_one(path, target=PDP10, dialect=FORTRAN10, character_type=False):
     if errs:
         return ("gap", 0, 0)
 
-    listing = []  # the line-printer (LPT) buffer
-    eng = Engine(
-        {u.name: u for u in units},
-        emit=lambda s: None,
-        readline=lambda: "",
-        printer=listing.append,
-        target=target,
-        character_type=character_type,
-    )
-    install_runtime(eng)  # STDLIB + FOROTS binary-I/O codec
-    eng.io[5] = {"recs": [], "pos": 0, "mode": "r"}  # I01 card reader (unused by audits)
-    eng.max_steps = 50_000_000
     main = next((u.name for u in units if u.kind == "program"), None)
     if main is None:
         return ("gap", 0, 0)
+    listing = []  # the line-printer (LPT) buffer
     try:
+        # Build + run inside the guard: a build-time crash (e.g. an unsupported DATA
+        # construct) counts as a no-summary run, not an aborted corpus. The F66 test
+        # pins the exact nosummary set, so a real F66 regression still surfaces.
+        eng = Engine(
+            {u.name: u for u in units},
+            emit=lambda s: None,
+            readline=lambda: "",
+            printer=listing.append,
+            target=target,
+            character_type=character_type,
+        )
+        install_runtime(eng)  # STDLIB + FOROTS binary-I/O codec
+        eng.io[5] = {"recs": [], "pos": 0, "mode": "r"}  # I01 card reader (unused by audits)
+        eng.max_steps = 50_000_000
         eng.run(Frame(eng.rts[main], {}))
     except (StopExecution, Exception):
         pass

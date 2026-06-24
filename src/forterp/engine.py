@@ -705,6 +705,8 @@ class Engine:
         """Materialize a stored PARAMETER value into a runtime value. A Hollerith
         constant is kept as a raw str by the parser (which has no Target) and packed
         here through the engine's target, so it matches a literal of the same text."""
+        if isinstance(v, bool):  # .TRUE./.FALSE. PARAMETER; bool is an int subclass, test first
+            return self.tgt.from_bool(v)
         return self.tgt.pack(v) if isinstance(v, str) else v
 
     def _const_val(self, v, unit):

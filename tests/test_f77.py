@@ -245,6 +245,39 @@ def test_implicit_character_length():
     assert _out(src)[0] == "HI   "
 
 
+def test_do_label_optional_comma():
+    # F77 allows a comma after the DO label: DO 5, I = 1, 3.
+    body = "      N(1)=0\n      DO 5, I=1,3\n      N(1)=N(1)+I\n    5 CONTINUE\n"
+    assert _out(_prog(body))[0] == 6
+
+
+def test_parameter_logical_constant():
+    # PARAMETER (LT = .TRUE.) -- a LOGICAL named constant, usable in a logical IF.
+    src = (
+        "      PROGRAM T\n"
+        "      LOGICAL LT\n"
+        "      PARAMETER (LT=.TRUE.)\n"
+        "      COMMON /O/ N(8)\n"
+        "      N(1)=0\n"
+        "      IF (LT) N(1)=7\n"
+        "      END\n"
+    )
+    assert _out(src)[0] == 7
+
+
+def test_parameter_complex_constant():
+    # PARAMETER (C = (3.0, 4.0)) -- a COMPLEX named constant.
+    src = (
+        "      PROGRAM T\n"
+        "      COMPLEX C\n"
+        "      PARAMETER (C=(3.0,4.0))\n"
+        "      COMMON /O/ R\n"
+        "      R=AIMAG(C)\n"
+        "      END\n"
+    )
+    assert _out(src)[0] == 4.0
+
+
 def test_character_array_elements():
     body = "      CHARACTER R*2, W(3)*2\n      W(2)='CD'\n      R=W(2)\n"
     assert _out(_cprog(body))[0] == "CD"

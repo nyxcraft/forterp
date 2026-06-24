@@ -659,15 +659,17 @@ class StatementParser:
         return A.FileCtl(verb=verb, specs=specs)
 
     def _looks_like_do(self):
-        # DO <label> <var> = ...
+        # DO <label> [,] <var> = ...   (the comma after the label is an F77 option)
+        if not (self.peek_next() and self.peek_next().kind in ("INT", "OCTAL")):
+            return False
+        i = self.pos + 2
+        if i < len(self.toks) and self.toks[i].kind == "OP" and self.toks[i].value == ",":
+            i += 1  # skip the optional comma
         return (
-            self.peek_next()
-            and self.peek_next().kind in ("INT", "OCTAL")
-            and self.pos + 2 < len(self.toks)
-            and self.toks[self.pos + 2].kind == "ID"
-            and self.pos + 3 < len(self.toks)
-            and self.toks[self.pos + 3].kind == "OP"
-            and self.toks[self.pos + 3].value == "="
+            i + 1 < len(self.toks)
+            and self.toks[i].kind == "ID"
+            and self.toks[i + 1].kind == "OP"
+            and self.toks[i + 1].value == "="
         )
 
     def parse_if(self):
@@ -716,6 +718,7 @@ class StatementParser:
     def parse_do(self):
         self.advance()  # DO
         term = self.expect_int()
+        self.accept_op(",")  # F77: optional comma after the DO label (DO 10, I = ...)
         var = self.expect_id()
         self.expect_op("=")
         e1 = self.parse_expr()
@@ -1266,6 +1269,10 @@ def const_eval(node, consts):
         return node.value
     if isinstance(node, A.RealLit):
         return node.value
+    if isinstance(node, A.LogicalLit):  # PARAMETER (L = .TRUE.) -- materialized by the target
+        return node.value
+    if isinstance(node, A.Complex):  # PARAMETER (C = (re, im))
+        return complex(float(const_eval(node.re, consts)), float(const_eval(node.im, consts)))
     if isinstance(node, A.StrLit):
         return node.value  # kept raw: the engine packs it via its Target (no
         # target at parse time). See Engine._const_value.
