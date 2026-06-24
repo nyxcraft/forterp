@@ -356,6 +356,15 @@ def test_a_format_writes_a_character():
     assert "".join(eng.out).strip() == "HI"  # 'HI   ' (A5)
 
 
+def test_widthless_a_writes_full_character_value():
+    # F77 §13.5.11: a widthless A takes the list item's CHARACTER length (here 5). Strict
+    # F66 rejects a widthless descriptor; the relaxation is gated on the CHARACTER type.
+    eng = _run_io(
+        _cprog("      CHARACTER S*5\n      S='HI'\n      WRITE(6,10) S\n   10 FORMAT(A)\n")
+    )
+    assert "".join(eng.out).strip() == "HI"
+
+
 def test_a_format_reads_a_character():
     src = _cprog("      CHARACTER R*5\n      READ(5,10) R\n   10 FORMAT(A5)\n")
     assert _run_io(src, stdin="WORLD\n").commons["O"][0] == "WORLD"

@@ -1621,8 +1621,12 @@ def _route(unit, st, toks, on_warn=None, dialect=F66):
         if not dialect.bare_format_width:  # F66 §7.2.3.1: every descriptor needs a width
             from forterp.fmt import parse_format
 
+            # F77 §13.5.11 relaxes this for the A descriptor alone -- a widthless A takes the
+            # list item's CHARACTER length; strict F66 still requires a width on every field.
             for it in parse_format(body):
-                if it.kind in ("I", "O", "L", "F", "E", "D", "G", "A", "R") and it.a is None:
+                if it.a is None and it.kind in ("I", "O", "L", "F", "E", "D", "G", "A", "R"):
+                    if it.kind == "A" and dialect.character_type:
+                        continue
                     raise ParseError("F66 FORMAT descriptor requires an explicit width", "NRC")
         unit.formats[st.label] = body
         return
