@@ -128,6 +128,13 @@ def test_help_lists_the_core_commands():
         assert c in out
 
 
+def test_info_commands_copyright_credits_license():
+    out, _ = drive(["COPYRIGHT\n", "CREDITS\n", "LICENSE\n", "EXIT\n"])
+    assert "Copyright (c) 2026 Nicholas J. Kisseberth" in out  # COPYRIGHT
+    assert "Anthropic Claude Code" in out  # CREDITS
+    assert "MIT License" in out and "WITHOUT WARRANTY" in out  # LICENSE full text
+
+
 def test_immediate_command_enters_the_repl():
     # IMMEDIATE drops into the REPL (reading the same input); first EXIT returns to the
     # command processor, second EXIT quits. The expression's value reaches stdout.
@@ -141,4 +148,22 @@ def test_bare_invocation_enters_the_command_processor(monkeypatch, capsys):
     rc = f66_main([])
     out = capsys.readouterr().out
     assert rc == 0
-    assert "RUN" in out and "interactive (f66)" in out
+    assert "RUN" in out  # HELP listed the commands
+    assert out.startswith("forterp ") and "FORTRAN-66" in out  # the interpreter-style banner
+    assert "Type HELP for commands" in out
+
+
+def test_ctrl_c_at_the_prompt_reprompts_and_does_not_crash():
+    # ^C while waiting for input must abandon the line and re-prompt, not escape out of run().
+    seq = iter([KeyboardInterrupt, "EXIT\n"])
+
+    def readline():
+        item = next(seq, "")
+        if item is KeyboardInterrupt:
+            raise KeyboardInterrupt
+        return item
+
+    out, err = [], []
+    rc = CommandProcessor(write=out.append, errwrite=err.append, readline=readline).run()
+    assert rc == 0  # exited cleanly on EXIT after the ^C, no traceback
+    assert "".join(out).count("f66>") >= 2  # re-prompted after the interrupt

@@ -10,6 +10,9 @@
 - **11:33** — `_load_builtins` no longer leaks `sys.path`/`sys.modules`; the `STR` arg mode strips a packed word's padding so it equals the literal text.
 - **11:38** — Documented the `hostlib.host_ppn`/`host_user` identity helpers alongside `mon.identity`.
 - **11:56** — PyPI release wiring: publish through the `forterp-pypi` environment, with a manual approval gate (the `release` environment + a required reviewer) fronting the tag-triggered publish.
+- **11:57** — Released **0.1.0** to PyPI (`pip install forterp`).
+- **14:02** — The interactive command processor opens with an interpreter-style banner (version, dialect, target, host) and gains `COPYRIGHT` / `CREDITS` / `LICENSE` commands.
+- **14:02** — `^C` at the interactive prompt re-prompts instead of dumping a traceback (the command processor and the REPL); `^C` during a program run halts cleanly (`?Interrupted`, rc 130).
 
 ## 2026-06-23 — host services, terminal modes, and real binary files
 

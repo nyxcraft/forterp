@@ -141,3 +141,19 @@ def test_run_block_shares_store_and_resolves_loaded_calls():
     blk = forterp.parse_source("      INTEGER N\n      N = TWICE(21)\n", dialect=FORTRAN10)["$MAIN"]
     eng.run_block(rt, blk.code, blk.labels)
     assert rt.local_scalars["N"] == 42  # block mutated the shared store; call resolved
+
+
+def test_ctrl_c_cancels_the_block_and_reprompts():
+    # ^C in the REPL abandons any half-typed block (or running statement) and re-prompts --
+    # it does not exit and does not escape as a traceback.
+    seq = iter(["DO 10 I=1,3\n", KeyboardInterrupt, "2 + 2\n", ".\n"])
+
+    def readline():
+        item = next(seq, "")
+        if item is KeyboardInterrupt:
+            raise KeyboardInterrupt
+        return item
+
+    out, err = [], []
+    Immediate(write=out.append, errwrite=err.append, readline=readline).run()
+    assert "4" in "".join(out)  # survived the ^C mid-block and still evaluated 2+2 afterward

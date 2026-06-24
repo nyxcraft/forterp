@@ -65,6 +65,9 @@
 <li><strong>11:33</strong> — <code>_load_builtins</code> no longer leaks <code>sys.path</code>/<code>sys.modules</code>; the <code>STR</code> arg mode strips a packed word's padding so it equals the literal text.</li>
 <li><strong>11:38</strong> — Documented the <code>hostlib.host_ppn</code>/<code>host_user</code> identity helpers alongside <code>mon.identity</code>.</li>
 <li><strong>11:56</strong> — PyPI release wiring: publish through the <code>forterp-pypi</code> environment, with a manual approval gate (the <code>release</code> environment + a required reviewer) fronting the tag-triggered publish.</li>
+<li><strong>11:57</strong> — Released <strong>0.1.0</strong> to PyPI (<code>pip install forterp</code>).</li>
+<li><strong>14:02</strong> — The interactive command processor opens with an interpreter-style banner (version, dialect, target, host) and gains <code>COPYRIGHT</code> / <code>CREDITS</code> / <code>LICENSE</code> commands.</li>
+<li><strong>14:02</strong> — <code>^C</code> at the interactive prompt re-prompts instead of dumping a traceback (the command processor and the REPL); <code>^C</code> during a program run halts cleanly (<code>?Interrupted</code>, rc 130).</li>
 </ul>
 <h2 id="2026-06-23-host-services-terminal-modes-and-real-binary-files">2026-06-23 — host services, terminal modes, and real binary files</h2>
 <ul>

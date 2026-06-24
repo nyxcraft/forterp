@@ -15,6 +15,7 @@ f66, pyfortran10 -> fortran10), and SET STD flips it.
 from __future__ import annotations
 
 import os
+import platform
 import subprocess
 import sys
 
@@ -43,8 +44,33 @@ Commands (case-insensitive):
   SHOW /BLOCK/                show a COMMON block after a run
   !cmd                        run a host shell command
   @file                       run commands from a file
+  COPYRIGHT / CREDITS / LICENSE   version & author, acknowledgements, the MIT license text
   HELP                        this list
   EXIT                        quit                             (alias QUIT)
+"""
+
+_MIT_LICENSE = """\
+MIT License
+
+Copyright (c) 2026 Nicholas J. Kisseberth
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 """
 
 
@@ -92,6 +118,9 @@ class CommandProcessor:
             "SHOW": self.cmd_show,
             "HELP": self.cmd_help,
             "?": self.cmd_help,
+            "COPYRIGHT": self.cmd_copyright,
+            "CREDITS": self.cmd_credits,
+            "LICENSE": self.cmd_license,
             "EXIT": self.cmd_exit,
             "QUIT": self.cmd_exit,
         }
@@ -100,17 +129,24 @@ class CommandProcessor:
     def run(self):
         """Read-eval-print over commands until EXIT or EOF. Returns 0."""
         self._running = True
-        self.write(f"forterp interactive ({self.std}).  HELP for commands, EXIT to quit.\n")
+        self.write(self._banner())
         while self._running:
             self.write(self._prompt())
-            line = self.readline()
-            if line == "":  # EOF (Ctrl-D)
+            try:
+                line = self.readline()
+            except KeyboardInterrupt:  # ^C at the prompt: abandon the line, re-prompt
+                self.write("\n")
+                continue
+            except EOFError:  # Ctrl-D via an input()-style reader: quit cleanly
+                self.write("\n")
+                break
+            if line == "":  # EOF (Ctrl-D) on a readline()-style stream
                 self.write("\n")
                 break
             try:
                 self.dispatch(line)
             except KeyboardInterrupt:
-                self.write("\n")  # ^C aborts the command, not the session
+                self.write("\n")  # ^C aborts the running command, not the session
         return 0
 
     def dispatch(self, line):
@@ -271,6 +307,22 @@ class CommandProcessor:
     def cmd_help(self, arg):
         self.write(_HELP)
 
+    def cmd_copyright(self, arg):
+        self.write(
+            f"forterp {forterp.__version__} -- Copyright (c) 2026 Nicholas J. Kisseberth.\n"
+            "MIT-licensed; type LICENSE for the full text.\n"
+        )
+
+    def cmd_credits(self, arg):
+        self.write(
+            "Software architecture, design & engineering by Nicholas J. Kisseberth.\n"
+            "Code synthesized via Anthropic Claude Code / Opus 4.8.\n"
+            "Automated code review via OpenAI Codex / ChatGPT 5.5.\n"
+        )
+
+    def cmd_license(self, arg):
+        self.write(_MIT_LICENSE)
+
     def cmd_exit(self, arg):
         self._running = False
 
@@ -297,6 +349,17 @@ class CommandProcessor:
                 break
 
     # ---- helpers ----
+    def _banner(self):
+        """The startup banner, in the shape of an interpreter's: identity + config + host on
+        the first line, the how-to-quit hint on the second (cf. Python's REPL banner)."""
+        dialect = {"f66": "FORTRAN-66", "fortran10": "DEC FORTRAN-10"}.get(self.std, self.std)
+        host = f"{platform.python_implementation()} {platform.python_version()}"
+        return (
+            f"forterp {forterp.__version__} ({dialect}, {self.target.upper()} target) "
+            f"[{host}] on {sys.platform}\n"
+            "Type HELP for commands, COPYRIGHT / CREDITS / LICENSE for more, EXIT to quit.\n"
+        )
+
     def _prompt(self):
         return "f10> " if self.std == "fortran10" else "f66> "
 

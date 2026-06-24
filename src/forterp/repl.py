@@ -90,31 +90,38 @@ class Immediate:
         buf, raw = [], []  # fixed-form lines / raw lines of the chunk being collected
         while True:
             self.write("cont> " if buf else f"{self._tag()}* ")
-            line = self.readline()
-            if line == "":  # EOF -> back to the command processor
+            try:
+                line = self.readline()
+                if line == "":  # EOF -> back to the command processor
+                    self.write("\n")
+                    break
+                s = line.strip()
+                if not buf:
+                    if not s:
+                        continue
+                    # '.', EXIT, QUIT are reserved words at the prompt -> return to the command
+                    # processor. A variable so named is shadowed here and can't be inspected by name
+                    # (EXIT also names a STDLIB routine, so even `(EXIT)` resolves to the builtin).
+                    # Accepted as documented: such names are pathological for a FORTRAN program,
+                    # and reserving prompt keywords is normal REPL behavior. (R5, reconciliation.)
+                    if s == "." or s.upper() in ("EXIT", "QUIT"):
+                        break
+                elif not s:  # blank line cancels a half-typed block
+                    self._err("(block cancelled)")
+                    buf, raw = [], []
+                    continue
+                buf.append(_to_fixed(line))
+                raw.append(line)
+                if self._incomplete("\n".join(self.decls + buf)):
+                    continue  # an open DO -> keep collecting
+                self._handle(buf, raw)
+                buf, raw = [], []
+            except KeyboardInterrupt:  # ^C: drop the half-typed block / running stmt, re-prompt
+                self.write("\n")
+                buf, raw = [], []
+            except EOFError:  # Ctrl-D via an input()-style reader: back to the command processor
                 self.write("\n")
                 break
-            s = line.strip()
-            if not buf:
-                if not s:
-                    continue
-                # '.', EXIT, QUIT are reserved words at the prompt -> return to the command
-                # processor. A variable so named is shadowed here and can't be inspected by name
-                # (EXIT also names a STDLIB routine, so even `(EXIT)` resolves to the builtin).
-                # Accepted as documented: such names are pathological for a FORTRAN program,
-                # and reserving prompt keywords is normal REPL behavior. (R5, reconciliation.)
-                if s == "." or s.upper() in ("EXIT", "QUIT"):
-                    break
-            elif not s:  # blank line cancels a half-typed block
-                self._err("(block cancelled)")
-                buf, raw = [], []
-                continue
-            buf.append(_to_fixed(line))
-            raw.append(line)
-            if self._incomplete("\n".join(self.decls + buf)):
-                continue  # an open DO -> keep collecting
-            self._handle(buf, raw)
-            buf, raw = [], []
         return 0
 
     # ---- classification + dispatch ----
