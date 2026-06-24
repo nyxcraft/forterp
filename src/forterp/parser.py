@@ -333,15 +333,24 @@ class StatementParser:
         return self.p_rel()
 
     def p_rel(self):
-        n = self.p_add()
+        n = self.p_concat()
         t = self.peek()
         if t is not None:
             if t.kind == "OP" and t.value in _REL_OP:
                 op = _REL_OP[self.advance().value]
-                return A.Binary(op, n, self.p_add())
+                return A.Binary(op, n, self.p_concat())
             if t.kind == "DOTOP" and t.value in _REL_DOT:
                 op = _REL_DOT[self.advance().value]
-                return A.Binary(op, n, self.p_add())
+                return A.Binary(op, n, self.p_concat())
+        return n
+
+    def p_concat(self):
+        # F77 CHARACTER concatenation `//` -- binds looser than +/* but tighter than the
+        # relationals (so A//B .EQ. C parses right). Only emitted under character_type.
+        n = self.p_add()
+        while self.peek() and self.peek().kind == "OP" and self.peek().value == "//":
+            self.advance()
+            n = A.Binary("CONCAT", n, self.p_add())
         return n
 
     def p_add(self):
@@ -1009,6 +1018,42 @@ class StatementParser:
             if not self.accept_op(","):
                 break
 
+    def _char_len(self):
+        """An optional CHARACTER length suffix: ``*n`` | ``*(n)`` | ``*(*)``. Returns the int
+        length, 0 for assumed length ``*(*)`` (a dummy takes the actual's length), or None when
+        there is no ``*len``."""
+        if not self.is_op("*"):
+            return None
+        self.advance()  # *
+        if self.is_op("("):
+            self.advance()
+            if self.is_op("*"):  # *(*) assumed length
+                self.advance()
+                self.expect_op(")")
+                return 0
+            n = self.expect_int()
+            self.expect_op(")")
+            return n
+        return self.expect_int()
+
+    def parse_character(self, unit):
+        """``CHARACTER [*len] name[(dims)][*len] [, ...]`` -- the keyword ``*len`` is the default
+        length; a per-name ``*len`` (before or after any (dims)) overrides it. Records each name
+        as type CHARACTER with its length (and as an array if dimensioned)."""
+        klen = self._char_len()  # optional length on the CHARACTER keyword
+        while not self.at_end():
+            name = self.expect_id()
+            dims = self.parse_dims(unit.consts) if self.is_op("(") else None
+            vlen = self._char_len()  # per-name length (name*len or name(dims)*len)
+            if dims is None and self.is_op("("):  # the name*len(dims) ordering
+                dims = self.parse_dims(unit.consts)
+            unit.types[name] = "CHARACTER"
+            unit.char_len[name] = vlen if vlen is not None else (klen if klen is not None else 1)
+            if dims is not None:
+                unit.arrays[name] = dims
+            if not self.accept_op(","):
+                break
+
     def parse_dimension(self, unit):
         self.advance()  # DIMENSION
         while not self.at_end():
@@ -1576,6 +1621,10 @@ def _route(unit, st, toks, on_warn=None, dialect=F66):
         return
     if kw == "EQUIVALENCE":
         p.parse_equivalence(unit)
+        return
+    if kw == "CHARACTER" and dialect.character_type and not _is_header(toks):
+        p.advance()  # CHARACTER
+        p.parse_character(unit)
         return
     if kw in TYPE_KW and not _is_header(toks):
         base = p.advance().value

@@ -53,6 +53,7 @@ def engine_kwargs(dialect):
     return {
         "free_form_input": dialect.free_form_input,
         "dec_intrinsics": dialect.dec_intrinsics,
+        "character_type": dialect.character_type,
     }
 
 

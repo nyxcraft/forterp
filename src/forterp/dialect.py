@@ -50,6 +50,8 @@ class Dialect:
     do_while: bool = False  # DO WHILE (cond) / END DO (DEC/F90 ext; NOT in ANSI X3.9-1978)
     save_stmt: bool = False  # the SAVE statement (F77; a no-op here -- locals are already static)
     intrinsic_stmt: bool = False  # the INTRINSIC statement (F77; declares names as intrinsic)
+    character_type: bool = False  # the F77 CHARACTER data type (decls, // concat, substrings,
+    # LEN/CHAR/...). A string literal then evaluates to a str, not a Hollerith packed word.
 
 
 F66 = Dialect()  # ANSI X3.9-1966 -- the default dialect
@@ -93,6 +95,7 @@ F77 = Dialect(
     block_if=True,
     save_stmt=True,
     intrinsic_stmt=True,
+    character_type=True,
 )
 
 # CLI / front-end name -> dialect, so every caller resolves the same names in one place.

@@ -203,6 +203,10 @@ def tokenize(s: str, dialect=F66) -> list[Token]:
             toks.append(Token("OP", "^", i))
             i += 2
             continue
+        if two == "//" and dialect.character_type:  # F77 CHARACTER concatenation
+            toks.append(Token("OP", "//", i))
+            i += 2
+            continue
         if two in MULTI_OPS:  # ==, <=, >= : DEC symbolic relationals
             if not dialect.dec_operators:
                 raise LexError(f"symbolic relational {two!r} is a FORTRAN-10 extension", i)

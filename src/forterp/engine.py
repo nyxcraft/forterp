@@ -331,6 +331,7 @@ class Engine:
         binio=None,
         free_form_input=False,
         dec_intrinsics=True,
+        character_type=False,
         max_array_words=50_000_000,
         dec_files=False,
         tty_width=80,
@@ -352,6 +353,11 @@ class Engine:
         # (default True so a bare Engine has the full library; the dialect paths gate it).
         self.free_form_input = free_form_input
         self.dec_intrinsics = dec_intrinsics
+        #  - character_type: the F77 CHARACTER data type is in play. A string literal then
+        #    evaluates to a Python str (a character constant), not a packed-ASCII Hollerith
+        #    word -- so CHARACTER vars/concatenation/comparison work. Off for F66/FORTRAN-10,
+        #    which keep the Hollerith packed-int model. (CHARACTER under FORTRAN-10 is future.)
+        self.character_type = character_type
         self.units = units
         self.commons = {}  # block -> list (flat store)
         self.rts = {}  # unit name -> UnitRT
@@ -664,6 +670,10 @@ class Engine:
             return unit.implicit[name[0]]
         return "INTEGER" if (name and name[0] in DEFAULT_INT_LETTERS) else "REAL"
 
+    def char_length(self, unit, name):
+        """Declared length of a CHARACTER entity (default 1; 0 means assumed length `*(*)`)."""
+        return unit.char_len.get(name, 1)
+
     # ---- DATA initialization
     def _apply_data(self, rt, unit):
         for targets, values in unit.data:
@@ -846,7 +856,9 @@ class Engine:
         if t is A.OctalLit:
             return self.tgt.wrap(node.value)
         if t is A.StrLit:
-            return self.tgt.pack(node.value)
+            # F77: a string literal is a CHARACTER constant (a Python str). Otherwise it is a
+            # Hollerith datum packed left-justified into a word (the F66 / FORTRAN-10 model).
+            return node.value if self.character_type else self.tgt.pack(node.value)
         if t is A.LogicalLit:
             return self.tgt.from_bool(node.value)  # FORTRAN-10 .TRUE.=-1, .FALSE.=0
         if t is A.Complex:  # (re, im) complex constant
@@ -988,8 +1000,14 @@ class Engine:
             return self.tgt.lxor(self.eval(node.left, frame), self.eval(node.right, frame))
         if op == "EQV":
             return self.tgt.leqv(self.eval(node.left, frame), self.eval(node.right, frame))
+        if op == "CONCAT":  # F77 CHARACTER concatenation (operands are str under character_type)
+            return str(self.eval(node.left, frame)) + str(self.eval(node.right, frame))
         a = self.eval(node.left, frame)
         b = self.eval(node.right, frame)
+        if isinstance(a, str) or isinstance(b, str):  # CHARACTER comparison: F77 blank-pads to
+            a, b = str(a), str(b)  # equal length, then compares on the ASCII collating sequence
+            w = max(len(a), len(b))
+            a, b = a.ljust(w), b.ljust(w)
         fl = isinstance(a, float) or isinstance(b, float)
         cx = isinstance(a, complex) or isinstance(b, complex)
         # arithmetic first (the hot ops); an integer result takes the target's word wrap
@@ -1219,7 +1237,13 @@ class Engine:
         # numeric conversion at the type boundary -- but a Hollerith/char constant
         # adopts the target type as a bit pattern (no conversion), e.g. TTY='TTY'
         ttype = self.type_of(frame.rt.unit, tgt.name)
-        if isinstance(val, bool) or isinstance(s.expr, A.StrLit):
+        if ttype == "CHARACTER":
+            # F77 character assignment: the value is a Python str; fit it to the target's
+            # declared length -- truncate if longer, blank-pad if shorter (V5 / X3.9-1978 14.4).
+            n = self.char_length(frame.rt.unit, tgt.name)
+            val = str(val)
+            val = (val[:n] if len(val) > n else val.ljust(n)) if n else val  # n=0: assumed length
+        elif isinstance(val, bool) or isinstance(s.expr, A.StrLit):
             pass
         elif ttype == "COMPLEX":  # real/int -> complex(x, 0)
             if not isinstance(val, complex):
@@ -2346,6 +2370,8 @@ INTRINSICS = {
     "DLOG10": lambda a: math.log10(a[0]),
     "LOG": lambda a: math.log(a[0]),  # F77 generic natural log (F66 spelled it ALOG)
     "LOG10": lambda a: math.log10(a[0]),  # F77 generic common log (F66: ALOG10)
+    # ---- F77 CHARACTER (operands/results are Python str under the character_type dialect) ----
+    "LEN": lambda a: len(a[0]),  # declared length (fixed-length vars are stored blank-padded)
     # ---- trigonometric / hyperbolic ----
     "SIN": lambda a: math.sin(a[0]),
     "DSIN": lambda a: math.sin(a[0]),

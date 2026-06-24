@@ -1,9 +1,15 @@
-"""FORTRAN 77 dialect -- Phase 1: block IF / DO WHILE / SAVE.
+"""FORTRAN 77 dialect.
 
-These exercise the structured-control lowering (the parser emits BlockIf/ElseIf/.../EndDo
-markers; parser._lower_structured rewrites them to the engine's flat label+GOTO form). Run
-under the F77 dialect (NATIVE target) unless a test says otherwise. CHARACTER and the F77
-I/O set are not implemented yet (a later phase)."""
+Phase 1 -- structured control: block IF / ELSE IF / ELSE / END IF and DO WHILE / END DO
+(the parser emits markers; parser._lower_structured rewrites them to the engine's flat
+label+GOTO form), SAVE, INTRINSIC, and generic intrinsics.
+
+Phase 2 -- CHARACTER (scalars): declarations with a length, blank-pad/truncate assignment,
+concatenation (//), blank-padded comparison, and LEN. Under the F77 dialect a string literal
+is a CHARACTER constant (a Python str), not a Hollerith packed word. Substrings, the remaining
+character intrinsics, and the F77 I/O set are later phases.
+
+Runs under the F77 dialect (NATIVE target) unless a test says otherwise."""
 
 import pytest
 
@@ -177,3 +183,66 @@ def test_intrinsic_statement_is_accepted_and_harmless():
 def test_intrinsic_statement_rejected_under_f66():
     with pytest.raises(forterp.ParseError):
         forterp.run_source("      PROGRAM T\n      INTRINSIC SIN\n      END\n", dialect=forterp.F66)
+
+
+# ---- CHARACTER (Phase 2): declarations, assignment, concatenation, comparison, LEN ----------
+def _cprog(body):
+    # the tested value lands in COMMON /O/ R (read back as commons["O"][0]).
+    return "      PROGRAM T\n      COMMON /O/ R\n" + body + "      END\n"
+
+
+def test_character_assignment_blank_pads_to_declared_length():
+    assert _out(_cprog("      CHARACTER R*5\n      R = 'HI'\n"))[0] == "HI   "
+
+
+def test_character_assignment_truncates_when_too_long():
+    assert _out(_cprog("      CHARACTER R*2\n      R = 'HELLO'\n"))[0] == "HE"
+
+
+def test_character_concatenation():
+    assert _out(_cprog("      CHARACTER R*6\n      R = 'AB' // 'CD'\n"))[0] == "ABCD  "
+
+
+def test_character_equality_is_blank_padded():
+    # 'HI   ' .EQ. 'HI' compares equal after F77 blank-padding to equal length.
+    body = (
+        "      CHARACTER S*5\n      INTEGER R\n"
+        "      S='HI'\n      R=0\n      IF (S .EQ. 'HI') R=1\n"
+    )
+    assert _out(_cprog(body))[0] == 1
+
+
+def test_character_lexical_ordering():
+    body = (
+        "      CHARACTER A*3, B*3\n      INTEGER R\n"
+        "      A='ABC'\n      B='ABD'\n      R=0\n      IF (A .LT. B) R=1\n"
+    )
+    assert _out(_cprog(body))[0] == 1
+
+
+def test_len_is_the_declared_length():
+    assert (
+        _out(_cprog("      CHARACTER S*7\n      INTEGER R\n      S='HI'\n      R=LEN(S)\n"))[0] == 7
+    )
+
+
+def test_character_array_elements():
+    body = "      CHARACTER R*2, W(3)*2\n      W(2)='CD'\n      R=W(2)\n"
+    assert _out(_cprog(body))[0] == "CD"
+
+
+def test_character_declaration_rejected_without_the_character_type_dialect():
+    for dia in (forterp.F66, forterp.FORTRAN10):
+        with pytest.raises(forterp.ParseError):
+            forterp.run_source(
+                "      PROGRAM T\n      CHARACTER S*4\n      S='HI'\n      END\n",
+                dialect=dia,
+                target=forterp.NATIVE,
+            )
+
+
+def test_concat_operator_only_tokenized_under_character_type():
+    # // is the concat operator only when CHARACTER is in play; FORTRAN-10 must not see it.
+    src = "      PROGRAM T\n      COMMON /O/ S\n      CHARACTER S*4\n      S='A'//'B'\n      END\n"
+    with pytest.raises(forterp.ParseError):
+        forterp.run_source(src, dialect=forterp.FORTRAN10, target=forterp.NATIVE)

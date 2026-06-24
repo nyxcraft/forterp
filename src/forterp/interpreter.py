@@ -44,17 +44,19 @@ class Interpreter:
         *,
         free_form_input=None,
         dec_intrinsics=None,
+        character_type=None,
         runtime=True,
         source_options=None,
     ):
         self.target = target
         self.dialect = dialect
-        # Both already live on the Dialect (the single source of truth); default from it so
+        # These already live on the Dialect (the single source of truth); default from it so
         # callers cannot construct a contradictory pairing. Explicit args still override.
         self.free_form_input = (
             dialect.free_form_input if free_form_input is None else free_form_input
         )
         self.dec_intrinsics = dialect.dec_intrinsics if dec_intrinsics is None else dec_intrinsics
+        self.character_type = dialect.character_type if character_type is None else character_type
         self.runtime = runtime
         self.source_options = source_options or DEFAULT_OPTIONS
 
@@ -72,6 +74,7 @@ class Interpreter:
         kwargs.setdefault("target", self.target)
         kwargs.setdefault("free_form_input", self.free_form_input)
         kwargs.setdefault("dec_intrinsics", self.dec_intrinsics)
+        kwargs.setdefault("character_type", self.character_type)
         eng = Engine(units, **kwargs)
         if self.runtime if runtime is None else runtime:
             import forterp  # local import: forterp.__init__ imports this module

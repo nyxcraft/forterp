@@ -279,6 +279,7 @@ class ProgramUnit:
     ret_type: Optional[str] = None  # for typed functions
     implicit: dict[str, str] = field(default_factory=dict)  # letter -> type
     types: dict[str, str] = field(default_factory=dict)  # name -> type
+    char_len: dict[str, int] = field(default_factory=dict)  # CHARACTER name -> length (0=*(*))
     arrays: dict[str, Dims] = field(default_factory=dict)  # name -> [(lo,hi), ...]
     consts: dict[str, object] = field(default_factory=dict)  # PARAMETER name -> value
     commons: list[tuple[str, list]] = field(default_factory=list)  # (block, [(name, dims)])
