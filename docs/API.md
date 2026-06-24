@@ -276,7 +276,9 @@ executive (the thing a UUO calls), a facade over the engine's host seam. Its ser
 - `mon.clock` — `ms` (the engine's fixed clock reading) and a monotonic `tick()`.
 - `mon.identity` — the host OS user mapped onto TOPS-10 fields: `uid`/`gid`, `user` (the login
   name), and `ppn` (the `[project,,programmer]` word, `gid,,uid`). Read-only host facts in the
-  baseline — what a monitor call like `GETTAB(2,-1)` or `USRNAM` reports.
+  baseline — what a monitor call like `GETTAB(2,-1)` or `USRNAM` reports. The standalone helpers
+  `forterp.hostlib.host_ppn()` and `host_user()` return that PPN word and login name directly
+  (what `mon.identity` is built from) — handy for an `eng.gettab` mapping without building a `Monitor`.
 
 The baseline reads only read-only host facts and the engine's own seam, so it runs anywhere the
 engine does — enough for a program that needs only basic terminal I/O, files, and the clock.
