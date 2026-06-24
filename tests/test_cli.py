@@ -183,6 +183,33 @@ def test_py_module_without_fortran_is_an_error(capsys):
     assert "no FORTRAN source" in capsys.readouterr().err
 
 
+def test_load_builtins_restores_sys_path_and_modules():
+    # loading a host .py must not leak into the global import state (a file named like a stdlib
+    # module would otherwise shadow later imports in an in-process embedder / the test suite).
+    import sys
+
+    from forterp.cli import _load_builtins
+
+    d = tempfile.mkdtemp()
+    modname = "forterp_probe_hostmod"
+    path = os.path.join(d, modname + ".py")
+    with open(path, "w") as f:
+        f.write(_PY_BUILTIN)
+    path_before = list(sys.path)
+    assert modname not in sys.modules
+    dont_write_bytecode = sys.dont_write_bytecode
+    sys.dont_write_bytecode = True  # no __pycache__, so cleanup is exactly the file + dir we made
+    try:
+        table, _hooks = _load_builtins([path])
+    finally:
+        sys.dont_write_bytecode = dont_write_bytecode
+        os.unlink(path)
+        os.rmdir(d)
+    assert "IDIST" in table  # the routine was still discovered during loading
+    assert modname not in sys.modules  # ... but the module name is not left behind
+    assert sys.path == path_before  # ... and the inserted directory was removed
+
+
 # ---- the default terminal-echo control (run_source installs it on a real tty) --------------
 def test_default_terminal_echo_flips_and_restores_on_a_tty():
     import pty

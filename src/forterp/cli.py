@@ -32,22 +32,45 @@ def _load_builtins(paths):
 
     Returns ``(table, hooks)``. ``register(eng)`` lets a dropped-in module do engine setup the
     auto-discovered builtins can't express -- register an OPEN device (``eng.register_device``),
-    prime COMMON, inject a monitor facade -- and is called after the engine is built."""
+    prime COMMON, inject a monitor facade -- and is called after the engine is built.
+
+    The directory is on ``sys.path`` and the module is in ``sys.modules`` only for the duration
+    of loading (so sibling imports resolve by name); both are restored afterward, so loading a
+    file named like a stdlib module (``time.py``) doesn't leave it shadowing later imports in an
+    in-process caller. The loaded routines keep working -- they hold the module's namespace
+    directly, independent of ``sys.modules``."""
     table, hooks = {}, []
-    for path in paths:
-        directory = os.path.dirname(os.path.abspath(path)) or "."
-        if directory not in sys.path:
-            sys.path.insert(0, directory)
-        modname = os.path.splitext(os.path.basename(path))[0]
-        spec = importlib.util.spec_from_file_location(modname, path)
-        module = importlib.util.module_from_spec(spec)
-        sys.modules[modname] = module  # so dataclasses / sibling imports resolve by name
-        spec.loader.exec_module(module)
-        table.update(forterp.hostlib.builtins_in(module))
-        hook = getattr(module, "register", None)
-        if callable(hook):
-            hooks.append(hook)
-    return table, hooks
+    inserted = []  # sys.path dirs we added (remove exactly these afterward)
+    saved = {}  # modname -> (was_present, prior) so sys.modules can be put back
+    try:
+        for path in paths:
+            directory = os.path.dirname(os.path.abspath(path)) or "."
+            if directory not in sys.path:
+                sys.path.insert(0, directory)
+                inserted.append(directory)
+            modname = os.path.splitext(os.path.basename(path))[0]
+            if modname not in saved:  # record the pre-existing entry once
+                saved[modname] = (modname in sys.modules, sys.modules.get(modname))
+            spec = importlib.util.spec_from_file_location(modname, path)
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[modname] = module  # so dataclasses / sibling imports resolve by name
+            spec.loader.exec_module(module)
+            table.update(forterp.hostlib.builtins_in(module))
+            hook = getattr(module, "register", None)
+            if callable(hook):
+                hooks.append(hook)
+        return table, hooks
+    finally:  # un-pollute the global import state (do not leak into an embedding process)
+        for directory in inserted:
+            try:
+                sys.path.remove(directory)
+            except ValueError:
+                pass
+        for modname, (was_present, prior) in saved.items():
+            if was_present:
+                sys.modules[modname] = prior
+            else:
+                sys.modules.pop(modname, None)
 
 
 def _run(argv, dialect, prog, *, allow_std, default_target="native"):

@@ -121,10 +121,11 @@ FLOAT = _In(float)
 
 class _Str(Mode):
     """A string actual, as a Python ``str``: a quoted literal's text verbatim, or a packed-word
-    value decoded through the target's char codec. Encapsulates the StrLit-vs-packed-word
-    resolution that string/filename args (OUTSTR, OPEN's ``FILE=``, a save-detect) all repeat,
-    so the body doesn't reach for ``eng.eval``/``tgt.unpack`` itself. The decoded text is returned
-    untrimmed; the caller trims as needed (OUTSTR rstrips padding, OPEN strips the filename)."""
+    value decoded through the target's char codec with its trailing blank/null padding stripped --
+    so a packed datum and the equivalent quoted literal yield the *same* text. Encapsulates the
+    StrLit-vs-packed-word resolution that string/filename args (OUTSTR, OPEN's ``FILE=``, a
+    save-detect) all repeat, so the body doesn't reach for ``eng.eval``/``tgt.unpack`` itself.
+    (Only the fixed-width packing padding is stripped; a literal's own trailing spaces are kept.)"""
 
     def bind(self, eng, frame, node):
         if node is None:
@@ -132,7 +133,7 @@ class _Str(Mode):
         if isinstance(node, StrLit):  # a quoted literal -> its text verbatim (no word-packing)
             return node.value
         v = eng.eval(node, frame)
-        return eng.tgt.unpack(v) if isinstance(v, int) else str(v)
+        return eng.tgt.unpack(v).rstrip() if isinstance(v, int) else str(v)
 
 
 STR = _Str()  # a string / filename arg -> Python str (literal text, or a packed word decoded)

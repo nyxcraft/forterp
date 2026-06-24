@@ -60,7 +60,7 @@ def test_str_mode_resolves_literal_packed_and_plain():
 
     e = E()
     assert STR.bind(e, None, StrLit("EMPIRE.DAT")) == "EMPIRE.DAT"  # quoted literal -> text
-    assert STR.bind(e, None, PDP10.pack("HI")) == "HI   "  # packed word -> decoded via the target
+    assert STR.bind(e, None, PDP10.pack("HI")) == "HI"  # packed word -> decoded, padding stripped
     assert STR.bind(e, None, "plain") == "plain"  # already a string
     assert STR.bind(e, None, None) is None  # fewer actuals than declared modes
 
