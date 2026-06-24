@@ -1985,14 +1985,30 @@ class Engine:
                 # (ANSI X3.9-1966 7.1.3.3); pos then advances. Normal writing has pos == len,
                 # so this is an append.
                 pos = st["pos"]
-                rec = (
-                    self._bin_words(s.items, frame)  # real FOROTS data words (type-aware)
-                    if st.get("dec")
-                    else self._unf_values(s.items, frame)
-                )
-                st["recs"][pos:] = [rec]
-                st["pos"] = pos + 1
+                if self.character_type and s.fmt not in (None, "*") and not st.get("dec"):
+                    # F77 formatted sequential file: store rendered TEXT record(s) so that `/`
+                    # (record breaks) and column positioning (X/T/widths) round-trip on read --
+                    # the value-record model below cannot, since it keeps list values, not text.
+                    from forterp.fmt import render
+
+                    items = self._parsed(self._fmt_spec(s.fmt, frame))
+                    values = self._cx_expand(self._unf_values(s.items, frame))
+                    text, _ = render(items, values, self.tgt)
+                    recs = text.split("\n")
+                    st["fmt_text"] = True
+                    st["recs"][pos:] = recs
+                    st["pos"] = pos + len(recs)
+                else:
+                    rec = (
+                        self._bin_words(s.items, frame)  # real FOROTS data words (type-aware)
+                        if st.get("dec")
+                        else self._unf_values(s.items, frame)
+                    )
+                    st["recs"][pos:] = [rec]
+                    st["pos"] = pos + 1
             return None
+        if st.get("fmt_text"):  # formatted text records (F77 formatted sequential file)
+            return self._read_formatted_lines(st, s, frame)
         return self._unf_record_read(st, s, frame)
 
     def _namelist_io(self, nml, s, unit, frame):
@@ -2017,6 +2033,42 @@ class Engine:
         else:
             line = self.readline()  # terminal / default
         self._nml_read(nml, line, frame)
+
+    def _read_formatted_lines(self, st, s, frame):
+        """Formatted READ from a sequential file of TEXT records (an F77 formatted WRITE).
+        Honours `/`: the format is split at each top-level slash into per-record field groups,
+        and each group consumes the next record -- so multi-record write/read round-trips."""
+        from .fmt import read_values
+
+        recs = st["recs"]
+        if s.fmt in (None, "*"):  # list-directed / unformatted read of a text record
+            if st["pos"] >= len(recs):
+                self.last_io_error = IO_EOF
+                return Goto(s.specs["END"]) if "END" in s.specs else None
+            line = recs[st["pos"]]
+            st["pos"] += 1
+            self._ld_in(line, self._unf_refs(s.items, frame))
+            self.last_io_error = IO_OK
+            return None
+        groups = [[]]  # split the format items into one field-group per record (at each `/`)
+        for it in self._parsed(self._fmt_spec(s.fmt, frame)):
+            if it.kind == "/":
+                groups.append([])
+            else:
+                groups[-1].append(it)
+        vals = []
+        for g in groups:
+            if st["pos"] >= len(recs):
+                self.last_io_error = IO_EOF
+                if "END" in s.specs:
+                    return Goto(s.specs["END"])
+                break
+            line = recs[st["pos"]]
+            st["pos"] += 1
+            vals += read_values(g, line, self.tgt, self.free_form_input, self.character_type)
+        self._assign_reads(s.items, vals, frame)
+        self.last_io_error = IO_OK
+        return None
 
     def _unf_record_read(self, st, s, frame):
         """Read one unformatted record into the I/O list. Returns a Goto for READ...END= at

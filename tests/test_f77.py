@@ -480,6 +480,18 @@ def test_sequential_scratch_file_round_trip():
     assert _out(src)[0] == 42
 
 
+def test_formatted_file_slash_record_break_round_trip():
+    # A formatted WRITE with / (record break) round-trips through a sequential file: the
+    # rendered text records preserve record boundaries, and the read splits the format at /.
+    src = (
+        "      PROGRAM T\n      COMMON /O/ N(8)\n"
+        "      WRITE(7,10) 11, 22\n   10 FORMAT(I3/I3)\n      REWIND 7\n"
+        "      READ(7,20) I, J\n   20 FORMAT(I3/I3)\n      N(1)=I\n      N(2)=J\n      END\n"
+    )
+    out = _out(src)
+    assert out[0] == 11 and out[1] == 22
+
+
 def test_a_format_reads_a_character():
     src = _cprog("      CHARACTER R*5\n      READ(5,10) R\n   10 FORMAT(A5)\n")
     assert _run_io(src, stdin="WORLD\n").commons["O"][0] == "WORLD"
