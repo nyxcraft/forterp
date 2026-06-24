@@ -71,7 +71,8 @@ def make_engine(units, dialect=None, builtins=None, host=None, **kwargs):
     if host is not None:
         eng.host = host(eng)
     if builtins:
-        eng.register_builtins(dict(builtins))
+        # a program's own unit wins over a same-named host builtin (as install_runtime does)
+        eng.register_builtins({k: v for k, v in builtins.items() if k not in eng.units})
     return eng
 
 

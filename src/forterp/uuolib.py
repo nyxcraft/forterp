@@ -26,7 +26,7 @@ def b_OUTSTR(eng, frame, arg_nodes):
     if isinstance(node, StrLit):
         text = node.value
     else:  # a packed word -> its chars (blank/null padding trimmed)
-        text = eng.tgt.unpack(int(eng.eval(node, frame)), 5).rstrip()
+        text = eng.tgt.unpack(int(eng.eval(node, frame)), eng.tgt.chars_per_word).rstrip()
     eng.emit(text)
 
 

@@ -124,7 +124,8 @@ class _Str(Mode):
     """A string actual, as a Python ``str``: a quoted literal's text verbatim, or a packed-word
     value decoded through the target's char codec. Encapsulates the StrLit-vs-packed-word
     resolution that string/filename args (OUTSTR, OPEN's ``FILE=``, a save-detect) all repeat,
-    so the body doesn't reach for ``eng.eval``/``tgt.unpack`` itself."""
+    so the body doesn't reach for ``eng.eval``/``tgt.unpack`` itself. The decoded text is returned
+    untrimmed; the caller trims as needed (OUTSTR rstrips padding, OPEN strips the filename)."""
 
     def bind(self, eng, frame, node):
         if node is None:

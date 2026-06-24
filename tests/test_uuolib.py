@@ -35,3 +35,42 @@ def test_a_program_defined_routine_still_wins():
     out = []
     forterp.fortran10.run_source(src, emit=out.append)
     assert "".join(out) == "Z"  # the program's OUTSTR ran (emits 'Z'), not the library one
+
+
+def test_user_builtin_does_not_shadow_a_program_subroutine():
+    # a host-provided builtin (builtins=) must NOT override a routine the program defines either --
+    # the program's own unit wins, same guard the library install uses (build_engine docstring)
+    src = (
+        "      PROGRAM T\n      CALL GREET\n      END\n"
+        "      SUBROUTINE GREET\n      CALL OUTCHR(90)\n      RETURN\n      END\n"
+    )
+    out = []
+    forterp.run_source(
+        src,
+        dialect=forterp.FORTRAN10,
+        builtins={"GREET": lambda eng, frame, nodes: eng.emit("Q")},
+        emit=out.append,
+    )
+    assert "".join(out) == "Z"  # program's GREET ran ('Z'); the host builtin ('Q') was skipped
+
+
+def test_outstr_uses_the_targets_full_word_width():
+    # OUTSTR of a packed word unpacks chars_per_word chars, not a hardcoded 5 -- so on the native
+    # target (8/word) chars 6-8 aren't dropped
+    from forterp.uuolib import b_OUTSTR
+
+    n = forterp.NATIVE.chars_per_word
+    s = "ABCDEFGH"[:n]
+    out = []
+
+    class E:
+        tgt = forterp.NATIVE
+
+        def eval(self, node, frame):
+            return node
+
+        def emit(self, t):
+            out.append(t)
+
+    b_OUTSTR(E(), None, [forterp.NATIVE.pack(s)])
+    assert "".join(out) == s

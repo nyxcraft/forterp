@@ -161,10 +161,10 @@ def _run(argv, dialect, prog, *, allow_std, default_target="native"):
         return 1
     except forterp.engine.StopExecution:
         return 0  # explicit STOP: normal termination (run_program also swallows it)
-    except (RuntimeError, ValueError, ArithmeticError, RecursionError, OSError) as e:
-        # any other runtime fault (undefined unit/label/routine, step budget, bad
-        # dimension, deep recursion, a file error during the run) -> a clean ?-diagnostic,
-        # never a raw traceback
+    except (RuntimeError, ValueError, ArithmeticError, RecursionError, OSError, ImportError) as e:
+        # any other runtime fault (undefined unit/label/routine, step budget, bad dimension,
+        # deep recursion, a file error, or a host .py module whose basename shadows a stdlib
+        # import) -> a clean ?-diagnostic, never a raw traceback
         print(f"?{e}", file=sys.stderr)
         return 1
     return 0

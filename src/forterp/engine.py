@@ -1952,7 +1952,8 @@ class Engine:
         import json
 
         try:
-            raw = open(path, "rb").read()
+            with open(path, "rb") as fh:
+                raw = fh.read()
         except OSError:  # missing/empty -> an empty unit (a fresh READ hits END=)
             return {"recs": [], "pos": 0, "mode": "r", "path": path}
         if self.dec_files and raw[:1] == b"\x00":  # a core-dump START LSCW begins with 0x00
