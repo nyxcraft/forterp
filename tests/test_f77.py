@@ -232,6 +232,19 @@ def test_len_is_the_declared_length():
     )
 
 
+def test_implicit_character_length():
+    # IMPLICIT CHARACTER*5 (R): R is implicitly CHARACTER*5, so the assignment blank-pads
+    # to 5. This is the standard F77 FCVS audit-harness preamble (IMPLICIT CHARACTER*14 (C)).
+    src = (
+        "      PROGRAM T\n"
+        "      IMPLICIT CHARACTER*5 (R)\n"
+        "      COMMON /O/ R\n"
+        "      R = 'HI'\n"
+        "      END\n"
+    )
+    assert _out(src)[0] == "HI   "
+
+
 def test_character_array_elements():
     body = "      CHARACTER R*2, W(3)*2\n      W(2)='CD'\n      R=W(2)\n"
     assert _out(_cprog(body))[0] == "CD"

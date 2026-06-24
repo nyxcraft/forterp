@@ -1142,7 +1142,14 @@ class StatementParser:
             if typ == "DOUBLE" and self.is_id("PRECISION"):
                 self.advance()
                 typ = "DOUBLE PRECISION"
+            clen = self._char_len()  # *len: the CHARACTER length (numeric *byte sizes are ignored)
             self.expect_op("(")
+
+            def assign(letter):
+                unit.implicit[letter] = typ
+                if typ == "CHARACTER" and clen is not None:
+                    unit.implicit_char_len[letter] = clen
+
             while True:
                 a = self.expect_id()
                 if self.accept_op("-"):
@@ -1150,11 +1157,11 @@ class StatementParser:
                     if len(a) != 1 or len(b) != 1:
                         raise ParseError("IMPLICIT range bounds must be single letters", "NRC")
                     for o in range(ord(a), ord(b) + 1):
-                        unit.implicit[chr(o)] = typ
+                        assign(chr(o))
                 else:
                     if len(a) != 1:
                         raise ParseError("IMPLICIT letter must be a single letter", "NRC")
-                    unit.implicit[a] = typ
+                    assign(a)
                 if not self.accept_op(","):
                     break
             self.expect_op(")")

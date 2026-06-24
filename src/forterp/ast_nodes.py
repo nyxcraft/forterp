@@ -285,6 +285,9 @@ class ProgramUnit:
     params: list[str] = field(default_factory=list)
     ret_type: Optional[str] = None  # for typed functions
     implicit: dict[str, str] = field(default_factory=dict)  # letter -> type
+    implicit_char_len: dict[str, int] = field(
+        default_factory=dict
+    )  # letter -> IMPLICIT CHARACTER*len
     types: dict[str, str] = field(default_factory=dict)  # name -> type
     char_len: dict[str, int] = field(default_factory=dict)  # CHARACTER name -> length (0=*(*))
     arrays: dict[str, Dims] = field(default_factory=dict)  # name -> [(lo,hi), ...]

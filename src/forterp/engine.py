@@ -672,7 +672,11 @@ class Engine:
 
     def char_length(self, unit, name):
         """Declared length of a CHARACTER entity (default 1; 0 means assumed length `*(*)`)."""
-        return unit.char_len.get(name, 1)
+        if name in unit.char_len:
+            return unit.char_len[name]
+        if name and name[0] in unit.implicit_char_len:  # IMPLICIT CHARACTER*len (letter)
+            return unit.implicit_char_len[name[0]]
+        return 1
 
     # ---- DATA initialization
     def _apply_data(self, rt, unit):

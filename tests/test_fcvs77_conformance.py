@@ -15,16 +15,23 @@ Unlike the F66 corpus, this one is a WORK-IN-PROGRESS baseline: F77 support is p
 so parse "gaps" here are *tracked feature gaps*, not regressions. The numbers below are
 pinned so that both regressions and improvements are visible and force a conscious update.
 
-Current gaps (55 files fail to parse under the F77 front-end):
-  41  IMPLICIT CHARACTER*<len> (<letters>)   -- length spec on the type in an IMPLICIT stmt
-                                               (the standard F77 audit-harness preamble)
+Current gaps (25 files fail to parse under the F77 front-end):
+   5  keyword=value in a control-list paren  -- "FOUND '=' WHEN EXPECTING ')'"
+   4  widthless FORMAT descriptor            -- F77 allows e.g. A with no width
    4  list-directed I/O (*)                  -- standardized in F77, still gated under the
                                                DEC-only extended_io knob
-   4  keyword=value in a control-list paren  -- "FOUND '=' WHEN EXPECTING ')'"
-   3  widthless FORMAT descriptor            -- F77 allows e.g. A with no width
+   2  bare ',' where an identifier is expected
+   2  substring ':' outside an accepted context
    2  illegal '.' in source
-   1  bare ',' where an identifier is expected
-Of the 85 that run: 769 sub-tests PASS, 155 ERRORS, 30 print-and-eyeball (no summary).
+   1  PARAMETER with a non-constant LOGICAL value
+   1  PARAMETER with a COMPLEX value
+   2  numeric literal where '=' is expected (DATA/implied-do edge)
+   1  '//' concatenation where an identifier is expected
+   1  keyword where a statement label is expected
+Of the 115 that run: 1236 sub-tests PASS, 155 ERRORS, 36 print-and-eyeball (no summary).
+
+The IMPLICIT CHARACTER*<len> preamble -- the largest gap (41 files) -- now parses, which
+unblocked 30 routines and +467 passing sub-tests with no new errors.
 """
 
 import glob
@@ -47,11 +54,11 @@ def test_corpus_is_the_full_restored_f77_set():
 def test_f77_conformance_baseline():
     # Pinned WIP baseline. When an F77 feature lands, these numbers move up -- update
     # them here in lockstep with the fix so the gain is recorded, not silently absorbed.
-    assert R["n_run"] == 85
-    assert R["n_gap"] == 55
-    assert R["total_pass"] == 769
+    assert R["n_run"] == 115
+    assert R["n_gap"] == 25
+    assert R["total_pass"] == 1236
     assert R["total_err"] == 155
-    assert len(R["nosummary"]) == 30
+    assert len(R["nosummary"]) == 36
 
 
 def test_running_routines_mostly_pass():
