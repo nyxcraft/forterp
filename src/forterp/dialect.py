@@ -46,6 +46,9 @@ class Dialect:
     parameter_stmt: bool = False  # the PARAMETER statement (added in F77; not in ANSI F66)
     star_sizes: bool = False  # INTEGER*4 / REAL*8 byte-size type specifiers (DEC/F77)
     alt_return: bool = False  # alternate-return actual args in CALL ($n/&n/*n) (F77/DEC)
+    block_if: bool = False  # block IF...THEN / ELSE IF / ELSE / END IF (F77; also FORTRAN-10 V5)
+    do_while: bool = False  # DO WHILE (cond) / END DO (DEC/F90 ext; NOT in ANSI X3.9-1978)
+    save_stmt: bool = False  # the SAVE statement (F77; a no-op here -- locals are already static)
 
 
 F66 = Dialect()  # ANSI X3.9-1966 -- the default dialect
@@ -68,7 +71,26 @@ FORTRAN10 = Dialect(  # DEC FORTRAN-10 V5 superset: every extension on
     parameter_stmt=True,
     star_sizes=True,
     alt_return=True,
+    block_if=True,  # block IF is a FORTRAN-10 V5 construct
+    do_while=True,  # DEC FORTRAN-10 has DO WHILE
+    save_stmt=True,
+)
+# ANSI X3.9-1978 (FORTRAN 77): the standard between F66 and the DEC superset. Reuses the
+# knobs F77 standardized; DEC-only extensions (octal `"`, tab format, free-form input, TYPE/
+# ACCEPT, ENCODE/DECODE, symbolic == operators, `;`, DO WHILE) stay off. CHARACTER and the
+# full F77 I/O set are not here yet (planned); this is the control-flow + declaration subset.
+F77 = Dialect(
+    apostrophe_string=True,  # CHARACTER/Hollerith apostrophe constants
+    implicit_stmt=True,
+    expr_subscripts=True,
+    array_lower_bounds=True,
+    parameter_stmt=True,
+    alt_return=True,
+    mixed_complex_assign=True,
+    dec_intrinsics=True,  # the F77 generic intrinsic library (a superset is fine for now)
+    block_if=True,
+    save_stmt=True,
 )
 
 # CLI / front-end name -> dialect, so every caller resolves the same names in one place.
-DIALECTS = {"f66": F66, "fortran10": FORTRAN10}
+DIALECTS = {"f66": F66, "fortran10": FORTRAN10, "f77": F77}

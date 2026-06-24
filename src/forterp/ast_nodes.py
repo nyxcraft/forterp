@@ -154,6 +154,39 @@ class Continue(Stmt):
     pass
 
 
+# Structured-block markers (F77 / FORTRAN-10). These are transient: the parser emits them,
+# then `_lower_structured` rewrites each construct into IfLogical/Goto/Continue with synthetic
+# labels, so they never reach the engine. Block IF nests via the existing flat label+GOTO model.
+@dataclass
+class BlockIf(Stmt):  # IF (cond) THEN
+    cond: Optional[Expr] = None
+
+
+@dataclass
+class ElseIf(Stmt):  # ELSE IF (cond) THEN
+    cond: Optional[Expr] = None
+
+
+@dataclass
+class Else(Stmt):  # ELSE
+    pass
+
+
+@dataclass
+class EndIf(Stmt):  # END IF / ENDIF
+    pass
+
+
+@dataclass
+class DoWhile(Stmt):  # DO WHILE (cond)
+    cond: Optional[Expr] = None
+
+
+@dataclass
+class EndDo(Stmt):  # END DO / ENDDO
+    pass
+
+
 @dataclass
 class EntryStmt(Stmt):  # ENTRY name(args) -- alternate subprogram entry point
     name: str = ""

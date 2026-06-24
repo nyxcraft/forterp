@@ -41,8 +41,8 @@ Expert surfaces live behind explicit namespaces (the package root exposes only t
 # the Engine and builders, the lexer/parser stages, the FORMAT engine, the AST nodes -- lives
 # in the expert namespaces (forterp.frontend / .format / .runtime / .ast / .hostlib), imported
 # at the bottom of this module. There are no back-compat root aliases.
-from forterp.dialect import F66, FORTRAN10, Dialect
-from forterp.interpreter import Interpreter, f66, fortran10
+from forterp.dialect import F66, F77, FORTRAN10, Dialect
+from forterp.interpreter import Interpreter, f66, f77, fortran10
 from forterp.parser import ParseError
 from forterp.source import SourceOptions
 from forterp.target import NATIVE, PDP10, VAX, Target
@@ -61,10 +61,12 @@ __all__ = [
     "parse_source",
     # prebuilt interpreters and the class behind them
     "f66",
+    "f77",
     "fortran10",
     "Interpreter",
     # dialects
     "F66",
+    "F77",
     "FORTRAN10",
     "Dialect",
     # machine value models

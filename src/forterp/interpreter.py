@@ -25,7 +25,7 @@ from __future__ import annotations
 import glob
 import os
 
-from forterp.dialect import F66, FORTRAN10
+from forterp.dialect import F66, F77, FORTRAN10
 from forterp.engine import Engine
 from forterp.parser import ParseError, parse_units
 from forterp.source import DEFAULT_OPTIONS, expand_includes, scan_file, scan_text
@@ -160,3 +160,8 @@ fortran10 = Interpreter(PDP10, FORTRAN10)
 #: Strict ANSI FORTRAN-66 -- portable NATIVE machine, F66 dialect, column input, no DEC
 #: library (free_form_input / dec_intrinsics are taken from the F66 dialect).
 f66 = Interpreter(NATIVE, F66)
+
+#: ANSI FORTRAN 77 (X3.9-1978) -- portable NATIVE machine, F77 dialect. The control-flow +
+#: declaration subset for now (block IF, DO WHILE off by default, SAVE, the F77 syntax already
+#: shared with FORTRAN-10); CHARACTER and the full F77 I/O set are planned.
+f77 = Interpreter(NATIVE, F77)

@@ -484,6 +484,10 @@ class StatementParser:
         nx = self.peek_next()
         if kw == "IF" and nx and nx.kind == "OP" and nx.value == "(":
             return self.parse_if()
+        if self.dialect.do_while and (
+            kw == "DOWHILE" or (kw == "DO" and nx and nx.kind == "ID" and nx.value == "WHILE")
+        ):
+            return self.parse_do_while()
         if kw == "DO" and self._looks_like_do():
             return self.parse_do()
         if kw == "GOTO" or (kw == "GO" and nx and nx.kind == "ID" and nx.value == "TO"):
@@ -526,6 +530,35 @@ class StatementParser:
             return self.parse_filectl("ENDFILE")
         if kw == "SKIP" and nx and nx.kind == "ID" and nx.value in ("RECORD", "FILE"):
             return self.parse_skip()
+        # block-IF markers (gated; the whole-statement shape disambiguates them from an
+        # assignment to a variable that happens to be named ELSE / ENDIF / ...).
+        if self.dialect.block_if:
+            if kw == "ELSEIF" and self._ends_with_then():
+                return self.parse_elseif(one_word=True)
+            if (
+                kw == "ELSE"
+                and nx
+                and nx.kind == "ID"
+                and nx.value == "IF"
+                and self._ends_with_then()
+            ):
+                return self.parse_elseif(one_word=False)
+            if kw == "ELSE" and len(self.toks) == 1:
+                self.advance()
+                return A.Else()
+            if kw == "ENDIF" and len(self.toks) == 1:
+                self.advance()
+                return A.EndIf()
+            if kw == "END" and nx and nx.kind == "ID" and nx.value == "IF" and len(self.toks) == 2:
+                self.advance(), self.advance()
+                return A.EndIf()
+        if self.dialect.do_while:
+            if kw == "ENDDO" and len(self.toks) == 1:
+                self.advance()
+                return A.EndDo()
+            if kw == "END" and nx and nx.kind == "ID" and nx.value == "DO" and len(self.toks) == 2:
+                self.advance(), self.advance()
+                return A.EndDo()
         return self.parse_assign()
 
     def _starts_io_format(self, nx):
@@ -600,12 +633,42 @@ class StatementParser:
         cond = self.parse_expr()
         self.expect_op(")")
         t = self.peek()
+        # block IF: `IF (cond) THEN` with nothing after THEN (distinguishes it from a logical IF
+        # whose embedded statement assigns a variable named THEN, e.g. `IF (c) THEN = 1`).
+        if t is not None and t.kind == "ID" and t.value == "THEN" and self.peek_next() is None:
+            if not self.dialect.block_if:
+                raise ParseError("block IF (IF ... THEN) requires FORTRAN-77 / FORTRAN-10", "NRC")
+            self.advance()  # THEN
+            return A.BlockIf(cond=cond)
         if t is not None and t.kind in ("INT", "OCTAL"):
             labels = [self.expect_int()]
             while self.accept_op(","):
                 labels.append(self.expect_int())
             return A.IfBranch(cond=cond, labels=labels)
         return A.IfLogical(cond=cond, stmt=self.parse_exec())
+
+    def _ends_with_then(self):
+        return self.toks and self.toks[-1].kind == "ID" and self.toks[-1].value == "THEN"
+
+    def parse_elseif(self, one_word):
+        self.advance()  # ELSE (or ELSEIF)
+        if not one_word:
+            self.advance()  # IF
+        self.expect_op("(")
+        cond = self.parse_expr()
+        self.expect_op(")")
+        if self.is_id("THEN"):
+            self.advance()
+        return A.ElseIf(cond=cond)
+
+    def parse_do_while(self):
+        self.advance()  # DO (or DOWHILE)
+        if self.is_id("WHILE"):
+            self.advance()
+        self.expect_op("(")
+        cond = self.parse_expr()
+        self.expect_op(")")
+        return A.DoWhile(cond=cond)
 
     def parse_do(self):
         self.advance()  # DO
@@ -1207,6 +1270,76 @@ def _format_body(text):
     return text[i:]
 
 
+_STRUCTURED = (A.BlockIf, A.ElseIf, A.Else, A.EndIf, A.DoWhile, A.EndDo)
+
+
+def _lower_structured(unit):
+    """Lower the block constructs (IF...THEN / ELSE IF / ELSE / END IF and DO WHILE / END DO)
+    to the flat label+GOTO form the engine already executes: each marker becomes IfLogical /
+    Goto / Continue with *synthetic* (negative) labels, then the label->index map is rebuilt.
+    This reuses the proven flat executor and its DO-stack handling -- no new control machinery,
+    and nesting is free because jumps stay within the construct. Raises ParseError on an
+    unbalanced construct (reported as a diagnostic by parse_units)."""
+    if not any(isinstance(s, _STRUCTURED) for s in unit.code):
+        return  # the common case: nothing structured to lower
+
+    out = []
+    stack = []  # ["if", end, false] or ["do", top, end]
+    counter = [0]
+
+    def synth():  # a fresh label that cannot collide with a source label (those are >= 1)
+        counter[0] -= 1
+        return counter[0]
+
+    def notc(cond):
+        return A.Unary("NOT", cond)
+
+    for s in unit.code:
+        if isinstance(s, A.BlockIf):
+            end, false = synth(), synth()
+            out.append(A.IfLogical(cond=notc(s.cond), stmt=A.Goto(target=false), label=s.label))
+            stack.append(["if", end, false])
+        elif isinstance(s, (A.ElseIf, A.Else)):
+            if not stack or stack[-1][0] != "if" or stack[-1][2] is None:
+                raise ParseError("ELSE / ELSE IF without an open block IF", "NRC")
+            ctx = stack[-1]
+            out.append(A.Goto(target=ctx[1]))  # finish the previous arm -> END IF
+            out.append(A.Continue(label=ctx[2]))  # the previous arm's false-target lands here
+            if isinstance(s, A.ElseIf):
+                ctx[2] = synth()
+                out.append(A.IfLogical(cond=notc(s.cond), stmt=A.Goto(target=ctx[2])))
+            else:  # ELSE: its body falls straight through to END IF
+                ctx[2] = None
+        elif isinstance(s, A.EndIf):
+            if not stack or stack[-1][0] != "if":
+                raise ParseError("END IF without an open block IF", "NRC")
+            _, end, false = stack.pop()
+            if false is not None:  # no ELSE: the last arm's false-jump lands at END IF
+                out.append(A.Continue(label=false))
+            out.append(A.Continue(label=end))
+        elif isinstance(s, A.DoWhile):
+            top, end = synth(), synth()
+            out.append(A.Continue(label=top))
+            out.append(A.IfLogical(cond=notc(s.cond), stmt=A.Goto(target=end)))
+            stack.append(["do", top, end])
+        elif isinstance(s, A.EndDo):
+            if not stack or stack[-1][0] != "do":
+                raise ParseError("END DO without an open DO WHILE", "NRC")
+            _, top, end = stack.pop()
+            out.append(A.Goto(target=top))  # back to the loop test
+            out.append(A.Continue(label=end))
+        else:
+            out.append(s)
+
+    if stack:
+        raise ParseError("unterminated block IF / DO WHILE (missing END IF / END DO)", "NRC")
+
+    unit.code = out
+    # rebuild label -> index: source labels (>=1) stayed on their statements; synthetic targets
+    # (negative) were just emitted.
+    unit.labels = {s.label: i for i, s in enumerate(out) if s.label is not None}
+
+
 def parse_units(statements, *, on_error=None, on_warn=None, dialect=F66):
     """Group expanded statements into ProgramUnits and parse each one. on_warn(st, msg)
     receives non-fatal diagnostics (e.g. %FTNLID, 6-char-name truncation). `dialect`
@@ -1278,6 +1411,17 @@ def parse_units(statements, *, on_error=None, on_warn=None, dialect=F66):
 
     if unit is not None:
         units.append(unit)
+    for u in units:  # lower block IF / DO WHILE to the flat label+GOTO form (after full parse)
+        try:
+            _lower_structured(u)
+        except ParseError as e:
+            if on_error:
+                from types import SimpleNamespace
+
+                line = u.code[0].line if u.code else 0
+                on_error(
+                    SimpleNamespace(line=line, file="", label=None), diag(e.mnemonic, str(e), line)
+                )
     return units
 
 
@@ -1401,6 +1545,13 @@ def _route(unit, st, toks, on_warn=None, dialect=F66):
                 "the PARAMETER statement is a FORTRAN-10 extension (not ANSI F66)", "NRC"
             )
         p.parse_parameter(unit)
+        return
+    if kw == "SAVE" and (len(toks) == 1 or toks[1].value not in ("=", "(")):
+        # SAVE [vars, /commons/] -- F77 storage retention. forterp's locals are already static
+        # (they persist across calls -- see the memory model), so SAVE is a no-op. The guard
+        # leaves an assignment to a variable/array named SAVE (`SAVE = ...` / `SAVE(I) = ...`).
+        if not dialect.save_stmt:
+            raise ParseError("the SAVE statement is a FORTRAN-77 extension (not ANSI F66)", "NRC")
         return
     if kw == "DATA" and not _data_is_assignment(toks):
         p.parse_data(unit)

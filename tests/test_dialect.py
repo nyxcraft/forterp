@@ -1,8 +1,8 @@
-"""Dialect boundary: what the DEC FORTRAN-10 dialect accepts vs what it doesn't.
+"""Dialect boundary: what each dialect accepts vs what it doesn't.
 
-The interpreter targets DEC FORTRAN-10 (F66-era + DEC extensions),
-NOT FORTRAN-77. These tests pin both the supported forms and the F77 constructs that
-correctly do NOT parse -- a regression here would mean we drifted toward F77.
+Strict ANSI F66 is the floor; FORTRAN-10 (F66-era + DEC extensions, V5 -- which already
+includes block IF and DO WHILE) is the superset; F77 is a separate dialect. These tests pin
+that DEC/F77-era constructs run under FORTRAN-10 but are correctly rejected under strict F66.
 """
 
 from conftest import out, run, run_int
@@ -52,13 +52,31 @@ def test_octal_and_symbolic_relationals_are_dialect_features():
     assert out(eng, 2) == 1
 
 
-# ---- F77-only constructs: correctly NOT supported in this F66 dialect ----
-def test_block_if_then_endif_is_rejected():
-    assert _rejected(H + "        IF(1==1) THEN\n        V(1)=9\n        ENDIF\n" + END)
+# ---- block IF / DO WHILE: FORTRAN-10 V5 constructs (accepted), but NOT in strict ANSI F66 ----
+def test_block_if_then_else_endif_runs_under_fortran10():
+    eng = run_int(
+        "        V(1)=0\n        IF(1#1) THEN\n        V(1)=9\n"
+        "        ELSE\n        V(1)=7\n        ENDIF\n"
+    )
+    assert out(eng, 1) == 7  # 1#1 (1 .NE. 1) is false -> the ELSE arm runs
 
 
-def test_do_while_is_rejected():
-    assert _rejected(H + "        DO WHILE(V(1)<3)\n        V(1)=V(1)+1\n        END DO\n" + END)
+def test_block_if_is_rejected_under_strict_f66():
+    # the same construct (with F66-legal operators) is not ANSI X3.9-1966 -> F66 rejects it
+    assert _rejected(
+        H + "        IF(1.EQ.1) THEN\n        V(1)=9\n        ENDIF\n" + END, dialect=F66
+    )
+
+
+def test_do_while_runs_under_fortran10():
+    eng = run_int("        V(1)=0\n        DO WHILE(V(1)<3)\n        V(1)=V(1)+1\n        END DO\n")
+    assert out(eng, 1) == 3
+
+
+def test_do_while_is_rejected_under_strict_f66():
+    assert _rejected(
+        H + "        DO WHILE(V(1).LT.3)\n        V(1)=V(1)+1\n        END DO\n" + END, dialect=F66
+    )
 
 
 # ---- ** (standard FORTRAN power) is accepted as a synonym for ^ ----
