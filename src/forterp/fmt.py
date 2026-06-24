@@ -423,7 +423,7 @@ class InputConversionError(Exception):
     blanks are zeros, so it reads as 0 (F66 7.2.3.6)."""
 
 
-def read_values(items, line, target=NATIVE, free_form=False):
+def read_values(items, line, target=NATIVE, free_form=False, character_type=False):
     """Parse `line` per the format (F66 7.2.3); return a list of (kind, value) reads.
 
     By default (F66) every numeric/logical field is read by COLUMN: leading blanks are
@@ -448,7 +448,10 @@ def read_values(items, line, target=NATIVE, free_form=False):
             if pos < len(line) and line[pos] == "\t":  # legacy tab field-separator
                 pos += 1
             w = it.a or target.chars_per_word
-            vals.append((k, target.pack(line[pos : pos + w].ljust(w))))
+            field = line[pos : pos + w].ljust(w)
+            # F77 CHARACTER: the field is a str (the caller fits it to the var's declared
+            # length). Otherwise it is Hollerith packed into a word (the F66/FORTRAN-10 model).
+            vals.append((k, field if character_type else target.pack(field)))
             pos += w
         elif k == "G":
             chunk, pos, tok = _grab(it, line, pos, free_form)

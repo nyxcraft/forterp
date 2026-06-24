@@ -4,12 +4,18 @@ Phase 1 -- structured control: block IF / ELSE IF / ELSE / END IF and DO WHILE /
 (the parser emits markers; parser._lower_structured rewrites them to the engine's flat
 label+GOTO form), SAVE, INTRINSIC, and generic intrinsics.
 
-Phase 2 -- CHARACTER (scalars): declarations with a length, blank-pad/truncate assignment,
-concatenation (//), blank-padded comparison, and LEN. Under the F77 dialect a string literal
-is a CHARACTER constant (a Python str), not a Hollerith packed word. Substrings, the remaining
-character intrinsics, and the F77 I/O set are later phases.
+Phase 2 -- CHARACTER: declarations with a length, blank-pad/truncate assignment, concatenation
+(//), blank-padded comparison, LEN/CHAR/ICHAR/INDEX/LGE..LLT, and substrings S(i:j) (read +
+assignable lvalue, incl. array-element substrings). Under the F77 dialect a string literal is a
+CHARACTER constant (a Python str), not a Hollerith packed word.
+
+Phase 3 -- A-format CHARACTER I/O: WRITE/READ a CHARACTER with an A descriptor (the A field is
+a str; input fits to the declared length by the F77 rightmost/blank-fill rule). Internal files
+and INQUIRE are later.
 
 Runs under the F77 dialect (NATIVE target) unless a test says otherwise."""
+
+import io
 
 import pytest
 
@@ -288,6 +294,36 @@ def test_array_element_substring_read():
 def test_array_element_substring_assignment():
     body = "      CHARACTER R*3\n      R='ABC'\n      R(1:2)='XY'\n"
     assert _out(_cprog(body))[0] == "XYC"
+
+
+# ---- A-format CHARACTER I/O (Phase 3) -------------------------------------------------------
+def _run_io(src, stdin=""):
+    return forterp.run_source(
+        src, dialect=forterp.F77, target=forterp.NATIVE, readline=io.StringIO(stdin).readline
+    )
+
+
+def test_a_format_writes_a_character():
+    eng = _run_io(
+        _cprog("      CHARACTER S*5\n      S='HI'\n      WRITE(6,10) S\n   10 FORMAT(A5)\n")
+    )
+    assert "".join(eng.out).strip() == "HI"  # 'HI   ' (A5)
+
+
+def test_a_format_reads_a_character():
+    src = _cprog("      CHARACTER R*5\n      READ(5,10) R\n   10 FORMAT(A5)\n")
+    assert _run_io(src, stdin="WORLD\n").commons["O"][0] == "WORLD"
+
+
+def test_a_input_takes_rightmost_when_field_wider_than_var():
+    src = _cprog("      CHARACTER R*2\n      READ(5,10) R\n   10 FORMAT(A5)\n")
+    assert _run_io(src, stdin="HELLO\n").commons["O"][0] == "LO"
+
+
+def test_a_output_right_justifies_when_field_wider_than_value():
+    # 1H supplies the carriage-control char (consumed) so the A5 field's leading blanks survive.
+    body = "      CHARACTER S*2\n      S='HI'\n      WRITE(6,10) S\n   10 FORMAT(1H ,A5)\n"
+    assert "".join(_run_io(_cprog(body)).out).rstrip("\n").endswith("   HI")
 
 
 def test_concat_operator_only_tokenized_under_character_type():

@@ -1581,7 +1581,7 @@ class Engine:
             return
         spec = self._fmt_spec(s.fmt, frame)
         items = self._parsed(spec)
-        reads = read_values(items, line, self.tgt, self.free_form_input)
+        reads = read_values(items, line, self.tgt, self.free_form_input, self.character_type)
         self._assign_reads(s.items, reads, frame)  # COMPLEX consumes 2 real fields
 
     def do_encdec(self, s, frame):
@@ -1849,7 +1849,9 @@ class Engine:
                 self._assign_words(s.items, self._binio().decode_record(cell, 0)[0], frame)
             elif items is not None and isinstance(cell, str):
                 self._assign_reads(
-                    s.items, read_values(items, cell, self.tgt, self.free_form_input), frame
+                    s.items,
+                    read_values(items, cell, self.tgt, self.free_form_input, self.character_type),
+                    frame,
                 )
             else:
                 for ref, w in zip(self._unf_refs(s.items, frame), cell):
@@ -2122,7 +2124,9 @@ class Engine:
             spec = self._fmt_spec(s.fmt, frame)
             items = self._parsed(spec)
             self._assign_reads(
-                s.items, read_values(items, line, self.tgt, self.free_form_input), frame
+                s.items,
+                read_values(items, line, self.tgt, self.free_form_input, self.character_type),
+                frame,
             )
         self.last_io_error = IO_OK
         return None
@@ -2207,14 +2211,21 @@ class Engine:
         """Write formatted-input values to the I/O list. A COMPLEX target consumes
         two consecutive real fields -> complex(re, im) (V5 Ch4)."""
         vals = iter(v for (_, v) in reads)
-        for ref, ty in (p for it in items for p in self._item_refs_typed(it, frame)):
-            try:
-                v = next(vals)
-            except StopIteration:
-                break
-            if ty == "COMPLEX" and not isinstance(v, complex):
-                v = complex(float(v), float(next(vals, 0.0)))
-            ref.write(v)
+        for it in items:
+            name = getattr(it, "name", None)  # the I/O-list item's name (for CHARACTER length)
+            for ref, ty in self._item_refs_typed(it, frame):
+                try:
+                    v = next(vals)
+                except StopIteration:
+                    return
+                if ty == "COMPLEX" and not isinstance(v, complex):
+                    v = complex(float(v), float(next(vals, 0.0)))
+                elif ty == "CHARACTER" and isinstance(v, str):
+                    # F77 A input (X3.9-1978 13.5.11): a field wider than the variable supplies
+                    # its rightmost chars; a narrower field is left-justified, blank-filled.
+                    n = self.char_length(frame.rt.unit, name) if name else len(v)
+                    v = (v[-n:] if len(v) > n else v.ljust(n)) if n else v
+                ref.write(v)
 
     def _item_refs(self, it, frame):
         """Flatten one I/O list item into element references (whole arrays
