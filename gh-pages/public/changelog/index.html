@@ -36,12 +36,12 @@
 <ul class="section-nav__list">
 <li><a class="section-nav__link section-nav__link--l2" href="#2026-06-23-host-services-terminal-modes-and-real-binary-files">2026-06-23 — host services, terminal modes, and real binary files</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#2026-06-22-host-services-for-the-embedder">2026-06-22 — host services for the embedder</a></li>
-<li><a class="section-nav__link section-nav__link--l2" href="#2026-06-16-and-so-it-begins">2026-06-16 — And so it begins...</a></li>
-<li><a class="section-nav__link section-nav__link--l2" href="#2026-06-17-hardening-for-the-next-program">2026-06-17 — hardening for the next program</a></li>
-<li><a class="section-nav__link section-nav__link--l2" href="#2026-06-18-pluggable-seams-then-standalone">2026-06-18 — pluggable seams, then standalone</a></li>
-<li><a class="section-nav__link section-nav__link--l2" href="#2026-06-19-cli-monitor-repl-debugger-conformance">2026-06-19 — CLI, monitor, REPL, debugger, conformance</a></li>
-<li><a class="section-nav__link section-nav__link--l2" href="#2026-06-20-real-machine-defaults-host-marshalling-docs-site">2026-06-20 — real-machine defaults, host marshalling, docs site</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#2026-06-21-genuine-source-demos-then-the-release-readiness-sweep">2026-06-21 — genuine-source demos, then the release-readiness sweep</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#2026-06-20-real-machine-defaults-host-marshalling-docs-site">2026-06-20 — real-machine defaults, host marshalling, docs site</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#2026-06-19-cli-monitor-repl-debugger-conformance">2026-06-19 — CLI, monitor, REPL, debugger, conformance</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#2026-06-18-pluggable-seams-then-standalone">2026-06-18 — pluggable seams, then standalone</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#2026-06-17-hardening-for-the-next-program">2026-06-17 — hardening for the next program</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#2026-06-16-and-so-it-begins">2026-06-16 — and so it begins...</a></li>
 </ul>
         </nav>
       </aside>
@@ -56,71 +56,22 @@
         <div class="prose">
 <h2 id="2026-06-23-host-services-terminal-modes-and-real-binary-files">2026-06-23 — host services, terminal modes, and real binary files</h2>
 <ul>
-<li><strong>terminal free CR-LF (80-column wrap)</strong> — under the FORTRAN-10 dialect the engine now emulates the TOPS-10 monitor's &quot;free CR-LF&quot; host-side: <code>emit()</code> tracks the output column and inserts a newline at the carriage width (<code>Engine(tty_width=80, tty_autowrap=True)</code>; <code>0</code> = no wrap), with deferred-margin semantics (exactly <code>width</code> chars fit, the next one wraps). The autowrap switch added earlier now <em>acts</em> — a program disabling it (<code>TRMOP.</code> <code>.TONFC</code>, via <code>mon.tty.autowrap</code> / <code>set_autowrap</code>) stops the margin newline directly, no terminal escape, exactly the TOPS-10 model. The output column/width/autowrap now live on the engine as the single source of truth (the <code>mon.tty</code> facade delegates), which also fixes raw <code>OUTSTR</code>/<code>OUTCHR</code> not advancing the tracked column. Line-printer output bypasses the wrap (a printer has its own width); strict F66 never wraps; CLI <code>--no-wrap</code> disables it.</li>
-<li><strong>two-word DOUBLE PRECISION binary I/O + fail-loud sniff</strong> — on the <code>dec_files</code> path a <code>DOUBLE PRECISION</code> value is now the proper two-word KL10 doubleword (high word the single-float layout, low word the 35 low fraction bits, the 72-bit value two's-complemented when negative — what <code>DMOVN</code> does), round-tripping losslessly where the single rounded; <code>forbin</code> gains <code>double_to_dec10_pair</code>/<code>dec10_pair_to_double</code>. <code>_bin_words</code>/<code>_assign_words</code> now code per declared type (DOUBLE = two words, REAL/COMPLEX = singles, INTEGER/LOGICAL = one) and resolve the type <em>per element</em>, so an implied-DO <code>(D(I),I=1,N)</code> over a DOUBLE array codes correctly. And opening a NUL-led FOROTS binary file without <code>dec_files</code> (or a truncated/corrupt one) now raises a clean <code>OSError</code> instead of silently degrading to a garbage text read.</li>
-<li><strong>review fixes</strong> — from the review of the recent host-layer work: <code>OUTSTR</code> unpacks the target's <code>chars_per_word</code> rather than a hardcoded 5 (chars 6–8 were dropped under <code>--target native</code>); <code>_open_read_unit</code> restores its <code>with open(...)</code> (a leaked handle); a host-provided <code>builtins=</code> table now skips names the program defines (the same <code>if k not in eng.units</code> guard <code>install_runtime</code> uses), so a program's own <code>SUBROUTINE</code> is no longer silently shadowed by a same-named <code>.py</code> <code>@builtin</code>; and a <code>.py</code> host module whose basename shadows a stdlib import (e.g. <code>os.py</code>) now gives a clean <code>?</code>-diagnostic instead of a raw traceback.</li>
-<li><strong>host identity + GETTAB job tables</strong> — <code>Host</code> gains <code>identity</code> (the host OS user mapped onto TOPS-10 fields: uid/gid, login name, and a <code>[project,,programmer]</code> PPN word <code>gid,,uid</code>, range-safe — an oversized 32-bit id falls back to nobody/<code>[0,0]</code>). <code>GETTAB</code> now models the job-identity tables instead of returning 0 for everything: <code>.GTPPN(2,-1)</code> → the guest PPN <code>[0,0]</code>, <code>.GTJTC(120,-1)</code> → 0 (unclassed). A per-table <code>eng.gettab</code> registry lets a host map/override tables, and any unrecognized table raises <code>UnmodeledMonitorTable</code> (exported at the package root) rather than guessing 0.</li>
-<li><strong>rename</strong> — the host-services facade <code>HostServices</code>/<code>host_services</code> → <code>Host</code>/<code>host</code> (and the <code>make_engine</code>/<code>build_engine</code> <code>host_services=</code> factory kwarg → <code>host=</code>, the engine slot <code>eng.host_services</code> → <code>eng.host</code>). A facade is obviously a bundle of services, so the suffix was redundant, and <code>host</code> matches the engine's existing &quot;host seam&quot; vocabulary. The <code>@uuo</code> body handle stays <code>mon</code> — the program's period-authentic view of the monitor. Breaking: external code referencing the old names must update.</li>
-<li><strong>terminal echo control</strong> — a new <code>Engine(set_echo=fn)</code> seam hook plus <code>mon.tty.echo</code> (the terminal echo mode, default on). Assigning <code>mon.tty.echo</code> drives <code>set_echo</code>, so a program toggling echo (a TOPS-10 <code>SETSTS</code>/<code>INIT</code> TTY-mode change — off for a raw single-key read, back on for line input) actually changes the terminal, not a flag nobody reads. forterp ships the default behind it — <code>runtime.default_terminal_echo</code> flips the controlling tty's termios <code>ECHO</code> bit (saved/restored around the run), and <code>run_source</code> installs it whenever the caller wires no <code>set_echo</code> of its own — so <code>pyfortran10</code>/<code>pyf66</code> and any <code>run_source</code> embedder honor echo on an interactive terminal with no extra plumbing. A front-end that owns the terminal differently (a raw char-mode reader, a GUI) passes its own <code>set_echo</code>; off a terminal (piped/redirected, headless) it's a clean no-op and the state is just recorded.</li>
-<li><strong>terminal autowrap control</strong> — the same shape for the other terminal mode a PDP-10 program sets: <code>Engine(set_autowrap=fn)</code> + <code>mon.tty.autowrap</code> (default on). It models <code>TRMOP.</code> <code>.TONFC</code> — the &quot;free CR-LF&quot; switch a full-screen, cursor-addressed program turns off so output isn't wrapped/scrolled at the right margin. Assigning <code>mon.tty.autowrap</code> drives <code>set_autowrap</code>; a front-end that renders to an ANSI terminal honors it (<code>ESC[?7l</code>/<code>?7h</code>). No baseline default (the action is terminal-dialect-specific, unlike echo's termios), so unwired it just records the intent — but the request reaches <code>mon</code> instead of being swallowed.</li>
-<li><strong>real FOROTS binary files (opt-in)</strong> — <code>forbin</code> gains the on-disk half of the FORTRAN binary format: <code>pack_core_dump</code>/<code>unpack_core_dump</code> (36-bit words ↔ bytes, the standard 5-byte left-justified interchange form) and <code>encode_sequential</code>/<code>decode_sequential</code> (LSCW framing with the CONTINUE word at each 128-word disk-block boundary a record crosses), plus <code>encode_binary_file</code>/<code>decode_binary_file</code> over them. Validated against the V5 manual's D-7/D-8 worked example byte-for-byte (record 2's START count <code>0o32</code> to the boundary, then CONTINUE <code>0o114</code>). A new <code>Engine(dec_files=True)</code> makes unformatted sequential OPEN/CLOSE read and write these real files (type-aware via the existing <code>_bin_words</code>/<code>_assign_words</code>) instead of the portable JSON word-list, with a read-time sniff so legacy JSON and text data still load. Off by default — the portable on-disk form and float precision are unchanged for everyone (498 existing tests green); a host that wants files a PDP-10 could read opts in.</li>
-<li><strong>DOCS</strong> — Documented the host-routine layer end to end. The API guide's &quot;Custom host routines&quot; section now covers both decorators (<code>@fcall</code>/<code>@uuo</code>), every arg mode (<code>IN</code>/<code>INT</code>/<code>FLOAT</code>/<code>STR</code>/<code>OUT</code>/<code>INOUT</code>/<code>ARRAY</code>), the <code>raw=True</code> escape hatch + its toolkit (<code>eng.eval</code>/<code>eng.arg_ref</code>/<code>eng.commons</code>/<code>eng.arrayview</code> + <code>OutRef</code>), the injectable <code>Host</code> model, and the <code>uuolib</code> monitor UUOs. DESIGN gains §7a — a worked walk-through of how the decorator/mode marshalling is implemented (decorator-returning-decorator, modes-as-instances-not-annotations, the generated wrapper, function attributes for discovery) — plus <code>uuolib</code>/<code>hostlib</code> rows in the module map.</li>
-<li><strong>02:17</strong> — <code>hostlib</code> gains a <code>STR</code> arg mode: declare <code>args=(STR,)</code> and the body receives a Python <code>str</code>, with the quoted-literal-vs-packed-word resolution (a <code>StrLit</code>'s text verbatim, or a packed word decoded through the target's char codec) handled by the marshalling layer instead of repeated <code>eng.eval</code>/<code>tgt.unpack</code> in each body. The reusable shape behind filename/string args (OUTSTR, OPEN's <code>FILE=</code>, a save-detect).</li>
+<li><strong>02:17</strong> — <code>hostlib</code> <code>STR</code> arg mode: <code>args=(STR,)</code> gives the body a Python <code>str</code> (a quoted literal verbatim, or a packed word decoded via the target codec), lifting the StrLit-vs-packed resolution out of each body.</li>
+<li><strong>04:05</strong> — Real FOROTS binary files (opt-in <code>Engine(dec_files=True)</code>): on-disk word↔byte packing + LSCW framing (<code>forbin</code>), validated against the V5 D-7/D-8 example byte-for-byte; plus end-to-end host-routine docs (API <code>@fcall</code>/<code>@uuo</code> + arg modes + <code>raw</code>, DESIGN §7a).</li>
+<li><strong>09:56</strong> — Terminal echo-control seam (<code>Engine(set_echo=fn)</code> + <code>mon.tty.echo</code>); renamed the host-services facade <code>HostServices</code>/<code>host_services</code> → <code>Host</code>/<code>host</code>.</li>
+<li><strong>12:24</strong> — <code>run_source</code> installs a default terminal echo (<code>runtime.default_terminal_echo</code> flips the tty's termios <code>ECHO</code>, restored after); added the autowrap seam (<code>set_autowrap</code> + <code>mon.tty.autowrap</code>, <code>TRMOP.</code> <code>.TONFC</code>).</li>
+<li><strong>17:50</strong> — Host identity (<code>mon.identity</code> — uid/gid/login/PPN); <code>GETTAB</code> models the job tables (<code>.GTPPN</code> → guest <code>[0,0]</code>, <code>.GTJTC</code> → 0), with an <code>eng.gettab</code> registry and <code>UnmodeledMonitorTable</code> for the rest.</li>
+<li><strong>21:14</strong> — Review fixes: <code>OUTSTR</code> uses the target's <code>chars_per_word</code>; restored the <code>OPEN</code> read's <code>with</code>; a host <code>builtins=</code> table no longer shadows a program-defined unit; a stdlib-shadowing <code>.py</code> arg gives a clean <code>?</code>-diagnostic.</li>
+<li><strong>21:52</strong> — Two-word DOUBLE PRECISION binary I/O (the KL10 doubleword, lossless where the single rounded); <code>_bin_words</code>/<code>_assign_words</code> code per declared type, per element; a config-mismatched binary file fails loud (<code>OSError</code>) instead of a garbage text read.</li>
+<li><strong>23:29</strong> — FORTRAN-10 free CR-LF: <code>emit()</code> wraps terminal output at the carriage width host-side (<code>Engine(tty_width=80, tty_autowrap=True)</code>, deferred margin); strict F66 never wraps; CLI <code>--no-wrap</code>.</li>
 </ul>
 <h2 id="2026-06-22-host-services-for-the-embedder">2026-06-22 — host services for the embedder</h2>
 <ul>
-<li><strong>16:21</strong> — <code>uuolib</code>: the standard TOPS-10 monitor UUOs a FORTRAN-10 program expects to exist — <code>OUTSTR</code>, <code>OUTCHR</code>, <code>MSTIME</code>, <code>SLEEP</code>, <code>GETTAB</code> — installed (like the DEC library) only under the FORTRAN-10 dialect, on the engine's host seam (<code>emit</code>/<code>clock</code>). So a program that <code>CALL</code>s <code>OUTSTR</code> just runs, rather than each program bundling its own glue; a host that wants a richer or terminal-aware variant registers it afterward and overrides the baseline (the same never-shadow-a-defined-routine rule as <code>STDLIB</code>).</li>
-<li><strong>14:53</strong> — <code>pyfortran10</code> now defaults <code>--target pdp10</code> (and <code>pyf66</code> stays <code>native</code>), matching the prebuilt <code>forterp.fortran10</code> / <code>forterp.f66</code> interpreters. The CLI front-end had set the FORTRAN-10 <em>dialect</em> but left the <em>value model</em> at <code>native</code>, so real DEC programs (36-bit words, packed ASCII, <code>.TRUE.</code>=-1) silently misbehaved on the 64-bit machine. Pass <code>--target native</code> for the DEC language on the portable machine; the general <code>forterp</code> driver is unchanged.</li>
-<li><strong>14:43</strong> — <code>OPEN</code> decodes a packed <em>numeric</em> <code>FILE=</code>/<code>NAME=</code> spec as a SIXBIT/ASCII filename (the same way it already decodes <code>DEVICE=</code>), rather than <code>str()</code>-ing the raw word. A FORTRAN-10 numeric file spec <em>is</em> a packed name, so <code>OPEN(...,FILE=&lt;packed word&gt;,...)</code> now resolves to its real name and opens under the working directory — e.g. <code>OPEN(UNIT=1,DEVICE='GAM',FILE=IFILE)</code> reads <code>X.A</code> from the current dir with no custom device handler needed.</li>
-<li><strong>13:17</strong> — CLI: <code>--recover-shifted-cols</code> exposes the shifted-column source recovery (off by default — a faithful FORTRAN-10 compiler drops cols 73+), so a deck reindented past col 72 runs without an embedding wrapper. A dropped-in <code>*.py</code> may now also define a <code>register(eng)</code> hook (called after the engine is built) to do setup the auto-discovered builtins can't — register an OPEN device, prime COMMON, inject a host-services facade; <code>run_source</code> gained the matching <code>setup=fn(eng)</code>. Together these let a whole game run on the bare CLI from its <code>*.py</code> + <code>*.FOR</code> alone.</li>
-<li><strong>12:33</strong> — <code>hostlib</code> gains the host-routine <em>services</em> half: a baseline <code>HostServices</code> facade (<code>tty</code>/<code>files</code>/<code>clock</code>, over the engine's host seam only) and an <code>@uuo</code> decorator that injects it as the body's first arg — the counterpart to <code>@fcall</code> (a new alias of <code>@builtin</code>) for routines that talk to the host rather than compute. The facade is injectable (<code>eng.host_services</code>, threaded through <code>make_engine</code>/<code>build_engine</code>): set a richer subclass and <code>@uuo</code> routines receive it instead of the baseline, so a fuller monitor layers on without forterp depending on it. <code>@builtin</code>/<code>@fcall</code>/<code>@uuo</code> also gain <code>alias=</code>/<code>origin=</code>, and <code>builtins_in</code> discovers aliases.</li>
-</ul>
-<h2 id="2026-06-16-and-so-it-begins">2026-06-16 — And so it begins...</h2>
-<ul>
-<li><strong>15:29</strong> — Initial FORTRAN-10 / F66 interpreter: lexer, parser, AST, tree-walking engine, the FORMAT runtime, the <code>forlib</code> library, diagnostics.</li>
-<li><strong>16:07</strong> — F66 §3.1.6 blanks-insignificance, via a tokenizer parse-retry.</li>
-<li><strong>18:49</strong> — <code>RAN</code>/<code>SETRAN</code>, COMPLEX formatted input, NAMELIST and random-access I/O, <code>%FTNLID</code> warnings.</li>
-<li><strong>18:51</strong> — FOROTS binary-record codec (LSCW framing + DEC-10 float), <code>MODE='BINARY'</code>.</li>
-<li><strong>23:12</strong> — Front-end: DEC TAB-format source, the bare main program, integer-vs-<code>.EQ.</code> lexing.</li>
-</ul>
-<h2 id="2026-06-17-hardening-for-the-next-program">2026-06-17 — hardening for the next program</h2>
-<ul>
-<li><strong>22:49</strong> — <code>COMMON</code> sizing, dummy procedures, continuation comments, lowercase <code>nH</code> Hollerith.</li>
-</ul>
-<h2 id="2026-06-18-pluggable-seams-then-standalone">2026-06-18 — pluggable seams, then standalone</h2>
-<ul>
-<li><strong>08:58</strong> — A pluggable <code>OPEN</code> device registry.</li>
-<li><strong>09:23</strong> — Extracted the machine value model behind a pluggable <code>Target</code>.</li>
-<li><strong>09:43</strong> — Parameterized the front-end dialect (<code>Dialect</code>).</li>
-<li><strong>11:23</strong> — A <code>fortran10</code> layer atop the <code>f66</code> core; moved FOROTS binary I/O into it.</li>
-<li><strong>13:44</strong> — <strong>Split out to a standalone repo</strong> — a <code>src/</code> package with a clean public API and the FCVS corpus.</li>
-<li><strong>14:09</strong> — Routed every wrap/pack/truthy site through <code>Target</code> (INT/LSH, the logical algebra, the char codec).</li>
-<li><strong>14:47</strong> — Added the <code>NATIVE</code> 64-bit target and made it the default; <code>PDP10</code> the opt-in machine.</li>
-<li><strong>15:19</strong> — A provisional, unvalidated <code>VAX</code> target.</li>
-<li><strong>15:39</strong> — Curated the FCVS corpus to F66-only (dropped the 140 F77/<code>CHARACTER</code> routines).</li>
-<li><strong>16:25</strong> — Adopted <code>ruff</code> lint + <code>ruff format</code>.</li>
-<li><strong>23:59</strong> — Renamed <code>f66</code> → <code>forterp</code>; made <code>F66</code> the default dialect.</li>
-</ul>
-<h2 id="2026-06-19-cli-monitor-repl-debugger-conformance">2026-06-19 — CLI, monitor, REPL, debugger, conformance</h2>
-<ul>
-<li><strong>00:00</strong> — Three console front-ends: <code>pyf66</code>, <code>pyfortran10</code>, <code>forterp --std</code>.</li>
-<li><strong>00:48</strong> — Gated the DEC I/O surface, intrinsics, and random-access I/O under F66; added the V5 math/rotate intrinsics.</li>
-<li><strong>01:11</strong> — <code>--check</code>: parse and list diagnostics without running.</li>
-<li><strong>10:16</strong> — An interactive command monitor (a TOPS-10 <code>.</code>-prompt descendant).</li>
-<li><strong>10:20</strong> — An immediate-mode REPL, then refactored onto two reusable primitives.</li>
-<li><strong>11:03</strong> — Factored target/dialect config into shared registries + <code>engine_kwargs</code>.</li>
-<li><strong>12:31</strong> — An off-by-default per-statement tracer hook; on it, a debugger + profiler.</li>
-<li><strong>14:24</strong> — Formatted-input conformance; fixed the random-access write clobber; CLI error hygiene.</li>
-<li><strong>21:10</strong> — Exposed the embedding API; added the prebuilt <code>fortran10</code> / <code>f66</code> interpreters.</li>
-<li><strong>21:47</strong> — Gated every non-F66 feature behind a <code>Dialect</code> flag; dual-run F66 tests under both dialects.</li>
-<li><strong>22:11</strong> — Illegal <code>EQUIVALENCE</code> shapes now raise; documented the multi-word storage boundary.</li>
-<li><strong>23:06</strong> — list-directed/NAMELIST bad fields raise like formatted; <code>forbin</code> rejects unrepresentable floats.</li>
-</ul>
-<h2 id="2026-06-20-real-machine-defaults-host-marshalling-docs-site">2026-06-20 — real-machine defaults, host marshalling, docs site</h2>
-<ul>
-<li><strong>00:00</strong> — The <code>fortran10</code> preset drops cols 73+ by default; shifted-column recovery is opt-in.</li>
-<li><strong>17:03</strong> — <code>hostlib</code>: a declarative marshalling layer for host builtins.</li>
-<li><strong>23:25</strong> — A GitHub Pages docs site: a <code>markdown-it-py</code> static-site generator (<code>gh-pages/</code>), Actions deploy.</li>
+<li><strong>12:33</strong> — <code>hostlib</code> host-services half: a baseline <code>HostServices</code> facade (<code>tty</code>/<code>files</code>/<code>clock</code>, over the engine's host seam) + an <code>@uuo</code> decorator that injects it — the counterpart to <code>@fcall</code> for routines that talk to the host; injectable via <code>eng.host_services</code>. <code>@builtin</code>/<code>@fcall</code>/<code>@uuo</code> gain <code>alias=</code>/<code>origin=</code>.</li>
+<li><strong>13:17</strong> — CLI <code>--recover-shifted-cols</code> (opt-in shifted-column recovery); a dropped-in <code>*.py</code> may define a <code>register(eng)</code> hook, and <code>run_source</code> gains <code>setup=fn(eng)</code>.</li>
+<li><strong>14:43</strong> — <code>OPEN</code> decodes a packed numeric <code>FILE=</code>/<code>NAME=</code> as a SIXBIT/ASCII filename (as it already does <code>DEVICE=</code>), not <code>str()</code> of the raw word.</li>
+<li><strong>14:53</strong> — <code>pyfortran10</code> defaults <code>--target pdp10</code> (and <code>pyf66</code> stays <code>native</code>), matching the prebuilt interpreters.</li>
+<li><strong>16:21</strong> — <code>uuolib</code>: the standard TOPS-10 monitor UUOs (<code>OUTSTR</code>/<code>OUTCHR</code>/<code>MSTIME</code>/<code>SLEEP</code>/<code>GETTAB</code>), installed under the FORTRAN-10 dialect on the engine's host seam.</li>
 </ul>
 <h2 id="2026-06-21-genuine-source-demos-then-the-release-readiness-sweep">2026-06-21 — genuine-source demos, then the release-readiness sweep</h2>
 <ul>
@@ -148,6 +99,53 @@
 <li><strong>23:47</strong> — New docs: a CLI reference and a <code>forterp.*</code> API programmer's guide.</li>
 <li><strong>23:51</strong> — Docs-site polish: a &quot;Docs&quot; breadcrumb, interpreter-design vocabulary on the home-page pipeline, a high-contrast beta stamp.</li>
 <li><strong>23:58</strong> — CLI loads <code>.py</code> host-routine modules beside FORTRAN source: a <code>*.py</code> argument is imported and its <code>@builtin</code> routines are discovered (<code>hostlib.builtins_in</code>) and registered — drop them in, no registry/<code>__init__</code>.</li>
+</ul>
+<h2 id="2026-06-20-real-machine-defaults-host-marshalling-docs-site">2026-06-20 — real-machine defaults, host marshalling, docs site</h2>
+<ul>
+<li><strong>00:00</strong> — The <code>fortran10</code> preset drops cols 73+ by default; shifted-column recovery is opt-in.</li>
+<li><strong>17:03</strong> — <code>hostlib</code>: a declarative marshalling layer for host builtins.</li>
+<li><strong>23:25</strong> — A GitHub Pages docs site: a <code>markdown-it-py</code> static-site generator (<code>gh-pages/</code>), Actions deploy.</li>
+</ul>
+<h2 id="2026-06-19-cli-monitor-repl-debugger-conformance">2026-06-19 — CLI, monitor, REPL, debugger, conformance</h2>
+<ul>
+<li><strong>00:00</strong> — Three console front-ends: <code>pyf66</code>, <code>pyfortran10</code>, <code>forterp --std</code>.</li>
+<li><strong>00:48</strong> — Gated the DEC I/O surface, intrinsics, and random-access I/O under F66; added the V5 math/rotate intrinsics.</li>
+<li><strong>01:11</strong> — <code>--check</code>: parse and list diagnostics without running.</li>
+<li><strong>10:16</strong> — An interactive command monitor (a TOPS-10 <code>.</code>-prompt descendant).</li>
+<li><strong>10:20</strong> — An immediate-mode REPL, then refactored onto two reusable primitives.</li>
+<li><strong>11:03</strong> — Factored target/dialect config into shared registries + <code>engine_kwargs</code>.</li>
+<li><strong>12:31</strong> — An off-by-default per-statement tracer hook; on it, a debugger + profiler.</li>
+<li><strong>14:24</strong> — Formatted-input conformance; fixed the random-access write clobber; CLI error hygiene.</li>
+<li><strong>21:10</strong> — Exposed the embedding API; added the prebuilt <code>fortran10</code> / <code>f66</code> interpreters.</li>
+<li><strong>21:47</strong> — Gated every non-F66 feature behind a <code>Dialect</code> flag; dual-run F66 tests under both dialects.</li>
+<li><strong>22:11</strong> — Illegal <code>EQUIVALENCE</code> shapes now raise; documented the multi-word storage boundary.</li>
+<li><strong>23:06</strong> — list-directed/NAMELIST bad fields raise like formatted; <code>forbin</code> rejects unrepresentable floats.</li>
+</ul>
+<h2 id="2026-06-18-pluggable-seams-then-standalone">2026-06-18 — pluggable seams, then standalone</h2>
+<ul>
+<li><strong>08:58</strong> — A pluggable <code>OPEN</code> device registry.</li>
+<li><strong>09:23</strong> — Extracted the machine value model behind a pluggable <code>Target</code>.</li>
+<li><strong>09:43</strong> — Parameterized the front-end dialect (<code>Dialect</code>).</li>
+<li><strong>11:23</strong> — A <code>fortran10</code> layer atop the <code>f66</code> core; moved FOROTS binary I/O into it.</li>
+<li><strong>13:44</strong> — <strong>Split out to a standalone repo</strong> — a <code>src/</code> package with a clean public API and the FCVS corpus.</li>
+<li><strong>14:09</strong> — Routed every wrap/pack/truthy site through <code>Target</code> (INT/LSH, the logical algebra, the char codec).</li>
+<li><strong>14:47</strong> — Added the <code>NATIVE</code> 64-bit target and made it the default; <code>PDP10</code> the opt-in machine.</li>
+<li><strong>15:19</strong> — A provisional, unvalidated <code>VAX</code> target.</li>
+<li><strong>15:39</strong> — Curated the FCVS corpus to F66-only (dropped the 140 F77/<code>CHARACTER</code> routines).</li>
+<li><strong>16:25</strong> — Adopted <code>ruff</code> lint + <code>ruff format</code>.</li>
+<li><strong>23:59</strong> — Renamed <code>f66</code> → <code>forterp</code>; made <code>F66</code> the default dialect.</li>
+</ul>
+<h2 id="2026-06-17-hardening-for-the-next-program">2026-06-17 — hardening for the next program</h2>
+<ul>
+<li><strong>22:49</strong> — <code>COMMON</code> sizing, dummy procedures, continuation comments, lowercase <code>nH</code> Hollerith.</li>
+</ul>
+<h2 id="2026-06-16-and-so-it-begins">2026-06-16 — and so it begins...</h2>
+<ul>
+<li><strong>15:29</strong> — Initial FORTRAN-10 / F66 interpreter: lexer, parser, AST, tree-walking engine, the FORMAT runtime, the <code>forlib</code> library, diagnostics.</li>
+<li><strong>16:07</strong> — F66 §3.1.6 blanks-insignificance, via a tokenizer parse-retry.</li>
+<li><strong>18:49</strong> — <code>RAN</code>/<code>SETRAN</code>, COMPLEX formatted input, NAMELIST and random-access I/O, <code>%FTNLID</code> warnings.</li>
+<li><strong>18:51</strong> — FOROTS binary-record codec (LSCW framing + DEC-10 float), <code>MODE='BINARY'</code>.</li>
+<li><strong>23:12</strong> — Front-end: DEC TAB-format source, the bare main program, integer-vs-<code>.EQ.</code> lexing.</li>
 </ul>
 
         </div>
