@@ -30,8 +30,10 @@ class Dialect:
     mixed_complex_assign: bool = False  # COMPLEX <-> int/real/double assignment (F66 Table 1
     # prohibits it -- COMPLEX may only be assigned to/from COMPLEX)
     extended_io: bool = False  # non-F66 I/O: TYPE/PRINT/ACCEPT/PUNCH, ENCODE/DECODE, unit-
-    # less READ/WRITE/REREAD, list-directed `*`, and random-access (DEFINE FILE, FIND, u#r/
-    # u'r). F66 has only READ/WRITE with a unit + the auxiliary BACKSPACE/REWIND/ENDFILE (§7.1.3)
+    # less READ/WRITE/REREAD, and random-access (DEFINE FILE, FIND, u#r/u'r). F66 has only
+    # READ/WRITE with a unit + the auxiliary BACKSPACE/REWIND/ENDFILE (§7.1.3)
+    list_directed_io: bool = False  # list-directed `*` READ/WRITE (standardized in F77 §12;
+    # a DEC extension before that -- on under FORTRAN-10, and on its own for F77)
     bare_format_width: bool = False  # widthless FORMAT descriptors I/F/A/... (F66 §7.2.3.1
     # requires an explicit width on every descriptor; DEC supplies V5 default widths)
     dec_intrinsics: bool = False  # the DEC/F77 extra library functions beyond F66 Tables 3
@@ -66,6 +68,7 @@ FORTRAN10 = Dialect(  # DEC FORTRAN-10 V5 superset: every extension on
     expr_subscripts=True,
     mixed_complex_assign=True,
     extended_io=True,
+    list_directed_io=True,
     bare_format_width=True,
     dec_intrinsics=True,
     dec_operators=True,
@@ -96,6 +99,7 @@ F77 = Dialect(
     save_stmt=True,
     intrinsic_stmt=True,
     character_type=True,
+    list_directed_io=True,  # F77 §12 standardized list-directed I/O
 )
 
 # CLI / front-end name -> dialect, so every caller resolves the same names in one place.

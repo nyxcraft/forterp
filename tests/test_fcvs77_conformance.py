@@ -15,21 +15,19 @@ Unlike the F66 corpus, this one is a WORK-IN-PROGRESS baseline: F77 support is p
 so parse "gaps" here are *tracked feature gaps*, not regressions. The numbers below are
 pinned so that both regressions and improvements are visible and force a conscious update.
 
-Current gaps (18 files fail to parse under the F77 front-end -- mostly the F77 I/O set):
+Current gaps (14 files fail to parse under the F77 front-end -- mostly the F77 I/O set):
    5  keyword=value in an I/O control list   -- READ(UNIT=u, FMT=f, ...)
-   4  list-directed I/O (*)                  -- standardized in F77, still gated under the
-                                               DEC-only extended_io knob
    2  bare ',' where an identifier is expected -- OPEN(u, ACCESS=..., RECL=...)
    2  substring ':' in a DATA target
    2  blanks within a .NE./.EQ. operator     -- "C10VK. NE. 'YES'"
    1  blank COMMON //
    1  CHARACTER*(<param>) parametrised length
    1  .EQV. / .NEQV. logical operators       -- F77 standard, gated under DEC dec_operators
-Of the 122 that run: 1258 sub-tests PASS, 155 ERRORS, 41 print-and-eyeball (no summary).
+Of the 126 that run: 1259 sub-tests PASS, 155 ERRORS, 44 print-and-eyeball (no summary).
 
 Landed since the restore: IMPLICIT CHARACTER*<len> (the audit-harness preamble, +30
 routines / +467 sub-tests), the optional comma after a DO label, LOGICAL/COMPLEX PARAMETER
-constants, and the widthless A descriptor.
+constants, the widthless A descriptor, and list-directed I/O (split into its own dialect flag).
 """
 
 import glob
@@ -52,11 +50,11 @@ def test_corpus_is_the_full_restored_f77_set():
 def test_f77_conformance_baseline():
     # Pinned WIP baseline. When an F77 feature lands, these numbers move up -- update
     # them here in lockstep with the fix so the gain is recorded, not silently absorbed.
-    assert R["n_run"] == 122
-    assert R["n_gap"] == 18
-    assert R["total_pass"] == 1258
+    assert R["n_run"] == 126
+    assert R["n_gap"] == 14
+    assert R["total_pass"] == 1259
     assert R["total_err"] == 155
-    assert len(R["nosummary"]) == 41
+    assert len(R["nosummary"]) == 44
 
 
 def test_running_routines_mostly_pass():

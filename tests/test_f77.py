@@ -356,6 +356,15 @@ def test_a_format_writes_a_character():
     assert "".join(eng.out).strip() == "HI"  # 'HI   ' (A5)
 
 
+def test_list_directed_write_and_read():
+    # F77 §12: list-directed I/O (READ/WRITE with * for the format).
+    assert "42" in "".join(
+        _run_io("      PROGRAM T\n      I=42\n      WRITE(6,*) I\n      END\n").out
+    )
+    src = "      PROGRAM T\n      COMMON /O/ N(8)\n      READ(5,*) N(1)\n      END\n"
+    assert _run_io(src, stdin="42\n").commons["O"][0] == 42
+
+
 def test_widthless_a_writes_full_character_value():
     # F77 §13.5.11: a widthless A takes the list item's CHARACTER length (here 5). Strict
     # F66 rejects a widthless descriptor; the relaxation is gated on the CHARACTER type.

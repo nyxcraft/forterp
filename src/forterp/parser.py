@@ -910,8 +910,10 @@ class StatementParser:
             elif self.peek() and self.peek().kind in ("INT", "OCTAL"):
                 fmt = self.advance().value
             elif self.accept_op("*"):
-                if not self.dialect.extended_io:  # list-directed I/O is not in F66
-                    raise ParseError("list-directed I/O (*) is a FORTRAN-10 extension", "NRC")
+                if not self.dialect.list_directed_io:  # F77 §12; not in F66
+                    raise ParseError(
+                        "list-directed I/O (*) requires FORTRAN-77 / FORTRAN-10", "NRC"
+                    )
                 fmt = "*"
             else:
                 fmt = self.parse_expr()
