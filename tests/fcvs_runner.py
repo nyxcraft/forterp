@@ -36,10 +36,12 @@ _PASS = re.compile(r"(\d+)\s+TESTS?\s+PASSED")
 _ERRS = re.compile(r"(\d+)\s+ERRORS?\s+ENCOUNTERED")
 
 
-def _run_one(path, target=PDP10, dialect=FORTRAN10):
+def _run_one(path, target=PDP10, dialect=FORTRAN10, character_type=False):
     """Run a single audit routine. Returns (status, passed, errors): status in
-    {"run", "gap"}, passed/errors 0 unless status=="run". The corpus is curated F66,
-    so a parse failure ("gap") is a regression, not an out-of-scope file."""
+    {"run", "gap"}, passed/errors 0 unless status=="run". The curated F66 corpus is
+    column-formatted Hollerith, so a parse failure ("gap") is a regression; the F77
+    corpus opts into `character_type` (the CHARACTER data type) and treats gaps as
+    tracked feature gaps, not regressions."""
     stmts = expand_includes(scan_file(path, dialect=dialect).statements, os.path.dirname(path))
     errs = []
     units = parse_units(stmts, on_error=lambda st, m: errs.append(m), dialect=dialect)
@@ -53,6 +55,7 @@ def _run_one(path, target=PDP10, dialect=FORTRAN10):
         readline=lambda: "",
         printer=listing.append,
         target=target,
+        character_type=character_type,
     )
     install_runtime(eng)  # STDLIB + FOROTS binary-I/O codec
     eng.io[5] = {"recs": [], "pos": 0, "mode": "r"}  # I01 card reader (unused by audits)
@@ -69,14 +72,14 @@ def _run_one(path, target=PDP10, dialect=FORTRAN10):
     return ("run", int(mp.group(1)) if mp else 0, int(me.group(1)) if me else 0)
 
 
-def run_corpus(corpus_dir=CORPUS_DIR, target=PDP10, dialect=FORTRAN10):
+def run_corpus(corpus_dir=CORPUS_DIR, target=PDP10, dialect=FORTRAN10, character_type=False):
     """Run every FM*.FOR. Returns a dict with the aggregate + per-file detail."""
     run = {}
     gap, nosummary = [], []
     total_pass = total_err = 0
     for path in sorted(glob.glob(os.path.join(corpus_dir, "FM*.FOR"))):
         name = os.path.basename(path)
-        status, p, e = _run_one(path, target, dialect)
+        status, p, e = _run_one(path, target, dialect, character_type)
         if status == "gap":  # parse failure -> regression (curated F66)
             gap.append(name)
         else:
