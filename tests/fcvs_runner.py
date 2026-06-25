@@ -33,7 +33,10 @@ from forterp.target import PDP10
 CORPUS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fcvs")
 
 _PASS = re.compile(r"(\d+)\s+TESTS?\s+PASSED")
-_ERRS = re.compile(r"(\d+)\s+ERRORS?\s+ENCOUNTERED")
+# Two FCVS summary dialects report failures differently: the FM0xx/FM1xx audits print
+# "nnn ERRORS ENCOUNTERED"; the FM2xx+ audits print "nnn TESTS FAILED". Count both, or a
+# routine's failures go silently uncounted (e.g. FM201's "1 TESTS FAILED").
+_ERRS = re.compile(r"(\d+)\s+(?:ERRORS?\s+ENCOUNTERED|TESTS?\s+FAILED)")
 
 
 def _run_one(path, target=PDP10, dialect=FORTRAN10, character_type=False):
