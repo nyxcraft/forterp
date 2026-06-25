@@ -1462,18 +1462,19 @@ class Engine:
         start = self.eval(s.start, frame)
         stop = self.eval(s.stop, frame)
         step = self.eval(s.step, frame) if s.step else 1
-        # X3.9-1978 11.10.2: the initial/terminal/increment parameters are converted to the
-        # type of the DO variable BEFORE the iteration count is formed -- so an integer DO
-        # variable with real bounds (DO I = 6.7, 9.325) truncates to 6,9,1 -> 4 trips, not the
-        # 3 a raw-real (9.325-6.7+1) count would give.
-        vtype = self.type_of(frame.rt.unit, s.var)
-        if vtype == "INTEGER":
+        # X3.9-1978 11.10.2: the initial/terminal/increment parameters are converted to the type
+        # of the DO variable BEFORE the iteration count is formed. This only changes anything when
+        # a parameter's type differs from the variable's, i.e. when a parameter is real -- so the
+        # all-integer fast path (the overwhelmingly common loop) skips the type lookup entirely;
+        # a real parameter triggers it, e.g. an integer DO variable with real bounds (DO I=6.7,
+        # 9.325) truncates to 6,9,1 -> 4 trips, not the 3 a raw-real (9.325-6.7+1) count gives.
+        has_real = isinstance(start, float) or isinstance(stop, float) or isinstance(step, float)
+        if has_real and self.type_of(frame.rt.unit, s.var) == "INTEGER":
             start, stop, step = self.tgt.wrap(int(start)), int(stop), self.tgt.wrap(int(step))
-        elif vtype in ("REAL", "DOUBLE PRECISION"):
-            start, stop, step = float(start), float(stop), float(step)
+            has_real = False
         ref = self.scalar_ref(frame, s.var)
         ref.write(start)
-        if isinstance(start, float) or isinstance(stop, float) or isinstance(step, float):
+        if has_real:
             trips = int((stop - start + step) / step)
         else:
             trips = trunc_div(stop - start + step, step)
