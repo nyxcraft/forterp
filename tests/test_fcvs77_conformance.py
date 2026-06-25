@@ -40,7 +40,10 @@ DO sharing its terminal label with an enclosing active DO (a shared-terminal nes
 the outer loop's incrementation without executing the shared terminal statement (11.10) for
 FM256, and converting a DO loop's parameters to the DO variable's type before forming the
 iteration count (an integer DO variable with real bounds, DO I=6.7,9.325, truncates to 6,9,1
--> 4 trips; 11.10.2) for FM719.
+-> 4 trips; 11.10.2) for FM719, and the E/F edit-descriptor fixes for FM406 (and unblocking
+FM405 out of the no-summary set): an F field whose value rounds to zero drops the minus sign,
+an E field drops its optional leading zero to fit a narrow width, and Ew.dEe / Gw.dEe give the
+exponent exactly e digits (13.5.9) -- the last also clearing two FM912 sub-tests.
 
 One large remaining cluster is NOT an interpreter bug: FM923 (26) reads its list-directed data
 from the card reader (unit I01), and FCVS supplies that input as a separate data deck the
@@ -85,12 +88,12 @@ def test_f77_conformance_baseline():
     # the fix (a gain) or investigate (a regression).
     assert R["n_run"] == 140
     assert R["n_gap"] == 0
-    assert R["total_pass"] == 1610
-    assert R["total_err"] == 44
-    assert len(R["nosummary"]) == 43
+    assert R["total_pass"] == 1630
+    assert R["total_err"] == 39
+    assert len(R["nosummary"]) == 42
 
 
 def test_self_check_failures_do_not_grow():
     # The known self-check failures (value/semantic conformance, not parse/control-flow).
     # A ratchet: fixing a bug should LOWER this -- update it down, never silently up.
-    assert R["total_err"] <= 44
+    assert R["total_err"] <= 39

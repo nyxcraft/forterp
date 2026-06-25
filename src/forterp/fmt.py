@@ -34,13 +34,13 @@ def unpack_chars(word, n):
 
 # ---- format spec parsing ---------------------------------------------------
 class Item:
-    __slots__ = ("kind", "a", "b")
+    __slots__ = ("kind", "a", "b", "e")
 
-    def __init__(self, kind, a=None, b=None):
-        self.kind, self.a, self.b = kind, a, b
+    def __init__(self, kind, a=None, b=None, e=None):
+        self.kind, self.a, self.b, self.e = kind, a, b, e  # e: Ew.dEe exponent digit count
 
     def __repr__(self):
-        return f"<{self.kind} {self.a} {self.b}>"
+        return f"<{self.kind} {self.a} {self.b} {self.e}>"
 
 
 class _Fmt(list):
@@ -159,12 +159,21 @@ def _parse_seq(s, p, depth=0):
             items.append(Item("lit", text))
             continue
         w, has_w, d, p = _scan_width_decimals(s, p)
+        # Ew.dEe / Gw.dEe / Dw.dEe: an explicit exponent-digit count follows the decimals
+        # (X3.9-1978 13.5.9). The marker letter abuts the decimals (no separator).
+        ew = None
+        if letter in "EGD" and p + 1 < n and s[p] in "EeDd" and s[p + 1].isdigit():
+            p += 1
+            ew = 0
+            while p < n and s[p].isdigit():
+                ew = ew * 10 + int(s[p])
+                p += 1
         count = max(rep, 1)
         if letter == "X":  # nX = (rep) spaces
             items.append(Item("X", rep if rep else (w or 1)))
             continue
         for _ in range(count):
-            items.append(Item(letter, w if has_w else None, d))
+            items.append(Item(letter, w if has_w else None, d, ew))
     return items, p, rev
 
 
@@ -286,10 +295,10 @@ def _render_one(k, it, v, scale, target=NATIVE):
     if k == "F":
         return _real(float(v) * (10.0**scale) if scale else float(v), w, d)
     if k in ("E", "D"):
-        return _efmt(float(v), w, d, k, scale)
+        return _efmt(float(v), w, d, k, scale, it.e)
     if k == "G":
         if isinstance(v, float):
-            return _gfmt(v, w, d, scale)
+            return _gfmt(v, w, d, scale, it.e)
         return _ifmt(int(v), w)  # G on integer -> I conversion (13.2.3)
     return ""
 
@@ -336,21 +345,27 @@ def _real(v, w, d):
         s = f"{v:.0f}."  # FORTRAN Fw.0 keeps the decimal point
     else:
         s = f"{v:.{d}f}"
+    if s[:1] == "-" and float(s) == 0.0:
+        s = s[1:]  # a negative value that rounds to zero carries no minus sign (F editing)
     return _fit(s, w)
 
 
-def _efmt(v, w, d, letter="E", scale=0):
+def _efmt(v, w, d, letter="E", scale=0, exp_width=None):
     """FORTRAN E/D scientific with optional scale factor (V5 13.2.4).
 
     0P: mantissa 0.ddd in [0.1,1.0), exponent adjusted. nP shifts the decimal
     point n places (n integer digits for n>0) and decreases the exponent by n;
-    the value is unchanged. Reproduces the manual's E15.3-of-12.493 examples."""
+    the value is unchanged. Reproduces the manual's E15.3-of-12.493 examples.
+
+    `exp_width` is the Ew.dEe exponent-digit count (X3.9-1978 13.5.9): the exponent
+    is shown with exactly that many digits and the letter is always kept."""
     import math
 
     if v == 0.0:
         frac = d if scale <= 0 else max(0, d - scale + 1)
         body = ("0." + "0" * frac) if frac > 0 else "0."
-        return _fit(f"{body}{letter}+00", w)
+        ez = f"{letter}+{0:0{exp_width}d}" if exp_width else f"{letter}+00"
+        return _fit(f"{body}{ez}", w)
     sign = "-" if v < 0 else ""
     av = abs(v)
     e0 = math.floor(math.log10(av)) + 1  # av = m0 * 10^e0, m0 in [0.1,1)
@@ -365,20 +380,26 @@ def _efmt(v, w, d, letter="E", scale=0):
         body += "."
     es = "+" if exp_shown >= 0 else "-"
     aexp = abs(exp_shown)
-    # FORTRAN reserves 4 columns for the exponent (E+dd). A 3-digit exponent does not fit,
-    # so the letter is dropped and the sign + 3 digits are shown (0.1E+101 -> 0.1+101).
-    exp = f"{letter}{es}{aexp:02d}" if aexp < 100 else f"{es}{aexp:03d}"
-    return _fit(f"{sign}{body}{exp}", w)
+    if exp_width:  # Ew.dEe: exactly exp_width exponent digits, letter always kept (13.5.9)
+        exp = f"{letter}{es}{aexp:0{exp_width}d}"
+    else:
+        # FORTRAN reserves 4 columns for the exponent (E+dd). A 3-digit exponent does not fit,
+        # so the letter is dropped and the sign + 3 digits are shown (0.1E+101 -> 0.1+101).
+        exp = f"{letter}{es}{aexp:02d}" if aexp < 100 else f"{es}{aexp:03d}"
+    full = f"{sign}{body}{exp}"
+    if w and len(full) > w and body[:2] == "0.":
+        full = f"{sign}{body[1:]}{exp}"  # drop the optional leading 0 to fit the field (13.5.9)
+    return _fit(full, w)
 
 
-def _gfmt(v, w, d, scale=0):
+def _gfmt(v, w, d, scale=0, exp_width=None):
     """FORTRAN G (V5 Table 13-4): fixed-point F(w-4).x,4X when 0.1<=|v|<10**d,
     else scientific Ew.d. The decimals shrink as the magnitude grows."""
     import math
 
     av = abs(v)
     if av != 0.0 and (av < 0.1 or av >= 10.0**d):
-        return _efmt(v, w, d, "E", scale)  # out of F-range -> E
+        return _efmt(v, w, d, "E", scale, exp_width)  # out of F-range -> E
     if av == 0.0:
         decimals = d - 1
     else:

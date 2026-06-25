@@ -538,6 +538,31 @@ def test_widthless_a_reads_items_of_differing_lengths():
     assert _out(src)[0] == 4  # all four items read their own declared length
 
 
+def _iwrite(fmt, value):
+    """Internal-file WRITE of `value` under `fmt` into a CHARACTER*10; return the record."""
+    src = (
+        "      PROGRAM T\n      COMMON /O/ S\n      CHARACTER S*10\n"
+        f"      WRITE(S,10) {value}\n   10 FORMAT({fmt})\n      END\n"
+    )
+    return forterp.run_source(src, dialect=forterp.F77, target=forterp.NATIVE).commons["O"][0]
+
+
+def test_f_format_value_rounding_to_zero_drops_the_minus_sign():
+    # FM406: F4.1 of -0.0001 rounds to zero, which must print without a minus sign.
+    assert _iwrite("F4.1", "-0.0001") == " 0.0      "
+
+
+def test_e_format_drops_leading_zero_to_fit_a_narrow_field():
+    # FM406: E9.4 of 2345.0 is "0.2345E+04" (10 cols) but the field is 9 -- the optional
+    # leading zero is dropped to fit (".2345E+04"), not overflowed to asterisks.
+    assert _iwrite("E9.4", "2345.0") == ".2345E+04 "
+
+
+def test_e_format_explicit_exponent_width():
+    # FM406 / FM912: Ew.dEe gives the exponent exactly e digits and always keeps the letter.
+    assert _iwrite("E8.4E1", "2345.0") == ".2345E+4  "
+
+
 def test_widthless_a_writes_full_character_value():
     # F77 §13.5.11: a widthless A takes the list item's CHARACTER length (here 5). Strict
     # F66 rejects a widthless descriptor; the relaxation is gated on the CHARACTER type.

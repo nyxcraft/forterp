@@ -2040,7 +2040,10 @@ class Engine:
         items = self._parsed(self._fmt_spec(s.fmt, frame))
         if s.mode == "READ":
             text = str(self.eval(s.unit, frame))
-            reads = read_values(items, text, self.tgt, self.free_form_input, self.character_type)
+            aw = iter(self._a_field_widths(s.items, frame)) if self.character_type else None
+            reads = read_values(
+                items, text, self.tgt, self.free_form_input, self.character_type, aw
+            )
             self._assign_reads(s.items, reads, frame)
         elif isinstance(s.unit, A.Substring):  # WRITE into a substring slice of the base
             text = render(items, self._unf_values(s.items, frame), self.tgt)[0]
