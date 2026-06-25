@@ -1,0 +1,69 @@
+{
+  "schema": 1,
+  "records": [
+    {
+      "commit": "be5fbfd",
+      "date": "2026-06-25",
+      "py": "3.12",
+      "case": "loop",
+      "steps": 2000003,
+      "ms_min": 1269.93
+    },
+    {
+      "commit": "be5fbfd",
+      "date": "2026-06-25",
+      "py": "3.12",
+      "case": "fft",
+      "steps": 2114271,
+      "ms_min": 3461.12
+    },
+    {
+      "commit": "b9ad959",
+      "date": "2026-06-18",
+      "py": "3.12",
+      "case": "loop",
+      "steps": 2000003,
+      "ms_min": 1174.71
+    },
+    {
+      "commit": "b9ad959",
+      "date": "2026-06-18",
+      "py": "3.12",
+      "case": "fft",
+      "steps": 2114271,
+      "ms_min": 3242.24
+    },
+    {
+      "commit": "b520e7b",
+      "date": "2026-06-24",
+      "py": "3.12",
+      "case": "loop",
+      "steps": 2000003,
+      "ms_min": 1185.48
+    },
+    {
+      "commit": "b520e7b",
+      "date": "2026-06-24",
+      "py": "3.12",
+      "case": "fft",
+      "steps": 2114271,
+      "ms_min": 3285.31
+    },
+    {
+      "commit": "365bca3",
+      "date": "2026-06-24",
+      "py": "3.12",
+      "case": "loop",
+      "steps": 2000003,
+      "ms_min": 1280.69
+    },
+    {
+      "commit": "365bca3",
+      "date": "2026-06-24",
+      "py": "3.12",
+      "case": "fft",
+      "steps": 2114271,
+      "ms_min": 3446.67
+    }
+  ]
+}
