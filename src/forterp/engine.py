@@ -2241,8 +2241,12 @@ class Engine:
             else:
                 fspec = self._spec(specs.get("FILE") or specs.get("NAME") or "EMPIRE.DAT", frame)
                 # a numeric file spec is a packed SIXBIT/ASCII filename (FORTRAN-10) -- decode it
-                # the same way DEVICE is, so OPEN(...FILE=<packed word>...) resolves to its name
-                fname = self.tgt.unpack(fspec).strip() if isinstance(fspec, int) else str(fspec)
+                # the same way DEVICE is, so OPEN(...FILE=<packed word>...) resolves to its name.
+                # Strip either form: a CHARACTER filename is blank-padded and INQUIRE(FILE=) also
+                # strips, so they must agree on the path or INQUIRE-by-file won't find the unit.
+                fname = (
+                    self.tgt.unpack(fspec).strip() if isinstance(fspec, int) else str(fspec).strip()
+                )
                 path = self._open_path(fname)
                 if access == "SEQOUT":
                     self.io[unit] = {

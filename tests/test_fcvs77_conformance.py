@@ -13,14 +13,15 @@ to recover pristine FCVS, verified against gfortran. Nothing else was touched.)
 
 All 140 routines parse and run under the F77 front-end (the front-end work is complete:
 zero parse-gaps). What remains is value/semantic conformance: of the 140, the self-checking
-routines report 1546 sub-tests PASS and 108 FAIL (across 21 routines), and 43 are
+routines report 1550 sub-tests PASS and 104 FAIL (across 19 routines), and 43 are
 print-and-eyeball (no PASS/FAIL summary -- validated separately against gfortran goldens,
 see test_fcvs77_golden.py).
 
 NOTE: these failures were masked until the runner learned the FM2xx+ summary verb -- those
 audits print "nnn TESTS FAILED", not "nnn ERRORS ENCOUNTERED", so their failures went
 uncounted. They are a real punch-list (numeric precision, INQUIRE, formatting); the count is
-pinned here and ratchets DOWN as bugs are fixed (INQUIRE ACCESS/FORM specifiers cleared FM915).
+pinned here and ratchets DOWN as bugs are fixed (INQUIRE ACCESS/FORM specifiers, and matching
+the OPEN/INQUIRE filename strip, cleared FM915/FM920/FM921/FM922).
 
 Landed since the restore: IMPLICIT CHARACTER*<len> (the audit-harness preamble), the
 optional comma after a DO label, LOGICAL/COMPLEX PARAMETER constants, the widthless A
@@ -59,12 +60,12 @@ def test_f77_conformance_baseline():
     # the fix (a gain) or investigate (a regression).
     assert R["n_run"] == 140
     assert R["n_gap"] == 0
-    assert R["total_pass"] == 1546
-    assert R["total_err"] == 108
+    assert R["total_pass"] == 1550
+    assert R["total_err"] == 104
     assert len(R["nosummary"]) == 43
 
 
 def test_self_check_failures_do_not_grow():
     # The known self-check failures (value/semantic conformance, not parse/control-flow).
     # A ratchet: fixing a bug should LOWER this -- update it down, never silently up.
-    assert R["total_err"] <= 108
+    assert R["total_err"] <= 104
