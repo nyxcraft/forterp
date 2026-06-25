@@ -78,7 +78,6 @@ KNOWN_DIVERGENT = {
     "FM912",
     "FM914",
     "FM916",
-    "FM917",
     "FM919",
     "FM921",
 }

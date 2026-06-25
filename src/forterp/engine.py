@@ -1890,6 +1890,7 @@ class Engine:
 
     def _set_assoc(self, st, frame, nextrec):
         """Update a random unit's associated variable with the next record number."""
+        st["nextrec"] = int(nextrec)  # also tracked on the unit for INQUIRE(NEXTREC=)
         name = st.get("assoc")
         if name:
             self.scalar_ref(frame, name).write(self.tgt.wrap(int(nextrec)))
@@ -2201,6 +2202,8 @@ class Engine:
             "FORM": form or "UNKNOWN",
             "FORMATTED": yn(form == "FORMATTED", form),
             "UNFORMATTED": yn(form == "UNFORMATTED", form),
+            "RECL": st.get("recl", 0) if st else 0,  # fixed record length (direct access)
+            "NEXTREC": st.get("nextrec", 0) if st else 0,  # next record number (direct access)
         }
 
     def _inquire(self, s, frame):
@@ -2282,6 +2285,14 @@ class Engine:
                 st = self.io.setdefault(unit, {"recs": [], "pos": 0, "mode": "random"})
                 st["mode"] = "random"
                 st["access"], st["form"] = "DIRECT", form_kw or "UNFORMATTED"  # INQUIRE metadata
+                st.setdefault("nextrec", 1)  # INQUIRE(NEXTREC=) -- record 1 until I/O moves it
+                if "RECL" in specs:  # INQUIRE(RECL=) -- the fixed record length
+                    st["recl"] = int(self._spec(specs["RECL"], frame))
+                fspec = specs.get("FILE") or specs.get("NAME")  # record the name for INQUIRE(FILE=)
+                if fspec is not None:
+                    v = self._spec(fspec, frame)
+                    fname = self.tgt.unpack(v).strip() if isinstance(v, int) else str(v).strip()
+                    st["path"] = self._open_path(fname)
                 mode_kw = specs.get("MODE")  # 'BINARY' -> FOROTS words
                 if isinstance(mode_kw, str) and mode_kw.upper() == "BINARY":
                     st["binary"] = True
