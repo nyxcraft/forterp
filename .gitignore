@@ -12,3 +12,8 @@ venv/
 
 # Note: gh-pages/public/ (the built docs site) IS committed and kept in sync by the
 # pre-commit hook in .githooks/ -- see .githooks/README.md.
+
+# FCVS / FORTRAN scratch files written into CWD when running the test corpus
+EMPIRE.DAT
+SEQFILE
+fort.*
