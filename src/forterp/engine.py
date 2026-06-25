@@ -375,6 +375,7 @@ class Engine:
         # Interpreter default it ON for the PDP10 target + FORTRAN10 dialect -- real DEC FORTRAN-10,
         # the only case that actually runs through FOROTS. Overridable.
         self.forots = forots
+        self._forots_pending = False  # a forots terminal TYPE left a pending advance-before line
         self.monitor = None  # injectable Monitor facade for @uuo (forterp.hostlib);
         # None -> the baseline (tty/files/clock) is built on first use; set it to a richer facade
         # Two dialect-derived knobs the engine needs at run time (else dialect-agnostic):
@@ -1709,6 +1710,7 @@ class Engine:
     def do_type(self, s, frame):
         from forterp.fmt import apply_carriage, apply_carriage_advance, render
 
+        self._forots_pending = False  # default; the forots formatted branch refines it below
         nml = self._nml_name(s.fmt, frame)
         if nml is not None:  # TYPE/PRINT of a NAMELIST group
             self.emit(self._nml_write(nml, frame))
@@ -1722,17 +1724,29 @@ class Engine:
         text, suppress = render(items, self._cx_expand(values), self.tgt)  # complex -> 2 reals
         if self.forots:
             self.emit(apply_carriage_advance(text))  # advance-before: no trailing newline
+            # advance-before-print leaves no trailing newline, so a following terminal READ must
+            # advance to finish the line -- unless the record suppressed it ($). FOROTS does this.
+            self._forots_pending = not suppress
         else:
             text = apply_carriage(text)
             if not suppress:
                 text += "\n"
             self.emit(text)
 
+    def _term_read_advance(self):
+        """FOROTS advances to a new line before a terminal read when the previous formatted
+        terminal output (TYPE) left a pending advance: under advance-before-print a non-`$` record
+        has no trailing newline, so the read completes the line. No-op unless eng.forots."""
+        if self.forots and self._forots_pending:
+            self.emit("\n")
+        self._forots_pending = False
+
     def do_accept(self, s, frame):
         if getattr(s, "reread", False):
             line = getattr(self, "_last_input", "")  # REREAD: the last record again
             eof = False
         else:
+            self._term_read_advance()  # FOROTS completes the pending output line before reading
             raw = self.readline()
             line = raw.rstrip("\r\n")  # the line terminator isn't record data
             self._last_input = line
@@ -2124,6 +2138,7 @@ class Engine:
             else:
                 st = self.io[unit] = {"mode": dev}
         if s.mode == "READ" and st.get("mode") == "term":  # terminal input (e.g. unit 5)
+            self._term_read_advance()  # FOROTS completes the pending output line before reading
             raw = self.readline()
             line = raw.rstrip("\r\n")
             self._last_input = line
@@ -2196,6 +2211,7 @@ class Engine:
             st["pos"] = pos + 1
             line = rec if isinstance(rec, str) else ""
         else:
+            self._term_read_advance()  # FOROTS completes the pending output line before reading
             line = self.readline()  # terminal / default
         self._nml_read(nml, line, frame)
 
