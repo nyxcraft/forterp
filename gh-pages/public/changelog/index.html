@@ -34,6 +34,7 @@
         <p class="docs-sidebar__eyebrow">On this page</p>
         <nav class="section-nav" aria-label="On this page">
 <ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#2026-06-24-fortran-77-support-fcvs-77-conformance-the-f77-branch">2026-06-24 — FORTRAN 77 support + FCVS-77 conformance (the `f77` branch)</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#2026-06-24-the-monitor-rename-override-docs-and-pypi-release-wiring">2026-06-24 — the monitor rename, override docs, and PyPI release wiring</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#2026-06-23-host-services-terminal-modes-and-real-binary-files">2026-06-23 — host services, terminal modes, and real binary files</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#2026-06-22-host-services-for-the-embedder">2026-06-22 — host services for the embedder</a></li>
@@ -55,6 +56,30 @@
           <p class="docs-article__source">Changelog</p>
         </header>
         <div class="prose">
+<h2 id="2026-06-24-fortran-77-support-fcvs-77-conformance-the-f77-branch">2026-06-24 — FORTRAN 77 support + FCVS-77 conformance (the <code>f77</code> branch)</h2>
+<ul>
+<li><strong>F77 dialect</strong> (<code>forterp.F77</code>, <code>forterp.f77</code>; <code>character_type</code>/<code>block_if</code>/<code>save_stmt</code>/
+<code>intrinsic_stmt</code>/<code>list_directed_io</code>/<code>eqv_operators</code>/<code>slash_dim_bound</code> knobs). Front-end:
+block IF / DO WHILE / SAVE / INTRINSIC, generic intrinsics, IMPLICIT CHARACTER*len,
+optional DO-label comma, LOGICAL/COMPLEX PARAMETER constants, widthless A, list-directed
+I/O and <code>.EQV./.NEQV.</code> (split out of the DEC bundles), keyword I/O control lists
+(<code>READ(UNIT=u,FMT=f)</code>), OPEN positional-unit + keyword specs, blank COMMON <code>//</code>,
+<code>CHARACTER*(param)</code>, F77 array-bound <code>:</code> (vs DEC <code>/</code>), assumed-size <code>A(...,*)</code>, and
+blanks within a dotted operator.</li>
+<li><strong>CHARACTER</strong> (Phase 2/3): decls, blank-pad/truncate assign, <code>//</code>, comparison,
+LEN/CHAR/ICHAR/INDEX/LGE..LLT, substrings (incl. as DATA targets and internal-file units),
+correct CHARACTER DATA init, A-format I/O, internal files, INQUIRE (now incl. the
+ACCESS/FORM/SEQUENTIAL/DIRECT/FORMATTED/UNFORMATTED connection specifiers).</li>
+<li><strong>Sequential files</strong>: an unconnected unit auto-connects as an in-memory scratch file
+(write → REWIND → read); F77 formatted files store rendered text records so <code>/</code>, <code>X</code>, and
+read-side FORMAT reversion round-trip.</li>
+<li><strong>FCVS-77 conformance</strong>: restored the 140 F77/CHARACTER audit routines (<code>tests/fcvs77/</code>,
+gfortran-verified pristine) — all 140 parse and run (0 parse-gaps), 1550 self-check
+sub-tests pass / 104 fail across 19 routines (the value/semantic punch-list). Fixed the
+runner's masked-failure bug (it ignored the FM2xx+ &quot;TESTS FAILED&quot; summary verb). Added
+gfortran golden outputs (<code>tests/fcvs77_golden/</code> + <code>test_fcvs77_golden.py</code>) to validate the
+print-and-eyeball routines' output with no gfortran at test time.</li>
+</ul>
 <h2 id="2026-06-24-the-monitor-rename-override-docs-and-pypi-release-wiring">2026-06-24 — the monitor rename, override docs, and PyPI release wiring</h2>
 <ul>
 <li><strong>09:58</strong> — Dropped the <code>@builtin</code> decorator alias — <code>@fcall</code>/<code>@uuo</code> are the two authoring decorators; &quot;builtin&quot; stays the registry noun (<code>register_builtins</code>/<code>builtins_in</code>/<code>BUILTINS</code>). Synced the guides + CHANGELOG to the host-layer work.</li>

@@ -1,5 +1,29 @@
 # Changelog
 
+## 2026-06-24 — FORTRAN 77 support + FCVS-77 conformance (the `f77` branch)
+
+- **F77 dialect** (`forterp.F77`, `forterp.f77`; `character_type`/`block_if`/`save_stmt`/
+  `intrinsic_stmt`/`list_directed_io`/`eqv_operators`/`slash_dim_bound` knobs). Front-end:
+  block IF / DO WHILE / SAVE / INTRINSIC, generic intrinsics, IMPLICIT CHARACTER\*len,
+  optional DO-label comma, LOGICAL/COMPLEX PARAMETER constants, widthless A, list-directed
+  I/O and `.EQV./.NEQV.` (split out of the DEC bundles), keyword I/O control lists
+  (`READ(UNIT=u,FMT=f)`), OPEN positional-unit + keyword specs, blank COMMON `//`,
+  `CHARACTER*(param)`, F77 array-bound `:` (vs DEC `/`), assumed-size `A(...,*)`, and
+  blanks within a dotted operator.
+- **CHARACTER** (Phase 2/3): decls, blank-pad/truncate assign, `//`, comparison,
+  LEN/CHAR/ICHAR/INDEX/LGE..LLT, substrings (incl. as DATA targets and internal-file units),
+  correct CHARACTER DATA init, A-format I/O, internal files, INQUIRE (now incl. the
+  ACCESS/FORM/SEQUENTIAL/DIRECT/FORMATTED/UNFORMATTED connection specifiers).
+- **Sequential files**: an unconnected unit auto-connects as an in-memory scratch file
+  (write → REWIND → read); F77 formatted files store rendered text records so `/`, `X`, and
+  read-side FORMAT reversion round-trip.
+- **FCVS-77 conformance**: restored the 140 F77/CHARACTER audit routines (`tests/fcvs77/`,
+  gfortran-verified pristine) — all 140 parse and run (0 parse-gaps), 1550 self-check
+  sub-tests pass / 104 fail across 19 routines (the value/semantic punch-list). Fixed the
+  runner's masked-failure bug (it ignored the FM2xx+ "TESTS FAILED" summary verb). Added
+  gfortran golden outputs (`tests/fcvs77_golden/` + `test_fcvs77_golden.py`) to validate the
+  print-and-eyeball routines' output with no gfortran at test time.
+
 ## 2026-06-24 — the monitor rename, override docs, and PyPI release wiring
 
 - **09:58** — Dropped the `@builtin` decorator alias — `@fcall`/`@uuo` are the two authoring decorators; "builtin" stays the registry noun (`register_builtins`/`builtins_in`/`BUILTINS`). Synced the guides + CHANGELOG to the host-layer work.
