@@ -1963,17 +1963,20 @@ class Engine:
             if rec < 1:  # invalid record number: an I/O error, not a negative-index clobber
                 self.last_io_error = IO_BAD_RECORD
                 return Goto(s.specs["ERR"]) if "ERR" in s.specs else None
-            while len(recs) < rec:
-                recs.append(None)
             if binmode:  # FOROTS LSCW word record
-                recs[rec - 1] = self._binio().encode_record(self._bin_words(s.items, frame))
-            elif items is not None:  # formatted -> text record
+                cells = [self._binio().encode_record(self._bin_words(s.items, frame))]
+            elif items is not None:  # formatted: a '/' or FORMAT reversion splits the io-list
+                # across consecutive direct-access records (X3.9-1978 12.9.4.2)
                 vals = self._cx_expand(self._unf_values(s.items, frame))
-                recs[rec - 1] = render(items, vals, self.tgt)[0]
+                cells = render(items, vals, self.tgt)[0].split("\n")
             else:
-                recs[rec - 1] = self._unf_values(s.items, frame)
-            st["pos"] = rec
-            self._set_assoc(st, frame, rec + 1)
+                cells = [self._unf_values(s.items, frame)]
+            while len(recs) < rec - 1 + len(cells):
+                recs.append(None)
+            for i, cell in enumerate(cells):
+                recs[rec - 1 + i] = cell
+            st["pos"] = rec - 1 + len(cells)
+            self._set_assoc(st, frame, rec + len(cells))
             return None
         cell = recs[rec - 1] if 1 <= rec <= len(recs) else None
         if cell is not None and cell != []:  # READ an existing record
@@ -2325,17 +2328,29 @@ class Engine:
             if (
                 access in ("RANDOM", "DIRECT") or assoc_name is not None
             ):  # random/direct (V5 10.3.5)
-                st = self.io.setdefault(unit, {"recs": [], "pos": 0, "mode": "random"})
+                fspec = specs.get("FILE") or specs.get("NAME")  # the name for INQUIRE(FILE=)/reload
+                path = None
+                if fspec is not None:
+                    v = self._spec(fspec, frame)
+                    fname = self.tgt.unpack(v).strip() if isinstance(v, int) else str(v).strip()
+                    path = self._open_path(fname)
+                status_kw = specs.get("STATUS")
+                status_kw = status_kw.upper() if isinstance(status_kw, str) else None
+                st = self.io.get(unit)
+                if st is None:
+                    # reconnect to a direct-access file CLOSEd earlier (STATUS='OLD' reopen):
+                    # reload its records from disk; STATUS='NEW' always starts fresh
+                    if path and os.path.exists(path) and status_kw != "NEW":
+                        st = self.io[unit] = self._open_read_unit(path)
+                    else:
+                        st = self.io[unit] = {"recs": [], "pos": 0}
                 st["mode"] = "random"
                 st["access"], st["form"] = "DIRECT", form_kw or "UNFORMATTED"  # INQUIRE metadata
                 st.setdefault("nextrec", 1)  # INQUIRE(NEXTREC=) -- record 1 until I/O moves it
                 if "RECL" in specs:  # INQUIRE(RECL=) -- the fixed record length
                     st["recl"] = int(self._spec(specs["RECL"], frame))
-                fspec = specs.get("FILE") or specs.get("NAME")  # record the name for INQUIRE(FILE=)
-                if fspec is not None:
-                    v = self._spec(fspec, frame)
-                    fname = self.tgt.unpack(v).strip() if isinstance(v, int) else str(v).strip()
-                    st["path"] = self._open_path(fname)
+                if path is not None:
+                    st["path"] = path
                 if "BLANK" in specs:  # INQUIRE(BLANK=) -- blank-handling mode (NULL / ZERO)
                     bl = self._spec(specs["BLANK"], frame)
                     st["blank"] = (
@@ -2386,12 +2401,24 @@ class Engine:
             return None
         if s.verb == "CLOSE":
             st = self.io.pop(unit, None)
-            if st and st.get("mode") == "w":
+            status = specs.get("STATUS")
+            if status is not None:
+                sv = self._spec(status, frame)
+                status = (
+                    self.tgt.unpack(sv).strip() if isinstance(sv, int) else str(sv).strip()
+                ).upper()
+            path = st.get("path") if st else None
+            if status == "DELETE":  # discard the file rather than persist it (12.10.1)
+                if path and os.path.exists(path):
+                    os.remove(path)
+            # persist a written file so a later OPEN can reconnect: sequential output ("w") and
+            # a direct-access file ("random") both serialize their record list to disk on CLOSE
+            elif st and path and st.get("recs") is not None and st.get("mode") in ("w", "random"):
                 if st.get("dec"):  # real FOROTS binary: LSCW-framed words, core-dumped to bytes
-                    with open(st["path"], "wb") as fh:
+                    with open(path, "wb") as fh:
                         fh.write(self._binio().encode_binary_file(st["recs"]))
                 else:
-                    with open(st["path"], "w") as fh:
+                    with open(path, "w") as fh:
                         json.dump(st["recs"], fh)
             return None
         # device control: REWIND / BACKSPACE / ENDFILE / SKIP RECORD / SKIP FILE

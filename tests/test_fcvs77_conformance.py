@@ -30,11 +30,16 @@ output and input for FM402, an intrinsic name (declared INTRINSIC) passed as an 
 argument and dispatched through the dummy (X3.9-1978 15.10) for FM317/FM328, coercing a
 statement function's value to the function's own implicit type (an INTEGER-named SF
 truncates a real body result, 15.4.1) for FM351, and INQUIRE(EXIST=) reporting true for a
-connected file with no disk backing yet (a DIRECT scratch file) for FM921.
+connected file with no disk backing yet (a DIRECT scratch file) for FM921, and direct-access
+FORMATTED file I/O for FM912 -- a '/'-bearing FORMAT splits one WRITE across consecutive
+direct-access records (so NEXTREC advances by the record count, 12.9.4.2), and a direct-access
+file's records now persist on CLOSE and reload on a STATUS='OLD' reopen.
 
-Some remaining failures are NOT interpreter bugs: FM923 (26) reads its list-directed data from
-unit 5, and FM912 (11) CALLs SN913 in FM913.FOR which is not in the corpus -- both need
-input/files the harness doesn't supply.
+One large remaining cluster is NOT an interpreter bug: FM923 (26) reads its list-directed data
+from the card reader (unit I01), and FCVS supplies that input as a separate data deck the
+harness does not vendor -- every READ comes back empty. FM912's 5 remaining failures are real:
+advanced FORMAT edit descriptors (Gw.dEe / Ew.dEe explicit exponent width, T/TL/TR tabbing,
+SP/S/SS sign control, nP scale on input, BZ/BN blank control).
 
 Landed since the restore: IMPLICIT CHARACTER*<len> (the audit-harness preamble), the
 optional comma after a DO label, LOGICAL/COMPLEX PARAMETER constants, the widthless A
@@ -73,12 +78,12 @@ def test_f77_conformance_baseline():
     # the fix (a gain) or investigate (a regression).
     assert R["n_run"] == 140
     assert R["n_gap"] == 0
-    assert R["total_pass"] == 1598
-    assert R["total_err"] == 56
+    assert R["total_pass"] == 1604
+    assert R["total_err"] == 50
     assert len(R["nosummary"]) == 43
 
 
 def test_self_check_failures_do_not_grow():
     # The known self-check failures (value/semantic conformance, not parse/control-flow).
     # A ratchet: fixing a bug should LOWER this -- update it down, never silently up.
-    assert R["total_err"] <= 56
+    assert R["total_err"] <= 50

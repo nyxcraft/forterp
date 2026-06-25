@@ -619,6 +619,40 @@ def test_inquire_exist_true_for_a_connected_direct_file(tmp_path):
     assert eng.commons["O"][0]
 
 
+def test_direct_access_records_survive_close_and_reopen(tmp_path):
+    # A direct-access file's records persist on CLOSE and reload on a STATUS='OLD' reopen
+    # (FM912): write two records, close, reopen, read one back.
+    src = _cprog(
+        "      INTEGER R\n"
+        "      OPEN(UNIT=8, FILE='DA.TMP', ACCESS='DIRECT', RECL=20,\n"
+        "     1     FORM='FORMATTED', STATUS='NEW')\n"
+        "      WRITE(UNIT=8, REC=1, FMT=10) 111\n"
+        "      WRITE(UNIT=8, REC=2, FMT=10) 222\n"
+        "   10 FORMAT(I5)\n"
+        "      CLOSE(UNIT=8)\n"
+        "      OPEN(UNIT=8, FILE='DA.TMP', ACCESS='DIRECT', RECL=20,\n"
+        "     1     FORM='FORMATTED', STATUS='OLD')\n"
+        "      READ(UNIT=8, REC=2, FMT=10) R\n"
+    )
+    eng = forterp.run_source(src, dialect=forterp.F77, target=forterp.NATIVE, root=str(tmp_path))
+    assert eng.commons["O"][0] == 222
+
+
+def test_direct_access_slash_format_writes_consecutive_records(tmp_path):
+    # A '/' in the FORMAT of a direct-access WRITE writes consecutive records (FM912 test 5):
+    # WRITE REC=1 with two format records fills records 1 and 2, so NEXTREC advances to 3.
+    src = _cprog(
+        "      INTEGER R\n"
+        "      OPEN(UNIT=8, FILE='DA2.TMP', ACCESS='DIRECT', RECL=20,\n"
+        "     1     FORM='FORMATTED', STATUS='NEW')\n"
+        "      WRITE(UNIT=8, REC=1, FMT=10) 11, 22\n"
+        "   10 FORMAT(I5,/,I5)\n"
+        "      INQUIRE(UNIT=8, NEXTREC=R)\n"
+    )
+    eng = forterp.run_source(src, dialect=forterp.F77, target=forterp.NATIVE, root=str(tmp_path))
+    assert eng.commons["O"][0] == 3  # records 1 and 2 written -> next is 3
+
+
 # ---- procedure / statement-function semantics ---------------------------------------------
 def test_intrinsic_name_passed_as_actual_argument():
     # IABS, declared INTRINSIC, passed to a dummy procedure and called through it (FM317/328,
