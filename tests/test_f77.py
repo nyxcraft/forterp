@@ -245,6 +245,19 @@ def test_implicit_character_length():
     assert _out(src)[0] == "HI   "
 
 
+def test_f77_zero_trip_do_and_final_index():
+    # F77 (X3.9-1978 11.10): a DO whose count is <=0 runs ZERO times (F66/FORTRAN-10 run once),
+    # and after a normal loop the index holds the value that exceeded the limit (11, not 10).
+    zero = "      N(1)=0\n      DO 5 I=1,0\n      N(1)=N(1)+1\n    5 CONTINUE\n      N(2)=I\n"
+    out = _out(_prog(zero))  # F77 dialect (the _out default)
+    assert out[0] == 0 and out[1] == 1  # body ran 0x; index kept its start value
+    fin = "      DO 6 I=1,10\n    6 CONTINUE\n      N(1)=I\n"
+    assert _out(_prog(fin))[0] == 11
+    # FORTRAN-10 stays one-trip with the last-value index (the F66 sentinel idiom)
+    assert _out(_prog(zero), dialect=forterp.FORTRAN10)[0] == 1
+    assert _out(_prog(fin), dialect=forterp.FORTRAN10)[0] == 10
+
+
 def test_do_label_optional_comma():
     # F77 allows a comma after the DO label: DO 5, I = 1, 3.
     body = "      N(1)=0\n      DO 5, I=1,3\n      N(1)=N(1)+I\n    5 CONTINUE\n"

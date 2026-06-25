@@ -54,6 +54,8 @@ class Dialect:
     alt_return: bool = False  # alternate-return actual args in CALL ($n/&n/*n) (F77/DEC)
     block_if: bool = False  # block IF...THEN / ELSE IF / ELSE / END IF (F77; also FORTRAN-10 V5)
     do_while: bool = False  # DO WHILE (cond) / END DO (DEC/F90 ext; NOT in ANSI X3.9-1978)
+    zero_trip_do: bool = False  # F77 §11.10 zero-trip DO (body skipped when the count is <=0);
+    # F66 / DEC FORTRAN-10 run the body at least once (one-trip) -- a deliberate F66 divergence
     save_stmt: bool = False  # the SAVE statement (F77; a no-op here -- locals are already static)
     intrinsic_stmt: bool = False  # the INTRINSIC statement (F77; declares names as intrinsic)
     character_type: bool = False  # the F77 CHARACTER data type (decls, // concat, substrings,
@@ -107,6 +109,7 @@ F77 = Dialect(
     character_type=True,
     list_directed_io=True,  # F77 §12 standardized list-directed I/O
     eqv_operators=True,  # F77 §6.6 has .EQV./.NEQV.
+    zero_trip_do=True,  # F77 §11.10 zero-trip DO loops
 )
 
 # CLI / front-end name -> dialect, so every caller resolves the same names in one place.

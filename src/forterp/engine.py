@@ -332,6 +332,7 @@ class Engine:
         free_form_input=False,
         dec_intrinsics=True,
         character_type=False,
+        zero_trip_do=False,
         max_array_words=50_000_000,
         forots=False,
         tty_width=80,
@@ -357,6 +358,7 @@ class Engine:
         # (default True so a bare Engine has the full library; the dialect paths gate it).
         self.free_form_input = free_form_input
         self.dec_intrinsics = dec_intrinsics
+        self.zero_trip_do = zero_trip_do  # F77 zero-trip DO vs F66/DEC one-trip (see exec_do)
         #  - character_type: the F77 CHARACTER data type is in play. A string literal then
         #    evaluates to a Python str (a character constant), not a packed-ASCII Hollerith
         #    word -- so CHARACTER vars/concatenation/comparison work. Off for F66/FORTRAN-10,
@@ -1395,13 +1397,17 @@ class Engine:
             trips = int((stop - start + step) / step)
         else:
             trips = trunc_div(stop - start + step, step)
-        # DEC FORTRAN-10 (F66) one-trip DO: the body always runs at least once -- e.g.
-        # DO I=1,0 executes once with I=1, then exits. (F77 zero-trip is a later compiler.)
-        if trips < 1:
-            trips = 1
         if s.term_label not in frame.rt.unit.labels:
             raise RuntimeError(f"DO loop terminal label {s.term_label} not found")
         term_idx = frame.rt.unit.labels[s.term_label]
+        if trips < 1:
+            if self.zero_trip_do:
+                # F77 (X3.9-1978 11.10): a zero-trip loop skips the body entirely; the DO
+                # variable keeps its initial value (already written above). Land on the terminal
+                # label so the run loop's pc+=1 resumes at the statement AFTER it.
+                frame.pc = term_idx
+                return None
+            trips = 1  # F66 / DEC FORTRAN-10 one-trip: the body always runs at least once
         # Starting this loop fresh invalidates any earlier instance left suspended by a
         # jump-out (extended range), so it can't later reactivate by mistake.
         if frame.do_suspended:
@@ -1550,9 +1556,12 @@ class Engine:
                 f.ref.write(v + f.step if isinstance(v, float) else self.tgt.wrap(v + f.step))
                 frame.pc = f.body
                 return True
-            # Loop done: DEC FORTRAN-10 (F66) leaves the index at the LAST value executed
-            # (e.g. 9 after DO I=1,9), NOT the terminating value -- so a post-loop
-            # `IF (I .EQ. n)` sentinel works. See tests/test_control_flow.py.
+            # Loop done. F77 (X3.9-1978 11.10) leaves the index at the value that exceeded the
+            # limit (start + count*step -> 11 after DO I=1,10); F66 / DEC FORTRAN-10 leave it at
+            # the LAST value executed (10), so a post-loop `IF (I .EQ. n)` sentinel works.
+            if self.zero_trip_do:
+                v = f.ref.read()
+                f.ref.write(v + f.step if isinstance(v, float) else self.tgt.wrap(v + f.step))
             frame.do_stack.pop()
         return False
 

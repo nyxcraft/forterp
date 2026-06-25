@@ -66,6 +66,7 @@ def _run_one(path, target=PDP10, dialect=FORTRAN10, character_type=False):
             printer=listing.append,
             target=target,
             character_type=character_type,
+            zero_trip_do=dialect.zero_trip_do,
         )
         install_runtime(eng)  # STDLIB + FOROTS binary-I/O codec
         eng.io[5] = {"recs": [], "pos": 0, "mode": "r"}  # I01 card reader (unused by audits)
