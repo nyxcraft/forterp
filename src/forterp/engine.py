@@ -1904,11 +1904,15 @@ class Engine:
         return None
 
     def _is_internal_unit(self, node, frame):
-        """True if an I/O unit designator is a CHARACTER variable -- an F77 internal file
-        (READ/WRITE to/from the variable's text), not an integer unit number."""
+        """True if an I/O unit designator is a CHARACTER entity -- an F77 internal file
+        (READ/WRITE to/from its text), not an integer unit number. The unit may be a scalar
+        CHARACTER variable, an array element, or a substring of either (X3.9-1978 12.2.2)."""
+        if not self.character_type:
+            return False
+        if isinstance(node, A.Substring):  # internal file given as A(i:j)
+            node = node.base
         return (
-            self.character_type
-            and isinstance(node, (A.Var, A.Ref))
+            isinstance(node, (A.Var, A.Ref))
             and self.type_of(frame.rt.unit, node.name) == "CHARACTER"
         )
 
@@ -1924,6 +1928,17 @@ class Engine:
             text = str(self.eval(s.unit, frame))
             reads = read_values(items, text, self.tgt, self.free_form_input, self.character_type)
             self._assign_reads(s.items, reads, frame)
+        elif isinstance(s.unit, A.Substring):  # WRITE into a substring slice of the base
+            text = render(items, self._unf_values(s.items, frame), self.tgt)[0]
+            base = s.unit.base
+            ref = self.arg_ref(base, frame)
+            n = self.char_length(frame.rt.unit, base.name)
+            cur = ref.read()
+            cur = cur.ljust(n)[:n] if isinstance(cur, str) else " " * n
+            lo = int(self.eval(s.unit.lo, frame)) if s.unit.lo is not None else 1
+            hi = int(self.eval(s.unit.hi, frame)) if s.unit.hi is not None else n
+            width = max(hi - lo + 1, 0)
+            ref.write((cur[: lo - 1] + text[:width].ljust(width) + cur[hi:])[:n].ljust(n))
         else:  # WRITE: render the list, store into the CHARACTER variable (truncate / blank-pad)
             text = render(items, self._unf_values(s.items, frame), self.tgt)[0]
             n = self.char_length(frame.rt.unit, s.unit.name)
