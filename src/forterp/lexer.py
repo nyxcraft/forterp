@@ -109,7 +109,9 @@ def _read_number(s: str, i: int):
         i += 1
     if i < n and s[i] == ".":
         i, is_real = _scan_decimal(s, i)
-    # exponent
+    # exponent (no embedded blanks here -- a blank before the exponent is resolved in the parser's
+    # expression primary, the only context where "1545 E7" is unambiguously 1545E7 and not, say, a
+    # CHARACTER*2 length followed by a variable D2XVK or a DO label followed by a variable E7).
     if i < n and s[i] in "eEdD":
         j = i + 1
         if j < n and s[j] in "+-":

@@ -13,16 +13,20 @@ to recover pristine FCVS, verified against gfortran. Nothing else was touched.)
 
 All 140 routines parse and run under the F77 front-end (the front-end work is complete:
 zero parse-gaps). What remains is value/semantic conformance: of the 140, the self-checking
-routines report 1559 sub-tests PASS and 95 FAIL (across 15 routines), and 43 are
+routines report 1579 sub-tests PASS and 75 FAIL (across 13 routines), and 43 are
 print-and-eyeball (no PASS/FAIL summary -- validated separately against gfortran goldens,
 see test_fcvs77_golden.py).
 
-NOTE: these failures were masked until the runner learned the FM2xx+ summary verb -- those
-audits print "nnn TESTS FAILED", not "nnn ERRORS ENCOUNTERED", so their failures went
-uncounted. They are a real punch-list (numeric precision, INQUIRE, formatting); the count is
-pinned here and ratchets DOWN as bugs are fixed (the INQUIRE specifier work -- ACCESS/FORM/
-SEQUENTIAL/DIRECT/RECL/NEXTREC, the filename strip, direct-access connection metadata --
-cleared FM915/FM917/FM920/FM922 and most of FM921).
+These failures were masked until the runner learned the FM2xx+ summary verb ("nnn TESTS
+FAILED", not "nnn ERRORS ENCOUNTERED"). The count is pinned and ratchets DOWN as bugs are
+fixed. Cleared so far: the INQUIRE specifier work (ACCESS/FORM/SEQUENTIAL/DIRECT/RECL/NEXTREC/
+BLANK + the filename strip) for FM914-922, and blanks before a numeric exponent (`1545 E7` ->
+1545E7, resolved in the expression parser so a CHARACTER*<len> length or DO label is untouched)
+for FM201/FM351/FM352 and others.
+
+Some remaining failures are NOT interpreter bugs: FM923 (26) reads its list-directed data from
+unit 5, and FM912 (11) CALLs SN913 in FM913.FOR which is not in the corpus -- both need
+input/files the harness doesn't supply.
 
 Landed since the restore: IMPLICIT CHARACTER*<len> (the audit-harness preamble), the
 optional comma after a DO label, LOGICAL/COMPLEX PARAMETER constants, the widthless A
@@ -61,12 +65,12 @@ def test_f77_conformance_baseline():
     # the fix (a gain) or investigate (a regression).
     assert R["n_run"] == 140
     assert R["n_gap"] == 0
-    assert R["total_pass"] == 1559
-    assert R["total_err"] == 95
+    assert R["total_pass"] == 1579
+    assert R["total_err"] == 75
     assert len(R["nosummary"]) == 43
 
 
 def test_self_check_failures_do_not_grow():
     # The known self-check failures (value/semantic conformance, not parse/control-flow).
     # A ratchet: fixing a bug should LOWER this -- update it down, never silently up.
-    assert R["total_err"] <= 95
+    assert R["total_err"] <= 75

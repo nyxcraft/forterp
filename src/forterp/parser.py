@@ -407,16 +407,43 @@ class StatementParser:
             return A.Binary("^", base, self.p_unary())
         return base
 
+    def _spaced_exponent(self, value):
+        """A blank before a numeric exponent (F66 §3.1.6 blanks-insignificance): `1545 E7` is
+        1545E7. Resolved HERE, in expression context only -- never for a CHARACTER*<len> length or
+        a DO label, where `2 D2XVK` / `5 E7` must stay an integer + a name. The lexer hands us the
+        number then the exponent as a separate ID (`E7`/`D3`) or `E`/`D` + sign + int (`E -10`).
+        Returns a RealLit if an exponent follows (consuming it), else None."""
+        nx = self.peek()
+        if nx is None or nx.kind != "ID":
+            return None
+        v = nx.value
+        if len(v) > 1 and v[0] in "eEdD" and v[1:].isdigit():  # one token: E7, D03
+            self.advance()
+            return A.RealLit(float(value) * 10.0 ** int(v[1:]))
+        if v in ("E", "e", "D", "d"):  # E/D then an optionally-signed integer: "E -10", "E 7"
+            nn = self.peek_next()
+            if nn is not None and nn.kind == "OP" and nn.value in "+-":
+                n2 = self.toks[self.pos + 2] if self.pos + 2 < len(self.toks) else None
+                if n2 is not None and n2.kind == "INT":
+                    self.advance(), self.advance(), self.advance()
+                    return A.RealLit(
+                        float(value) * 10.0 ** (n2.value if nn.value == "+" else -n2.value)
+                    )
+            elif nn is not None and nn.kind == "INT":
+                self.advance(), self.advance()
+                return A.RealLit(float(value) * 10.0**nn.value)
+        return None
+
     def p_primary(self):
         t = self.peek()
         if t is None:
             raise ParseError("unexpected end of expression")
         if t.kind == "INT":
             self.advance()
-            return A.IntLit(t.value)
+            return self._spaced_exponent(t.value) or A.IntLit(t.value)
         if t.kind == "REAL":
             self.advance()
-            return A.RealLit(t.value)
+            return self._spaced_exponent(t.value) or A.RealLit(t.value)
         if t.kind == "OCTAL":
             self.advance()
             return A.OctalLit(t.value)
