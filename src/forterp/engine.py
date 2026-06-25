@@ -516,6 +516,46 @@ class Engine:
         eng.io[unit] for a program that OPENs `name:` (e.g. a 'GAM:' device)."""
         self.device_handlers[name.upper()] = fn
 
+    def mount_device(self, name, directory):
+        """Mount logical device `name:` on host `directory`: a program that
+        OPEN(DEVICE='name', FILE='F')s then reads/writes `directory`/F through the ordinary
+        sequential file machinery -- the FILE= spec is just the filename within the mount. Lets
+        a driver, or the CLI --mount option, attach a device (e.g. GAM: -> a terrain-map
+        directory) without writing a bespoke handler. The filename is matched leniently (missing
+        extension / case), the way _open_path resolves DSK files."""
+        import os
+
+        base = os.path.abspath(directory)
+
+        def handler(eng, unit, specs, frame):
+            fspec = eng._spec(specs.get("FILE") or specs.get("NAME") or "", frame)
+            fname = eng.tgt.unpack(fspec).strip() if isinstance(fspec, int) else str(fspec).strip()
+            path = os.path.join(base, fname)
+            if not os.path.exists(path):  # lenient match, like _open_path (missing ext / case)
+                low = os.path.basename(path).lower()
+                try:
+                    for f in os.listdir(base):
+                        if f.lower() in (low, low + ".dat"):
+                            path = os.path.join(base, f)
+                            break
+                except OSError:
+                    pass
+            access = specs.get("ACCESS")
+            if access == "SEQOUT":
+                eng.io[unit] = {
+                    "recs": [],
+                    "pos": 0,
+                    "mode": "w",
+                    "path": path,
+                    "dec": eng.dec_files,
+                }
+            elif access == "SEQIN" or os.path.exists(path):
+                eng.io[unit] = eng._open_read_unit(path)
+            else:
+                eng.io[unit] = {"recs": [], "pos": 0, "mode": "w", "path": path}
+
+        self.register_device(name, handler)
+
     def _binio(self):
         """The unformatted-I/O codec (FOROTS record + DEC-10 float layout). It's a
         target-specific runtime, injected via forterp.runtime.install_runtime; the

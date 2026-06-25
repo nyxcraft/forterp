@@ -115,6 +115,14 @@ def _run(argv, dialect, prog, *, allow_std, default_target="native"):
         "--program", metavar="NAME", help="main PROGRAM unit to run (default: the first)"
     )
     ap.add_argument(
+        "--mount",
+        metavar="DEV=DIR",
+        action="append",
+        default=[],
+        help="mount logical device DEV: on host directory DIR -- OPEN(DEVICE='DEV',FILE='F') "
+        "then reads/writes DIR/F (repeatable; e.g. --mount GAM=./maps)",
+    )
+    ap.add_argument(
         "--check",
         action="store_true",
         help="parse and report all diagnostics; do not run (compile-check)",
@@ -222,8 +230,17 @@ def _run(argv, dialect, prog, *, allow_std, default_target="native"):
 
     captured = {}
 
+    mounts = []  # --mount DEV=DIR (validated up front so a bad spec is a clean arg error)
+    for spec in args.mount:
+        dev, sep, directory = spec.partition("=")
+        if not sep or not dev:
+            ap.error(f"--mount expects DEV=DIR, got {spec!r}")
+        mounts.append((dev, directory))
+
     def _setup(eng):  # capture the engine (so -i can inspect it) and run any register() hooks
         captured["eng"] = eng
+        for dev, directory in mounts:
+            eng.mount_device(dev, directory)
         for h in hooks:
             h(eng)
 

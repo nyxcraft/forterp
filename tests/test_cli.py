@@ -302,3 +302,36 @@ def test_inspect_after_run_enters_the_processor(monkeypatch, capsys):
     prog = "      COMMON /OUT/ N\n      N = 99" + _END
     assert f10_main(["-i", "-q", "-c", prog]) == 0
     assert "99" in capsys.readouterr().out  # SHOW /OUT/ reported the post-run value
+
+
+def test_mount_device_serves_open(capsys):
+    """--mount DEV=DIR registers an OPEN device that serves files from DIR: a program that
+    OPEN(DEVICE='DEV', FILE='F')s reads DIR/F through the ordinary sequential machinery."""
+    import os
+    import tempfile
+
+    mnt = tempfile.mkdtemp()
+    with open(os.path.join(mnt, "DATA.TXT"), "w") as fh:
+        fh.write("  123\n  456\n")
+    src = _src(
+        "      PROGRAM R\n"
+        "      OPEN(UNIT=1,DEVICE='GAM',FILE='DATA.TXT',ACCESS='SEQIN')\n"
+        "      READ(1,10) N\n"
+        "      READ(1,10) M\n"
+        "   10 FORMAT(I5)\n"
+        "      TYPE 20, N, M\n"
+        "   20 FORMAT(' GOT ',I5,I5)\n"
+        "      END\n"
+    )
+    try:
+        rc = f10_main(["--mount", f"GAM={mnt}", src])
+    finally:
+        os.unlink(src)
+    assert rc == 0
+    assert "GOT   123  456" in capsys.readouterr().out
+
+
+def test_mount_bad_spec_is_arg_error():
+    """--mount without '=' is a clean argparse error, not a traceback."""
+    with pytest.raises(SystemExit):
+        f10_main(["--mount", "NODELIM", "-c", "      END\n"])
