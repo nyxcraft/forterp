@@ -563,6 +563,40 @@ def test_e_format_explicit_exponent_width():
     assert _iwrite("E8.4E1", "2345.0") == ".2345E+4  "
 
 
+def test_iw_m_minimum_digits():
+    # FM912 / 13.5.9.1: Iw.m prints at least m digits, zero-filled (I5.3 of 5 -> '  005').
+    assert _iwrite("I5.3", "5") == "  005     "
+
+
+def test_sp_ss_sign_control():
+    # FM912 / 13.5.6: SP forces a + on a non-negative; SS suppresses it again.
+    assert _iwrite("SP,I5,SS,I5", "5, 7") == "   +5    7"
+
+
+def test_colon_terminates_format_when_list_exhausted():
+    # FM912 / 13.3: the colon stops format control once the io-list is spent, so the
+    # trailing literal is not emitted.
+    assert _iwrite("I3,:,'XX'", "7") == "  7       "
+
+
+def test_tl_tr_relative_tabs():
+    # FM912 / 13.5.4: TR advances the cursor (gap blank-filled), TL backs it up to overwrite.
+    # 'AB' (cols 1-2), TR3 -> col 6, 'C' (col 6), TL2 -> col 4, 'Z' (col 4): "AB  ZC".
+    assert _iwrite("'AB',TR3,'C',TL2,'Z'", "") == "AB  ZC    "
+
+
+def test_read_into_a_character_substring_target():
+    # FM912: a CHARACTER substring lvalue as an I/O-list item must be written back, not
+    # dropped -- READ A5 into S(1:5) splices into the base, leaving the rest unchanged.
+    src = (
+        "      PROGRAM T\n      COMMON /O/ S\n      CHARACTER S*10, T*10\n"
+        "      S='..........'\n      T='HELLOworld'\n"
+        "      READ(T,9) S(1:5)\n    9 FORMAT(A5)\n      END\n"
+    )
+    eng = forterp.run_source(src, dialect=forterp.F77, target=forterp.NATIVE)
+    assert eng.commons["O"][0] == "HELLO....."
+
+
 def test_widthless_a_writes_full_character_value():
     # F77 §13.5.11: a widthless A takes the list item's CHARACTER length (here 5). Strict
     # F66 rejects a widthless descriptor; the relaxation is gated on the CHARACTER type.

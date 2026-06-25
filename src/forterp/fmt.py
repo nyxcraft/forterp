@@ -158,6 +158,22 @@ def _parse_seq(s, p, depth=0):
             p += rep
             items.append(Item("lit", text))
             continue
+        if letter == "S":  # sign control (13.5.6): SP = plus on, SS = plus off, S = default
+            if p < n and s[p] in "Pp":
+                p += 1
+                items.append(Item("SP"))
+            elif p < n and s[p] in "Ss":
+                p += 1
+                items.append(Item("SS"))
+            else:
+                items.append(Item("S"))
+            continue
+        if letter == "T" and p < n and s[p] in "LRlr":  # TL/TR relative tab (13.5.4)
+            sub = s[p].upper()
+            p += 1
+            w2, _hw, _d, p = _scan_width_decimals(s, p)
+            items.append(Item("T" + sub, w2 or 1))
+            continue
         w, has_w, d, p = _scan_width_decimals(s, p)
         # Ew.dEe / Gw.dEe / Dw.dEe: an explicit exponent-digit count follows the decimals
         # (X3.9-1978 13.5.9). The marker letter abuts the decimals (no separator).
@@ -235,6 +251,7 @@ def render(items, values, target=NATIVE):
     vi = 0
     suppress = False
     scale = 0  # nP scale factor (holds until reset, 13.2.4)
+    plus = False  # SP/SS sign control: force a + on non-negative numerics (holds until reset)
     n = len(values)
     rev = getattr(items, "rev", 0)  # reversion restart: last top-level group (F66 7.2.3.4)
     start = 0  # first pass scans the whole format
@@ -249,20 +266,30 @@ def render(items, values, target=NATIVE):
                 rec.emit(" " * (it.a or 1))
             elif k == "T":
                 rec.tab(it.a or 1)
+            elif k == "TL":  # tab left (13.5.4): back up, not past column 1
+                rec.pos = max(0, rec.pos - (it.a or 1))
+            elif k == "TR":  # tab right: advance (a later emit blank-fills the gap)
+                rec.pos += it.a or 1
             elif k == "P":
                 scale = it.a or 0
+            elif k in ("SP", "SS", "S"):  # sign control: SP forces + on non-negatives (13.5.6)
+                plus = k == "SP"
             elif k == "/":
                 records.append(rec.text())
                 rec = _Record()
             elif k == "$":
                 suppress = True
+            elif k == ":":  # colon: terminate format control if the I/O list is exhausted (13.3)
+                if vi >= n:
+                    stop = True
+                    break
             elif k in _DATA_DESCRIPTORS:
                 if vi >= n:  # I/O list exhausted -> terminate record
                     stop = True
                     break
                 v = values[vi]
                 vi += 1
-                rec.emit(_render_one(k, it, v, scale, target))
+                rec.emit(_render_one(k, it, v, scale, target, plus))
         if stop or vi >= n or vi == pass_start:
             break
         records.append(rec.text())
@@ -272,8 +299,9 @@ def render(items, values, target=NATIVE):
     return "\n".join(records), suppress
 
 
-def _render_one(k, it, v, scale, target=NATIVE):
-    """Render one value under data descriptor `k` (with the current scale factor)."""
+def _render_one(k, it, v, scale, target=NATIVE, plus=False):
+    """Render one value under data descriptor `k` (with the current scale factor and, when
+    SP is active, a forced + on non-negative numerics)."""
     dw, dd = _DEFAULTS[k]
     w = it.a if it.a is not None else dw
     d = it.b if it.b is not None else dd
@@ -287,18 +315,18 @@ def _render_one(k, it, v, scale, target=NATIVE):
     if k == "R":
         return _rfmt(v, w, target)
     if k == "I":
-        return _ifmt(int(v), w)
+        return _ifmt(int(v), w, d, plus)
     if k == "O":
         return _ofmt(int(v), w, target)
     if k == "L":
         return " " * (max(w, 1) - 1) + ("T" if target.truthy(v) else "F")
     if k == "F":
-        return _real(float(v) * (10.0**scale) if scale else float(v), w, d)
+        return _real(float(v) * (10.0**scale) if scale else float(v), w, d, plus)
     if k in ("E", "D"):
-        return _efmt(float(v), w, d, k, scale, it.e)
+        return _efmt(float(v), w, d, k, scale, it.e, plus)
     if k == "G":
         if isinstance(v, float):
-            return _gfmt(v, w, d, scale, it.e)
+            return _gfmt(v, w, d, scale, it.e, plus)
         return _ifmt(int(v), w)  # G on integer -> I conversion (13.2.3)
     return ""
 
@@ -318,8 +346,12 @@ def _rfmt(v, w, target=NATIVE):
     return full.rjust(w) if w >= len(full) else full[-w:]
 
 
-def _ifmt(iv, w):
-    s = str(int(iv))
+def _ifmt(iv, w, m=None, plus=False):
+    iv = int(iv)
+    digits = str(abs(iv))
+    if m is not None and len(digits) < m:  # Iw.m: at least m digits, zero-filled (13.5.9.1)
+        digits = digits.zfill(m)
+    s = ("-" if iv < 0 else "+" if plus else "") + digits
     if w and len(s) > w:
         return "*" * w  # V5 Table 13-2: too wide -> asterisks
     return s.rjust(w) if w else " " + s
@@ -338,7 +370,7 @@ def _fit(s, w):
     return s.rjust(w) if w else s
 
 
-def _real(v, w, d):
+def _real(v, w, d, plus=False):
     if d is None:
         s = repr(v)
     elif d == 0:
@@ -347,10 +379,12 @@ def _real(v, w, d):
         s = f"{v:.{d}f}"
     if s[:1] == "-" and float(s) == 0.0:
         s = s[1:]  # a negative value that rounds to zero carries no minus sign (F editing)
+    if plus and s[:1] != "-":  # SP: force a + on a non-negative value
+        s = "+" + s
     return _fit(s, w)
 
 
-def _efmt(v, w, d, letter="E", scale=0, exp_width=None):
+def _efmt(v, w, d, letter="E", scale=0, exp_width=None, plus=False):
     """FORTRAN E/D scientific with optional scale factor (V5 13.2.4).
 
     0P: mantissa 0.ddd in [0.1,1.0), exponent adjusted. nP shifts the decimal
@@ -365,8 +399,8 @@ def _efmt(v, w, d, letter="E", scale=0, exp_width=None):
         frac = d if scale <= 0 else max(0, d - scale + 1)
         body = ("0." + "0" * frac) if frac > 0 else "0."
         ez = f"{letter}+{0:0{exp_width}d}" if exp_width else f"{letter}+00"
-        return _fit(f"{body}{ez}", w)
-    sign = "-" if v < 0 else ""
+        return _fit(f"{'+' if plus else ''}{body}{ez}", w)
+    sign = "-" if v < 0 else ("+" if plus else "")
     av = abs(v)
     e0 = math.floor(math.log10(av)) + 1  # av = m0 * 10^e0, m0 in [0.1,1)
     r = round(av, (d + 1) - e0)  # carry d+1 significant digits
@@ -392,21 +426,21 @@ def _efmt(v, w, d, letter="E", scale=0, exp_width=None):
     return _fit(full, w)
 
 
-def _gfmt(v, w, d, scale=0, exp_width=None):
+def _gfmt(v, w, d, scale=0, exp_width=None, plus=False):
     """FORTRAN G (V5 Table 13-4): fixed-point F(w-4).x,4X when 0.1<=|v|<10**d,
     else scientific Ew.d. The decimals shrink as the magnitude grows."""
     import math
 
     av = abs(v)
     if av != 0.0 and (av < 0.1 or av >= 10.0**d):
-        return _efmt(v, w, d, "E", scale, exp_width)  # out of F-range -> E
+        return _efmt(v, w, d, "E", scale, exp_width, plus)  # out of F-range -> E
     if av == 0.0:
         decimals = d - 1
     else:
         e = math.floor(math.log10(av))  # av in [10**e, 10**(e+1))
         decimals = max(0, min(d - 1 - e, d))
     val = v * (10.0**scale) if scale else v  # F-form scale: ext = int*10**n
-    body = _real(val, 0, decimals)  # F field, no width yet
+    body = _real(val, 0, decimals, plus)  # F field, no width yet
     if not w:
         return body + "    "
     fw = w - 4  # leave 4 blanks for the E exp slot

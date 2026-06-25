@@ -186,6 +186,31 @@ class TempRef:
         self.val = v
 
 
+class SubstringRef:
+    """Writable reference to a CHARACTER substring lvalue S(lo:hi) (1-based, inclusive).
+    read() returns the slice; write() splices the value (fitted to the substring width) back
+    into the base, preserving its declared length -- so a substring can be an I/O-list item or
+    an actual argument, not just an assignment target."""
+
+    __slots__ = ("base", "lo", "hi", "n")
+
+    def __init__(self, base, lo, hi, n):
+        self.base, self.lo, self.hi, self.n = base, lo, hi, n
+
+    def _cur(self):
+        cur = self.base.read()
+        return cur.ljust(self.n)[: self.n] if isinstance(cur, str) else " " * self.n
+
+    def read(self):
+        return self._cur()[self.lo - 1 : self.hi]
+
+    def write(self, v):
+        cur = self._cur()
+        width = max(self.hi - self.lo + 1, 0)
+        s = str(v)[:width].ljust(width)
+        self.base.write((cur[: self.lo - 1] + s + cur[self.hi :])[: self.n].ljust(self.n))
+
+
 class ProcRef:
     """A procedure name passed as an actual argument (F66 8.3/15.10: a dummy
     procedure). Bound to a dummy parameter, it makes CALL <dummy>(...) or a
@@ -1203,6 +1228,14 @@ class Engine:
             dims = self._dims(node.name, frame)
             subs = [self.eval(a, frame) for a in node.args]
             return self.arrayview(frame, node.name).loc(linidx(subs, dims))
+        if self.character_type and isinstance(node, A.Substring):
+            # a CHARACTER substring lvalue (S(lo:hi)) used as an I/O item / actual argument:
+            # a writable view that splices back into the base (not a read-only temporary)
+            base = self.arg_ref(node.base, frame)
+            n = self.char_length(frame.rt.unit, node.base.name)
+            lo = int(self.eval(node.lo, frame)) if node.lo is not None else 1
+            hi = int(self.eval(node.hi, frame)) if node.hi is not None else n
+            return SubstringRef(base, lo, hi, n)
         return TempRef(self.eval(node, frame))
 
     def bind_args(self, callee_rt, actuals):

@@ -43,13 +43,16 @@ iteration count (an integer DO variable with real bounds, DO I=6.7,9.325, trunca
 -> 4 trips; 11.10.2) for FM719, and the E/F edit-descriptor fixes for FM406 (and unblocking
 FM405 out of the no-summary set): an F field whose value rounds to zero drops the minus sign,
 an E field drops its optional leading zero to fit a narrow width, and Ew.dEe / Gw.dEe give the
-exponent exactly e digits (13.5.9) -- the last also clearing two FM912 sub-tests.
+exponent exactly e digits (13.5.9) -- the last also clearing FM912 sub-tests. FM912
+(direct-access formatted I/O) then fully cleared with the rest of its edit descriptors: Iw.m
+minimum digits, SP/S/SS sign control, TL/TR relative tabs, the colon (terminate format control
+when the io-list is exhausted), and -- the real engine fix -- a CHARACTER substring lvalue
+S(lo:hi) as an I/O-list item / actual argument now writes back through a SubstringRef instead
+of being dropped on a read-only temporary.
 
-One large remaining cluster is NOT an interpreter bug: FM923 (26) reads its list-directed data
-from the card reader (unit I01), and FCVS supplies that input as a separate data deck the
-harness does not vendor -- every READ comes back empty. FM912's 5 remaining failures are real:
-advanced FORMAT edit descriptors (Gw.dEe / Ew.dEe explicit exponent width, T/TL/TR tabbing,
-SP/S/SS sign control, nP scale on input, BZ/BN blank control).
+The one large remaining cluster is NOT an interpreter bug: FM923 (26) reads its list-directed
+data from the card reader (unit I01), and FCVS supplies that input as a separate data deck the
+harness does not vendor -- every READ comes back empty.
 
 Landed since the restore: IMPLICIT CHARACTER*<len> (the audit-harness preamble), the
 optional comma after a DO label, LOGICAL/COMPLEX PARAMETER constants, the widthless A
@@ -88,12 +91,12 @@ def test_f77_conformance_baseline():
     # the fix (a gain) or investigate (a regression).
     assert R["n_run"] == 140
     assert R["n_gap"] == 0
-    assert R["total_pass"] == 1630
-    assert R["total_err"] == 39
+    assert R["total_pass"] == 1633
+    assert R["total_err"] == 36
     assert len(R["nosummary"]) == 42
 
 
 def test_self_check_failures_do_not_grow():
     # The known self-check failures (value/semantic conformance, not parse/control-flow).
     # A ratchet: fixing a bug should LOWER this -- update it down, never silently up.
-    assert R["total_err"] <= 39
+    assert R["total_err"] <= 36
