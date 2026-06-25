@@ -519,6 +519,25 @@ def test_widthless_a_uses_item_length_round_trip():
     assert _out(src)[0] == 10
 
 
+def test_widthless_a_reads_items_of_differing_lengths():
+    # FM402 / F77 13.5.11: a repeated widthless A (4A) reads each list item using its OWN
+    # declared length -- here 1, 2, 5, 10 columns from one record -- not a fixed width.
+    src = (
+        "      PROGRAM T\n"
+        "      CHARACTER A*1, B*2, C*5, D*10\n      COMMON /O/ N(8)\n"
+        "      A='?'\n      B='??'\n      C='?????'\n      D='??????????'\n"
+        "      WRITE(7,9)\n    9 FORMAT('ABCDEFGHIJKLMNOPQR')\n      REWIND 7\n"
+        "      READ(7,8) A, B, C, D\n    8 FORMAT(4A)\n"
+        "      N(1)=0\n"
+        "      IF (A.EQ.'A') N(1)=N(1)+1\n"
+        "      IF (B.EQ.'BC') N(1)=N(1)+1\n"
+        "      IF (C.EQ.'DEFGH') N(1)=N(1)+1\n"
+        "      IF (D.EQ.'IJKLMNOPQR') N(1)=N(1)+1\n"
+        "      END\n"
+    )
+    assert _out(src)[0] == 4  # all four items read their own declared length
+
+
 def test_widthless_a_writes_full_character_value():
     # F77 §13.5.11: a widthless A takes the list item's CHARACTER length (here 5). Strict
     # F66 rejects a widthless descriptor; the relaxation is gated on the CHARACTER type.

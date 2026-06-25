@@ -25,9 +25,11 @@ BLANK + the filename strip) for FM914-922, and blanks before a numeric exponent 
 for FM201/FM351/FM352, F77 zero-trip DO loops + the post-loop index value (X3.9-1978 11.10,
 dialect-gated -- F66/FORTRAN-10 keep one-trip) for FM256, and the optional leading decimal
 point in an L-format read (".TRUE." reads true) for FM401, and the widthless A descriptor
-using the list item's length (a CHARACTER*1 takes one column, not the default 5) on both
-output and input for FM402, an intrinsic name (declared INTRINSIC) passed as an actual
-argument and dispatched through the dummy (X3.9-1978 15.10) for FM317/FM328, coercing a
+using the list item's declared length on both output and input -- including a repeated
+widthless A (4A) reading CHARACTER items of differing lengths, where the reader pops each
+field width from the io-list (13.5.11) -- for FM402, an intrinsic name (declared INTRINSIC)
+passed as an actual argument and dispatched through the dummy (X3.9-1978 15.10) for FM317/FM328,
+coercing a
 statement function's value to the function's own implicit type (an INTEGER-named SF
 truncates a real body result, 15.4.1) for FM351, and INQUIRE(EXIST=) reporting true for a
 connected file with no disk backing yet (a DIRECT scratch file) for FM921, and direct-access
@@ -83,12 +85,12 @@ def test_f77_conformance_baseline():
     # the fix (a gain) or investigate (a regression).
     assert R["n_run"] == 140
     assert R["n_gap"] == 0
-    assert R["total_pass"] == 1608
-    assert R["total_err"] == 46
+    assert R["total_pass"] == 1610
+    assert R["total_err"] == 44
     assert len(R["nosummary"]) == 43
 
 
 def test_self_check_failures_do_not_grow():
     # The known self-check failures (value/semantic conformance, not parse/control-flow).
     # A ratchet: fixing a bug should LOWER this -- update it down, never silently up.
-    assert R["total_err"] <= 46
+    assert R["total_err"] <= 44

@@ -462,7 +462,13 @@ class InputConversionError(Exception):
     blanks are zeros, so it reads as 0 (F66 7.2.3.6)."""
 
 
-def read_values(items, line, target=NATIVE, free_form=False, character_type=False):
+# Edit descriptors that consume one input field (and produce one value), in transfer order.
+# A widthless A reads as many columns as the matching list item's declared length, so the
+# caller may pass `a_widths` -- one width per field, popped here in lockstep.
+_VALUE_KINDS = frozenset({"A", "R", "G", "I", "O", "F", "E", "D", "L"})
+
+
+def read_values(items, line, target=NATIVE, free_form=False, character_type=False, a_widths=None):
     """Parse `line` per the format (F66 7.2.3); return a list of (kind, value) reads.
 
     By default (F66) every numeric/logical field is read by COLUMN: leading blanks are
@@ -483,13 +489,15 @@ def read_values(items, line, target=NATIVE, free_form=False, character_type=Fals
     scale = 0  # current P scale factor (F66 7.2.3.5)
     for it in items:
         k = it.kind
+        # pop one width hint per value-producing field, keeping lockstep with the io-list
+        aw = next(a_widths, None) if (a_widths is not None and k in _VALUE_KINDS) else None
         if k in ("A", "R"):
             if pos < len(line) and line[pos] == "\t":  # legacy tab field-separator
                 pos += 1
-            # widthless A on input: under the F77 CHARACTER model a field is one character of the
-            # list item (FCVS character arrays are CHARACTER*1; the caller fits it to the declared
-            # length); the Hollerith model (F66/FORTRAN-10) fills a whole word.
-            w = it.a or (1 if character_type and k == "A" else target.chars_per_word)
+            # widthless A on input: under the F77 CHARACTER model the field is the list item's
+            # declared length (supplied by the caller as aw; defaults to one char when unknown);
+            # the Hollerith model (F66/FORTRAN-10) fills a whole word.
+            w = it.a or ((aw or 1) if character_type and k == "A" else target.chars_per_word)
             field = line[pos : pos + w].ljust(w)
             # F77 CHARACTER: the field is a str (the caller fits it to the var's declared
             # length). Otherwise it is Hollerith packed into a word (the F66/FORTRAN-10 model).

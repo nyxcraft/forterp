@@ -2196,6 +2196,9 @@ class Engine:
             for it in s.items
             for _, ty in self._item_refs_typed(it, frame)
         )
+        # widthless-A field widths from the io-list (one iterator shared across the records a
+        # `/`-split or reverted format spans, so the A widths stay aligned with the data)
+        a_widths = iter(self._a_field_widths(s.items, frame)) if self.character_type else None
         vals, start, eof = [], 0, False
         while len(vals) < needed and not eof:
             for g in split(items[start:]):
@@ -2204,7 +2207,9 @@ class Engine:
                     break
                 line = recs[st["pos"]]
                 st["pos"] += 1
-                vals += read_values(g, line, self.tgt, self.free_form_input, self.character_type)
+                vals += read_values(
+                    g, line, self.tgt, self.free_form_input, self.character_type, a_widths
+                )
                 if len(vals) >= needed:
                     break
             start = rev  # subsequent passes restart at the reversion point
@@ -2570,6 +2575,43 @@ class Engine:
             return out
         ty = self.type_of(unit, it.name) if isinstance(it, (A.Var, A.Ref)) else "INTEGER"
         return [(self.arg_ref(it, frame), ty)]
+
+    def _a_field_widths(self, items, frame):
+        """Per formatted-input FIELD (in transfer order, COMPLEX = two fields), the width a
+        widthless A should read: a CHARACTER element's declared length, else None. A widthless
+        A descriptor under the F77 CHARACTER model reads that many columns of the list item
+        (X3.9-1978 13.5.11) -- the field count aligns 1:1 with read_values' value-producing
+        descriptors, so the reader pops one entry per field."""
+        unit = frame.rt.unit
+        out = []
+
+        def width(name):
+            ty = self.type_of(unit, name)
+            if ty == "COMPLEX":
+                return [None, None]
+            return [self.char_length(unit, name) if ty == "CHARACTER" else None]
+
+        def walk(it):
+            if isinstance(it, A.ImpliedDo):
+                lo = self.eval(it.start, frame)
+                hi = self.eval(it.stop, frame)
+                step = self.eval(it.step, frame) if it.step else 1
+                i = lo
+                while (step > 0 and i <= hi) or (step < 0 and i >= hi):
+                    for sub in it.items:
+                        walk(sub)
+                    i += step
+            elif isinstance(it, A.Var) and it.name in unit.arrays:
+                w = width(it.name)
+                out.extend(w * array_size(unit.arrays[it.name]))
+            elif isinstance(it, (A.Var, A.Ref)):
+                out.extend(width(it.name))
+            else:
+                out.append(None)  # an expression (output only)
+
+        for it in items:
+            walk(it)
+        return out
 
     def _bin_words(self, items, frame):
         """Encode the I/O list's values to FOROTS data words per declared type (V5 D.5.2):
