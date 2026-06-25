@@ -60,7 +60,9 @@ def measure(src_path, reps=REPS):
     env = {**os.environ, "PYTHONPATH": str(src_path)}
     out = {}
     for name in CASES:
-        payload = json.dumps(_case_payload(name, reps))
+        payload = _case_payload(name, reps)
+        payload["src"] = str(src_path)  # the runner verifies forterp imported from here
+        payload = json.dumps(payload)
         r = subprocess.run(
             [sys.executable, str(RUNNER), payload], capture_output=True, text=True, env=env
         )
@@ -150,17 +152,17 @@ def cmd_backfill(commits):
                 print(f"  {commit}: worktree failed: {add.stderr.strip()[:80]}")
                 continue
             try:
-                results = measure(pathlib.Path(wt) / "src")
+                results = measure(pathlib.Path(wt) / "src", reps=3)
             finally:
                 subprocess.run(
                     ["git", "worktree", "remove", "--force", wt], cwd=ROOT, capture_output=True
                 )
         ok = {k: v for k, v in results.items() if "error" not in v}
         _append(h, commit, date, results)
+        save_history(h)  # save after each commit, so an interrupted long backfill keeps progress
         summary = ", ".join(f"{k}={v['ms_min']:.0f}ms" for k, v in ok.items()) or "no cases ran"
         gaps = [k for k, v in results.items() if "error" in v]
         print(f"  {commit} ({date}): {summary}" + (f"  [gaps: {gaps}]" if gaps else ""))
-    save_history(h)
     print(f"\nhistory now has {len(h['records'])} rows; run `bench.py graph`")
 
 

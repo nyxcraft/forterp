@@ -21,6 +21,17 @@ def main():
     try:
         import forterp as fp  # the interpreter under test (resolved via PYTHONPATH)
 
+        # Guard against a silent fallback: if the target src/ has no `forterp` package (e.g. a
+        # pre-rename commit where it was `f66`), `import forterp` would resolve to a pip-INSTALLED
+        # copy and measure the wrong code. Insist it came from the intended tree.
+        want = case.get("src")
+        if want:
+            got = str(pathlib.Path(fp.__file__).resolve())
+            if not got.startswith(str(pathlib.Path(want).resolve())):
+                raise RuntimeError(
+                    f"forterp imported from {got}, not {want} (no forterp pkg there)"
+                )
+
         # Resolve via the root-exported constants (forterp.FORTRAN10 / forterp.NATIVE) -- stable
         # across the whole forterp-era history, unlike the DIALECTS/TARGETS lookup dicts.
         dialect = getattr(fp, case["dialect"].upper())
