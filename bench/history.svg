@@ -2,33 +2,35 @@
 <rect width="720" height="240" fill="white"/>
 <text x="40" y="24" font-size="14" font-weight="bold">forterp ms_min over git history (lower is better)</text>
 <circle cx="40.0" cy="147.4" r="3" fill="#2b8cbe"/>
-<circle cx="93.3" cy="149.1" r="3" fill="#2b8cbe"/>
-<circle cx="146.7" cy="150.1" r="3" fill="#2b8cbe"/>
-<circle cx="200.0" cy="164.8" r="3" fill="#2b8cbe"/>
-<circle cx="253.3" cy="162.5" r="3" fill="#2b8cbe"/>
-<circle cx="306.7" cy="162.3" r="3" fill="#2b8cbe"/>
-<circle cx="360.0" cy="161.6" r="3" fill="#2b8cbe"/>
-<circle cx="413.3" cy="160.2" r="3" fill="#2b8cbe"/>
-<circle cx="466.7" cy="160.5" r="3" fill="#2b8cbe"/>
-<circle cx="520.0" cy="161.8" r="3" fill="#2b8cbe"/>
-<circle cx="573.3" cy="158.8" r="3" fill="#2b8cbe"/>
-<circle cx="626.7" cy="158.7" r="3" fill="#2b8cbe"/>
-<circle cx="680.0" cy="159.0" r="3" fill="#2b8cbe"/>
-<polyline fill="none" stroke="#2b8cbe" stroke-width="2" points="40.0,147.4 93.3,149.1 146.7,150.1 200.0,164.8 253.3,162.5 306.7,162.3 360.0,161.6 413.3,160.2 466.7,160.5 520.0,161.8 573.3,158.8 626.7,158.7 680.0,159.0"/>
+<circle cx="89.2" cy="149.1" r="3" fill="#2b8cbe"/>
+<circle cx="138.5" cy="150.1" r="3" fill="#2b8cbe"/>
+<circle cx="187.7" cy="164.8" r="3" fill="#2b8cbe"/>
+<circle cx="236.9" cy="162.5" r="3" fill="#2b8cbe"/>
+<circle cx="286.2" cy="162.3" r="3" fill="#2b8cbe"/>
+<circle cx="335.4" cy="161.6" r="3" fill="#2b8cbe"/>
+<circle cx="384.6" cy="160.2" r="3" fill="#2b8cbe"/>
+<circle cx="433.8" cy="160.5" r="3" fill="#2b8cbe"/>
+<circle cx="483.1" cy="161.8" r="3" fill="#2b8cbe"/>
+<circle cx="532.3" cy="158.8" r="3" fill="#2b8cbe"/>
+<circle cx="581.5" cy="158.7" r="3" fill="#2b8cbe"/>
+<circle cx="630.8" cy="159.0" r="3" fill="#2b8cbe"/>
+<circle cx="680.0" cy="161.6" r="3" fill="#2b8cbe"/>
+<polyline fill="none" stroke="#2b8cbe" stroke-width="2" points="40.0,147.4 89.2,149.1 138.5,150.1 187.7,164.8 236.9,162.5 286.2,162.3 335.4,161.6 384.6,160.2 433.8,160.5 483.1,161.8 532.3,158.8 581.5,158.7 630.8,159.0 680.0,161.6"/>
 <text x="44" y="141.4" font-size="11" fill="#2b8cbe">loop</text>
 <circle cx="40.0" cy="47.5" r="3" fill="#e6550d"/>
-<circle cx="93.3" cy="40.8" r="3" fill="#e6550d"/>
-<circle cx="146.7" cy="40.0" r="3" fill="#e6550d"/>
-<circle cx="200.0" cy="105.5" r="3" fill="#e6550d"/>
-<circle cx="253.3" cy="96.4" r="3" fill="#e6550d"/>
-<circle cx="306.7" cy="91.1" r="3" fill="#e6550d"/>
-<circle cx="360.0" cy="93.7" r="3" fill="#e6550d"/>
-<circle cx="413.3" cy="87.7" r="3" fill="#e6550d"/>
-<circle cx="466.7" cy="93.1" r="3" fill="#e6550d"/>
-<circle cx="520.0" cy="94.0" r="3" fill="#e6550d"/>
-<circle cx="573.3" cy="86.0" r="3" fill="#e6550d"/>
-<circle cx="626.7" cy="88.8" r="3" fill="#e6550d"/>
-<circle cx="680.0" cy="88.3" r="3" fill="#e6550d"/>
-<polyline fill="none" stroke="#e6550d" stroke-width="2" points="40.0,47.5 93.3,40.8 146.7,40.0 200.0,105.5 253.3,96.4 306.7,91.1 360.0,93.7 413.3,87.7 466.7,93.1 520.0,94.0 573.3,86.0 626.7,88.8 680.0,88.3"/>
+<circle cx="89.2" cy="40.8" r="3" fill="#e6550d"/>
+<circle cx="138.5" cy="40.0" r="3" fill="#e6550d"/>
+<circle cx="187.7" cy="105.5" r="3" fill="#e6550d"/>
+<circle cx="236.9" cy="96.4" r="3" fill="#e6550d"/>
+<circle cx="286.2" cy="91.1" r="3" fill="#e6550d"/>
+<circle cx="335.4" cy="93.7" r="3" fill="#e6550d"/>
+<circle cx="384.6" cy="87.7" r="3" fill="#e6550d"/>
+<circle cx="433.8" cy="93.1" r="3" fill="#e6550d"/>
+<circle cx="483.1" cy="94.0" r="3" fill="#e6550d"/>
+<circle cx="532.3" cy="86.0" r="3" fill="#e6550d"/>
+<circle cx="581.5" cy="88.8" r="3" fill="#e6550d"/>
+<circle cx="630.8" cy="88.3" r="3" fill="#e6550d"/>
+<circle cx="680.0" cy="96.1" r="3" fill="#e6550d"/>
+<polyline fill="none" stroke="#e6550d" stroke-width="2" points="40.0,47.5 89.2,40.8 138.5,40.0 187.7,105.5 236.9,96.4 286.2,91.1 335.4,93.7 384.6,87.7 433.8,93.1 483.1,94.0 532.3,86.0 581.5,88.8 630.8,88.3 680.0,96.1"/>
 <text x="44" y="41.5" font-size="11" fill="#e6550d">fft</text>
 </svg>
