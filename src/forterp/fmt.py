@@ -269,6 +269,11 @@ def _render_one(k, it, v, scale, target=NATIVE):
     w = it.a if it.a is not None else dw
     d = it.b if it.b is not None else dd
     if k == "A":
+        # F77 §13.5.11: a widthless A writes the list item's own length (a CHARACTER value is a
+        # Python str), so 'X' takes one column -- not the V5 default width (5). A Hollerith word
+        # (the F66/FORTRAN-10 model) is not a str, so it keeps the default-width behaviour.
+        if it.a is None and isinstance(v, str):
+            return v
         return _afmt(v, w, target)
     if k == "R":
         return _rfmt(v, w, target)
@@ -481,7 +486,10 @@ def read_values(items, line, target=NATIVE, free_form=False, character_type=Fals
         if k in ("A", "R"):
             if pos < len(line) and line[pos] == "\t":  # legacy tab field-separator
                 pos += 1
-            w = it.a or target.chars_per_word
+            # widthless A on input: under the F77 CHARACTER model a field is one character of the
+            # list item (FCVS character arrays are CHARACTER*1; the caller fits it to the declared
+            # length); the Hollerith model (F66/FORTRAN-10) fills a whole word.
+            w = it.a or (1 if character_type and k == "A" else target.chars_per_word)
             field = line[pos : pos + w].ljust(w)
             # F77 CHARACTER: the field is a str (the caller fits it to the var's declared
             # length). Otherwise it is Hollerith packed into a word (the F66/FORTRAN-10 model).

@@ -13,7 +13,7 @@ to recover pristine FCVS, verified against gfortran. Nothing else was touched.)
 
 All 140 routines parse and run under the F77 front-end (the front-end work is complete:
 zero parse-gaps). What remains is value/semantic conformance: of the 140, the self-checking
-routines report 1588 sub-tests PASS and 66 FAIL (across 12 routines), and 43 are
+routines report 1594 sub-tests PASS and 60 FAIL (across 12 routines), and 43 are
 print-and-eyeball (no PASS/FAIL summary -- validated separately against gfortran goldens,
 see test_fcvs77_golden.py).
 
@@ -24,7 +24,9 @@ BLANK + the filename strip) for FM914-922, and blanks before a numeric exponent 
 1545E7, resolved in the expression parser so a CHARACTER*<len> length or DO label is untouched)
 for FM201/FM351/FM352, F77 zero-trip DO loops + the post-loop index value (X3.9-1978 11.10,
 dialect-gated -- F66/FORTRAN-10 keep one-trip) for FM256, and the optional leading decimal
-point in an L-format read (".TRUE." reads true) for FM401.
+point in an L-format read (".TRUE." reads true) for FM401, and the widthless A descriptor
+using the list item's length (a CHARACTER*1 takes one column, not the default 5) on both
+output and input for FM402.
 
 Some remaining failures are NOT interpreter bugs: FM923 (26) reads its list-directed data from
 unit 5, and FM912 (11) CALLs SN913 in FM913.FOR which is not in the corpus -- both need
@@ -67,12 +69,12 @@ def test_f77_conformance_baseline():
     # the fix (a gain) or investigate (a regression).
     assert R["n_run"] == 140
     assert R["n_gap"] == 0
-    assert R["total_pass"] == 1588
-    assert R["total_err"] == 66
+    assert R["total_pass"] == 1594
+    assert R["total_err"] == 60
     assert len(R["nosummary"]) == 43
 
 
 def test_self_check_failures_do_not_grow():
     # The known self-check failures (value/semantic conformance, not parse/control-flow).
     # A ratchet: fixing a bug should LOWER this -- update it down, never silently up.
-    assert R["total_err"] <= 66
+    assert R["total_err"] <= 60

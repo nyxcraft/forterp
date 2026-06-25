@@ -473,6 +473,20 @@ def test_keyword_io_control_list():
     assert _run_io(src, stdin=" 42\n").commons["O"][0] == 42
 
 
+def test_widthless_a_uses_item_length_round_trip():
+    # F77 13.5.11: a widthless A uses the list item's length, so ten CHARACTER*1 values take ten
+    # columns (not 10x the default width 5) and round-trip through a scratch file.
+    src = (
+        "      PROGRAM T\n      CHARACTER C(10)*1, D(10)*1\n      COMMON /O/ N(8)\n"
+        "      DO 1 I=1,10\n    1 C(I)=CHAR(48+I-1)\n"
+        "      WRITE(7,9)(C(I),I=1,10)\n    9 FORMAT(10A)\n      REWIND 7\n"
+        "      READ(7,9)(D(I),I=1,10)\n"
+        "      K=0\n      DO 2 I=1,10\n      IF (C(I).EQ.D(I)) K=K+1\n    2 CONTINUE\n"
+        "      N(1)=K\n      END\n"
+    )
+    assert _out(src)[0] == 10
+
+
 def test_widthless_a_writes_full_character_value():
     # F77 §13.5.11: a widthless A takes the list item's CHARACTER length (here 5). Strict
     # F66 rejects a widthless descriptor; the relaxation is gated on the CHARACTER type.
