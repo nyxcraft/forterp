@@ -33,7 +33,10 @@ truncates a real body result, 15.4.1) for FM351, and INQUIRE(EXIST=) reporting t
 connected file with no disk backing yet (a DIRECT scratch file) for FM921, and direct-access
 FORMATTED file I/O for FM912 -- a '/'-bearing FORMAT splits one WRITE across consecutive
 direct-access records (so NEXTREC advances by the record count, 12.9.4.2), and a direct-access
-file's records now persist on CLOSE and reload on a STATUS='OLD' reopen.
+file's records now persist on CLOSE and reload on a STATUS='OLD' reopen, and a zero-trip inner
+DO sharing its terminal label with an enclosing active DO (a shared-terminal nest) now drives
+the outer loop's incrementation without executing the shared terminal statement (11.10) for
+FM256.
 
 One large remaining cluster is NOT an interpreter bug: FM923 (26) reads its list-directed data
 from the card reader (unit I01), and FCVS supplies that input as a separate data deck the
@@ -78,12 +81,12 @@ def test_f77_conformance_baseline():
     # the fix (a gain) or investigate (a regression).
     assert R["n_run"] == 140
     assert R["n_gap"] == 0
-    assert R["total_pass"] == 1604
-    assert R["total_err"] == 50
+    assert R["total_pass"] == 1606
+    assert R["total_err"] == 48
     assert len(R["nosummary"]) == 43
 
 
 def test_self_check_failures_do_not_grow():
     # The known self-check failures (value/semantic conformance, not parse/control-flow).
     # A ratchet: fixing a bug should LOWER this -- update it down, never silently up.
-    assert R["total_err"] <= 50
+    assert R["total_err"] <= 48

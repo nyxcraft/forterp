@@ -258,6 +258,28 @@ def test_f77_zero_trip_do_and_final_index():
     assert _out(_prog(fin), dialect=forterp.FORTRAN10)[0] == 10
 
 
+def test_f77_zero_trip_inner_do_shared_terminal():
+    # FM256: an outer DO and a zero-trip inner DO share terminal label 5. The inner loop
+    # (5,1) never runs, so the shared terminal N(1)=N(1)+1 never executes (stays 0), but the
+    # outer loop still runs fully: J=last outer value 10, I=post-loop 11 (X3.9-1978 11.10).
+    body = (
+        "      N(1)=0\n"
+        "      DO 5 I=1,10\n"
+        "      N(2)=I\n"
+        "      DO 5 K=5,1\n"
+        "      N(3)=K\n"
+        "    5 N(1)=N(1)+1\n"
+        "      N(4)=I\n"
+        "      N(5)=K\n"
+    )
+    out = _out(_prog(body))
+    assert out[0] == 0  # shared terminal (inner loop's) never executed
+    assert out[1] == 10  # outer loop body ran 10x -> J = 10
+    assert out[2] == 0  # inner body never ran -> N(3) untouched
+    assert out[3] == 11  # outer index post-loop value
+    assert out[4] == 5  # inner DO variable keeps its initial value (loop never ran)
+
+
 def test_do_label_optional_comma():
     # F77 allows a comma after the DO label: DO 5, I = 1, 3.
     body = "      N(1)=0\n      DO 5, I=1,3\n      N(1)=N(1)+I\n    5 CONTINUE\n"

@@ -1430,8 +1430,17 @@ class Engine:
         if trips < 1:
             if self.zero_trip_do:
                 # F77 (X3.9-1978 11.10): a zero-trip loop skips the body entirely; the DO
-                # variable keeps its initial value (already written above). Land on the terminal
-                # label so the run loop's pc+=1 resumes at the statement AFTER it.
+                # variable keeps its initial value (already written above). The terminal
+                # statement belongs to THIS loop and must not execute. But if an enclosing,
+                # still-active DO shares this terminal label (a shared-terminal nest), that
+                # outer loop's incrementation still has to run -- so drive its bookkeeping
+                # directly here without executing the terminal statement.
+                if any(d.term_idx == term_idx for d in frame.do_stack):
+                    if self._do_bookkeep(frame, s.term_label):
+                        frame.pc -= 1  # bookkeep set pc to the outer body; run loop adds 1 back
+                    else:
+                        frame.pc = term_idx  # every sharing loop done -> resume after terminal
+                    return None
                 frame.pc = term_idx
                 return None
             trips = 1  # F66 / DEC FORTRAN-10 one-trip: the body always runs at least once
