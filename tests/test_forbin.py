@@ -99,8 +99,8 @@ def test_binary_file_round_trips_records():
     assert decode_binary_file(encode_binary_file(recs)) == recs
 
 
-# ---- engine: dec_files writes/reads REAL FOROTS binary files (opt-in) ----------
-def test_dec_files_engine_writes_real_binary_and_round_trips(tmp_path):
+# ---- engine: forots writes/reads REAL FOROTS binary files (opt-in) ----------
+def test_forots_engine_writes_real_binary_and_round_trips(tmp_path):
     import forterp
 
     src = """      PROGRAM T
@@ -118,7 +118,7 @@ def test_dec_files_engine_writes_real_binary_and_round_trips(tmp_path):
       END
 """
     eng = forterp.run_source(
-        src, dialect=forterp.FORTRAN10, target=forterp.PDP10, root=str(tmp_path), dec_files=True
+        src, dialect=forterp.FORTRAN10, target=forterp.PDP10, root=str(tmp_path), forots=True
     )
     out = eng.commons["OUT"]
     assert out[:5] == [10, 20, 30, 40, 50] and out[5:8] == [7, 8, 9]  # round-tripped through disk
@@ -208,7 +208,7 @@ def test_dec10_double_rejects_unrepresentable(x):
         double_to_dec10_pair(x)
 
 
-def test_dec_files_double_precision_round_trips_as_two_words(tmp_path):
+def test_forots_double_precision_round_trips_as_two_words(tmp_path):
     import forterp
 
     src = """      PROGRAM T
@@ -224,7 +224,7 @@ def test_dec_files_double_precision_round_trips_as_two_words(tmp_path):
       END
 """
     eng = forterp.run_source(
-        src, dialect=forterp.FORTRAN10, target=forterp.PDP10, root=str(tmp_path), dec_files=True
+        src, dialect=forterp.FORTRAN10, target=forterp.PDP10, root=str(tmp_path), forots=True
     )
     e = eng.commons["OUT"]
     assert e[0] == 0.1 and e[2] == -2.5  # exact (62-bit) round-trip, not 27-bit truncation
@@ -233,10 +233,10 @@ def test_dec_files_double_precision_round_trips_as_two_words(tmp_path):
     assert len(rec) == 1 and len(rec[0]) == 6  # 3 doubles -> SIX words (two each), not three
 
 
-def test_open_binary_file_without_dec_files_errors_instead_of_silent_text(tmp_path):
+def test_open_binary_file_without_forots_errors_instead_of_silent_text(tmp_path):
     import forterp
 
-    # a real FOROTS binary file opened on a unit that isn't in dec_files mode used to be read
+    # a real FOROTS binary file opened on a unit that isn't in forots mode used to be read
     # as garbage text; now it's a clean I/O error (the config mismatch surfaces)
     (tmp_path / "B.DAT").write_bytes(encode_binary_file([[1, 2, 3]]))
     src = """      PROGRAM T
@@ -245,5 +245,8 @@ def test_open_binary_file_without_dec_files_errors_instead_of_silent_text(tmp_pa
       READ(1) M
       END
 """
+    # forots=False: PDP10+FORTRAN10 now defaults it on, so opt out to exercise the mismatch path
     with pytest.raises(OSError):
-        forterp.run_source(src, dialect=forterp.FORTRAN10, target=forterp.PDP10, root=str(tmp_path))
+        forterp.run_source(
+            src, dialect=forterp.FORTRAN10, target=forterp.PDP10, root=str(tmp_path), forots=False
+        )

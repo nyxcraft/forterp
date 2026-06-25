@@ -57,6 +57,17 @@ def engine_kwargs(dialect):
     }
 
 
+def forots_default(target, dialect):
+    """Default for Engine.forots (run under the FORTRAN-10 Object Time System): True only for
+    real DEC FORTRAN-10 -- the PDP10 target (36-bit words / PDP-10 floats) AND the FORTRAN10
+    dialect (FOROTS is FORTRAN-10's runtime, not a generic PDP-10 thing). Any other target or
+    dialect stays portable (newline-after + JSON files). Callers may override explicitly."""
+    from forterp.dialect import FORTRAN10
+    from forterp.target import PDP10
+
+    return target is PDP10 and dialect is FORTRAN10
+
+
 def make_engine(units, dialect=None, builtins=None, monitor=None, **kwargs):
     """Build an Engine over `units` ({name: ProgramUnit}) with the FORTRAN-10 runtime
     installed and ready to run. Passing `dialect` applies its engine-relevant flags (see
@@ -67,6 +78,7 @@ def make_engine(units, dialect=None, builtins=None, monitor=None, **kwargs):
     Other kwargs (root, emit, readline, getch, printer, target, ...) pass through to Engine."""
     if dialect is not None:
         kwargs = {**engine_kwargs(dialect), **kwargs}
+        kwargs.setdefault("forots", forots_default(kwargs.get("target"), dialect))
     eng = Engine(units, **kwargs)
     install_runtime(eng)
     if monitor is not None:

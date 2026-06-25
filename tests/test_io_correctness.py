@@ -40,7 +40,11 @@ def test_backspace_then_write_replaces_the_record():
         "      BACKSPACE 1\n      WRITE(1) 99\n      CLOSE(1)\n      END\n"
     )
     root = tempfile.mkdtemp()
-    eng = forterp.fortran10.build_engine(forterp.fortran10.parse_text(src)[0], root=root)
+    # BACKSPACE semantics are backend-agnostic; keep the portable (JSON) file backend so we can
+    # inspect it directly (forterp.fortran10 now defaults forots=True -> binary, so opt out here).
+    eng = forterp.fortran10.build_engine(
+        forterp.fortran10.parse_text(src)[0], root=root, forots=False
+    )
     eng.run_program("T")
     assert json.load(open(os.path.join(root, "X.DAT"))) == [[10], [20], [99]]
 

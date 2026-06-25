@@ -332,9 +332,8 @@ class Engine:
         free_form_input=False,
         dec_intrinsics=True,
         character_type=False,
-        carriage_advance=False,
         max_array_words=50_000_000,
-        dec_files=False,
+        forots=False,
         tty_width=80,
         tty_autowrap=True,
     ):
@@ -342,10 +341,14 @@ class Engine:
 
         self.tgt = target if target is not None else NATIVE  # default value model (portable)
         self.binio = binio  # unformatted-I/O codec (FOROTS); injected by the runtime
-        # Opt-in: persist unformatted files as real FOROTS binary (LSCW records, core-dump
-        # bytes) instead of the default JSON word-list -- a file a PDP-10 could read. Off by
-        # default so the portable on-disk form (and float precision) is unchanged for everyone.
-        self.dec_files = dec_files
+        # `forots`: run under the FORTRAN-10 Object Time System. One flag for the whole FOROTS
+        # subsystem -- unformatted files are real FOROTS binary (LSCW records, core-dump bytes,
+        # PDP-10 floats) instead of the portable JSON word-list, AND formatted terminal output
+        # uses advance-before-print carriage control (see do_type / fmt.apply_carriage_advance).
+        # Off by default (portable form + newline-after, unchanged for everyone); make_engine and
+        # Interpreter default it ON for the PDP10 target + FORTRAN10 dialect -- real DEC FORTRAN-10,
+        # the only case that actually runs through FOROTS. Overridable.
+        self.forots = forots
         self.monitor = None  # injectable Monitor facade for @uuo (forterp.hostlib);
         # None -> the baseline (tty/files/clock) is built on first use; set it to a richer facade
         # Two dialect-derived knobs the engine needs at run time (else dialect-agnostic):
@@ -354,11 +357,6 @@ class Engine:
         # (default True so a bare Engine has the full library; the dialect paths gate it).
         self.free_form_input = free_form_input
         self.dec_intrinsics = dec_intrinsics
-        # FOROTS terminal carriage control: advance-before-print (the column-1 control char is a
-        # leading motion, no trailing newline) instead of the default newline-after. A RUNTIME
-        # (terminal) trait, not a language-dialect one -- F66 and FORTRAN10 share it -- so it is an
-        # opt-in engine flag a FOROTS host sets, not a dialect knob. See fmt.apply_carriage_advance.
-        self.carriage_advance = carriage_advance
         #  - character_type: the F77 CHARACTER data type is in play. A string literal then
         #    evaluates to a Python str (a character constant), not a packed-ASCII Hollerith
         #    word -- so CHARACTER vars/concatenation/comparison work. Off for F66/FORTRAN-10,
@@ -547,7 +545,7 @@ class Engine:
                     "pos": 0,
                     "mode": "w",
                     "path": path,
-                    "dec": eng.dec_files,
+                    "dec": eng.forots,
                 }
             elif access == "SEQIN" or os.path.exists(path):
                 eng.io[unit] = eng._open_read_unit(path)
@@ -1632,7 +1630,7 @@ class Engine:
         spec = self._fmt_spec(s.fmt, frame)
         items = self._parsed(spec)
         text, suppress = render(items, self._cx_expand(values), self.tgt)  # complex -> 2 reals
-        if self.carriage_advance:
+        if self.forots:
             self.emit(apply_carriage_advance(text))  # advance-before: no trailing newline
         else:
             text = apply_carriage(text)
@@ -1865,7 +1863,7 @@ class Engine:
         items = self._parsed(spec)
         text, suppress = render(items, self._cx_expand(values), self.tgt)  # complex -> 2 reals
         # advance-before only for terminal output (sink is emit); printer/file keep newline-after
-        if self.carriage_advance and sink is self.emit:
+        if self.forots and sink is self.emit:
             from forterp.fmt import apply_carriage_advance
 
             sink(apply_carriage_advance(text))
@@ -2309,7 +2307,7 @@ class Engine:
                         "pos": 0,
                         "mode": "w",
                         "path": path,
-                        "dec": self.dec_files,
+                        "dec": self.forots,
                     }
                 elif access == "SEQIN" or os.path.exists(path):
                     self.io[unit] = self._open_read_unit(path)
@@ -2347,7 +2345,7 @@ class Engine:
 
     def _open_read_unit(self, path):
         """Open an existing file for sequential read, detecting its on-disk form: a real
-        FOROTS binary file (core-dump words; only when `dec_files`) -> word-list records; our
+        FOROTS binary file (core-dump words; only when `forots`) -> word-list records; our
         JSON record list (the portable default and legacy saves); else ordinary text data."""
         import json
 
@@ -2357,10 +2355,10 @@ class Engine:
         except OSError:  # missing/empty -> an empty unit (a fresh READ hits END=)
             return {"recs": [], "pos": 0, "mode": "r", "path": path}
         if raw[:1] == b"\x00":  # a core-dump START LSCW begins 0x00 -> this is a FOROTS binary file
-            if not self.dec_files:  # config mismatch: a binary file, unit not in dec mode
+            if not self.forots:  # config mismatch: a binary file, unit not in dec mode
                 raise OSError(
                     f"{path}: looks like a FOROTS binary file, but this unit is not in binary "
-                    "mode (dec_files off) -- refusing to read it as garbage text"
+                    "mode (forots off) -- refusing to read it as garbage text"
                 )
             try:
                 recs = self._binio().decode_binary_file(raw)

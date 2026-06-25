@@ -75,6 +75,9 @@ class Interpreter:
         kwargs.setdefault("free_form_input", self.free_form_input)
         kwargs.setdefault("dec_intrinsics", self.dec_intrinsics)
         kwargs.setdefault("character_type", self.character_type)
+        # FOROTS runtime (binary files + advance-before terminal CC) for real DEC FORTRAN-10:
+        # the PDP10 target + the FORTRAN10 dialect. Overridable via an explicit forots= kwarg.
+        kwargs.setdefault("forots", self.target is PDP10 and self.dialect is FORTRAN10)
         eng = Engine(units, **kwargs)
         if self.runtime if runtime is None else runtime:
             import forterp  # local import: forterp.__init__ imports this module
