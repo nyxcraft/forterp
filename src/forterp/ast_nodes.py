@@ -295,6 +295,7 @@ class ProgramUnit:
     commons: list[tuple[str, list]] = field(default_factory=list)  # (block, [(name, dims)])
     data: list[tuple] = field(default_factory=list)  # (targets, values)
     externals: set[str] = field(default_factory=set)
+    intrinsics: set[str] = field(default_factory=set)  # names affirmed INTRINSIC (F77 8.8)
     formats: dict[int, str] = field(default_factory=dict)  # label -> raw format text
     code: list[Stmt] = field(default_factory=list)  # executable Stmt list
     labels: dict[int, int] = field(default_factory=dict)  # label -> index into code

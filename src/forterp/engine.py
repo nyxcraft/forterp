@@ -1004,7 +1004,11 @@ class Engine:
             return oob_read(store, base + linidx(subs, dims))
         proc = frame.args.get(name)
         if isinstance(proc, ProcRef):  # reference to a dummy procedure (function)
-            return self.call_function(proc.target, node.args, frame)
+            t = proc.target
+            if t not in self.rts and (t in INTRINSICS or t in _CHAR_LOGICAL):
+                # the actual was an intrinsic name (F77 15.10) -- dispatch to the library
+                return self._apply_intrinsic(t, [self.eval(a, frame) for a in node.args])
+            return self.call_function(t, node.args, frame)
         if name in unit.stmt_funcs:
             return self._call_stmt_func(name, node.args, frame)
         if name in self.entries:  # V5 15.7: function ENTRY reference
@@ -1037,13 +1041,32 @@ class Engine:
         for p, v in zip(params, actuals):
             store[p] = v
         try:
-            return self.eval(body, frame)
+            # A statement function's value is converted to the function's own (implicit
+            # or declared) type before use -- e.g. an INTEGER-named SF truncates a real
+            # body result (X3.9-1978 15.4.1 / 15.5.2). Without this, IFOS05=...+IABS(...)
+            # leaks the float through and the caller's arithmetic is off.
+            return self._coerce_result(self.eval(body, frame), self.type_of(frame.rt.unit, name))
         finally:
             for p in params:
                 if p in present:
                     store[p] = saved[p]
                 else:
                     store.pop(p, None)
+
+    def _coerce_result(self, val, ttype):
+        """Convert a value to a procedure result type (the numeric subset of do_assign's
+        type-boundary conversion; logicals and strings pass through unchanged)."""
+        if isinstance(val, (bool, str)):
+            return val
+        if ttype == "COMPLEX":
+            return val if isinstance(val, complex) else complex(float(val), 0.0)
+        if isinstance(val, complex):  # complex -> scalar uses the real part
+            return self.tgt.wrap(int(val.real)) if ttype == "INTEGER" else val.real
+        if ttype in ("REAL", "DOUBLE PRECISION") and isinstance(val, int):
+            return float(val)
+        if ttype == "INTEGER" and isinstance(val, float):
+            return self.tgt.wrap(int(val))
+        return val
 
     def _lib_warn(self, msg):
         """Emit a FOROTS LIB/APR warning (V5 App H) and count it. ERRSET caps how
@@ -1170,6 +1193,10 @@ class Engine:
             if isinstance(frame.args.get(name), ProcRef):
                 return frame.args[name]
             if name in unit.externals and (name in self.units or name in self.builtins):
+                return ProcRef(name)
+            # an intrinsic name (INTRINSIC-affirmed, F77 15.10) passed as an actual arg, but
+            # not shadowed by a local variable -- pass the library function by reference
+            if name in unit.intrinsics and name not in unit.types and name not in frame.args:
                 return ProcRef(name)
             return self.scalar_ref(frame, name)
         if isinstance(node, A.Ref) and node.name in frame.rt.unit.arrays:
@@ -2235,7 +2262,9 @@ class Engine:
             st = next((st for st in self.io.values() if st.get("path") == path), None)
             number = next((u for u, v in self.io.items() if v.get("path") == path), -1)
             results = {
-                "EXIST": os.path.exists(path),
+                # a file currently connected exists even if no disk file backs it yet
+                # (a DIRECT-access scratch file is modeled in memory until written)
+                "EXIST": os.path.exists(path) or number != -1,
                 "OPENED": number != -1,
                 "NUMBER": number,
                 "NAMED": True,

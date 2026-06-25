@@ -1762,11 +1762,17 @@ def _route(unit, st, toks, on_warn=None, dialect=F66):
                 break
         return
     if kw == "INTRINSIC" and len(toks) > 1 and toks[1].kind == "ID":
-        # INTRINSIC name, ... (F77): affirms each name is the intrinsic function. forterp already
-        # resolves intrinsics by name, so this is a no-op -- validate the dialect and consume the
-        # list. (The ID guard leaves `INTRINSIC = ...` / `INTRINSIC(I) = ...` as an assignment.)
+        # INTRINSIC name, ... (F77 8.8): affirms each name is the intrinsic function. forterp
+        # resolves intrinsics by name at a call site already, so this matters only when an
+        # intrinsic name is passed as an actual argument (15.10) -- record it so arg_ref builds a
+        # ProcRef. (The ID guard leaves `INTRINSIC = ...` / `INTRINSIC(I) = ...` as an assignment.)
         if not dialect.intrinsic_stmt:
             raise ParseError("the INTRINSIC statement is a FORTRAN-77 extension (not F66)", "NRC")
+        p.advance()
+        while not p.at_end():
+            unit.intrinsics.add(p.expect_id())
+            if not p.accept_op(","):
+                break
         return
     if kw == "NAMELIST":
         p.parse_namelist(unit)

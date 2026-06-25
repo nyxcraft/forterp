@@ -606,6 +606,40 @@ def test_inquire_number_echoes_the_unit():
     assert _out(_cprog("      INTEGER R\n      INQUIRE(UNIT=7, NUMBER=R)\n"))[0] == 7
 
 
+def test_inquire_exist_true_for_a_connected_direct_file(tmp_path):
+    # A DIRECT-access file just OPENed (modeled in memory, no disk backing yet) must still
+    # report EXIST=.TRUE. -- a connected file exists (FM921, X3.9-1978 12.10.2).
+    src = _cprog(
+        "      LOGICAL R\n"
+        "      OPEN(UNIT=8, FILE='SCRATCH.DAT', ACCESS='DIRECT',\n"
+        "     1     RECL=40, FORM='UNFORMATTED')\n"
+        "      INQUIRE(FILE='SCRATCH.DAT', EXIST=R)\n"
+    )
+    eng = forterp.run_source(src, dialect=forterp.F77, target=forterp.NATIVE, root=str(tmp_path))
+    assert eng.commons["O"][0]
+
+
+# ---- procedure / statement-function semantics ---------------------------------------------
+def test_intrinsic_name_passed_as_actual_argument():
+    # IABS, declared INTRINSIC, passed to a dummy procedure and called through it (FM317/328,
+    # X3.9-1978 15.10). The dummy NF must dispatch to the library IABS, not the intrinsic NINT.
+    src = (
+        "      PROGRAM T\n      COMMON /O/ R\n      INTEGER R, FF\n"
+        "      INTRINSIC IABS\n      EXTERNAL FF\n"
+        "      R = FF(IABS, -7)\n      END\n"
+        "      INTEGER FUNCTION FF(NF, K)\n      FF = NF(K) + 1\n      RETURN\n      END\n"
+    )
+    eng = forterp.run_source(src, dialect=forterp.F77, target=forterp.NATIVE)
+    assert eng.commons["O"][0] == 8  # IABS(-7) + 1
+
+
+def test_integer_statement_function_truncates_its_real_result():
+    # An INTEGER-named statement function converts its real body value to INTEGER (FM351,
+    # X3.9-1978 15.4.1): ISF(4.7) = INT(4.7) = 4, not 4.7 leaking through to the caller.
+    body = "      INTEGER R, ISF\n      ISF(X) = X\n      R = ISF(4.7)\n"
+    assert _out(_cprog(body))[0] == 4
+
+
 def test_concat_operator_only_tokenized_under_character_type():
     # // is the concat operator only when CHARACTER is in play; FORTRAN-10 must not see it.
     src = "      PROGRAM T\n      COMMON /O/ S\n      CHARACTER S*4\n      S='A'//'B'\n      END\n"
