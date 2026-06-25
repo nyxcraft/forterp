@@ -1094,13 +1094,14 @@ class Engine:
             return self.tgt.lxor(self.eval(node.left, frame), self.eval(node.right, frame))
         if op == "EQV":
             return self.tgt.leqv(self.eval(node.left, frame), self.eval(node.right, frame))
-        if op == "CONCAT":  # F77 CHARACTER concatenation (operands are str under character_type)
-            return str(self.eval(node.left, frame)) + str(self.eval(node.right, frame))
+        if self.character_type:  # F77 CHARACTER ops -- only the F77 dialect produces str operands
+            if op == "CONCAT":  # concatenation
+                return str(self.eval(node.left, frame)) + str(self.eval(node.right, frame))
         a = self.eval(node.left, frame)
         b = self.eval(node.right, frame)
-        if isinstance(a, str) or isinstance(b, str):  # CHARACTER comparison: F77 blank-pads to
-            a, b = str(a), str(b)  # equal length, then compares on the ASCII collating sequence
-            w = max(len(a), len(b))
+        if self.character_type and (isinstance(a, str) or isinstance(b, str)):
+            a, b = str(a), str(b)  # CHARACTER comparison: blank-pad to equal length, then
+            w = max(len(a), len(b))  # compare on the ASCII collating sequence (X3.9-1978 6.3.5)
             a, b = a.ljust(w), b.ljust(w)
         fl = isinstance(a, float) or isinstance(b, float)
         cx = isinstance(a, complex) or isinstance(b, complex)
@@ -1341,14 +1342,16 @@ class Engine:
         ref.write((cur[: lo - 1] + rhs + cur[hi:])[:n].ljust(n))
 
     def do_assign(self, s, frame):
-        if isinstance(s.target, A.Substring):
+        # The CHARACTER target forms (substring lvalue, fit-to-length scalar) exist only under
+        # the F77 character_type dialect; gate them so F66/FORTRAN-10 skip the per-assign checks.
+        if self.character_type and isinstance(s.target, A.Substring):
             return self._assign_substring(s, frame)
         val = self.eval(s.expr, frame)
         tgt = s.target
         # numeric conversion at the type boundary -- but a Hollerith/char constant
         # adopts the target type as a bit pattern (no conversion), e.g. TTY='TTY'
         ttype = self.type_of(frame.rt.unit, tgt.name)
-        if ttype == "CHARACTER":
+        if self.character_type and ttype == "CHARACTER":
             # F77 character assignment: the value is a Python str; fit it to the target's
             # declared length -- truncate if longer, blank-pad if shorter (V5 / X3.9-1978 14.4).
             n = self.char_length(frame.rt.unit, tgt.name)
