@@ -280,6 +280,16 @@ def test_f77_zero_trip_inner_do_shared_terminal():
     assert out[4] == 5  # inner DO variable keeps its initial value (loop never ran)
 
 
+def test_do_parameters_convert_to_integer_do_variable_type():
+    # FM719 / X3.9-1978 11.10.2: an integer DO variable with real bounds converts the
+    # parameters BEFORE the trip count -- DO I=6.7,9.325 truncates to 6,9,1 -> I=6,7,8,9
+    # (sum 30, 4 trips), not the 3 a raw (9.325-6.7+1) real count would give.
+    body = "      N(1)=0\n      DO 5 I=6.7,9.325\n      N(1)=N(1)+I\n    5 CONTINUE\n      N(2)=I\n"
+    out = _out(_prog(body))
+    assert out[0] == 30  # 6+7+8+9
+    assert out[1] == 10  # post-loop index: 9 + 1
+
+
 def test_do_label_optional_comma():
     # F77 allows a comma after the DO label: DO 5, I = 1, 3.
     body = "      N(1)=0\n      DO 5, I=1,3\n      N(1)=N(1)+I\n    5 CONTINUE\n"

@@ -36,7 +36,9 @@ direct-access records (so NEXTREC advances by the record count, 12.9.4.2), and a
 file's records now persist on CLOSE and reload on a STATUS='OLD' reopen, and a zero-trip inner
 DO sharing its terminal label with an enclosing active DO (a shared-terminal nest) now drives
 the outer loop's incrementation without executing the shared terminal statement (11.10) for
-FM256.
+FM256, and converting a DO loop's parameters to the DO variable's type before forming the
+iteration count (an integer DO variable with real bounds, DO I=6.7,9.325, truncates to 6,9,1
+-> 4 trips; 11.10.2) for FM719.
 
 One large remaining cluster is NOT an interpreter bug: FM923 (26) reads its list-directed data
 from the card reader (unit I01), and FCVS supplies that input as a separate data deck the
@@ -81,12 +83,12 @@ def test_f77_conformance_baseline():
     # the fix (a gain) or investigate (a regression).
     assert R["n_run"] == 140
     assert R["n_gap"] == 0
-    assert R["total_pass"] == 1606
-    assert R["total_err"] == 48
+    assert R["total_pass"] == 1608
+    assert R["total_err"] == 46
     assert len(R["nosummary"]) == 43
 
 
 def test_self_check_failures_do_not_grow():
     # The known self-check failures (value/semantic conformance, not parse/control-flow).
     # A ratchet: fixing a bug should LOWER this -- update it down, never silently up.
-    assert R["total_err"] <= 48
+    assert R["total_err"] <= 46
