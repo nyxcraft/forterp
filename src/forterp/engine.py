@@ -2128,10 +2128,30 @@ class Engine:
         as-is; anything else is an expression node to evaluate in `frame`."""
         return v if (v is None or isinstance(v, (int, str))) else self.eval(v, frame)
 
+    def _conn_specs(self, st):
+        """The connection-property INQUIRE specifiers (X3.9-1978 12.10.2) for a unit's state:
+        ACCESS/FORM report the connection; SEQUENTIAL/DIRECT/FORMATTED/UNFORMATTED report
+        YES/NO/UNKNOWN. An unopened unit (st None / no metadata) is UNKNOWN throughout."""
+        acc = st.get("access") if st else None
+        form = st.get("form") if st else None
+
+        def yn(is_it, known):
+            return "YES" if is_it else ("NO" if known else "UNKNOWN")
+
+        return {
+            "ACCESS": acc or "UNKNOWN",
+            "SEQUENTIAL": yn(acc == "SEQUENTIAL", acc),
+            "DIRECT": yn(acc == "DIRECT", acc),
+            "FORM": form or "UNKNOWN",
+            "FORMATTED": yn(form == "FORMATTED", form),
+            "UNFORMATTED": yn(form == "UNFORMATTED", form),
+        }
+
     def _inquire(self, s, frame):
         """F77 INQUIRE (X3.9-1978 12.10) by FILE or by UNIT. Each output specifier names a
         variable that receives the result; the common ones are supported (EXIST / OPENED /
-        NUMBER / NAMED / NAME / IOSTAT). Unmodeled specifiers are simply ignored."""
+        NUMBER / NAMED / NAME / IOSTAT and the ACCESS / FORM connection properties via
+        _conn_specs). Unmodeled specifiers are simply ignored."""
         import os
 
         specs = s.specs
@@ -2139,7 +2159,8 @@ class Engine:
             fspec = self._spec(specs["FILE"], frame)
             fname = self.tgt.unpack(fspec).strip() if isinstance(fspec, int) else str(fspec).strip()
             path = self._open_path(fname)
-            number = next((u for u, st in self.io.items() if st.get("path") == path), -1)
+            st = next((st for st in self.io.values() if st.get("path") == path), None)
+            number = next((u for u, v in self.io.items() if v.get("path") == path), -1)
             results = {
                 "EXIST": os.path.exists(path),
                 "OPENED": number != -1,
@@ -2158,6 +2179,7 @@ class Engine:
                 "NAMED": path is not None,
                 "NAME": os.path.basename(path) if path else "",
             }
+        results.update(self._conn_specs(st))
         results["IOSTAT"] = 0
         for key, val in results.items():
             tgt = specs.get(key)
@@ -2175,6 +2197,7 @@ class Engine:
 
     def _file_ctl(self, s, frame):
         import json
+        import os
 
         specs = s.specs
         if s.verb == "INQUIRE":
@@ -2188,6 +2211,7 @@ class Engine:
                 dv = self.eval(dev, frame)
                 devname = self.tgt.unpack(dv).strip() if isinstance(dv, int) else str(dv).strip()
             access = specs.get("ACCESS")
+            form_kw = specs.get("FORM") if isinstance(specs.get("FORM"), str) else None
             assoc = specs.get("ASSOCIATEVARIABLE")
             assoc_name = (
                 assoc.name
@@ -2196,9 +2220,12 @@ class Engine:
                 if isinstance(assoc, str)
                 else None
             )
-            if access == "RANDOM" or assoc_name is not None:  # random-access (V5 10.3.5)
+            if (
+                access in ("RANDOM", "DIRECT") or assoc_name is not None
+            ):  # random/direct (V5 10.3.5)
                 st = self.io.setdefault(unit, {"recs": [], "pos": 0, "mode": "random"})
                 st["mode"] = "random"
+                st["access"], st["form"] = "DIRECT", form_kw or "UNFORMATTED"  # INQUIRE metadata
                 mode_kw = specs.get("MODE")  # 'BINARY' -> FOROTS words
                 if isinstance(mode_kw, str) and mode_kw.upper() == "BINARY":
                     st["binary"] = True
@@ -2225,8 +2252,13 @@ class Engine:
                         "path": path,
                         "dec": self.dec_files,
                     }
-                else:
+                elif access == "SEQIN" or os.path.exists(path):
                     self.io[unit] = self._open_read_unit(path)
+                else:  # F77 sequential connection to a not-yet-existing file -> empty scratch
+                    self.io[unit] = {"recs": [], "pos": 0, "mode": "w", "path": path}
+                st = self.io[unit]  # record INQUIRE metadata for the connection
+                st["access"] = "SEQUENTIAL"
+                st["form"] = form_kw or "FORMATTED"
             return None
         if s.verb == "CLOSE":
             st = self.io.pop(unit, None)

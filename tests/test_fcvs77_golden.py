@@ -69,6 +69,7 @@ KNOWN_DIVERGENT = {
     "FM831",
     "FM833",
     "FM834",
+    # FM915 fixed -- INQUIRE ACCESS/FORM specifiers now match gfortran.
     "FM905",
     "FM907",
     "FM908",
@@ -76,7 +77,6 @@ KNOWN_DIVERGENT = {
     "FM910",
     "FM912",
     "FM914",
-    "FM915",
     "FM916",
     "FM917",
     "FM919",
