@@ -332,12 +332,13 @@ class Engine:
         free_form_input=False,
         dec_intrinsics=True,
         character_type=False,
+        carriage_advance=False,
         max_array_words=50_000_000,
         dec_files=False,
         tty_width=80,
         tty_autowrap=True,
     ):
-        import random
+        from forterp.forlib import Fortran10RNG
 
         self.tgt = target if target is not None else NATIVE  # default value model (portable)
         self.binio = binio  # unformatted-I/O codec (FOROTS); injected by the runtime
@@ -353,6 +354,11 @@ class Engine:
         # (default True so a bare Engine has the full library; the dialect paths gate it).
         self.free_form_input = free_form_input
         self.dec_intrinsics = dec_intrinsics
+        # FOROTS terminal carriage control: advance-before-print (the column-1 control char is a
+        # leading motion, no trailing newline) instead of the default newline-after. A RUNTIME
+        # (terminal) trait, not a language-dialect one -- F66 and FORTRAN10 share it -- so it is an
+        # opt-in engine flag a FOROTS host sets, not a dialect knob. See fmt.apply_carriage_advance.
+        self.carriage_advance = carriage_advance
         #  - character_type: the F77 CHARACTER data type is in play. A string literal then
         #    evaluates to a Python str (a character constant), not a packed-ASCII Hollerith
         #    word -- so CHARACTER vars/concatenation/comparison work. Off for F66/FORTRAN-10,
@@ -367,7 +373,7 @@ class Engine:
         self.save_root = root  # base dir for OPEN file specs (NOT a sandbox -- a
         # driver may point it elsewhere; see _open_path)
         self.out = []  # captured terminal output
-        self.rng = random.Random(0)
+        self.rng = Fortran10RNG()  # DEC FORTRAN-10 FORLIB RAN: the Lehmer LCG (V5 Ch15)
         self.clock = 1
         # unit number -> open-file state; the shape depends on its "mode":
         #   "term"      terminal (read via readline, write via emit)
@@ -1573,7 +1579,7 @@ class Engine:
             ref.write(value(tok))
 
     def do_type(self, s, frame):
-        from forterp.fmt import apply_carriage, render
+        from forterp.fmt import apply_carriage, apply_carriage_advance, render
 
         nml = self._nml_name(s.fmt, frame)
         if nml is not None:  # TYPE/PRINT of a NAMELIST group
@@ -1586,10 +1592,13 @@ class Engine:
         spec = self._fmt_spec(s.fmt, frame)
         items = self._parsed(spec)
         text, suppress = render(items, self._cx_expand(values), self.tgt)  # complex -> 2 reals
-        text = apply_carriage(text)
-        if not suppress:
-            text += "\n"
-        self.emit(text)
+        if self.carriage_advance:
+            self.emit(apply_carriage_advance(text))  # advance-before: no trailing newline
+        else:
+            text = apply_carriage(text)
+            if not suppress:
+                text += "\n"
+            self.emit(text)
 
     def do_accept(self, s, frame):
         if getattr(s, "reread", False):
@@ -1815,6 +1824,12 @@ class Engine:
         spec = self._fmt_spec(s.fmt, frame)
         items = self._parsed(spec)
         text, suppress = render(items, self._cx_expand(values), self.tgt)  # complex -> 2 reals
+        # advance-before only for terminal output (sink is emit); printer/file keep newline-after
+        if self.carriage_advance and sink is self.emit:
+            from forterp.fmt import apply_carriage_advance
+
+            sink(apply_carriage_advance(text))
+            return
         text = apply_carriage(text)
         if not suppress:
             text += "\n"

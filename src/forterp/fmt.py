@@ -415,6 +415,40 @@ def apply_carriage(text):
     return "\n".join(_carriage_one(rec) for rec in text.split("\n"))
 
 
+def apply_carriage_advance(text):
+    """FORTRAN-10 / FOROTS *advance-before-print* carriage control for terminal output.
+
+    Where apply_carriage (above) is newline-AFTER -- each record terminated by the
+    surrounding '\\n', matching printer/file output and the F77/FCVS golden streams --
+    FOROTS drives a terminal advance-BEFORE: the column-1 control character is a LEADING
+    motion emitted before the record's text, and the record is NOT newline-terminated.
+    The cursor is therefore left at the end of the text, so a following direct write
+    (e.g. an OUTSTR) continues the same line, and the NEXT record's leading advance is
+    what ends this one. Verified byte-for-byte against the original on TOPS-10/SIMH:
+    ' AAA'/ ; STROUT('BBB') ; ' CCC' ; STROUT('DDD')  ->  a leading blank, then "AAA",
+    "BBB", a blank, then "CCCDDD" (CCC and DDD merged onto one line).
+
+    Controls: ' ' advance 1, '0' advance 2, '1' form-feed, '+' no advance (continue at the
+    cursor / overprint), empty record (a bare '/') advance 1. No trailing newline is added."""
+    out = []
+    for rec in text.split("\n"):
+        if not rec:
+            out.append("\n")  # empty record (e.g. a trailing '/') -> one advance
+            continue
+        c = rec[0]
+        if c == "+":
+            out.append(rec[1:])  # no advance: continue at the cursor (terminal overprint)
+        elif c == "0":
+            out.append("\n\n" + rec[1:])  # double space
+        elif c == "1":
+            out.append("\f" + rec[1:])  # form feed
+        elif c == " ":
+            out.append("\n" + rec[1:])  # single space
+        else:
+            out.append("\n" + rec)  # no recognized control char -> default single advance
+    return "".join(out)
+
+
 # ---- input -----------------------------------------------------------------
 class InputConversionError(Exception):
     """An illegal character in a numeric/logical input field (V5: a runtime I/O error,

@@ -54,3 +54,27 @@ def test_ran_setran_from_stdlib_seeded_and_reproducible():
     assert 0.0 <= out(eng, 1) < 1.0  # RAN in [0,1)
     assert out(eng, 1) != out(eng, 2)  # sequence advances
     assert out(eng, 1) == out(eng, 3)  # SETRAN(777) reproduces the sequence
+
+
+def test_ran_is_bit_faithful_dec_lehmer():
+    """FORLIB RAN is the genuine DEC Lehmer LCG (seed*630360016 mod 2**31-1), verified against
+    the original on TOPS-10/SIMH: SETRAN(1) then SAVRAN yields the captured seed sequence."""
+    from forterp.forlib import Fortran10RNG
+
+    g = Fortran10RNG(1)
+    seeds = []
+    for _ in range(8):
+        g.random()
+        seeds.append(g.value)
+    assert seeds == [
+        630360016,
+        1549035330,
+        264620982,
+        529512731,
+        1896697821,
+        2116530888,
+        1923129168,
+        1674201058,
+    ]
+    g.seed(1)
+    assert abs(g.random() - 630360016 / ((1 << 31) - 1)) < 1e-12  # RAN = seed/(2**31-1)

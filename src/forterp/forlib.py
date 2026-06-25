@@ -136,24 +136,50 @@ def b_RELEAS(eng, frame, arg_nodes):
     eng.io.pop(int(eng.eval(arg_nodes[0], frame)), None)
 
 
+class Fortran10RNG:
+    """DEC FORTRAN-10 FORLIB random generator (V5 Ch15): a Lehmer multiplicative congruential
+    generator on the Mersenne-prime modulus 2**31 - 1,
+
+        seed_{n+1} = (630360016 * seed_n) mod (2**31 - 1)        RAN = seed / (2**31 - 1)
+
+    reverse-engineered from the original on TOPS-10 7.04 / SIMH KS10: the full 36-bit seed,
+    captured via SAVRAN after SETRAN(1), is 630360016, 1549035330, 264620982, 529512731, ...
+    and the RAN floats match to single precision. RAN is a DEC extension (not ANSI/F66), so this
+    is the genuine DEC sequence -- there is no conflicting standard to honor. Exposes the
+    random()/seed() interface the engine's `rng` service uses, plus `.value` (the current seed,
+    for SAVRAN)."""
+
+    MULT = 630360016
+    MOD = (1 << 31) - 1  # 2147483647, a Mersenne prime
+
+    def __init__(self, seed=1):
+        self.value = int(seed) or 1
+
+    def seed(self, n):  # CALL SETRAN(n); 0 is the generator's fixed point -> fall back to 1
+        self.value = int(n) or 1
+
+    def random(self):  # advance, then normalise the new seed to (0,1)
+        self.value = (self.value * self.MULT) % self.MOD
+        return self.value / self.MOD
+
+
 @_needs(1)
 def b_SETRAN(eng, frame, arg_nodes):
-    """CALL SETRAN(seed) -- seed the FORTRAN-10 RAN generator (manual Ch15). The
-    generator state is an engine service (eng.rng); the driver may also seed it."""
+    """CALL SETRAN(seed) -- seed the FORTRAN-10 RAN generator (V5 Ch15)."""
     eng.seed_rng(int(eng.eval(arg_nodes[0], frame)))
 
 
 def b_RAN(eng, frame, arg_nodes):
-    """RAN(x) -- uniform random real in [0,1) (manual Ch15). The argument is a dummy
-    in our model; the sequence is reproducible via SETRAN / the injected RNG seed."""
+    """RAN(x) -- next uniform random in (0,1) (V5 Ch15), the FORLIB Lehmer generator (see
+    Fortran10RNG). The argument is a dummy: the stream advances regardless, so the deck's
+    `C1 = RAN(C1)` is the same sequence as RAN(0.0) -- verified against the original."""
     return eng.rng.random()
 
 
 @_needs(1)
 def b_SAVRAN(eng, frame, arg_nodes):
-    """CALL SAVRAN(I) -- save the last RAN value. RNG-state capture isn't modeled;
-    we just return a defined value so the call is harmless."""
-    eng.arg_ref(arg_nodes[0], frame).write(0)
+    """CALL SAVRAN(I) -- return the generator's current seed into I (V5 Ch15)."""
+    eng.arg_ref(arg_nodes[0], frame).write(getattr(eng.rng, "value", 0))
 
 
 def _noop(eng, frame, arg_nodes):
