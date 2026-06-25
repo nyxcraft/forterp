@@ -2191,6 +2191,7 @@ class Engine:
         YES/NO/UNKNOWN. An unopened unit (st None / no metadata) is UNKNOWN throughout."""
         acc = st.get("access") if st else None
         form = st.get("form") if st else None
+        blank = st.get("blank") if st else None
 
         def yn(is_it, known):
             return "YES" if is_it else ("NO" if known else "UNKNOWN")
@@ -2204,6 +2205,10 @@ class Engine:
             "UNFORMATTED": yn(form == "UNFORMATTED", form),
             "RECL": st.get("recl", 0) if st else 0,  # fixed record length (direct access)
             "NEXTREC": st.get("nextrec", 0) if st else 0,  # next record number (direct access)
+            # blank-handling mode: the OPEN value, else NULL for a formatted connection,
+            # UNDEFINED for unformatted, UNKNOWN if not connected (X3.9-1978 12.10.2).
+            "BLANK": blank
+            or ("UNDEFINED" if form == "UNFORMATTED" else "NULL" if form else "UNKNOWN"),
         }
 
     def _inquire(self, s, frame):
@@ -2293,6 +2298,11 @@ class Engine:
                     v = self._spec(fspec, frame)
                     fname = self.tgt.unpack(v).strip() if isinstance(v, int) else str(v).strip()
                     st["path"] = self._open_path(fname)
+                if "BLANK" in specs:  # INQUIRE(BLANK=) -- blank-handling mode (NULL / ZERO)
+                    bl = self._spec(specs["BLANK"], frame)
+                    st["blank"] = (
+                        self.tgt.unpack(bl).strip() if isinstance(bl, int) else str(bl).strip()
+                    )
                 mode_kw = specs.get("MODE")  # 'BINARY' -> FOROTS words
                 if isinstance(mode_kw, str) and mode_kw.upper() == "BINARY":
                     st["binary"] = True
@@ -2330,6 +2340,11 @@ class Engine:
                 st = self.io[unit]  # record INQUIRE metadata for the connection
                 st["access"] = "SEQUENTIAL"
                 st["form"] = form_kw or "FORMATTED"
+                if "BLANK" in specs:  # INQUIRE(BLANK=) -- blank-handling mode (NULL / ZERO)
+                    bl = self._spec(specs["BLANK"], frame)
+                    st["blank"] = (
+                        self.tgt.unpack(bl).strip() if isinstance(bl, int) else str(bl).strip()
+                    )
             return None
         if s.verb == "CLOSE":
             st = self.io.pop(unit, None)
