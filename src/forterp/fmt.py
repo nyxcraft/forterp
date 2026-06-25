@@ -503,7 +503,12 @@ def read_values(items, line, target=NATIVE, free_form=False, character_type=Fals
             vals.append(("F", _read_real(chunk, it.b if it.a is not None else None, scale)))
         elif k == "L":
             chunk, pos, _tok = _grab(it, line, pos, free_form)
-            vals.append(("L", target.from_bool(chunk.lstrip()[:1].upper() == "T")))
+            # X3.9-1978 13.5.10 / F66 7.2.3.7: optional leading blanks, then an OPTIONAL decimal
+            # point, then T or F (any trailing chars ignored) -- so ".TRUE." reads as true.
+            c = chunk.lstrip()
+            if c[:1] == ".":
+                c = c[1:]
+            vals.append(("L", target.from_bool(c[:1].upper() == "T")))
         elif k == "P":  # scale factor; holds until reset (7.2.3.5)
             scale = it.a or 0
         elif k == "lit":  # nH / '...' field: input chars replace the literal
