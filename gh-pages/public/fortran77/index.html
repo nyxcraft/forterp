@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FORTRAN 77 reference | forterp</title>
+  <meta name="description" content="The FORTRAN 77 dialect (forterp.F77 / --std f77): the CHARACTER type, the block IF, list-directed and keyword-driven I/O, internal files, INQUIRE, PARAMETER/SAVE, and .EQV./.NEQV. — everything F77 adds over the FORTRAN-66 base, with the FCVS-77 conformance status.">
+  <link rel="stylesheet" href="../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../index.html">
+        <img class="brand__icon" src="../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">FORTRAN 77 reference</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#1-selecting-and-using-the-f77-dialect">1. Selecting and using the F77 dialect</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#2-the-character-type">2. The `CHARACTER` type</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#declaration">Declaration</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#assignment-blank-pad-truncate">Assignment — blank-pad / truncate</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#concatenation">Concatenation — `//`</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#comparison-blank-padded">Comparison — blank-padded</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#substrings-name-lo-hi">Substrings — `name(lo:hi)`</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#character-intrinsics">Character intrinsics</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#3-structured-control-flow-the-block-if">3. Structured control flow — the block `IF`</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#4-declarations-and-specification-statements">4. Declarations and specification statements</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#arrays-assumed-size-and-adjustable">Arrays: assumed-size and adjustable</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#5-expressions-and-operators">5. Expressions and operators</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#6-input-output">6. Input / output</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#list-directed-i-o">List-directed I/O — `*`</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#keyword-control-lists">Keyword control lists</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#internal-files">Internal files</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#sequential-files-scratch-units-and-record-fidelity">Sequential files, scratch units, and record fidelity</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#open-close-inquire">`OPEN` / `CLOSE` / `INQUIRE`</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#widthless-a">Widthless `A`</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#7-what-the-f77-dialect-does-not-add">7. What the F77 dialect does *not* add</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#8-conformance-fcvs-77">8. Conformance — FCVS-77</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#9-the-f77-dialect-knobs">9. The F77 dialect knobs</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>FORTRAN 77 reference</h1>
+          <p class="docs-article__summary">The FORTRAN 77 dialect (forterp.F77 / --std f77): the CHARACTER type, the block IF, list-directed and keyword-driven I/O, internal files, INQUIRE, PARAMETER/SAVE, and .EQV./.NEQV. — everything F77 adds over the FORTRAN-66 base, with the FCVS-77 conformance status.</p>
+          <p class="docs-article__source">FORTRAN 77 language reference</p>
+        </header>
+        <div class="prose">
+<p>A working reference for the <strong>FORTRAN 77</strong> dialect <code>forterp</code> implements: <strong>ANSI X3.9-1978</strong>
+layered on the FORTRAN-66 base that the interpreter already runs. The headline addition is
+the <strong><code>CHARACTER</code> data type</strong>; F77 also brings the block <code>IF</code> construct, list-directed and
+keyword-driven I/O, internal files, <code>INQUIRE</code>, <code>PARAMETER</code>/<code>SAVE</code>/<code>INTRINSIC</code>, and the
+<code>.EQV.</code>/<code>.NEQV.</code> operators. This file documents what the F77 dialect adds over
+<a href="../reference/index.html">FORTRAN-66</a> — read that first for the base language (source form, the
+arithmetic/control/<code>COMMON</code> core, <code>FORMAT</code>).</p>
+<blockquote>
+<p>Notation: items here are FORTRAN-77 features unless marked <strong>[DEC]</strong> (a FORTRAN-10
+extension that strict F77 does not include) or <strong>[F66]</strong> (carried over from the base).
+Select the dialect with <code>forterp.F77</code>, the prebuilt <code>forterp.f77</code>, or the CLI <code>--std f77</code>.</p>
+</blockquote>
+<hr />
+<h2 id="1-selecting-and-using-the-f77-dialect">1. Selecting and using the F77 dialect</h2>
+<pre><code class="language-python">import forterp
+
+src = '''      PROGRAM GREET
+      CHARACTER*12 WHO
+      WHO = 'WORLD'
+      WRITE (6, '(A,A)') 'HELLO, ', WHO
+      END
+'''
+forterp.run_source(src, dialect=forterp.F77, printer=print)   # HELLO, WORLD
+forterp.f77.run_source(src, printer=print)                    # the prebuilt interpreter
+</code></pre>
+<pre><code class="language-sh">forterp --std f77 prog.for          # the general CLI driver, F77 dialect
+</code></pre>
+<p>The F77 dialect runs on the <strong><code>NATIVE</code></strong> target by default (64-bit, 8-bit ASCII), where a
+character value is an ordinary Python <code>str</code>. The target and dialect axes stay orthogonal
+(see <a href="../api/index.html">API.md</a>) — you <em>can</em> pair F77 with <code>PDP10</code>, but the F77 corpus is validated on
+<code>NATIVE</code>. The single switch that changes the value model for characters is the dialect knob
+<strong><code>character_type</code></strong> (§9): with it on, a quoted string is a <code>CHARACTER</code> constant (a <code>str</code>),
+not a Hollerith word packed into an integer as it is under F66/FORTRAN-10.</p>
+<hr />
+<h2 id="2-the-character-type">2. The <code>CHARACTER</code> type</h2>
+<p>The defining feature of F77. A <code>CHARACTER</code> entity holds a fixed-length string of
+characters; its length is part of its type.</p>
+<h3 id="declaration">Declaration</h3>
+<pre><code class="language-fortran">      CHARACTER         C          ! length 1
+      CHARACTER*8       NAME       ! length 8 (the keyword *len is the default)
+      CHARACTER         TAG*3, MSG*40   ! per-name length overrides the keyword length
+      CHARACTER*5       WORD(10)   ! a 10-element array of CHARACTER*5
+      CHARACTER*(*)     ARG        ! assumed length: a dummy takes the actual's length
+      CHARACTER*(LMAX)  BUF        ! a parenthesised integer-constant expr (e.g. a PARAMETER)
+</code></pre>
+<ul>
+<li>The length is the number of characters; the default is 1.</li>
+<li><code>CHARACTER*(*)</code> is an <strong>assumed length</strong> dummy argument — it inherits the length of the
+actual argument passed to it.</li>
+<li>A parenthesised length <code>*(expr)</code> may be any integer-constant expression, including a
+<code>PARAMETER</code> name (X3.9-1978 §5.1).</li>
+<li><code>IMPLICIT CHARACTER*n (letters)</code> types whole initial-letter ranges as <code>CHARACTER*n</code> —
+the standard preamble used throughout the FCVS audit suite.</li>
+</ul>
+<h3 id="assignment-blank-pad-truncate">Assignment — blank-pad / truncate</h3>
+<p>Assignment fits the right-hand side to the target's declared length: a shorter value is
+<strong>blank-padded on the right</strong>, a longer one is <strong>truncated</strong> (X3.9-1978 §10.4).</p>
+<pre><code class="language-fortran">      CHARACTER*5 S
+      S = 'HI'        ! S = 'HI   '   (padded to 5)
+      S = 'HELLO!'    ! S = 'HELLO'   (truncated to 5)
+</code></pre>
+<h3 id="concatenation">Concatenation — <code>//</code></h3>
+<pre><code class="language-fortran">      CHARACTER*6 R
+      R = 'AB' // 'CD'     ! R = 'ABCD  '
+</code></pre>
+<h3 id="comparison-blank-padded">Comparison — blank-padded</h3>
+<p>Relational comparison pads the shorter operand with blanks to the longer length, then
+compares left to right, so <code>'HI'</code> and <code>'HI   '</code> compare <strong>equal</strong> (X3.9-1978 §6.3.5).</p>
+<pre><code class="language-fortran">      IF (S .EQ. 'HI') ...        ! true when S = 'HI   '
+</code></pre>
+<h3 id="substrings-name-lo-hi">Substrings — <code>name(lo:hi)</code></h3>
+<p>A contiguous slice, 1-based and inclusive, usable as a value <strong>or</strong> an assignable target.
+Either bound may be omitted (<code>(:)</code>, <code>(lo:)</code>, <code>(:hi)</code>; defaults 1 and <code>LEN</code>).</p>
+<pre><code class="language-fortran">      CHARACTER*5 R
+      R = 'ABCDE'
+      R(2:4) = 'XY'      ! R = 'AXY E'  (RHS fitted to the 3-char slice, rest untouched)
+      C2 = R(2:3)        ! 'XY'  (read)
+      W(K)(1:2) = 'ZZ'   ! array-element substring (the element of a CHARACTER array)
+</code></pre>
+<h3 id="character-intrinsics">Character intrinsics</h3>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>LEN(s)</code></td>
+<td>declared length of <code>s</code> (an integer)</td>
+</tr>
+<tr>
+<td><code>CHAR(i)</code></td>
+<td>the character whose code is <code>i</code></td>
+</tr>
+<tr>
+<td><code>ICHAR(c)</code></td>
+<td>the integer code of the single character <code>c</code></td>
+</tr>
+<tr>
+<td><code>INDEX(s, t)</code></td>
+<td>position of the first occurrence of <code>t</code> in <code>s</code>, else 0</td>
+</tr>
+<tr>
+<td><code>LGE/LGT/LLE/LLT(a, b)</code></td>
+<td>lexical <code>&gt;=</code> / <code>&gt;</code> / <code>&lt;=</code> / <code>&lt;</code> comparison (logical)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-structured-control-flow-the-block-if">3. Structured control flow — the block <code>IF</code></h2>
+<pre><code class="language-fortran">      IF (cond) THEN
+        ...
+      ELSE IF (cond2) THEN
+        ...
+      ELSE
+        ...
+      END IF              ! ENDIF (one word) is also accepted
+</code></pre>
+<p>Blocks nest, and an arm may jump out with a <code>GO TO</code>; the construct is lowered at parse time
+to the engine's flat label+<code>GOTO</code> form, so it composes with <code>DO</code> loops and arithmetic <code>IF</code>
+exactly as hand-written branches would.</p>
+<blockquote>
+<p><strong>[DEC] <code>DO WHILE (cond) … END DO</code></strong> is <em>not</em> part of ANSI X3.9-1978 — it is a DEC /
+Fortran-90 extension. The F77 dialect <strong>rejects</strong> it; use <code>forterp.FORTRAN10</code> if you need
+it. (This is the one structured construct deliberately kept off the F77 axis.)</p>
+</blockquote>
+<hr />
+<h2 id="4-declarations-and-specification-statements">4. Declarations and specification statements</h2>
+<table>
+<thead>
+<tr>
+<th>Statement</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PARAMETER (N=expr, …)</code></td>
+<td>named constants; the value may be <code>INTEGER</code>/<code>REAL</code>/<code>DOUBLE</code>, <strong><code>LOGICAL</code></strong> (<code>.TRUE.</code>/<code>.FALSE.</code>), <strong><code>COMPLEX</code></strong> (<code>(re,im)</code>), or <code>CHARACTER</code></td>
+</tr>
+<tr>
+<td><code>SAVE [a, b, …]</code></td>
+<td>accepted; a no-op here — locals are already statically allocated</td>
+</tr>
+<tr>
+<td><code>INTRINSIC name, …</code></td>
+<td>accepted; declares names as intrinsic (they already resolve by name)</td>
+</tr>
+<tr>
+<td><code>IMPLICIT CHARACTER*n (C)</code></td>
+<td>implicit typing with a length (see §2)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="arrays-assumed-size-and-adjustable">Arrays: assumed-size and adjustable</h3>
+<p>For dummy-argument arrays, F77 allows the bounds to be determined by the call:</p>
+<pre><code class="language-fortran">      SUBROUTINE S (A, B, M, N)
+      DIMENSION A(*)              ! assumed-size: last upper bound = the actual's
+      DIMENSION B(M:N, 3)         ! adjustable: bounds are dummy-argument values
+</code></pre>
+<p>The assumed-size <code>*</code> is the last dimension's upper bound; column-major indexing never needs
+it, and the dummy aliases the actual's storage. Adjustable bounds are resolved per call.</p>
+<hr />
+<h2 id="5-expressions-and-operators">5. Expressions and operators</h2>
+<ul>
+<li><strong><code>.EQV.</code> / <code>.NEQV.</code></strong> — logical equivalence and non-equivalence (X3.9-1978 §6.6).
+(The DEC-only <code>.XOR.</code> and the symbolic <code>==</code>/<code>&lt;</code>/<code>&gt;</code> relationals stay off the F77 axis.)</li>
+<li><strong>Generic intrinsics</strong> — F77's generic names dispatch on argument type: <code>LOG</code>/<code>LOG10</code>
+(F66 wrote <code>ALOG</code>/<code>ALOG10</code>), and <code>SQRT</code>/<code>EXP</code>/<code>SIN</code>/<code>COS</code>/<code>ABS</code>/… accept <code>REAL</code>, <code>DOUBLE</code>,
+or <code>COMPLEX</code> arguments, routing to the right variant automatically.</li>
+<li><strong><code>DO label, var = …</code></strong> — F77 permits an optional comma after the <code>DO</code> label:
+<code>DO 10, I = 1, N</code>.</li>
+</ul>
+<hr />
+<h2 id="6-input-output">6. Input / output</h2>
+<p>F77 broadens the F66 I/O model considerably.</p>
+<h3 id="list-directed-i-o">List-directed I/O — <code>*</code></h3>
+<pre><code class="language-fortran">      WRITE (6, *) I, X, 'TEXT'        ! free-format, compiler-chosen layout
+      READ  (5, *) I, X               ! whitespace/comma-delimited input
+</code></pre>
+<p>Standardized in F77 §12 (a DEC extension before that). On the F77 axis it rides its own
+<code>list_directed_io</code> knob — independent of the rest of the DEC I/O bundle.</p>
+<h3 id="keyword-control-lists">Keyword control lists</h3>
+<p>The control list may use keyword specifiers in any order:</p>
+<pre><code class="language-fortran">      READ  (UNIT=5, FMT=100, END=900, IOSTAT=IOS) A, B
+      WRITE (UNIT=6, FMT='(2I5)')                  I, J
+</code></pre>
+<p><code>UNIT=</code> and <code>FMT=</code> route to the unit and format; <code>END=</code>/<code>ERR=</code>/<code>REC=</code>/<code>IOSTAT=</code> behave as in
+the positional form. The positional form <code>READ(u, f) …</code> is unchanged.</p>
+<h3 id="internal-files">Internal files</h3>
+<p>The &quot;unit&quot; may be a <code>CHARACTER</code> variable, array element, or substring — I/O then transfers
+to/from its text instead of a device (X3.9-1978 §12.2.2):</p>
+<pre><code class="language-fortran">      CHARACTER*16 LINE
+      WRITE (LINE, '(I4,A)') N, ' ITEMS'    ! format INTO the string
+      READ  (LINE(5:8), '(I4)') K           ! parse a substring of it
+</code></pre>
+<h3 id="sequential-files-scratch-units-and-record-fidelity">Sequential files, scratch units, and record fidelity</h3>
+<ul>
+<li>An <strong>unconnected unit</strong> that is written auto-connects as an in-memory sequential scratch
+file (the FORTRAN-10 <code>FORnn.DAT</code> default): <code>WRITE</code> appends records, <code>REWIND</code>/<code>BACKSPACE</code>
+reposition, and a later <code>READ</code> reads them back.</li>
+<li>Under F77 a <strong>formatted</strong> sequential file stores rendered <em>text</em> records, so the format's
+<code>/</code> (record breaks), <code>X</code>/<code>T</code>/column positioning, and <strong>read-side <code>FORMAT</code> reversion</strong> (the
+I/O list outlasting the format, re-scanning over fresh records) all round-trip on
+write→<code>REWIND</code>→read.</li>
+</ul>
+<h3 id="open-close-inquire"><code>OPEN</code> / <code>CLOSE</code> / <code>INQUIRE</code></h3>
+<pre><code class="language-fortran">      OPEN  (UNIT=8, FILE='DATA', ACCESS='SEQUENTIAL', FORM='UNFORMATTED')
+      INQUIRE (UNIT=8, EXIST=EX, OPENED=OP, NUMBER=N, NAME=NM,
+     1         ACCESS=AC, SEQUENTIAL=SQ, DIRECT=DR,
+     2         FORM=FM, FORMATTED=FT, UNFORMATTED=UF, IOSTAT=IOS)
+      INQUIRE (FILE='DATA', EXIST=EX, ...)        ! or inquire by file name
+</code></pre>
+<p><code>INQUIRE</code> (by <code>UNIT</code> or by <code>FILE</code>) reports <code>EXIST</code>/<code>OPENED</code>/<code>NUMBER</code>/<code>NAMED</code>/<code>NAME</code>/<code>IOSTAT</code>
+and the connection properties <code>ACCESS</code>/<code>FORM</code> plus the <code>YES</code>/<code>NO</code>/<code>UNKNOWN</code> specifiers
+<code>SEQUENTIAL</code>/<code>DIRECT</code>/<code>FORMATTED</code>/<code>UNFORMATTED</code> (X3.9-1978 §12.10).</p>
+<h3 id="widthless-a">Widthless <code>A</code></h3>
+<p>F77 §13.5.11 makes the field width optional on the <code>A</code> descriptor alone — a widthless <code>A</code>
+uses the list item's declared <code>CHARACTER</code> length. (Strict F66 requires a width on every
+descriptor.)</p>
+<hr />
+<h2 id="7-what-the-f77-dialect-does-not-add">7. What the F77 dialect does <em>not</em> add</h2>
+<p>The F77 dialect is the 1978 standard, not a superset of everything later or DEC-specific:</p>
+<ul>
+<li><strong><code>DO WHILE</code></strong> — DEC/Fortran-90, not X3.9-1978 (see §3). On <code>FORTRAN10</code>, off <code>F77</code>.</li>
+<li><strong><code>.XOR.</code> and symbolic relationals (<code>==</code>, <code>&lt;</code>, <code>&gt;</code>)</strong> — DEC operators; <code>F77</code> has only
+<code>.EQV.</code>/<code>.NEQV.</code> from the F77 logical set.</li>
+<li><strong>DEC array-bound <code>A(lo/hi)</code></strong> — F77 uses only <code>A(lo:hi)</code>; under F77 a <code>/</code> inside a bound
+is ordinary division (<code>A(6/3:9)</code> is <code>A(2:9)</code>).</li>
+<li><strong>Fortran-90 free-form source, <code>CHARACTER(LEN=…)</code>, modules, dynamic allocation</strong> — out of
+scope; the source form is fixed-form card image as in <a href="../reference/index.html#1-source-form">F66</a>.</li>
+</ul>
+<hr />
+<h2 id="8-conformance-fcvs-77">8. Conformance — FCVS-77</h2>
+<p>The interpreter is exercised against the FORTRAN-77 audit routines of the <strong>FCVS</strong> (FORTRAN
+Compiler Validation System) — the 140 routines that use <code>CHARACTER</code> and the F77 features,
+restored to pristine form (verified against gfortran) under <code>tests/fcvs77/</code>.</p>
+<ul>
+<li><strong>All 140 parse and run</strong> — the front end is complete (zero parse-gaps).</li>
+<li>The self-checking routines report <strong>1550 sub-test passes</strong> against a tracked, ratcheting
+punch-list of remaining <strong>value/semantic</strong> failures (numeric precision, some <code>INQUIRE</code>
+variants, formatting) — pinned in <code>tests/test_fcvs77_conformance.py</code>.</li>
+<li>The <strong>print-and-eyeball</strong> routines (no self-check) are validated by a <strong>golden</strong> diff
+against gfortran output committed under <code>tests/fcvs77_golden/</code> — <code>test_fcvs77_golden.py</code>
+compares without needing gfortran at test time (regenerate with
+<code>tests/fcvs77_golden/regenerate.py</code>).</li>
+</ul>
+<p>This corpus is independent of the interpreter's own assumptions (it predates the project by
+~40 years), so it is the primary check on F77 conformance. See also
+<a href="../reference/index.html">FORTRAN66.md</a> for the base-language <code>tests/fcvs/</code> corpus.</p>
+<hr />
+<h2 id="9-the-f77-dialect-knobs">9. The F77 dialect knobs</h2>
+<p><code>forterp.F77</code> is a <code>Dialect</code> (see <a href="../api/index.html#the-two-axes-target-and-dialect">API.md</a>) with these
+flags on. Several were split out of the broader DEC bundles so F77 gets exactly the
+standardized subset:</p>
+<table>
+<thead>
+<tr>
+<th>Knob</th>
+<th>Enables</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character_type</code></td>
+<td>the <code>CHARACTER</code> data type — quoted strings become <code>str</code>, not Hollerith words</td>
+</tr>
+<tr>
+<td><code>block_if</code></td>
+<td><code>IF … THEN</code> / <code>ELSE IF</code> / <code>ELSE</code> / <code>END IF</code></td>
+</tr>
+<tr>
+<td><code>list_directed_io</code></td>
+<td>list-directed <code>*</code> <code>READ</code>/<code>WRITE</code> (split from the DEC <code>extended_io</code> bundle)</td>
+</tr>
+<tr>
+<td><code>eqv_operators</code></td>
+<td><code>.EQV.</code> / <code>.NEQV.</code> (split from the DEC <code>dec_operators</code> bundle)</td>
+</tr>
+<tr>
+<td><code>parameter_stmt</code></td>
+<td>the <code>PARAMETER</code> statement</td>
+</tr>
+<tr>
+<td><code>implicit_stmt</code></td>
+<td>the <code>IMPLICIT</code> statement (incl. <code>IMPLICIT CHARACTER*n</code>)</td>
+</tr>
+<tr>
+<td><code>save_stmt</code>, <code>intrinsic_stmt</code></td>
+<td><code>SAVE</code> / <code>INTRINSIC</code></td>
+</tr>
+<tr>
+<td><code>expr_subscripts</code></td>
+<td>general integer expressions in subscripts and <code>DO</code> bounds</td>
+</tr>
+<tr>
+<td><code>array_lower_bounds</code></td>
+<td><code>DIMENSION A(lo:hi)</code>, assumed-size <code>A(*)</code>, adjustable bounds</td>
+</tr>
+<tr>
+<td><code>alt_return</code></td>
+<td>alternate-return actual arguments (<code>CALL S(*99)</code>)</td>
+</tr>
+<tr>
+<td><code>mixed_complex_assign</code></td>
+<td><code>COMPLEX</code> ↔ numeric assignment</td>
+</tr>
+<tr>
+<td><code>apostrophe_string</code></td>
+<td><code>'…'</code> string constants</td>
+</tr>
+<tr>
+<td><code>dec_intrinsics</code></td>
+<td>the F77 generic intrinsic library (a superset of F66 Tables 3 &amp; 4)</td>
+</tr>
+</tbody>
+</table>
+<p>Notably <strong>off</strong> for F77 (and on only for <code>FORTRAN10</code>): <code>do_while</code>, <code>dec_operators</code> (<code>.XOR.</code>,
+<code>==</code>/<code>&lt;</code>/<code>&gt;</code>), <code>slash_dim_bound</code> (<code>A(lo/hi)</code>), <code>octal_quote</code>, <code>tab_format</code>, <code>inline_comment</code>
+(<code>!</code>), <code>extended_io</code> (<code>TYPE</code>/<code>ACCEPT</code>/<code>ENCODE</code>/<code>DECODE</code>, random-access), <code>free_form_input</code>.</p>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../index.html">forterp</a> is <a href="../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

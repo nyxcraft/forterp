@@ -8,9 +8,13 @@
 - **[API.md](API.md)** — the programmer's reference for the `forterp.*` Python API:
   running and parsing, the prebuilt interpreters, the target/dialect axes, embedding the
   engine, the expert namespaces, custom host builtins, and the OOB census.
-- **[FORTRAN66.md](FORTRAN66.md)** — a language reference for the
-  FORTRAN dialect `forterp` implements (standard FORTRAN-66 plus the DEC FORTRAN-10
-  extensions), written for users of this interpreter.
+- **[FORTRAN66.md](FORTRAN66.md)** — a language reference for the base
+  dialect `forterp` implements (standard FORTRAN-66 plus the DEC FORTRAN-10 extensions),
+  written for users of this interpreter.
+- **[FORTRAN77.md](FORTRAN77.md)** — the FORTRAN 77 dialect (`forterp.F77` / `--std f77`):
+  the `CHARACTER` type, the block `IF`, list-directed and keyword-driven I/O, internal
+  files, `INQUIRE`, `PARAMETER`/`SAVE`, and `.EQV.`/`.NEQV.` — everything F77 adds over the
+  FORTRAN-66 base.
 - **[CHANGELOG.md](../CHANGELOG.md)** — dated history of the standalone interpreter.
 
 Runnable material lives outside `docs/`:
@@ -27,12 +31,14 @@ under `gh-pages/public/` (kept in sync by the `.githooks` pre-commit hook) and d
 
 ## Authoritative standards
 
-`forterp` targets two specifications. The reference above summarizes them as implemented;
+`forterp` targets three specifications. The references above summarize them as implemented;
 the primary sources are:
 
 - **ANSI X3.9-1966, "FORTRAN"** — the FORTRAN 66 standard (the first standardized
   FORTRAN). This is the base language. The standard is archived by the ISO/IEC
   JTC1/SC22/WG5 Fortran committee (<https://wg5-fortran.org/ARCHIVE/Fortran66.pdf>).
+- **ANSI X3.9-1978, "FORTRAN"** — the FORTRAN 77 standard, layered on the F66 base by the
+  `F77` dialect (the `CHARACTER` type, the block `IF`, list-directed I/O, `INQUIRE`).
 - **DECsystem-10 FORTRAN-10 Language Manual (V5)** — the DEC dialect `forterp` actually
   reproduces (the 36-bit word model, SIXBIT/A5 packing, octal/Hollerith literals,
   `IAND`/`IOR`/shift intrinsics, FOROTS binary I/O, tab-format source). This is the
@@ -40,9 +46,10 @@ the primary sources are:
 
 ## Conformance
 
-The interpreter is exercised against the **FCVS** (FORTRAN Compiler Validation System)
-audit corpus — see `tests/fcvs/` — which checks conformance to the FORTRAN-66 standard.
-Run `pytest` to execute it.
+The interpreter is exercised against the **FCVS** (FORTRAN Compiler Validation System) audit
+corpus: `tests/fcvs/` checks the FORTRAN-66 standard, and `tests/fcvs77/` the FORTRAN-77
+`CHARACTER`/feature routines (with gfortran golden outputs under `tests/fcvs77_golden/` for
+the print-only routines — no gfortran needed at test time). Run `pytest` to execute them.
 
 ## Security & trust model
 

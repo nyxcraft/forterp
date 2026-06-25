@@ -12,9 +12,9 @@ package root exposes a focused surface; deeper machinery lives in explicit names
 |------|------|
 | `run_source(text, …)` | parse + run a source string; returns the `Engine` |
 | `parse_source(text, …)` | parse → `{name: ProgramUnit}` (raises `ParseError`) |
-| `f66`, `fortran10` | prebuilt, ready-to-run interpreters |
+| `f66`, `fortran10`, `f77` | prebuilt, ready-to-run interpreters |
 | `Interpreter` | roll your own (target + dialect + runtime) |
-| `F66`, `FORTRAN10`, `Dialect` | the front-end dialect axis |
+| `F66`, `FORTRAN10`, `F77`, `Dialect` | the front-end dialect axis |
 | `NATIVE`, `PDP10`, `VAX`, `Target` | the machine value-model axis |
 | `ParseError`, `SourceOptions` | the parse error; source-recovery options |
 
@@ -37,8 +37,8 @@ print(eng.commons["OUT"][0])        # 1024
 ```
 
 `run_source(text, program=None, dialect=F66, options=None, include_dir=".", **kwargs)`:
-`program` picks the main unit (default: the first); `dialect` is `F66` (default) or
-`FORTRAN10`; `include_dir` is where `INCLUDE` resolves; extra `**kwargs` pass through to the
+`program` picks the main unit (default: the first); `dialect` is `F66` (default),
+`FORTRAN10`, or `F77`; `include_dir` is where `INCLUDE` resolves; extra `**kwargs` pass through to the
 `Engine` (see [Embedding](#embedding-and-io)).
 
 `parse_source(text, dialect=F66, on_error=None, options=None, include_dir=".")` parses
@@ -65,10 +65,12 @@ convention, the character codec):
 forterp.run_source(src, target=forterp.PDP10)   # 36-bit arithmetic, packed ASCII
 ```
 
-**Dialect** — the front-end language (`forterp.F66` strict ANSI vs `forterp.FORTRAN10` the
-DEC superset). F66 genuinely *rejects* non-F66 constructs; FORTRAN10 enables octal,
-tab-format, `!` comments, apostrophe strings, random-access I/O, free-form input, and the
-DEC intrinsic library.
+**Dialect** — the front-end language. `forterp.F66` is strict ANSI X3.9-1966 and genuinely
+*rejects* non-F66 constructs; `forterp.FORTRAN10` is the DEC superset (octal, tab-format,
+`!` comments, apostrophe strings, random-access I/O, free-form input, the DEC intrinsic
+library); `forterp.F77` is ANSI X3.9-1978 — the `CHARACTER` type, the block `IF`,
+list-directed and keyword-driven I/O, internal files, `INQUIRE`, `PARAMETER`/`SAVE`, and
+`.EQV.`/`.NEQV.`. See **[FORTRAN77.md](FORTRAN77.md)** for the full F77 reference.
 
 **SourceOptions** — orthogonal to the dialect; it copes with imperfect *input*, not a
 language variant. `forterp.SourceOptions(recover_shifted_cols=True)` keeps statement text
@@ -77,8 +79,9 @@ that spilled past column 72 in a mechanically re-indented deck. The default is n
 
 ## Prebuilt interpreters and the `Interpreter` class
 
-`forterp.fortran10` (`PDP10` + `FORTRAN10` + free-form input) and `forterp.f66` (`NATIVE` +
-strict `F66`) are ready-to-run presets. Build your own with `Interpreter(target, dialect,
+`forterp.fortran10` (`PDP10` + `FORTRAN10` + free-form input), `forterp.f66` (`NATIVE` +
+strict `F66`), and `forterp.f77` (`NATIVE` + `F77`, with the `CHARACTER` type on) are
+ready-to-run presets. Build your own with `Interpreter(target, dialect,
 *, free_form_input=None, dec_intrinsics=None, runtime=True, source_options=None)` — the two
 flags default from the dialect, so you can't construct a contradictory pairing.
 

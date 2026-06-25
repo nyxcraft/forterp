@@ -13,9 +13,16 @@
   "docs": [
     {
       "slug": "reference",
-      "title": "Language reference",
+      "title": "Language reference (FORTRAN 66)",
       "source": "docs/FORTRAN66.md",
-      "summary": "The FORTRAN dialect forterp implements: standard FORTRAN-66 plus the DEC FORTRAN-10 extensions, written for users of the interpreter — with the deliberate divergences spelled out.",
+      "summary": "The base dialect forterp implements: standard FORTRAN-66 plus the DEC FORTRAN-10 extensions, written for users of the interpreter — with the deliberate divergences spelled out.",
+      "featured": true
+    },
+    {
+      "slug": "fortran77",
+      "title": "FORTRAN 77 reference",
+      "source": "docs/FORTRAN77.md",
+      "summary": "The FORTRAN 77 dialect (forterp.F77 / --std f77): the CHARACTER type, the block IF, list-directed and keyword-driven I/O, internal files, INQUIRE, PARAMETER/SAVE, and .EQV./.NEQV. — everything F77 adds over the FORTRAN-66 base, with the FCVS-77 conformance status.",
       "featured": true
     },
     {

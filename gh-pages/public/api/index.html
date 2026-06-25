@@ -84,7 +84,7 @@ package root exposes a focused surface; deeper machinery lives in explicit names
 <td>parse → <code>{name: ProgramUnit}</code> (raises <code>ParseError</code>)</td>
 </tr>
 <tr>
-<td><code>f66</code>, <code>fortran10</code></td>
+<td><code>f66</code>, <code>fortran10</code>, <code>f77</code></td>
 <td>prebuilt, ready-to-run interpreters</td>
 </tr>
 <tr>
@@ -92,7 +92,7 @@ package root exposes a focused surface; deeper machinery lives in explicit names
 <td>roll your own (target + dialect + runtime)</td>
 </tr>
 <tr>
-<td><code>F66</code>, <code>FORTRAN10</code>, <code>Dialect</code></td>
+<td><code>F66</code>, <code>FORTRAN10</code>, <code>F77</code>, <code>Dialect</code></td>
 <td>the front-end dialect axis</td>
 </tr>
 <tr>
@@ -120,8 +120,8 @@ eng = forterp.run_source(src, dialect=forterp.FORTRAN10)
 print(eng.commons[&quot;OUT&quot;][0])        # 1024
 </code></pre>
 <p><code>run_source(text, program=None, dialect=F66, options=None, include_dir=&quot;.&quot;, **kwargs)</code>:
-<code>program</code> picks the main unit (default: the first); <code>dialect</code> is <code>F66</code> (default) or
-<code>FORTRAN10</code>; <code>include_dir</code> is where <code>INCLUDE</code> resolves; extra <code>**kwargs</code> pass through to the
+<code>program</code> picks the main unit (default: the first); <code>dialect</code> is <code>F66</code> (default),
+<code>FORTRAN10</code>, or <code>F77</code>; <code>include_dir</code> is where <code>INCLUDE</code> resolves; extra <code>**kwargs</code> pass through to the
 <code>Engine</code> (see <a href="#embedding-and-io">Embedding</a>).</p>
 <p><code>parse_source(text, dialect=F66, on_error=None, options=None, include_dir=&quot;.&quot;)</code> parses
 without running and returns <code>{name: ProgramUnit}</code>. It raises <code>ParseError</code> (with every
@@ -141,17 +141,20 @@ ASCII, <code>.TRUE.</code>=−1 with bit-wise logicals. The faithful, validated 
 </ul>
 <pre><code class="language-python">forterp.run_source(src, target=forterp.PDP10)   # 36-bit arithmetic, packed ASCII
 </code></pre>
-<p><strong>Dialect</strong> — the front-end language (<code>forterp.F66</code> strict ANSI vs <code>forterp.FORTRAN10</code> the
-DEC superset). F66 genuinely <em>rejects</em> non-F66 constructs; FORTRAN10 enables octal,
-tab-format, <code>!</code> comments, apostrophe strings, random-access I/O, free-form input, and the
-DEC intrinsic library.</p>
+<p><strong>Dialect</strong> — the front-end language. <code>forterp.F66</code> is strict ANSI X3.9-1966 and genuinely
+<em>rejects</em> non-F66 constructs; <code>forterp.FORTRAN10</code> is the DEC superset (octal, tab-format,
+<code>!</code> comments, apostrophe strings, random-access I/O, free-form input, the DEC intrinsic
+library); <code>forterp.F77</code> is ANSI X3.9-1978 — the <code>CHARACTER</code> type, the block <code>IF</code>,
+list-directed and keyword-driven I/O, internal files, <code>INQUIRE</code>, <code>PARAMETER</code>/<code>SAVE</code>, and
+<code>.EQV.</code>/<code>.NEQV.</code>. See <strong><a href="../fortran77/index.html">FORTRAN77.md</a></strong> for the full F77 reference.</p>
 <p><strong>SourceOptions</strong> — orthogonal to the dialect; it copes with imperfect <em>input</em>, not a
 language variant. <code>forterp.SourceOptions(recover_shifted_cols=True)</code> keeps statement text
 that spilled past column 72 in a mechanically re-indented deck. The default is no recovery
 (columns 7–72, sequence field dropped).</p>
 <h2 id="prebuilt-interpreters-and-the-interpreter-class">Prebuilt interpreters and the <code>Interpreter</code> class</h2>
-<p><code>forterp.fortran10</code> (<code>PDP10</code> + <code>FORTRAN10</code> + free-form input) and <code>forterp.f66</code> (<code>NATIVE</code> +
-strict <code>F66</code>) are ready-to-run presets. Build your own with <code>Interpreter(target, dialect, *, free_form_input=None, dec_intrinsics=None, runtime=True, source_options=None)</code> — the two
+<p><code>forterp.fortran10</code> (<code>PDP10</code> + <code>FORTRAN10</code> + free-form input), <code>forterp.f66</code> (<code>NATIVE</code> +
+strict <code>F66</code>), and <code>forterp.f77</code> (<code>NATIVE</code> + <code>F77</code>, with the <code>CHARACTER</code> type on) are
+ready-to-run presets. Build your own with <code>Interpreter(target, dialect, *, free_form_input=None, dec_intrinsics=None, runtime=True, source_options=None)</code> — the two
 flags default from the dialect, so you can't construct a contradictory pairing.</p>
 <p>Each interpreter offers a uniform surface:</p>
 <pre><code class="language-python">fp = forterp.fortran10

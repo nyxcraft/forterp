@@ -27,6 +27,11 @@ The PDP-10 target was extracted from an interpreter built to run real 1970s DEC 
 unmodified, so it is exercised against real period code — not just toy snippets — and
 validated against the DEC FORTRAN-10 V5 manual and the **FCVS** conformance corpus.
 
+The other axis is the **front-end dialect**: `F66` (strict ANSI X3.9-1966, the default),
+`FORTRAN10` (the DEC superset), and `F77` (ANSI X3.9-1978 — the `CHARACTER` type, the block
+`IF`, list-directed I/O, `INQUIRE`; see [docs/FORTRAN77.md](docs/FORTRAN77.md)). Target and
+dialect are orthogonal — any pairing runs.
+
 ## Install
 
 ```sh
@@ -73,7 +78,8 @@ Installing puts three commands on your PATH — thin dialect front-ends over the
 ```sh
 pyf66 prog.for              # run as strict ANSI FORTRAN-66 (rejects DEC extensions)
 pyfortran10 prog.for        # run as DEC FORTRAN-10 (the superset: octal, IMPLICIT, '...', …)
-forterp --std fortran10 prog.for   # general driver; --std f66|fortran10 (default: f66)
+forterp --std fortran10 prog.for   # general driver; --std f66|fortran10|f77 (default: f66)
+forterp --std f77 prog.for         # FORTRAN 77: CHARACTER, block IF, list-directed I/O, INQUIRE
 ```
 
 `--target native|pdp10|vax` selects the value model and `--program NAME` picks the main
@@ -145,8 +151,10 @@ f66> PROFILE                 #    5  FAC:6   (the loop body ran 5 times)
   ASCII, boolean logicals) is the default; `forterp.PDP10` (36-bit, 5×7-bit packed, `.TRUE.`=−1,
   bit-wise logicals) is the DEC target; `forterp.VAX` (32-bit, little-endian, low-bit
   logical) is a *provisional, unvalidated* guess. Pass `Engine(..., target=...)`.
-- **Front-end dialect** — `forterp.FORTRAN10` (DEC extensions on) vs `forterp.F66`
-  (ANSI). Threaded through the source reader and lexer.
+- **Front-end dialect** — `forterp.F66` (strict ANSI X3.9-1966), `forterp.FORTRAN10` (the DEC
+  extensions), or `forterp.F77` (ANSI X3.9-1978: the `CHARACTER` type, block `IF`,
+  list-directed I/O, `INQUIRE` — see [docs/FORTRAN77.md](docs/FORTRAN77.md)). Threaded through
+  the source reader, lexer, and parser.
 - **OPEN devices** — `eng.register_device(name, handler)` plugs in special devices.
 - **Unformatted I/O codec** — `forterp.runtime.install_runtime(eng)` wires the FOROTS binary-record +
   DEC-10 float codec used by binary `READ`/`WRITE`.
@@ -158,7 +166,14 @@ set, `DO` loops with F66 one-trip semantics, `COMMON`/`EQUIVALENCE` storage asso
 `DATA`, subprograms + `ENTRY`, statement functions), formatted + list-directed +
 unformatted I/O with the complete `FORMAT` edit-descriptor set, `ENCODE`/`DECODE`, and
 the DEC FORTRAN-10 extensions (octal literals, Hollerith, `IAND`/`IOR`/shift intrinsics,
-tab-format source, random-access `READ(u'r)`). See [`docs/`](docs/).
+tab-format source, random-access `READ(u'r)`).
+
+**FORTRAN 77** (`--std f77` / `forterp.F77`) adds the `CHARACTER` type (declarations,
+`//` concatenation, blank-padded comparison, substrings, `LEN`/`CHAR`/`ICHAR`/`INDEX`),
+the block `IF` (`IF…THEN`/`ELSE IF`/`ELSE`/`END IF`), list-directed and keyword-driven I/O
+(`READ(UNIT=…,FMT=…)`), internal files, `INQUIRE`, `PARAMETER`/`SAVE`/`INTRINSIC`,
+assumed-size arrays, and `.EQV.`/`.NEQV.` — all exercised against the FORTRAN-77 **FCVS**
+audit corpus. See [docs/FORTRAN77.md](docs/FORTRAN77.md) and [`docs/`](docs/).
 
 ## Examples & demos
 
