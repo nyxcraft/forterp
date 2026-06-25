@@ -174,6 +174,10 @@ def _parse_seq(s, p, depth=0):
             w2, _hw, _d, p = _scan_width_decimals(s, p)
             items.append(Item("T" + sub, w2 or 1))
             continue
+        if letter == "B" and p < n and s[p] in "NZnz":  # BN/BZ blank-interpretation (13.5.7)
+            items.append(Item("B" + s[p].upper()))
+            p += 1
+            continue
         w, has_w, d, p = _scan_width_decimals(s, p)
         # Ew.dEe / Gw.dEe / Dw.dEe: an explicit exponent-digit count follows the decimals
         # (X3.9-1978 13.5.9). The marker letter abuts the decimals (no separator).
@@ -523,14 +527,24 @@ class InputConversionError(Exception):
 _VALUE_KINDS = frozenset({"A", "R", "G", "I", "O", "F", "E", "D", "L"})
 
 
-def read_values(items, line, target=NATIVE, free_form=False, character_type=False, a_widths=None):
+def read_values(
+    items,
+    line,
+    target=NATIVE,
+    free_form=False,
+    character_type=False,
+    a_widths=None,
+    blank_zero=True,
+):
     """Parse `line` per the format (F66 7.2.3); return a list of (kind, value) reads.
 
-    By default (F66) every numeric/logical field is read by COLUMN: leading blanks are
-    insignificant, embedded/trailing blanks are zeros (7.2.3.6(1)); an F/E/G/D field
-    with no decimal point gets the implied decimal d digits from the right (7.2.3.6.2);
-    a kP scale divides an exponent-free field (7.2.3.5.1). A widthless descriptor uses
-    its V5 default width as the column width.
+    A width'd numeric field is read by COLUMN. `blank_zero` selects how its blank columns
+    (including a short record padded out to the field) are interpreted: True is ANSI
+    X3.9-1966 (7.2.3.6 -- embedded/trailing blanks are zeros), False is the FORTRAN-10 V5 /
+    F77 default BLANK=NULL (blanks ignored). The BN / BZ edit descriptors flip this mid-format
+    (13.5.7). Leading blanks are insignificant either way; an F/E/G/D field with no decimal
+    point gets the implied decimal d digits from the right (7.2.3.6.2); a kP scale divides an
+    exponent-free field (7.2.3.5.1). A widthless descriptor uses its V5 default width.
 
     With `free_form=True` (the FORTRAN-10 input extension), a WIDTHLESS descriptor
     (`I`, `G`, ...) instead reads one free-form, whitespace/comma/tab-delimited token --
@@ -542,6 +556,7 @@ def read_values(items, line, target=NATIVE, free_form=False, character_type=Fals
     vals = []
     pos = 0
     scale = 0  # current P scale factor (F66 7.2.3.5)
+    bz = blank_zero  # current blank-interpretation mode; BN/BZ flip it (13.5.7)
     for it in items:
         k = it.kind
         # pop one width hint per value-producing field, keeping lockstep with the io-list
@@ -563,15 +578,15 @@ def read_values(items, line, target=NATIVE, free_form=False, character_type=Fals
             if tok:  # widthless [DEC] G in free-form mode: integer token (V5/ADVENT)
                 vals.append(("I", _to_int(chunk, 10)))
             else:  # Gw.d reads as for F (7.2.3.6.2)
-                vals.append(("F", _read_real(chunk, it.b if it.a is not None else None, scale)))
+                vals.append(("F", _read_real(chunk, it.b if it.a is not None else None, scale, bz)))
         elif k in ("I", "O"):
             chunk, pos, tok = _grab(it, line, pos, free_form)
-            if not tok:  # column field: embedded/trailing blanks are zeros
-                chunk = _blank_fill(chunk)
+            if not tok:  # column field: blanks are zeros (BZ) or ignored (BN), per `bz`
+                chunk = _blank_fill(chunk, bz)
             vals.append((k, _to_int(chunk, 8 if k == "O" else 10)))
         elif k in ("F", "E", "D"):
             chunk, pos, _tok = _grab(it, line, pos, free_form)
-            vals.append(("F", _read_real(chunk, it.b if it.a is not None else None, scale)))
+            vals.append(("F", _read_real(chunk, it.b if it.a is not None else None, scale, bz)))
         elif k == "L":
             chunk, pos, _tok = _grab(it, line, pos, free_form)
             # X3.9-1978 13.5.10 / F66 7.2.3.7: optional leading blanks, then an OPTIONAL decimal
@@ -590,6 +605,14 @@ def read_values(items, line, target=NATIVE, free_form=False, character_type=Fals
             pos += it.a or 1
         elif k == "T":  # tab to 1-based column
             pos = max(0, (it.a or 1) - 1)
+        elif k == "TL":  # tab left (relative)
+            pos = max(0, pos - (it.a or 1))
+        elif k == "TR":  # tab right (relative)
+            pos += it.a or 1
+        elif k == "BN":  # blanks in numeric fields ignored from here on (13.5.7)
+            bz = False
+        elif k == "BZ":  # blanks in numeric fields read as zeros from here on
+            bz = True
     return vals
 
 
@@ -638,19 +661,23 @@ def _to_int(s, base):
         raise InputConversionError(f"illegal character in integer field {s!r}") from None
 
 
-def _blank_fill(field):
-    """F66 7.2.3.6(1) blank handling for a width'd numeric field: leading blanks are
-    insignificant; embedded and trailing blanks are zeros (all-blank field -> "")."""
-    return field.lstrip(" ").replace(" ", "0")
+def _blank_fill(field, zero=True):
+    """Blank handling for a width'd numeric field. With `zero` (ANSI X3.9-1966 7.2.3.6(1) /
+    a BZ-mode unit): leading blanks insignificant, embedded/trailing blanks are zeros (all-blank
+    field -> ""). Without it (FORTRAN-10 V5 / F77 BLANK=NULL default, or BN mode): blanks are
+    ignored entirely, so a short padded field reads as just its significant digits."""
+    if zero:
+        return field.lstrip(" ").replace(" ", "0")
+    return field.replace(" ", "")
 
 
-def _read_real(field, d, scale):
+def _read_real(field, d, scale, blank_zero=True):
     """Convert a real input field (Fw.d / Ew.d / Dw.d / Gw.d). The D and E exponent
     letters are interchangeable; a field with no decimal point places it `d` digits
     from the right (implied decimal); a kP scale factor divides an exponent-free field
     by 10**k. An all-blank field reads as zero; any other unreadable field is a runtime
-    input error (V5 -> ERR= or halt)."""
-    s = _blank_fill(field).replace("D", "E").replace("d", "e")
+    input error (V5 -> ERR= or halt). `blank_zero` selects blanks-as-zeros vs ignored."""
+    s = _blank_fill(field, blank_zero).replace("D", "E").replace("d", "e")
     if not s or s in ("+", "-"):  # all-blank field -> zero (blanks-as-zero)
         return 0.0
     try:

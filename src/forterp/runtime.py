@@ -55,6 +55,7 @@ def engine_kwargs(dialect):
         "dec_intrinsics": dialect.dec_intrinsics,
         "character_type": dialect.character_type,
         "zero_trip_do": dialect.zero_trip_do,
+        "blank_null": dialect.blank_null,
     }
 
 

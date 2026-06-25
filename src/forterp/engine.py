@@ -358,6 +358,7 @@ class Engine:
         dec_intrinsics=True,
         character_type=False,
         zero_trip_do=False,
+        blank_null=False,
         max_array_words=50_000_000,
         forots=False,
         tty_width=80,
@@ -385,6 +386,9 @@ class Engine:
         self.free_form_input = free_form_input
         self.dec_intrinsics = dec_intrinsics
         self.zero_trip_do = zero_trip_do  # F77 zero-trip DO vs F66/DEC one-trip (see exec_do)
+        # blank_null: a width'd numeric input field's blanks are ignored (FORTRAN-10/F77 default)
+        # vs read as zeros (ANSI F66 7.2.3.6). read_values takes blank_zero = not this.
+        self.blank_null = blank_null
         #  - character_type: the F77 CHARACTER data type is in play. A string literal then
         #    evaluates to a Python str (a character constant), not a packed-ASCII Hollerith
         #    word -- so CHARACTER vars/concatenation/comparison work. Off for F66/FORTRAN-10,
@@ -1771,7 +1775,14 @@ class Engine:
             return
         spec = self._fmt_spec(s.fmt, frame)
         items = self._parsed(spec)
-        reads = read_values(items, line, self.tgt, self.free_form_input, self.character_type)
+        reads = read_values(
+            items,
+            line,
+            self.tgt,
+            self.free_form_input,
+            self.character_type,
+            blank_zero=self._blank_zero(),
+        )
         self._assign_reads(s.items, reads, frame)  # COMPLEX consumes 2 real fields
 
     def do_encdec(self, s, frame):
@@ -1800,7 +1811,10 @@ class Engine:
                 self._ld_in(text, refs)
             else:
                 for ref, (_, v) in zip(
-                    refs, read_values(items, text, self.tgt, self.free_form_input)
+                    refs,
+                    read_values(
+                        items, text, self.tgt, self.free_form_input, blank_zero=self._blank_zero()
+                    ),
                 ):
                     ref.write(v)
         else:
@@ -2050,7 +2064,14 @@ class Engine:
             elif items is not None and isinstance(cell, str):
                 self._assign_reads(
                     s.items,
-                    read_values(items, cell, self.tgt, self.free_form_input, self.character_type),
+                    read_values(
+                        items,
+                        cell,
+                        self.tgt,
+                        self.free_form_input,
+                        self.character_type,
+                        blank_zero=self._blank_zero(st),
+                    ),
                     frame,
                 )
             else:
@@ -2089,7 +2110,13 @@ class Engine:
             text = str(self.eval(s.unit, frame))
             aw = iter(self._a_field_widths(s.items, frame)) if self.character_type else None
             reads = read_values(
-                items, text, self.tgt, self.free_form_input, self.character_type, aw
+                items,
+                text,
+                self.tgt,
+                self.free_form_input,
+                self.character_type,
+                aw,
+                blank_zero=self._blank_zero(),
             )
             self._assign_reads(s.items, reads, frame)
         elif isinstance(s.unit, A.Substring):  # WRITE into a substring slice of the base
@@ -2215,6 +2242,18 @@ class Engine:
             line = self.readline()  # terminal / default
         self._nml_read(nml, line, frame)
 
+    def _blank_zero(self, st=None):
+        """Whether width'd numeric input reads blanks as zeros: an OPEN BLANK= specifier on the
+        connected unit wins (X3.9-1978 12.10.1), else the dialect default (F66 zeros vs the
+        FORTRAN-10/F77 BLANK=NULL). BN/BZ descriptors still override per-field in read_values."""
+        if st is not None:
+            b = st.get("blank")
+            if b == "ZERO":
+                return True
+            if b == "NULL":
+                return False
+        return not self.blank_null
+
     def _read_formatted_lines(self, st, s, frame):
         """Formatted READ from a sequential file of TEXT records (an F77 formatted WRITE).
         Honours `/`: the format is split at each top-level slash into per-record field groups,
@@ -2260,7 +2299,13 @@ class Engine:
                 line = recs[st["pos"]]
                 st["pos"] += 1
                 vals += read_values(
-                    g, line, self.tgt, self.free_form_input, self.character_type, a_widths
+                    g,
+                    line,
+                    self.tgt,
+                    self.free_form_input,
+                    self.character_type,
+                    a_widths,
+                    blank_zero=self._blank_zero(st),
                 )
                 if len(vals) >= needed:
                     break
@@ -2587,7 +2632,14 @@ class Engine:
             items = self._parsed(spec)
             self._assign_reads(
                 s.items,
-                read_values(items, line, self.tgt, self.free_form_input, self.character_type),
+                read_values(
+                    items,
+                    line,
+                    self.tgt,
+                    self.free_form_input,
+                    self.character_type,
+                    blank_zero=self._blank_zero(st),
+                ),
                 frame,
             )
         self.last_io_error = IO_OK

@@ -563,6 +563,17 @@ def test_e_format_explicit_exponent_width():
     assert _iwrite("E8.4E1", "2345.0") == ".2345E+4  "
 
 
+def test_blank_null_default_on_width_d_numeric_read():
+    # Regression: under F77 (and FORTRAN-10) a width'd numeric field's blanks default to NULL
+    # (ignored), so reading '5' padded to an I5 field yields 5, not 50000 (the F66 blanks-as-zero).
+    src = (
+        "      PROGRAM T\n      COMMON /O/ N(8)\n      CHARACTER C*5\n"
+        "      C='5'\n      READ(C,10) N(1)\n   10 FORMAT(I5)\n      END\n"
+    )
+    eng = forterp.run_source(src, dialect=forterp.F77, target=forterp.NATIVE)
+    assert eng.commons["O"][0] == 5
+
+
 def test_iw_m_minimum_digits():
     # FM912 / 13.5.9.1: Iw.m prints at least m digits, zero-filled (I5.3 of 5 -> '  005').
     assert _iwrite("I5.3", "5") == "  005     "

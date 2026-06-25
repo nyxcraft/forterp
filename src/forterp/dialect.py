@@ -60,6 +60,9 @@ class Dialect:
     intrinsic_stmt: bool = False  # the INTRINSIC statement (F77; declares names as intrinsic)
     character_type: bool = False  # the F77 CHARACTER data type (decls, // concat, substrings,
     # LEN/CHAR/...). A string literal then evaluates to a str, not a Hollerith packed word.
+    blank_null: bool = False  # blanks in a width'd numeric input field are IGNORED (BLANK=NULL),
+    # the FORTRAN-10 V5 / F77 default. ANSI X3.9-1966 (7.2.3.6) instead reads them as zeros, so
+    # F66 keeps blank_null=False; BN/BZ descriptors and OPEN BLANK= override at run time.
 
 
 F66 = Dialect()  # ANSI X3.9-1966 -- the default dialect
@@ -89,6 +92,7 @@ FORTRAN10 = Dialect(  # DEC FORTRAN-10 V5 superset: every extension on
     do_while=True,  # DEC FORTRAN-10 has DO WHILE
     save_stmt=True,
     intrinsic_stmt=True,
+    blank_null=True,  # FORTRAN-10 V5: width'd numeric input ignores blanks (BLANK=NULL default)
 )
 # ANSI X3.9-1978 (FORTRAN 77): the standard between F66 and the DEC superset. Reuses the
 # knobs F77 standardized; DEC-only extensions (octal `"`, tab format, free-form input, TYPE/
@@ -110,6 +114,7 @@ F77 = Dialect(
     list_directed_io=True,  # F77 §12 standardized list-directed I/O
     eqv_operators=True,  # F77 §6.6 has .EQV./.NEQV.
     zero_trip_do=True,  # F77 §11.10 zero-trip DO loops
+    blank_null=True,  # F77 §13.5.7: a width'd numeric field's blanks default to NULL (ignored)
 )
 
 # CLI / front-end name -> dialect, so every caller resolves the same names in one place.

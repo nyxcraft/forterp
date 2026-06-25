@@ -231,6 +231,27 @@ def test_read_bz_blanks_extend_into_the_exponent():
     assert read_values(parse_format("(E10.3)"), "   1.5E+02") == [("F", 150.0)]
 
 
+def test_read_blank_null_is_the_fortran10_f77_default():
+    # FORTRAN-10 V5 / F77 default is BLANK=NULL: blanks in a width'd numeric field are IGNORED,
+    # not read as zeros (the ANSI F66 default). A short record padded out to the field width
+    # then reads as just its significant digits -- READ(5,'(I5)') of "5" is 5, not 50000.
+    assert read_values(parse_format("(I5)"), "5", blank_zero=True) == [("I", 50000)]  # F66
+    assert read_values(parse_format("(I5)"), "5", blank_zero=False) == [("I", 5)]  # F10/F77
+    # the field is still COLUMN-based (not free-form): I3 of "12345" -> 123 either way
+    assert read_values(parse_format("(I3)"), "12345", blank_zero=False) == [("I", 123)]
+    # 2G6.0 of "12 34": blanks ignored -> 1234.0, then an empty second field -> 0.0
+    assert read_values(parse_format("(2G6.0)"), "12 34", blank_zero=False) == [
+        ("F", 1234.0),
+        ("F", 0.0),
+    ]
+
+
+def test_read_bn_bz_descriptors_flip_blank_mode():
+    # BN / BZ flip blank interpretation mid-format (X3.9-1978 13.5.7), overriding the default.
+    assert read_values(parse_format("(BZ,I5)"), "5", blank_zero=False) == [("I", 50000)]
+    assert read_values(parse_format("(BN,I5)"), "5", blank_zero=True) == [("I", 5)]
+
+
 def test_read_hollerith_field_takes_input_chars():
     # F66 7.2.3.8: an nH field reads its characters FROM the record, mutated in place
     fmt = parse_format("(5Hxxxxx)")
