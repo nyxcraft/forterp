@@ -58,8 +58,13 @@ tokenizer (a '...' value keeps embedded blanks/commas/slashes, '' -> '), null va
 repeats (`r*c` / `r*`), the `/` terminator, and multi-record spanning (a READ consumes as many
 records as its list needs).
 
-The remaining failures are the two deep clusters: FM302 (8, COMMON/EQUIVALENCE storage
-association) and FM411 (2, sequential-file positioning across BACKSPACE/ENDFILE/REWIND).
+FM411 (sequential-file positioning, 2) then cleared by modeling the endfile record: ENDFILE
+writes an endfile MARKER (X3.9-1978 12.10.4.2) rather than truncating, so a following BACKSPACE
+backs over that marker -- not over a real data record -- and ENDFILE+BACKSPACE+WRITE rebuilds
+the file to the expected 142 records (a READ reaching the marker still hits END=).
+
+The one remaining cluster is FM302 (8, COMMON/EQUIVALENCE storage association) -- the value
+model's documented weak spot.
 
 Landed since the restore: IMPLICIT CHARACTER*<len> (the audit-harness preamble), the
 optional comma after a DO label, LOGICAL/COMPLEX PARAMETER constants, the widthless A
@@ -98,12 +103,12 @@ def test_f77_conformance_baseline():
     # the fix (a gain) or investigate (a regression).
     assert R["n_run"] == 140
     assert R["n_gap"] == 0
-    assert R["total_pass"] == 1659
-    assert R["total_err"] == 10
+    assert R["total_pass"] == 1661
+    assert R["total_err"] == 8
     assert len(R["nosummary"]) == 42
 
 
 def test_self_check_failures_do_not_grow():
     # The known self-check failures (value/semantic conformance, not parse/control-flow).
     # A ratchet: fixing a bug should LOWER this -- update it down, never silently up.
-    assert R["total_err"] <= 10
+    assert R["total_err"] <= 8

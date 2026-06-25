@@ -305,7 +305,31 @@ def test_device_control_record_positioning():
     assert eng.io[1]["pos"] == 2
     eng.io[1]["pos"] = 1
     eng._file_ctl(A.FileCtl(verb="ENDFILE", specs={"UNIT": 1}), None)
-    assert eng.io[1]["recs"] == [10]
+    # ENDFILE writes an endfile marker at pos (truncating data after it) and positions past it;
+    # a following BACKSPACE backs over the MARKER, not record 10 (X3.9-1978 12.10.4).
+    from forterp.engine import ENDFILE_MARK
+
+    assert eng.io[1]["recs"] == [10, ENDFILE_MARK]
+    assert eng.io[1]["pos"] == 2
+    eng._file_ctl(A.FileCtl(verb="BACKSPACE", specs={"UNIT": 1}), None)
+    assert eng.io[1]["pos"] == 1  # positioned at the marker, after record 10
+
+
+def test_endfile_then_backspace_does_not_clobber_a_record():
+    # X3.9-1978 12.10.4 (FM411): ENDFILE writes an endfile record; a BACKSPACE then backs over
+    # THAT marker, not a data record. Write 3 records, ENDFILE, BACKSPACE, write 2 more, rewind
+    # and count -> 5 (the endfile-then-write must not overwrite the 3rd record).
+    src = (
+        "        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n        COMMON /O/ N\n"
+        "        DO 1 I=1,3\n    1   WRITE(9) I\n"
+        "        ENDFILE 9\n        BACKSPACE 9\n"
+        "        WRITE(9) 4\n        WRITE(9) 5\n"
+        "        REWIND 9\n        N=0\n"
+        "        DO 2 I=1,50\n        READ(9,END=3) K\n    2   N=N+1\n"
+        "    3   CONTINUE\n" + END
+    )
+    eng = run(src)
+    assert eng.commons["O"][0] == 5
 
 
 # ---- default-device I/O, PUNCH, REREAD -------------------------------------

@@ -59,6 +59,12 @@ IO_EOF = (24, 308)  # end-of-file on input
 IO_BAD_RECORD = (25, 302)  # invalid or unwritten (random-access) record
 IO_ILLEGAL_CHAR = (38, 311)  # illegal character in formatted input
 
+# Sentinel for the endfile record an ENDFILE statement writes (X3.9-1978 12.10.4.2). It sits in
+# a sequential unit's record list: a READ that reaches it hits end-of-file, and a BACKSPACE backs
+# over IT rather than over a data record -- so ENDFILE then BACKSPACE returns to after the last
+# real record (not before it). Dropped when the unit's records are persisted to disk on CLOSE.
+ENDFILE_MARK = ("__ENDFILE__",)
+
 
 # ----------------------------------------------------------------- references
 #: counts faithful out-of-bounds cell accesses (FORTRAN-10 had no array bounds
@@ -2352,7 +2358,7 @@ class Engine:
 
         recs = st["recs"]
         if s.fmt in (None, "*"):  # list-directed / unformatted read of a text record
-            if st["pos"] >= len(recs):
+            if st["pos"] >= len(recs) or recs[st["pos"]] is ENDFILE_MARK:
                 self.last_io_error = IO_EOF
                 return Goto(s.specs["END"]) if "END" in s.specs else None
             line = recs[st["pos"]]
@@ -2383,7 +2389,7 @@ class Engine:
         vals, start, eof = [], 0, False
         while len(vals) < needed and not eof:
             for g in split(items[start:]):
-                if st["pos"] >= len(recs):
+                if st["pos"] >= len(recs) or recs[st["pos"]] is ENDFILE_MARK:
                     eof = True
                     break
                 line = recs[st["pos"]]
@@ -2414,8 +2420,8 @@ class Engine:
         recs = st.get("recs")
         if recs is None:
             return None
-        if st["pos"] >= len(recs):
-            self.last_io_error = IO_EOF
+        if st["pos"] >= len(recs) or recs[st["pos"]] is ENDFILE_MARK:
+            self.last_io_error = IO_EOF  # past the last record, or on the endfile marker
             if "END" in s.specs:
                 return Goto(s.specs["END"])
             return None
@@ -2624,12 +2630,13 @@ class Engine:
             # persist a written file so a later OPEN can reconnect: sequential output ("w") and
             # a direct-access file ("random") both serialize their record list to disk on CLOSE
             elif st and path and st.get("recs") is not None and st.get("mode") in ("w", "random"):
+                data = [r for r in st["recs"] if r is not ENDFILE_MARK]  # drop endfile markers
                 if st.get("dec"):  # real FOROTS binary: LSCW-framed words, core-dumped to bytes
                     with open(path, "wb") as fh:
-                        fh.write(self._binio().encode_binary_file(st["recs"]))
+                        fh.write(self._binio().encode_binary_file(data))
                 else:
                     with open(path, "w") as fh:
-                        json.dump(st["recs"], fh)
+                        json.dump(data, fh)
             return None
         # device control: REWIND / BACKSPACE / ENDFILE / SKIP RECORD / SKIP FILE
         st = self.io.get(unit)
@@ -2640,11 +2647,17 @@ class Engine:
             elif s.verb == "BACKSPACE":
                 st["pos"] = max(0, st["pos"] - 1)
             elif s.verb == "ENDFILE":
-                del recs[st["pos"] :]  # write end-of-file at current pos
+                # write an endfile record at the current position (truncating anything past it)
+                # and position after it; a later BACKSPACE then backs over THIS marker
+                recs[st["pos"] :] = [ENDFILE_MARK]
+                st["pos"] += 1
             elif s.verb == "SKIPREC":
                 st["pos"] = min(len(recs), st["pos"] + 1)
-            elif s.verb == "SKIPFILE":
-                st["pos"] = len(recs)
+            elif s.verb == "SKIPFILE":  # advance past the next endfile record (else to the end)
+                p = st["pos"]
+                while p < len(recs) and recs[p] is not ENDFILE_MARK:
+                    p += 1
+                st["pos"] = min(len(recs), p + 1)
         return None
 
     def _open_read_unit(self, path):
