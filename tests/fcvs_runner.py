@@ -39,6 +39,28 @@ _PASS = re.compile(r"(\d+)\s+TESTS?\s+PASSED")
 _ERRS = re.compile(r"(\d+)\s+(?:ERRORS?\s+ENCOUNTERED|TESTS?\s+FAILED)")
 
 
+_CARD = re.compile(r"^CARD\s+(\d+)")
+
+
+def _card_deck(path):
+    """Some FCVS audits (e.g. FM923, list-directed input) document their card-reader input
+    deck IN the source as `CARD nn  <image>` comment lines -- 34 card images in cols 1-80,
+    with cols 73-80 the sequence field. Reconstruct the deck (a card may span two display
+    lines) so the harness can feed it on unit 5; routines without such comments get []."""
+    cards = {}
+    try:
+        with open(path) as fh:
+            for ln in fh:
+                m = _CARD.match(ln)
+                if not m:
+                    continue
+                num, data = int(m.group(1)), ln[10:72].rstrip()
+                cards[num] = (cards[num].rstrip() + " " + data.strip()) if num in cards else data
+    except OSError:
+        return []
+    return [cards[n] for n in sorted(cards)]
+
+
 def _run_one(path, target=PDP10, dialect=FORTRAN10, character_type=False):
     """Run a single audit routine. Returns (status, passed, errors): status in
     {"run", "gap"}, passed/errors 0 unless status=="run". The curated F66 corpus is
@@ -67,9 +89,11 @@ def _run_one(path, target=PDP10, dialect=FORTRAN10, character_type=False):
             target=target,
             character_type=character_type,
             zero_trip_do=dialect.zero_trip_do,
+            blank_null=dialect.blank_null,
         )
         install_runtime(eng)  # STDLIB + FOROTS binary-I/O codec
-        eng.io[5] = {"recs": [], "pos": 0, "mode": "r"}  # I01 card reader (unused by audits)
+        # I01 card reader: feed the audit's own embedded card deck (text unit) if it has one
+        eng.io[5] = {"lines": _card_deck(path), "pos": 0, "mode": "r", "text": True}
         eng.max_steps = 50_000_000
         eng.run(Frame(eng.rts[main], {}))
     except (StopExecution, Exception):

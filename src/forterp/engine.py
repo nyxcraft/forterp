@@ -1672,44 +1672,134 @@ class Engine:
                 out.append(v)
         return out
 
-    def _ld_in(self, line, refs):
-        """List-directed input: values separated by blanks/commas, converted by token form.
-        Honors the repeat and terminator grammar: `r*c` gives the value c r times, `r*`
-        skips r items (they keep their values), and `/` ends the read (the remaining items
-        keep their values). A non-numeric field is a conversion error (routes to ERR=)."""
-        import re
+    def _ld_targets(self, items, frame):
+        """Per scalar element of the io-list, a (ref, type-name, char-length) triple. The type
+        drives list-directed conversion (numeric / LOGICAL / CHARACTER) and the length fits a
+        CHARACTER value -- the type-aware analogue of _unf_refs for list-directed READ."""
+        unit = frame.rt.unit
+        out = []
 
+        def walk(it):
+            if isinstance(it, A.ImpliedDo):
+                lo = self.eval(it.start, frame)
+                hi = self.eval(it.stop, frame)
+                step = self.eval(it.step, frame) if it.step else 1
+                vref = self.scalar_ref(frame, it.var)
+                i = lo
+                while (step > 0 and i <= hi) or (step < 0 and i >= hi):
+                    vref.write(i)
+                    for sub in it.items:
+                        walk(sub)
+                    i += step
+                return
+            if isinstance(it, A.Var) and it.name in unit.arrays:
+                ty = self.type_of(unit, it.name)
+                cl = self.char_length(unit, it.name) if ty == "CHARACTER" else None
+                view = self.arrayview(frame, it.name)
+                out.extend((view.loc(i), ty, cl) for i in range(array_size(unit.arrays[it.name])))
+                return
+            name = getattr(it, "name", None)
+            ty = self.type_of(unit, name) if isinstance(it, (A.Var, A.Ref)) else "INTEGER"
+            cl = self.char_length(unit, name) if (ty == "CHARACTER" and name) else None
+            out.append((self.arg_ref(it, frame), ty, cl))
+
+        for it in items:
+            walk(it)
+        return out
+
+    def _ld_convert(self, kind, tok, ty, clen):
+        """Convert one scanned list-directed datum to a target of declared type `ty`
+        (X3.9-1978 13.6.3). LOGICAL takes an optional leading '.', then T/F (rest ignored);
+        CHARACTER fits to the declared length; numeric goes via int/float."""
         from forterp.fmt import InputConversionError
 
-        def value(tok):
-            try:
-                return int(tok)
+        if ty == "CHARACTER":
+            s = tok if kind in ("str", "val") else ""
+            return (s[:clen].ljust(clen) if clen else s) if clen is not None else s
+        if ty == "LOGICAL":
+            s = tok.lstrip()
+            if s[:1] == ".":
+                s = s[1:]
+            return self.tgt.from_bool(s[:1].upper() == "T")
+        try:
+            return int(tok) if ty == "INTEGER" else float(tok)
+        except ValueError:
+            try:  # an INTEGER target fed a real datum truncates toward zero
+                f = float(tok)
             except ValueError:
-                try:
-                    return float(tok)
-                except ValueError:
-                    raise InputConversionError(
-                        f"illegal character in list-directed field {tok!r}"
-                    ) from None
+                raise InputConversionError(
+                    f"illegal character in list-directed field {tok!r}"
+                ) from None
+            return self.tgt.wrap(int(f)) if ty == "INTEGER" else f
 
-        items = iter(refs)
-        for tok in (t for t in re.split(r"[ ,\t]+", line.strip()) if t):
-            if tok == "/":  # slash terminator: stop; remaining items keep their values
+    def _ld_in(self, line, targets, next_line=None):
+        """List-directed input (X3.9-1978 13.6): assign scanned values to typed targets
+        [(ref, type, char-len), ...]. Values are separated by a comma (optionally blank-padded)
+        or by blanks; two adjacent commas give a NULL (the target keeps its value); `r*c` repeats
+        a value, `r*` skips r targets; `/` ends the read (remaining targets keep their values).
+        A '...' string keeps its blanks/commas/slashes and uses '' for an embedded apostrophe.
+        When the list outlasts the record and `next_line` is given, the read CONTINUES into the
+        next record (13.6.2 -- a list-directed READ consumes as many records as the list needs)."""
+        targets = list(targets)
+        ti = 0  # next target index
+
+        i, n = 0, len(line)
+        while True:
+            while i < n and ti < len(targets):
+                while i < n and line[i] in " \t":  # blanks are separators
+                    i += 1
+                if i >= n:
+                    break
+                c = line[i]
+                if c == "/":  # slash terminator: remaining targets keep their values
+                    return
+                if c == ",":  # a comma with no value before it -> a null
+                    ti += 1
+                    i += 1
+                    continue
+                if c == "'":  # quoted string: keep blanks/commas/slashes, '' -> '
+                    i += 1
+                    buf = []
+                    while i < n:
+                        if line[i] == "'":
+                            if i + 1 < n and line[i + 1] == "'":
+                                buf.append("'")
+                                i += 2
+                                continue
+                            i += 1
+                            break
+                        buf.append(line[i])
+                        i += 1
+                    ref, ty, clen = targets[ti]
+                    ref.write(self._ld_convert("str", "".join(buf), ty, clen))
+                    ti += 1
+                else:
+                    start = i
+                    while i < n and line[i] not in " \t,/":
+                        i += 1
+                    tok = line[start:i]
+                    count, star, rest = tok.partition("*")
+                    reps = int(count) if (star and count.isdigit()) else 1
+                    val = rest if star else tok
+                    for _ in range(reps):
+                        if ti >= len(targets):
+                            break
+                        if star and not rest:  # r* -> skip (null) r targets
+                            ti += 1
+                        else:
+                            ref, ty, clen = targets[ti]
+                            ref.write(self._ld_convert("val", val, ty, clen))
+                            ti += 1
+                while i < n and line[i] in " \t":  # consume the value's trailing separator
+                    i += 1
+                if i < n and line[i] == ",":
+                    i += 1
+            if ti >= len(targets) or next_line is None:  # list filled, or no more records
                 return
-            count, star, rest = tok.partition("*")
-            if star and count.isdigit():  # r*c (repeat the value) or r* (skip r items)
-                v = value(rest) if rest else None
-                for _ in range(int(count)):
-                    ref = next(items, None)
-                    if ref is None:
-                        return
-                    if v is not None:  # r* leaves the skipped items untouched
-                        ref.write(v)
-                continue
-            ref = next(items, None)
-            if ref is None:
+            nxt = next_line()  # the list outlasts this record -> continue into the next (13.6.2)
+            if nxt is None:
                 return
-            ref.write(value(tok))
+            line, i, n = nxt, 0, len(nxt)
 
     def do_type(self, s, frame):
         from forterp.fmt import apply_carriage, apply_carriage_advance, render
@@ -1771,7 +1861,7 @@ class Engine:
             self._nml_read(nml, line, frame)
             return
         if s.fmt == "*":  # list-directed input
-            self._ld_in(line, self._unf_refs(s.items, frame))
+            self._ld_in(line, self._ld_targets(s.items, frame))
             return
         spec = self._fmt_spec(s.fmt, frame)
         items = self._parsed(spec)
@@ -1808,7 +1898,7 @@ class Engine:
             text = "".join(chunks)[:count]
             refs = self._unf_refs(s.items, frame)
             if s.fmt == "*":
-                self._ld_in(text, refs)
+                self._ld_in(text, self._ld_targets(s.items, frame))
             else:
                 for ref, (_, v) in zip(
                     refs,
@@ -2267,7 +2357,7 @@ class Engine:
                 return Goto(s.specs["END"]) if "END" in s.specs else None
             line = recs[st["pos"]]
             st["pos"] += 1
-            self._ld_in(line, self._unf_refs(s.items, frame))
+            self._ld_in(line, self._ld_targets(s.items, frame))
             self.last_io_error = IO_OK
             return None
         items = self._parsed(self._fmt_spec(s.fmt, frame))
@@ -2626,7 +2716,15 @@ class Engine:
         line = lines[st["pos"]]
         st["pos"] += 1
         if s.fmt is None or s.fmt == "*":
-            self._ld_in(line, self._unf_refs(s.items, frame))
+
+            def next_line():  # list-directed reads span records until the list is filled
+                if st["pos"] >= len(lines):
+                    return None
+                ln = lines[st["pos"]]
+                st["pos"] += 1
+                return ln
+
+            self._ld_in(line, self._ld_targets(s.items, frame), next_line)
         else:
             spec = self._fmt_spec(s.fmt, frame)
             items = self._parsed(spec)

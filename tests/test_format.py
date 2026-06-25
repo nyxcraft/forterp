@@ -252,6 +252,41 @@ def test_read_bn_bz_descriptors_flip_blank_mode():
     assert read_values(parse_format("(BN,I5)"), "5", blank_zero=True) == [("I", 5)]
 
 
+def test_list_directed_input_grammar():
+    # X3.9-1978 13.6: type-driven list-directed input -- INTEGER/REAL/LOGICAL/CHARACTER per the
+    # io-list element, a quote-aware tokenizer ('...' keeps commas/slashes, '' -> '), null (,,),
+    # repeats (r*c), the / terminator, and multi-record spanning.
+    import forterp
+
+    deck = ["25 10.75 T 'AB,/CD'", "1,,8", "2*7", "5 6 / 99", "11", "12"]
+
+    def setup(eng):
+        eng.io[5] = {"lines": list(deck), "pos": 0, "mode": "r", "text": True}
+
+    src = (
+        "      PROGRAM T\n"
+        "      COMMON /O/ N(10)\n"
+        "      INTEGER I, J, K\n      REAL X\n      LOGICAL L\n      CHARACTER C*8\n"
+        "      I=99\n      J=88\n      K=77\n      L=.FALSE.\n"
+        "      READ(5,*) I, X, L, C\n"
+        "      N(1)=I\n      N(2)=NINT(X*100)\n"
+        "      IF (L) N(3)=1\n      IF (C.EQ.'AB,/CD') N(4)=1\n"
+        "      READ(5,*) I, J, K\n      N(5)=I\n      N(6)=J\n      N(7)=K\n"
+        "      READ(5,*) I, J\n      N(8)=I+J\n"
+        "      K=66\n      READ(5,*) I, J, K\n      N(9)=K\n"
+        "      READ(5,*) I, J\n      N(10)=I\n"
+        "      END\n"
+    )
+    eng = forterp.run_source(src, dialect=forterp.F77, target=forterp.NATIVE, setup=setup)
+    o = eng.commons["O"]
+    assert o[0] == 25 and o[1] == 1075  # INTEGER + REAL
+    assert o[2] == 1 and o[3] == 1  # LOGICAL T, CHARACTER keeps the embedded comma/slash
+    assert (o[4], o[5], o[6]) == (1, 88, 8)  # "1,,8" -> J untouched (null), K=8
+    assert o[7] == 14  # "2*7" -> I=J=7
+    assert o[8] == 66  # "5 6 / 99" -> slash stops before K, K keeps 66
+    assert o[9] == 11  # "11" then "12" -> spans two records, I=11
+
+
 def test_read_hollerith_field_takes_input_chars():
     # F66 7.2.3.8: an nH field reads its characters FROM the record, mutated in place
     fmt = parse_format("(5Hxxxxx)")

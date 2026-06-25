@@ -50,9 +50,16 @@ when the io-list is exhausted), and -- the real engine fix -- a CHARACTER substr
 S(lo:hi) as an I/O-list item / actual argument now writes back through a SubstringRef instead
 of being dropped on a read-only temporary.
 
-The one large remaining cluster is NOT an interpreter bug: FM923 (26) reads its list-directed
-data from the card reader (unit I01), and FCVS supplies that input as a separate data deck the
-harness does not vendor -- every READ comes back empty.
+FM923 (list-directed input, 26) then cleared too. Its card-reader input deck is documented IN
+the source as `CARD nn` comment images (34 cards, cols 1-80); the runner reconstructs it and
+feeds it on unit 5, and the list-directed reader was rebuilt to the X3.9-1978 13.6 grammar:
+type-driven conversion (INTEGER/REAL/LOGICAL/CHARACTER per the io-list element), a quote-aware
+tokenizer (a '...' value keeps embedded blanks/commas/slashes, '' -> '), null values (`,,`),
+repeats (`r*c` / `r*`), the `/` terminator, and multi-record spanning (a READ consumes as many
+records as its list needs).
+
+The remaining failures are the two deep clusters: FM302 (8, COMMON/EQUIVALENCE storage
+association) and FM411 (2, sequential-file positioning across BACKSPACE/ENDFILE/REWIND).
 
 Landed since the restore: IMPLICIT CHARACTER*<len> (the audit-harness preamble), the
 optional comma after a DO label, LOGICAL/COMPLEX PARAMETER constants, the widthless A
@@ -91,12 +98,12 @@ def test_f77_conformance_baseline():
     # the fix (a gain) or investigate (a regression).
     assert R["n_run"] == 140
     assert R["n_gap"] == 0
-    assert R["total_pass"] == 1633
-    assert R["total_err"] == 36
+    assert R["total_pass"] == 1659
+    assert R["total_err"] == 10
     assert len(R["nosummary"]) == 42
 
 
 def test_self_check_failures_do_not_grow():
     # The known self-check failures (value/semantic conformance, not parse/control-flow).
     # A ratchet: fixing a bug should LOWER this -- update it down, never silently up.
-    assert R["total_err"] <= 36
+    assert R["total_err"] <= 10
