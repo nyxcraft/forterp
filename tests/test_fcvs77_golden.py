@@ -19,6 +19,8 @@ a routine forces removing its name here, keeping the list honest.
 import glob
 import os
 
+from fcvs_runner import _card_deck
+
 import forterp
 from forterp.engine import Engine, Frame, StopExecution
 from forterp.parser import parse_units
@@ -35,7 +37,6 @@ KNOWN_DIVERGENT = {
     "FM108",
     "FM252",
     "FM255",
-    "FM256",
     "FM257",
     "FM260",
     "FM311",
@@ -85,6 +86,10 @@ def _forterp_output(name):
     buf = []
     main = next((u.name for u in units if u.kind == "program"), None)
     try:
+        # Use the SAME engine configuration as the conformance harness (fcvs_runner): the full
+        # F77 dialect flags and the routine's own embedded card deck. Running F77 routines with
+        # only character_type (not zero_trip_do / blank_null) and no input deck gave some
+        # routines wrong output, diverging from gfortran for harness reasons, not real ones.
         eng = Engine(
             {u.name: u for u in units},
             emit=buf.append,
@@ -92,9 +97,11 @@ def _forterp_output(name):
             printer=buf.append,
             target=forterp.NATIVE,
             character_type=True,
+            zero_trip_do=forterp.F77.zero_trip_do,
+            blank_null=forterp.F77.blank_null,
         )
         install_runtime(eng)
-        eng.io[5] = {"recs": [], "pos": 0, "mode": "r"}
+        eng.io[5] = {"lines": _card_deck(path), "pos": 0, "mode": "r", "text": True}
         eng.max_steps = 50_000_000
         eng.run(Frame(eng.rts[main], {}))
     except (StopExecution, Exception):
@@ -131,4 +138,4 @@ def test_punchlist_has_no_stale_entries():
 
 def test_most_of_the_corpus_matches():
     # Floor on validated output coverage (ratchets up as the punch-list shrinks).
-    assert len(MATCHING) >= 78
+    assert len(MATCHING) >= 99
