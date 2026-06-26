@@ -385,6 +385,11 @@ def _real(v, w, d, plus=False):
         s = s[1:]  # a negative value that rounds to zero carries no minus sign (F editing)
     if plus and s[:1] != "-":  # SP: force a + on a non-negative value
         s = "+" + s
+    if w and len(s) > w:  # drop the optional leading zero to fit a narrow field (13.5.9):
+        if s[:2] == "0.":  # F2.1 of 0.5 -> .5, not 0.5 -> **
+            s = s[1:]
+        elif s[:3] in ("-0.", "+0."):
+            s = s[0] + s[2:]
     return _fit(s, w)
 
 

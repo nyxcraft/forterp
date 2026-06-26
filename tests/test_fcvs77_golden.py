@@ -33,9 +33,6 @@ CORPUS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fcvs77")
 
 # Output does not yet match gfortran -- the punch-list. Shrinks as bugs are fixed.
 KNOWN_DIVERGENT = {
-    "FM101",
-    "FM103",
-    "FM108",
     "FM257",
     "FM406",
     "FM503",
@@ -132,4 +129,4 @@ def test_punchlist_has_no_stale_entries():
 
 def test_most_of_the_corpus_matches():
     # Floor on validated output coverage (ratchets up as the punch-list shrinks).
-    assert len(MATCHING) >= 104
+    assert len(MATCHING) >= 107

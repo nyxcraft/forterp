@@ -231,6 +231,22 @@ def test_read_bz_blanks_extend_into_the_exponent():
     assert read_values(parse_format("(E10.3)"), "   1.5E+02") == [("F", 150.0)]
 
 
+def test_f_format_drops_leading_zero_to_fit_narrow_field():
+    # FM101/103/108: an F field too narrow for the leading zero drops it (the zero before the
+    # point is optional, 13.5.9) -- F2.1 of 0.5 is ".5", not "0.5" overflowing to "**". A wide
+    # field keeps the leading zero, and the sign is preserved.
+    from forterp.fmt import parse_format, render
+    from forterp.target import NATIVE
+
+    def f(spec, v):
+        return render(parse_format(spec), [v], NATIVE)[0]
+
+    assert f("(F2.1)", 0.5) == ".5"
+    assert f("(F4.3)", 0.125) == ".125"
+    assert f("(F3.1)", -0.5) == "-.5"
+    assert f("(F4.1)", 0.5) == " 0.5"  # wide enough -> leading zero kept
+
+
 def test_read_blank_null_is_the_fortran10_f77_default():
     # FORTRAN-10 V5 / F77 default is BLANK=NULL: blanks in a width'd numeric field are IGNORED,
     # not read as zeros (the ANSI F66 default). A short record padded out to the field width
