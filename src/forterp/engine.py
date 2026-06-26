@@ -1969,6 +1969,17 @@ class Engine:
             if spec is None:
                 raise RuntimeError(f"FORMAT statement label {fmt} not found")
             return spec
+        # an assigned-FORMAT reference (F77 9.2.3 / F66 7.2.3.10): an INTEGER scalar variable
+        # ASSIGNed a FORMAT label holds the label number -> use that FORMAT statement. A Hollerith
+        # run-time format is a CHARACTER/array variable holding the format TEXT (handled below).
+        if (
+            isinstance(fmt, A.Var)
+            and fmt.name not in frame.rt.unit.arrays
+            and self.type_of(frame.rt.unit, fmt.name) == "INTEGER"
+        ):
+            val = self.eval(fmt, frame)
+            if isinstance(val, int) and val in frame.rt.unit.formats:
+                return frame.rt.unit.formats[val]
         # a Hollerith array/variable holding the format text, referenced by name
         out, depth, started = [], 0, False
         for ref in self._item_refs(fmt, frame):

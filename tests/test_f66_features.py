@@ -332,6 +332,16 @@ def test_endfile_then_backspace_does_not_clobber_a_record():
     assert eng.commons["O"][0] == 5
 
 
+def test_assigned_format_label_in_write():
+    # FM252 / F66 7.2.3.10: an INTEGER variable ASSIGNed a FORMAT label is a valid format
+    # reference -- WRITE(u, I) uses FORMAT statement I, not the variable's bits as Hollerith.
+    src = (
+        "        PROGRAM T\n        ASSIGN 10 TO IFMT\n"
+        "  10    FORMAT(' HI=',I3)\n        WRITE(6,IFMT) 42\n" + END
+    )
+    assert printed(run(src)) == "HI= 42\n"
+
+
 def test_multi_statement_common_concatenates_and_associates_positionally():
     # FM302 / F66 7.2.1.2: successive COMMON statements for the same block APPEND (they don't
     # restart at offset 0). The main fills blank COMMON across three statements; the subroutine
