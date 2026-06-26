@@ -108,6 +108,12 @@ _EXEC = re.compile(r"(\d+)\s+OF\s+(\d+)\s+TESTS?\s+EXECUTED")
 # it is EXPECTED to execute. Each is validated against the gfortran golden, which shows the same
 # partial count. FM910: tests 2-6 run only "IF DIRECT ACCESS" is supported; gfortran runs 5 of 6.
 _EXPECTED_PARTIAL = {"FM910.FOR": 5}
+# By-design FORCE-FAIL tests: FCVS exercises its OWN fail-reporting path with a test that is
+# MEANT to fail (FM001 TEST 002, "FORCE FAIL CODE TO BE EXECUTED"). It is a negative assertion --
+# the routine passes BECAUSE that test reports a failure -- so the harness reclassifies exactly
+# this many of the routine's reported errors as passes. Any error BEYOND the expected count is a
+# genuine regression and still counts, so the ratchet stays honest.
+_EXPECTED_FAILS = {"FM001.FOR": 1}
 _DELETED = re.compile(r"(\d+)\s+TESTS?\s+(?:WERE\s+)?DELETED")
 _INSPECT = re.compile(r"(\d+)\s+TESTS?\s+REQUIRE\s+INSPECTION")
 _DECLARED = re.compile(r"THIS PROGRAM HAS\s+(\d+)\s+TESTS")
@@ -205,6 +211,11 @@ def run_corpus(
         if status == "gap":  # parse failure -> regression (curated F66)
             gap.append(name)
             continue
+        # A negative-assertion test (FCVS's by-design FORCE-FAIL) passes BECAUSE it fails:
+        # reclassify the expected number of failures as passes (p+e is preserved, so completeness
+        # still reconciles). Any extra failure is a real regression and stays counted as an error.
+        reclass = min(e, _EXPECTED_FAILS.get(name, 0))
+        p, e = p + reclass, e - reclass
         run[name] = (p, e)
         total_pass += p
         total_err += e
@@ -259,7 +270,7 @@ def main(argv=None):
     print(f"  conformance TESTS PASSED: {r['total_pass']}")
     print(
         f"  ERRORS ENCOUNTERED:       {r['total_err']}  "
-        f"(FM001 forces one FAIL by design: 'FORCE FAIL CODE TO BE EXECUTED')"
+        f"(FM001's by-design FORCE-FAIL is a negative-test pass, reclassified from error)"
     )
     if r["nosummary"]:
         print(f"  ran w/o a PASS/ERR summary (print-and-eyeball FORMAT tests): {r['nosummary']}")

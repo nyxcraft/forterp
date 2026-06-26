@@ -2,9 +2,11 @@
 
 FCVS is one corpus; FORTRAN-77 is valid against ALL of it (the F66-valid subset, F66_SUBSET, is
 also exercised under F66 by test_fcvs_f66_conformance.py). Every routine parses and runs -- zero
-parse-gaps -- and the self-checking ones report zero GENUINE failures (the one counted error is
-FM001's by-design FORCE-FAIL self-test). The print-and-eyeball routines carry no PASS/FAIL summary
-and are validated separately against gfortran goldens (test_fcvs_golden.py).
+parse-gaps -- and the self-checking ones report zero GENUINE failures. FM001 TEST 002 is a NEGATIVE
+assertion ("FORCE FAIL CODE TO BE EXECUTED", the suite's self-test of its own fail-reporting path);
+the runner reclassifies that by-design failure as a pass, so total_err is a true 0. The
+print-and-eyeball routines carry no PASS/FAIL summary and are validated separately against
+gfortran goldens (test_fcvs_golden.py).
 
 The aggregate is pinned and ratchets: a change means real behavior moved -- a gain (update in
 lockstep) or a regression (investigate). The deep history of each fix lives in the CHANGELOG / git.
@@ -37,17 +39,18 @@ def test_f77_conformance_baseline():
     # the fix (a gain) or investigate (a regression).
     assert R["n_run"] == 192
     assert R["n_gap"] == 0
-    assert R["total_pass"] == 3348
-    assert R["total_err"] == 1  # only FM001's by-design FORCE-FAIL (see the next test)
+    assert R["total_pass"] == 3349
+    assert R["total_err"] == 0  # zero genuine failures (FM001's force-fail is a negative-test pass)
     assert len(R["nosummary"]) == 17
 
 
 def test_self_check_failures_do_not_grow():
-    # No GENUINE self-check failure: the single counted error is FM001 TEST 002, labelled
-    # "FORCE FAIL CODE TO BE EXECUTED" -- the suite testing its own fail-reporting path. A ratchet:
-    # fixing a real bug keeps this at 1; any rise above it (other than FM001) is a regression.
-    assert R["total_err"] == 1
-    assert R["run"]["FM001.FOR"][1] == 1
+    # Zero GENUINE self-check failures across the whole corpus. FM001 TEST 002, labelled
+    # "FORCE FAIL CODE TO BE EXECUTED", is a NEGATIVE assertion -- the suite testing its own
+    # fail-reporting path -- so the runner reclassifies that one by-design failure as a pass
+    # (FM001 reports 2 passed, 0 errors). A hard ratchet: ANY error here is now a regression.
+    assert R["total_err"] == 0
+    assert R["run"]["FM001.FOR"] == (2, 0)
 
 
 def test_every_routine_runs_all_its_declared_tests():

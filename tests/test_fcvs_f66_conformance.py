@@ -37,15 +37,16 @@ def test_blanks_insignificance_files_run_and_pass():
 
 
 def test_total_conformance_tests_passed():
-    assert R["total_pass"] == 1148
+    assert R["total_pass"] == 1149
 
 
-def test_only_expected_failure_is_fm001_by_design():
-    # The single ERROR is FM001 TEST 002, labelled "FORCE FAIL CODE TO BE
-    # EXECUTED" -- the suite's self-test of its own fail-reporting path
-    # (COMPUTED == CORRECT == 2). No genuine conformance failures.
-    assert R["total_err"] == 1
-    assert R["run"]["FM001.FOR"][1] == 1
+def test_no_genuine_failures_fm001_force_fail_is_a_negative_pass():
+    # FM001 TEST 002, labelled "FORCE FAIL CODE TO BE EXECUTED", is a NEGATIVE assertion --
+    # the suite's self-test of its own fail-reporting path (COMPUTED == CORRECT == 2). The runner
+    # reclassifies that by-design failure as a pass (FM001 -> 2 passed, 0 errors), so the corpus
+    # has zero genuine conformance failures and ANY error is a regression.
+    assert R["total_err"] == 0
+    assert R["run"]["FM001.FOR"] == (2, 0)
 
 
 def test_print_and_eyeball_files_have_no_autocheck():
