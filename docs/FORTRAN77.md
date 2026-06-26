@@ -330,3 +330,185 @@ standardized subset:
 Notably **off** for F77 (and on only for `FORTRAN10`): `do_while`, `dec_operators` (`.XOR.`,
 `==`/`<`/`>`), `slash_dim_bound` (`A(lo/hi)`), `octal_quote`, `tab_format`, `inline_comment`
 (`!`), `extended_io` (`TYPE`/`ACCEPT`/`ENCODE`/`DECODE`, random-access), `free_form_input`.
+
+---
+
+## 10. ANSI X3.9-1978 compliance map
+
+A condensed, section-by-section restatement of the **ANSI X3.9-1978** ("FORTRAN 77 Full
+Language") standard, keyed to its section numbers, with forterp's status against each rule.
+Built by reading the standard text in full (the source PDF lives in the project notes, not
+the repo). Status legend: **✓** forterp conforms · **▲** intentional/​documented divergence
+or extension · **✗** known gap (see [§8](#8-conformance--fcvs-77) and the test suite). This
+is the full language; forterp does not implement the separate "subset FORTRAN" level.
+
+### §1 Conformance, §2 Terms
+
+- **Conformance (1.4).** "must" is a requirement, "must not" a prohibition (1.5). A
+  conforming *program* uses only standard forms; a conforming *processor* runs them per the
+  standard interpretation and may add extensions that don't change a conforming program's
+  meaning. A program must not use processor-added intrinsics; a name in `EXTERNAL` overrides
+  any like-named processor intrinsic. — ✓ forterp's F77 is the full language; the DEC
+  extensions live on the separate `FORTRAN10` dialect, off under `F77`.
+- **Symbolic name (2.2).** 1–6 letters/digits, first a letter. — ▲ forterp accepts longer
+  names with a warning (`%`/`LID`), a common, harmless extension.
+- **Statement label (2.2).** 1–5 digits, at least one nonzero. — ✓
+- **No reserved words (2.2).** keyword vs name is by context. — ✓
+- **Program structure (2.4).** one main program + any number of subprograms/external
+  procedures; `PROGRAM` is optional; main program = no `FUNCTION`/`SUBROUTINE`/`BLOCK DATA`
+  first. — ✓
+- **Implicit typing (2.5).** absent a type-statement/`IMPLICIT`, `I`–`N` ⇒ integer, else
+  real. — ✓
+- **Storage units (2.13).** integer/real/logical = 1 numeric unit; **double precision and
+  complex = 2 numeric units**; character = 1 character unit per character; numeric and
+  character units are unrelated (can't associate across the two). — ▲ forterp's storage
+  association uses one *value slot* per element: `COMPLEX` correctly occupies two slots
+  (`ComplexPairRef`), but `DOUBLE PRECISION` occupies one slot rather than two numeric units.
+  This only differs observably under `EQUIVALENCE`/`COMMON` aliasing of a double against a
+  pair of reals (rare; not exercised by the FCVS corpus) — see §8/§17 notes.
+- **Definition status (2.11).** entities are undefined at program start unless `DATA`-
+  initialized; a reference requires a defined value; a CHARACTER entity is defined iff every
+  length-one substring is. — ✓ (forterp does not trap *use* of undefined; faithful to the
+  "no predictable value" latitude.)
+- **Association (2.14).** `COMMON`, `EQUIVALENCE`, argument, `ENTRY`. — ✓ (details in §8/§15/§17.)
+
+### §3 Characters, lines, execution sequence
+
+- **Character set (3.1).** 26 letters, 10 digits, 13 specials (blank `= + - * / ( ) , . $ ' :`).
+  — ✓
+- **Collating sequence (3.1.5).** only a partial order is required — `A<…<Z`, `0<…<9`,
+  blank below both, digits and letters not interleaved; `LGE/LGT/LLE/LLT` compare by it. — ✓
+  (forterp uses ASCII, which satisfies the partial order.)
+- **Fixed source form (3.2).** 72-column lines; comment = `C`/`*` in col 1 or all-blank;
+  initial line has blank/`0` in col 6; a continuation line has a non-blank, non-`0` col 6 and
+  blank cols 1–5; ≤19 continuation lines; statement text in cols 7–72; `END` only on an
+  initial line. — ✓ source is read as cols 7–72. — ▲ forterp also honors the DEC column-1
+  markers `! $ / D` (and `c`), a superset of F77's `C`/`*`; the ≤19-continuation limit is not
+  enforced. Both are benign (an "accept-more" latitude). The trailing-`!` inline comment is
+  **off** under F77.
+- **Statement labels (3.4).** 1–5 digits, ≥1 nonzero, cols 1–5, unique per program unit,
+  leading zeros/blanks insignificant; only labeled executable and `FORMAT` statements are
+  referenceable. — ✓
+- **Statement order (3.5).** `PROGRAM`/`FUNCTION`/`SUBROUTINE`/`BLOCK DATA` first;
+  `IMPLICIT` before other specs (except `PARAMETER`); specifications before
+  `DATA`/statement-functions/executables; statement functions before executables; `END` last.
+  — ▲ forterp does **not** enforce this ordering (it accepts, e.g., `DATA` before a
+  type-statement); lenient, never mis-runs a conforming program.
+- **Execution & recursion (3.6).** execution starts at the main program's first executable;
+  a procedure "must not be referenced a second time without the prior execution of a `RETURN`
+  or `END`" — i.e. **no recursion**. — ▲ forterp permits recursion (a benign extension).
+
+### §4 Data types and constants
+
+- **Six types (4.1).** integer, real, double precision, complex, logical, character; one type
+  per name per program unit; implicit typing `I`–`N` ⇒ integer else real (4.1.2). — ✓
+- **Signed zero (4.1.3).** zero is neither positive nor negative; `-0.0` equals `0.0`. — ✓
+- **Integer constant (4.3.1).** `[±]` digits, decimal. — ✓
+- **Real constant (4.4).** `[±][int].[frac]` (not both parts empty), optional `E`-exponent;
+  `5.`, `.5`, `5E3`, `5.0E3` all valid. — ✓
+- **Double precision (4.5).** a `D`-exponent makes the constant double precision (`2.0D0`);
+  precision must exceed real; two numeric storage units. — ▲ faithful under the **PDP10**
+  target (36-bit single vs two-word double); under the default **NATIVE** target real and
+  double precision share a 64-bit host double, so the precision is equal rather than strictly
+  greater (a pluggable-value-model choice).
+- **Complex constant (4.6.1).** `(re, im)` where each part is an optionally-signed real or
+  integer constant; two numeric storage units (real then imaginary). — ✓
+- **Logical (4.7).** `.TRUE.` / `.FALSE.` only. — ✓
+- **Character constant (4.8.1).** `'…'`, blanks significant, `''` is one embedded apostrophe;
+  length must be > 0. — ▲ forterp also accepts the empty constant `''` (length 0); benign,
+  a conforming program never writes one.
+
+### §5 Arrays and substrings
+
+- **Array declarator (5.1).** `a(d[,d]…)`, **1–7 dimensions**; a dimension is `[lo:]hi`
+  (default `lo`=1, `hi`≥`lo`); the last `hi` may be `*` (assumed-size); variables in a bound
+  ⇒ adjustable (dummy arrays only); constant/adjustable/assumed-size kinds; actual
+  declarators must be constant. — ✓ lower bounds, assumed-size, and adjustable arrays are all
+  supported. — ▲ forterp does not cap the rank at 7 (an 8-D declarator runs); lenient.
+- **Element ordering (5.2.4).** column-major — the first subscript varies fastest. — ✓
+  (verified by `EQUIVALENCE`-flattening).
+- **Subscripts (5.4).** one integer subscript expression per dimension; the value must lie
+  within the declared bounds (a *program* requirement — a processor need not detect a
+  violation). — ▲ forterp does not trap an out-of-bounds subscript: a read returns 0, by
+  design (faithful to FORTRAN-10; auditable via `forterp.debug.oob_census()`).
+- **Substring (5.7).** `v(e1:e2)` / `a(s…)(e1:e2)`, `1 ≤ e1 ≤ e2 ≤ len`, omitted `e1`⇒1,
+  `e2`⇒len, `v(:)`≡`v`, length `e2−e1+1`. — ✓ for in-range use. — ▲ an out-of-range window is
+  clamped/blank-padded rather than trapped (e.g. `S(1:9)` of a `CHARACTER*4` yields the 4
+  characters padded to 9); lenient.
+
+### §6 Expressions
+
+- **Arithmetic (6.1).** operators `** / * - +`; precedence `**` > `* /` > `+ -`; `**` is
+  **right-associative** (`2**3**2` = `2**(3**2)` = 512), `* /` and `+ -` left-associative;
+  `-A**2` = `-(A**2)`; no two adjacent operators (`A**(-B)` not `A**-B`). — ✓ verified.
+- **Result type (6.1.4, Tables 2–3).** a mixed-type operator converts the operand that
+  differs from the result type; real/double/complex `** integer` leaves the integer
+  unconverted; **double precision combined with complex is prohibited**; `C**C` is the
+  principal value `EXP(x2·LOG(x1))`. — ✓ promotions; ▲ the D⊗C prohibition is not enforced
+  (forterp promotes; benign — no conforming program forms it).
+- **Integer division (6.1.5).** truncates toward zero — `(-8)/3` = −2, `5/2` = 2,
+  `2**(-3)` = 0. — ✓ verified.
+- **Math errors (6.6).** divide-by-zero, `0**0`, `0**negative`, and a negative value raised to
+  a real/double power are *prohibited* (undefined). — ▲ forterp is **non-fatal**: it returns a
+  value instead of trapping (the deliberate FORTRAN-10/F66 policy; a conforming program never
+  reaches this). Operand short-circuiting (6.6.1) is permitted-not-required; forterp evaluates
+  eagerly.
+- **Character (6.2).** `//` concatenation, left-associative, parentheses don't change the
+  value. — ✓
+- **Relational (6.3).** `.LT. .LE. .EQ. .NE. .GT. .GE.`; compare two arithmetic or two
+  character operands (never mixed); a complex operand only with `.EQ.`/`.NE.`; the shorter
+  character operand is blank-padded on the right; `.EQ.`/`.NE.` are collating-independent. — ✓
+- **Logical (6.4).** `.NOT. .AND. .OR. .EQV. .NEQV.`, precedence `.NOT.` > `.AND.` > `.OR.` >
+  `.EQV./.NEQV.`, left-associative within a level. — ✓ verified.
+- **Operator-class precedence (6.5).** arithmetic > character > relational > logical. — ✓
+- **Integrity of parentheses (6.6.3).** a parenthesized subexpression is evaluated as a unit
+  (`A*(B*C)` is not regrouped to `(A*B)*C`). — ✓ (forterp evaluates the parse tree as written).
+
+### §7 Statement classification, §8 Specification statements
+
+- **Statement classes (§7).** all executable and nonexecutable statements listed are
+  supported. — ✓
+- **DIMENSION / COMMON / EQUIVALENCE (8.1–8.3).** array declarators in `DIMENSION`/type/
+  `COMMON`; `EQUIVALENCE` shares storage with no type conversion; named and blank (`//`)
+  common; repeated common names continue the list; `EQUIVALENCE` may extend a common block
+  only forward. — ✓ (forterp detects contradictory `EQUIVALENCE`). — ▲ the "all entities in a
+  character common block must be character" (8.3.1) and "character equivalences only with
+  character" (8.2.3) restrictions are not enforced (accept-more leniency).
+- **Type-statements (8.4).** `INTEGER`/`REAL`/`DOUBLE PRECISION`/`COMPLEX`/`LOGICAL`/
+  `CHARACTER`; `CHARACTER*len` with a statement-wide default, per-entity `*len` overrides,
+  per-element length for arrays, and `*(*)` assumed length for dummies / external functions /
+  named character constants. — ✓ verified (`CHARACTER*4 A, B*2, C(3)*5` → lengths 4/2/5).
+- **`LEN` is the declared length (8.4/15.10).** `LEN(c)` is a compile-time property and does
+  not require `c` to be defined. — ✓ **fixed in this review**: forterp had read the runtime
+  value and crashed on an undefined CHARACTER variable; it now resolves the declared length
+  (substring windows and assumed-length dummies included).
+- **IMPLICIT (8.5).** `IMPLICIT typ(a, c-g, …)` letter ranges; precedes other specs except
+  `PARAMETER`; overridable by a type-statement. — ✓
+- **PARAMETER (8.6).** `PARAMETER (p = const-expr, …)`; the constant expression matches `p`'s
+  type; a non-default type/length must be set before the `PARAMETER`; a `PARAMETER` name may
+  be a primary or appear in `DATA` but not inside a `FORMAT`. — ✓
+- **EXTERNAL / INTRINSIC (8.7–8.8).** declare a name an external/dummy procedure, or an
+  intrinsic, so it can be passed as an actual argument; an `EXTERNAL` name overrides a
+  like-named intrinsic. — ✓ — ▲ forterp does not *require* `EXTERNAL` merely to pass a
+  procedure (lenient).
+- **SAVE (8.9).** retains a local's value across `RETURN`/`END`; `/cb/` saves a whole common
+  block; listless `SAVE` saves everything; a no-op in a main program. — ✓ (verified a saved
+  counter persists across calls).
+
+### §9 DATA, §10 Assignment
+
+- **DATA (§9).** `DATA nlist /clist/ …`; `r*c` repeat counts; an unsubscripted array name
+  takes one constant per element (column-major); implied-DO `(…, i=m1,m2[,m3])` with a
+  positive trip count; numeric constants convert to the entity's type, character/logical must
+  match; a character entity longer than its constant is blank-padded on the right, shorter is
+  truncated. Named-common entities are initialized only in `BLOCK DATA`; blank common and
+  dummy arguments cannot be initialized. — ✓ (`V/3*7./`, `(V(I),I=1,3)/…/` verified).
+- **Arithmetic assignment (10.1).** `v = e` converts `e` to `v`'s type (Table 4): `INT`
+  truncates toward zero (`I=3.9`→3, `I=-3.9`→−3), `REAL`/`DBLE`/`CMPLX` as appropriate. — ✓
+- **Logical assignment (10.2).** `v = e`, `e` logical. — ✓
+- **ASSIGN (10.3).** `ASSIGN s TO i` gives integer `i` a statement-label value (the only way),
+  for an assigned `GO TO` or a run-time format identifier; `s` must label an executable or
+  `FORMAT` statement in the same unit. — ✓ (`ASSIGN`+assigned-`GO TO` verified).
+- **Character assignment (10.4).** `v` and `e` may differ in length — `e` is blank-padded
+  (`v` longer) or right-truncated (`v` shorter); assigning a substring leaves the rest
+  unchanged. — ✓ (`A*2='ABCD'`→`'AB'`, `B*5='XY'`→`'XY   '`).

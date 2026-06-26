@@ -930,3 +930,24 @@ def test_output_implied_do_snapshots_the_loop_variable():
     )
     eng = forterp.run_source(src, dialect=forterp.F77, target=forterp.NATIVE)
     assert eng.commons["O"][0] == "  1  2  3  4"
+
+
+def test_len_of_an_undefined_character_variable_is_the_declared_length():
+    # X3.9-1978 15.10: LEN(c) is c's DECLARED length -- a compile-time property that does NOT
+    # require c to be defined. Regression: forterp read len(value) and crashed on an undefined
+    # CHARACTER variable (its cell was still integer 0). LEN now resolves the declaration, while
+    # a substring window, an assumed-length dummy, and a concatenation all stay correct.
+    src = (
+        "      PROGRAM T\n      COMMON /O/ V(4)\n"
+        "      CHARACTER*4 A\n      CHARACTER*8 S\n"
+        "      S='ABCDEFGH'\n"
+        "      V(1)=LEN(A)\n"  # undefined CHARACTER*4 -> 4
+        "      V(2)=LEN(S(3:7))\n"  # substring window -> 5
+        "      V(3)=LEN('XY'//'ZZZ')\n"  # concatenation -> 5
+        "      CALL SUB(S)\n"
+        "      END\n"
+        "      SUBROUTINE SUB(D)\n      CHARACTER*(*) D\n      COMMON /O/ V(4)\n"
+        "      V(4)=LEN(D)\n      END\n"  # assumed-length dummy bound to *8 -> 8
+    )
+    eng = forterp.run_source(src, dialect=forterp.F77, target=forterp.NATIVE)
+    assert eng.commons["O"] == [4, 5, 5, 8]

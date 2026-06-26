@@ -887,6 +887,24 @@ class Engine:
             return unit.implicit_char_len[name[0]]
         return 1
 
+    def _decl_char_len(self, arg, frame):
+        """Declared length of a CHARACTER expression, for LEN() (15.10) -- resolved WITHOUT the
+        argument's value where possible (a substring window, or a variable/array-element's
+        declared length). Returns None when it can't be resolved statically -- an assumed-length
+        dummy `*(*)` (declared length 0, true length comes from the bound actual) or a
+        concatenation expression -- so the caller falls back to the value's length."""
+        unit = frame.rt.unit
+        if isinstance(arg, A.Substring):
+            lo = int(self.eval(arg.lo, frame)) if arg.lo is not None else 1
+            if arg.hi is not None:
+                return max(int(self.eval(arg.hi, frame)) - lo + 1, 0)
+            base = getattr(arg.base, "name", None)
+            n = self.char_length(unit, base) if base else 0
+            return max(n - lo + 1, 0) if n else None
+        if isinstance(arg, (A.Var, A.Ref)) and getattr(arg, "name", None):
+            return self.char_length(unit, arg.name) or None  # 0 (assumed `*`) -> fall back
+        return None
+
     # ---- DATA initialization
     def _apply_data(self, rt, unit):
         for targets, values in unit.data:
@@ -1212,6 +1230,14 @@ class Engine:
         if (name in INTRINSICS or name in _CHAR_LOGICAL) and (
             self.dec_intrinsics or name in _F66_INTRINSICS
         ):
+            if name == "LEN" and len(node.args) == 1:
+                # LEN is the DECLARED length of its CHARACTER argument -- a compile-time property
+                # that does not require the argument to be defined (X3.9-1978 15.10). Resolve it
+                # from the declaration so LEN(C) works before C is assigned; fall back to the
+                # value-based length for forms we can't resolve statically (e.g. a concatenation).
+                n = self._decl_char_len(node.args[0], frame)
+                if n is not None:
+                    return n
             return self._apply_intrinsic(name, [self.eval(a, frame) for a in node.args])
         if name in self.units and self.units[name].kind == "function":
             return self.call_function(name, node.args, frame)
