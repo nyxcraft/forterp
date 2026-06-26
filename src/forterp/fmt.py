@@ -473,8 +473,9 @@ def _gfmt(v, w, d, scale=0, exp_width=None, plus=False):
     else:
         e = math.floor(math.log10(av))  # av in [10**e, 10**(e+1))
         decimals = max(0, min(d - 1 - e, d))
-    val = v * (10.0**scale) if scale else v  # F-form scale: ext = int*10**n
-    body = _real(val, 0, decimals, plus)  # F field, no width yet
+    # X3.9-1978 13.5.9.2.3: a scale factor has NO effect on G editing while the value is in its
+    # F-form range -- it applies only when G falls back to E-form (handled above). So no scaling.
+    body = _real(v, 0, decimals, plus)  # F field, no width yet
     # Trailing blanks reserve the space an exponent would occupy (X3.9-1978 13.5.9.2.3): 4 by
     # default, or e+2 for an explicit Gw.dEe (the width of an E+ddd... exponent).
     n = 4 if exp_width is None else exp_width + 2

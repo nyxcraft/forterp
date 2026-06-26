@@ -132,6 +132,17 @@ def test_render_g_format_explicit_exponent_width_reserves_e_plus_2_blanks():
     assert render(parse_format("(G12.5)"), [314.5673]) == ("  314.57    ", False)  # default 4
 
 
+def test_render_g_format_scale_factor_only_affects_the_e_form():
+    # X3.9-1978 13.5.9.2.3: a scale factor has NO effect on G editing while the value is in its
+    # F-form range (it applies only when G falls back to E-form). Regression for FM900 (FMTRWF),
+    # where 2PG16.4 of 9876.54 wrongly came out 100x large (987654.) instead of 9877.
+    assert render(parse_format("(2PG16.4)"), [9876.54]) == ("       9877.    ", False)
+    assert render(parse_format("(G16.4)"), [9876.54]) == ("       9877.    ", False)  # same
+    assert render(parse_format("(2PG12.5)"), [314.5673]) == ("  314.57    ", False)
+    # but in the E-form range the scale factor DOES apply, exactly as for E editing
+    assert render(parse_format("(2PG12.4)"), [5.0e6]) == ("  50.000E+05", False)
+
+
 def test_render_nX_advances_without_erasing_overlapped_output():
     # nX transmits no characters: it advances the cursor like TR and must NOT blank positions an
     # earlier (positionally overlapping) field wrote. Here E10.4E2 writes the field, TL10 backs
