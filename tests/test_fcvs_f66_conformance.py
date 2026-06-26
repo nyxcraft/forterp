@@ -37,7 +37,7 @@ def test_blanks_insignificance_files_run_and_pass():
 
 
 def test_total_conformance_tests_passed():
-    assert R["total_pass"] == 1146
+    assert R["total_pass"] == 1148
 
 
 def test_only_expected_failure_is_fm001_by_design():

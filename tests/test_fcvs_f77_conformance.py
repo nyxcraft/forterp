@@ -37,7 +37,7 @@ def test_f77_conformance_baseline():
     # the fix (a gain) or investigate (a regression).
     assert R["n_run"] == 192
     assert R["n_gap"] == 0
-    assert R["total_pass"] == 3318
+    assert R["total_pass"] == 3320
     assert R["total_err"] == 1  # only FM001's by-design FORCE-FAIL (see the next test)
     assert len(R["nosummary"]) == 18
 

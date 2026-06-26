@@ -67,12 +67,21 @@ def fix_tokens(toks: list[Token]) -> list[Token]:
     the GOTO keyword and its integer label.  No real identifier is 'GOTO'+digits.
     """
     out = []
-    for t in toks:
+    for i, t in enumerate(toks):
+        prv = toks[i - 1] if i else None
+        nxt = toks[i + 1] if i + 1 < len(toks) else None
+        # `GOTO<digits>` is a GO TO to that label -- UNLESS it is the variable GOTO<digits> (the
+        # F66 blanks-insignificance case `GO TO 1 = 43.`). It is the variable when ASSIGNED
+        # (followed by '=') or used as an OPERAND (preceded by '=' '(' ',' or an arithmetic op).
+        operand = prv is not None and prv.kind == "OP" and prv.value in "=(,+-*/"
+        assigned = nxt is not None and nxt.kind == "OP" and nxt.value == "="
         if (
             t.kind == "ID"
             and len(t.value) > 4
             and t.value.startswith("GOTO")
             and t.value[4:].isdigit()
+            and not operand
+            and not assigned
         ):
             out.append(Token("ID", "GOTO", t.col))
             out.append(Token("INT", int(t.value[4:]), t.col))
@@ -560,7 +569,9 @@ class StatementParser:
             return self.parse_do_while()
         if kw == "DO" and self._looks_like_do():
             return self.parse_do()
-        if kw == "GOTO" or (kw == "GO" and nx and nx.kind == "ID" and nx.value == "TO"):
+        if (kw == "GOTO" or (kw == "GO" and nx and nx.kind == "ID" and nx.value == "TO")) and (
+            not self._has_toplevel_eq()  # `GO TO 1 = 43.` is the variable GOTO1, not a GO TO
+        ):
             return self.parse_goto()
         if kw == "ASSIGN" and nx and nx.kind == "INT":  # ASSIGN <label> TO <var>
             return self.parse_assign_label()
@@ -568,7 +579,7 @@ class StatementParser:
             return self.parse_entry()
         if kw in ("ENCODE", "DECODE"):  # V5 10.15: internal formatted I/O
             return self.parse_encode_decode(kw)
-        if kw == "CALL":
+        if kw == "CALL" and not self._has_toplevel_eq():  # `CALL FL = 62.` is the variable CALLFL
             return self.parse_call()
         if kw == "RETURN":
             self.advance()
@@ -685,6 +696,23 @@ class StatementParser:
         specs = {} if self.at_end() else {"UNIT": self.parse_expr()}
         return A.FileCtl(verb=verb, specs=specs)
 
+    def _has_toplevel_eq(self):
+        """Does the statement have an unparenthesised '=' -- i.e. is it an assignment? A real
+        GO TO / ASSIGN never does, so this disambiguates the F66 blanks-insignificance gotcha
+        `GO TO 1 = 4 3.` (the variable GOTO1 = 43., X3.9-1966 7.1.2.1.1) from `GO TO 1`. The
+        statement falls through to the assignment parser, which fails on the un-glued LHS and
+        triggers the blanks-stripped retry (-> GOTO1=43.)."""
+        depth = 0
+        for t in self.toks[self.pos :]:
+            if t.kind == "OP":
+                if t.value == "(":
+                    depth += 1
+                elif t.value == ")":
+                    depth -= 1
+                elif t.value == "=" and depth == 0:
+                    return True
+        return False
+
     def _looks_like_do(self):
         # DO <label> [,] <var> = ...   (the comma after the label is an F77 option)
         if not (self.peek_next() and self.peek_next().kind in ("INT", "OCTAL")):
@@ -775,11 +803,12 @@ class StatementParser:
             self.accept_op(",")
             return A.CompGoto(labels=labels, index=self.parse_expr())
         t = self.peek()
-        if t and t.kind == "ID":  # assigned GOTO: GO TO N [,(...)]
+        if t and t.kind == "ID":  # assigned GOTO: GO TO N [,] [(l1,...,ln)]
             var = self.expect_id()
             labels = []
-            if self.accept_op(","):
-                self.expect_op("(")
+            self.accept_op(",")  # the comma before the advisory label list is optional (10.3)
+            if self.is_op("("):
+                self.advance()
                 labels.append(self.expect_int())
                 while self.accept_op(","):
                     labels.append(self.expect_int())
@@ -1801,6 +1830,12 @@ def _route(unit, st, toks, on_warn=None, dialect=F66):
 
     # executable
     stmt = p.parse_exec()
+    # A well-formed statement consumes all its tokens. Leftover tokens mean the normal (blanks-as-
+    # separators) parse mis-split a blanks-insignificant token -- e.g. `I PM H = 4   2` glues the
+    # target to IPMH but parse_expr reads only `4`, dropping `2`. Raising here routes it to the
+    # blanks-stripped retry (-> `IPMH=42`), instead of silently keeping the truncated statement.
+    if not p.at_end():
+        raise ParseError("unexpected tokens after statement (blanks-insignificance retry)", "FWE")
     # FORTRAN-66 statement function: name(d1,d2,...)=expr appearing before any
     # executable statement, where `name` is NOT a declared array and the subscripts
     # are plain dummy names. (Distinct from an array-element assignment, whose name

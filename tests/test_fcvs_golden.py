@@ -60,8 +60,6 @@ GFORTRAN_UNRELIABLE = {
 # honest "ours is different and here is why it's not a wrong answer." A real forterp limitation
 # worth a future fix, not a divergence we claim is correct.
 KNOWN_GF_DIFF = {
-    "FM010": "F66 blanks-in-token audit (3.1.6): forterp STOPs after test 100, running 1 of the "
-    "3 tests gfortran runs -- tests 101/102 are not reached. No false PASS; a completeness gap.",
     "FM906": "LSTDI2 list-directed-input audit: forterp raises an InputConversionError on a field "
     "of the card deck and ends early. A list-directed-input gap; no wrong PASS/FAIL reported.",
     "FM111": "IOFMTS print-and-eyeball FORMAT audit: forterp's COMPUTED rows differ on some "
@@ -242,4 +240,4 @@ def test_whole_corpus_is_accounted_for():
     assert len(corpus) == 192
     accounted = MATCHING | set(KNOWN_GF_DIFF) | set(GF_CANNOT_RUN)
     assert corpus == accounted, f"unaccounted routines: {sorted(corpus - accounted)}"
-    assert len(MATCHING) == 183  # 179 byte + FM905/907 value-token + FM257/406 self-check
+    assert len(MATCHING) == 184  # 179 byte + FM905/907 value-token + FM257/406 self-check

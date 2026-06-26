@@ -76,6 +76,27 @@ def test_assigned_goto_with_label_list():
     assert out(run_int(src), 1) == 3
 
 
+def test_assigned_goto_label_list_without_a_comma():
+    # The comma before the advisory label list is optional (X3.9-1966 10.3): `GO TO L (10,20,30)`.
+    src = (
+        "        ASSIGN 20 TO L\n        GO TO L (10,20,30)\n"
+        "  10    V(1)=1\n        GOTO 99\n"
+        "  20    V(1)=2\n  99    CONTINUE\n"
+    )
+    assert out(run_int(src), 1) == 2
+
+
+def test_keyword_prefixed_assignment_is_not_a_statement():
+    # F66 blanks-insignificance (X3.9-1966 7.1.2.1.1): a statement with a top-level '=' is an
+    # ASSIGNMENT, even when it begins with keyword-like text. `GO TO 1 = 43` assigns the variable
+    # GOTO1, and `CALL FL = 62` assigns CALLFL -- neither is a GO TO / CALL. (Regression: FM010,
+    # where mis-parsing `GO TO 1 = 4 3.` as a jump skipped to the wrong test and corrupted output.)
+    eng = run_int(
+        "        GO TO 1 = 43\n        CALL FL = 62\n        V(1) = GOTO1\n        V(2) = CALLFL\n"
+    )
+    assert out(eng, 1) == 43 and out(eng, 2) == 62
+
+
 # ---- PAUSE -----------------------------------------------------------------
 def test_pause_does_not_halt_execution():
     eng = run_int("        V(1)=1\n        PAUSE\n        V(1)=2\n")
