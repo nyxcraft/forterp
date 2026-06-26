@@ -37,9 +37,9 @@ def test_f77_conformance_baseline():
     # the fix (a gain) or investigate (a regression).
     assert R["n_run"] == 192
     assert R["n_gap"] == 0
-    assert R["total_pass"] == 3320
+    assert R["total_pass"] == 3348
     assert R["total_err"] == 1  # only FM001's by-design FORCE-FAIL (see the next test)
-    assert len(R["nosummary"]) == 18
+    assert len(R["nosummary"]) == 17
 
 
 def test_self_check_failures_do_not_grow():
@@ -61,7 +61,7 @@ def test_every_routine_runs_all_its_declared_tests():
     # Non-vacuity: the check actually reconciled a substantial set (the routines printing FCVS's
     # "X OF Y TESTS EXECUTED"). Older self-checkers lack that line, but a mid-run crash there
     # prints no summary at all and so moves the pinned `nosummary` set instead.
-    assert R["n_checked"] == 99
+    assert R["n_checked"] == 100
 
 
 def test_inspection_tests_are_all_golden_validated():

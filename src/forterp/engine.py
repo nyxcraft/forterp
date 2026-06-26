@@ -1914,6 +1914,12 @@ class Engine:
             walk(it)
         return out
 
+    @staticmethod
+    def _ld_real(s):
+        """A list-directed real field -> float, D/d exponent normalised to E, blank field -> 0."""
+        s = s.strip().replace("D", "E").replace("d", "e")
+        return float(s) if s else 0.0
+
     def _ld_convert(self, kind, tok, ty, clen):
         """Convert one scanned list-directed datum to a target of declared type `ty`
         (X3.9-1978 13.6.3). LOGICAL takes an optional leading '.', then T/F (rest ignored);
@@ -1928,11 +1934,14 @@ class Engine:
             if s[:1] == ".":
                 s = s[1:]
             return self.tgt.from_bool(s[:1].upper() == "T")
+        norm = tok.replace("D", "E").replace("d", "e")  # D/d and E/e exponents interchange (13.6.3)
+        if ty == "COMPLEX":  # a bare real datum for a COMPLEX target -> (re, 0); (re,im) is _ld_in
+            return complex(self._ld_real(norm), 0.0)
         try:
-            return int(tok) if ty == "INTEGER" else float(tok)
+            return int(tok) if ty == "INTEGER" else float(norm)
         except ValueError:
             try:  # an INTEGER target fed a real datum truncates toward zero
-                f = float(tok)
+                f = float(norm)
             except ValueError:
                 raise InputConversionError(
                     f"illegal character in list-directed field {tok!r}"
@@ -1979,6 +1988,26 @@ class Engine:
                         i += 1
                     ref, ty, clen = targets[ti]
                     ref.write(self._ld_convert("str", "".join(buf), ty, clen))
+                    ti += 1
+                elif c == "(":  # a COMPLEX datum ( re , im ) -- may span records (13.6.2/13.6.3)
+                    i += 1
+                    parts = []
+                    while True:
+                        j = line.find(")", i)
+                        if j != -1:
+                            parts.append(line[i:j])
+                            i = j + 1
+                            break
+                        parts.append(line[i:])  # no ')' yet -> pull the next record, keep scanning
+                        nxt = next_line() if next_line is not None else None
+                        if nxt is None:
+                            i = n
+                            break
+                        line, n, i = nxt, len(nxt), 0
+                    re_s, _, im_s = "".join(parts).partition(",")
+                    ref, ty, _clen = targets[ti]
+                    cval = complex(self._ld_real(re_s), self._ld_real(im_s))
+                    ref.write(cval if ty == "COMPLEX" else cval.real)
                     ti += 1
                 else:
                     start = i

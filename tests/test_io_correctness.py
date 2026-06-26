@@ -108,3 +108,17 @@ def test_stmt_function_wrong_arg_count_is_clean(capsys):
         os.unlink(path)
     err = capsys.readouterr().err
     assert rc == 1 and "Traceback" not in err and "statement function" in err
+
+
+def test_list_directed_input_complex_and_d_exponent_spanning_records():
+    # List-directed READ accepts a D/d exponent (2.5D0) and a COMPLEX (re,im) constant, which may
+    # SPAN records -- here C = (3.0,4.0) is split across two cards (X3.9-1978 13.6.2/13.6.3).
+    # Regression: FM906 (LSTDI2), which used to error on the D exponent and the parenthesised value.
+    src = (
+        "        PROGRAM T\n        COMMON /OUT/ V(40)\n        REAL V\n        COMPLEX C\n"
+        "        READ(5,*) X, C\n"
+        "        V(1)=X\n        V(2)=REAL(C)\n        V(3)=AIMAG(C)\n        END\n"
+    )
+    deck = {"lines": ["2.5D0  (3.0,", "4.0)"], "pos": 0, "mode": "r", "text": True}
+    eng = run(src, setup=lambda e: e.io.__setitem__(5, deck), dialect=forterp.FORTRAN10)
+    assert [out(eng, i) for i in range(1, 4)] == [2.5, 3.0, 4.0]
