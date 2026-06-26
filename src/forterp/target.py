@@ -23,6 +23,7 @@ class Target:
         bits_per_char=7,
         little_endian=False,
         truth=None,
+        ieee_math=False,
     ):
         self.word_bits = word_bits
         self.chars_per_word = chars_per_word
@@ -33,6 +34,10 @@ class Target:
         # truth test: "sign" (v<0), "nonzero" (v!=0), "low_bit" (v&1); None = derive from
         # logical_true's sign (PDP-10 -> sign, a positive logical_true -> nonzero).
         self.truth = truth
+        # ieee_math: how an undefined arithmetic result is delivered (§6 prohibits these ops, so
+        # any value conforms). True (NATIVE) -> IEEE Inf/NaN, matching gfortran; False (PDP-10/VAX)
+        # -> FOROTS's non-fatal recovery (0.0 on divide, |x| stand-ins, with a LIB warning).
+        self.ieee_math = ieee_math
         self.mask = (1 << word_bits) - 1
         self.sign = 1 << (word_bits - 1)
         self.modulus = 1 << word_bits  # 2^word_bits: the two's-complement wrap modulus
@@ -127,7 +132,12 @@ PDP10 = Target()  # faithful DEC PDP-10: 36-bit, 5x7-bit packed ASCII, .TRUE.=-1
 # standard FORTRAN-66 without PDP-10 quirks -- 64-bit two's-complement integers, 8-bit
 # ASCII (8 chars/word), .TRUE.=1 with boolean (not bitwise) logical operators.
 NATIVE = Target(
-    word_bits=64, chars_per_word=8, bits_per_char=8, logical_true=1, bitwise_logic=False
+    word_bits=64,
+    chars_per_word=8,
+    bits_per_char=8,
+    logical_true=1,
+    bitwise_logic=False,
+    ieee_math=True,  # undefined math -> IEEE Inf/NaN (matches gfortran), not FOROTS recovery
 )
 
 # PROVISIONAL, UNVALIDATED guess at the VAX-11 / VAX FORTRAN value model -- no driver or

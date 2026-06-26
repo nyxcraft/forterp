@@ -459,15 +459,23 @@ is the full language; forterp does not implement the separate "subset FORTRAN" l
 - **Result type (6.1.4, Tables 2–3).** a mixed-type operator converts the operand that
   differs from the result type; real/double/complex `** integer` leaves the integer
   unconverted; **double precision combined with complex is prohibited**; `C**C` is the
-  principal value `EXP(x2·LOG(x1))`. — ✓ promotions; ▲ the D⊗C prohibition is not enforced
-  (forterp promotes; benign — no conforming program forms it).
+  principal value `EXP(x2·LOG(x1))`. — ✓ promotions. The Table-2/3 "Prohibited" entry for
+  double-precision ⊗ complex arithmetic is accepted as an extension: forterp promotes and
+  computes the double-complex result (e.g. `2D0*(1.,3.)` → `(2.,6.)`), identical to gfortran in
+  every mode (incl. `-std=f95`). §1.4 permits this — a conforming program never forms it, so
+  accepting it can't change any conforming program's meaning.
 - **Integer division (6.1.5).** truncates toward zero — `(-8)/3` = −2, `5/2` = 2,
   `2**(-3)` = 0. — ✓ verified.
-- **Math errors (6.6).** divide-by-zero, `0**0`, `0**negative`, and a negative value raised to
-  a real/double power are *prohibited* (undefined). — ▲ forterp is **non-fatal**: it returns a
-  value instead of trapping (the deliberate FORTRAN-10/F66 policy; a conforming program never
-  reaches this). Operand short-circuiting (6.6.1) is permitted-not-required; forterp evaluates
-  eagerly.
+- **Math errors (6.6).** "Any arithmetic operation whose result is not mathematically defined is
+  prohibited" — *examples:* dividing by zero, a **zero**-valued base to a zero/negative power, and
+  a **negative** base to a real/double power. (Note a *nonzero* base to a negative integer power
+  is **defined**, §6.1.5: `2**(-3)` = `1/(2**3)` = `0` — forterp computes this correctly, it is
+  not a divergence.) — ✓ **non-fatal**, and now **target-aware**: these undefined ops never trap,
+  and the value follows the target's `ieee_math` flag. **NATIVE** delivers IEEE results identical
+  to gfortran (`1.0/0.0`→`Inf`, `0.0/0.0`→`NaN`, `0.0**(-1)`→`Inf`, `(-4.)**0.5`/`SQRT(-1)`→`NaN`);
+  **PDP10** keeps FOROTS's non-fatal recovery (`0.0` on divide, a `|x|` stand-in + a LIB warning
+  on a domain error). Any result conforms (the op is undefined) and a conforming program never
+  reaches it. Operand short-circuiting (6.6.1) is permitted-not-required; forterp evaluates eagerly.
 - **Character (6.2).** `//` concatenation, left-associative, parentheses don't change the
   value. — ✓
 - **Relational (6.3).** `.LT. .LE. .EQ. .NE. .GT. .GE.`; compare two arithmetic or two

@@ -1378,13 +1378,23 @@ class Engine:
         except ValueError:  # math domain error (negative / out of range)
             if name not in _LIB_MSG:
                 raise
-            self._lib_warn(_LIB_MSG[name])
+            if self.tgt.ieee_math:
+                return math.nan  # IEEE (gfortran): SQRT(-1)/LOG(-1)/ASIN(2) -> NaN
+            self._lib_warn(_LIB_MSG[name])  # FOROTS: warn + recover on the nearest in-domain arg
             r = _LIB_RECOVER[name](args)
         except OverflowError:  # APR floating overflow (e.g. EXP of large arg)
-            self._lib_warn("Floating Overflow")
+            if not self.tgt.ieee_math:
+                self._lib_warn("Floating Overflow")  # FOROTS warns; IEEE just yields Inf
             return math.inf if (args and args[0] > 0) else -math.inf
         # INT-family conversions take the target's integer wrap (PDP-10: 36-bit 2's-comp)
         return self.tgt.wrap(int(r)) if name in _INT_RESULT else r
+
+    def _real_div_zero(self, a):
+        """Real x/0 (§6: prohibited/undefined, so any result conforms). IEEE target -> Inf/NaN
+        (matches gfortran: +x->+Inf, -x->-Inf, 0->NaN); FOROTS/PDP-10 -> non-fatal 0.0."""
+        if not self.tgt.ieee_math:
+            return 0.0
+        return math.inf if a > 0 else (-math.inf if a < 0 else math.nan)
 
     def eval_binary(self, node, frame):
         op = node.op
@@ -1418,9 +1428,11 @@ class Engine:
             return a * b if (fl or cx) else self.tgt.wrap(a * b)
         if op == "/":
             if cx:
-                return a / b if b != 0 else 0j  # complex divide (non-fatal /0)
+                if b != 0:
+                    return a / b
+                return complex(math.nan, math.nan) if self.tgt.ieee_math else 0j
             if fl:
-                return a / b if b != 0 else 0.0  # FOROTS divide-by-zero: non-fatal
+                return a / b if b != 0 else self._real_div_zero(a)
             return trunc_div(a, b)  # (handles b==0 -> 0)
         # relational results are FORTRAN logicals (target's convention: PDP-10 -1/0)
         if op == "EQ":
@@ -1441,9 +1453,11 @@ class Engine:
             if cx:
                 return a**b  # complex exponentiation
             if fl:
-                if a == 0 and b < 0:
-                    return 0.0  # 0.0**negative: non-fatal stand-in
+                if a == 0 and b < 0:  # 0.0**negative: prohibited/undefined
+                    return math.inf if self.tgt.ieee_math else 0.0
                 if a < 0 and b != int(b):  # F66 6.4: neg base ** real exp = undefined
+                    if self.tgt.ieee_math:
+                        return math.nan  # IEEE (gfortran): NaN
                     self._lib_warn("Negative Number to a Real Power")  # FOROTS LIB error
                     return abs(a) ** b  # real stand-in (Python would give complex)
                 return a**b

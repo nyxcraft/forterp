@@ -5,7 +5,11 @@ from the PDP-10 (real range/precision) we DOCUMENT it -- typical values never go
 near those edges, so the divergence is benign.
 """
 
+import math
+
 from conftest import out, run, run_int
+
+import forterp
 
 P35 = 1 << 35
 REAL = "        PROGRAM T\n        COMMON /OUT/ V(40)\n        REAL V\n"
@@ -53,6 +57,35 @@ def test_zero_over_zero_is_zero_no_nan():
     # the PDP-10 had no IEEE NaN; 0./0. is just a (non-fatal) divide-by-zero -> 0
     eng = run(REAL + "        V(1)=0./0.\n" + END)
     assert out(eng, 1) == 0.0
+
+
+# ---- the NATIVE target delivers IEEE Inf/NaN for the prohibited ops (matches gfortran) ----
+# §6: these operations are undefined, so any result conforms. NATIVE picks IEEE (the modern /
+# gfortran convention); PDP10 keeps FOROTS's non-fatal recovery (asserted above).
+def _nat(body):
+    src = "      PROGRAM T\n      COMMON /O/ R\n      REAL R\n" + body + "      END\n"
+    return forterp.run_source(src, dialect=forterp.F77, target=forterp.NATIVE).commons["O"][0]
+
+
+def test_native_real_divide_by_zero_is_signed_infinity():
+    assert _nat("      X=0.0\n      R=1.0/X\n") == math.inf
+    assert _nat("      X=0.0\n      R=-1.0/X\n") == -math.inf
+
+
+def test_native_zero_over_zero_is_nan():
+    assert math.isnan(_nat("      X=0.0\n      R=X/X\n"))
+
+
+def test_native_zero_to_a_negative_power_is_infinity():
+    assert _nat("      X=0.0\n      R=X**(-1)\n") == math.inf
+
+
+def test_native_negative_base_to_a_real_power_is_nan():
+    assert math.isnan(_nat("      B=-4.0\n      H=0.5\n      R=B**H\n"))
+
+
+def test_native_sqrt_of_a_negative_is_nan():
+    assert math.isnan(_nat("      B=-4.0\n      R=SQRT(B)\n"))
 
 
 # ---- real range / precision: we use Python double, NOT 36-bit PDP-10 float ----
