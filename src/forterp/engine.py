@@ -1440,7 +1440,14 @@ class Engine:
         if op == "NE":
             return self.tgt.from_bool(a != b)
         if op in ("LT", "LE", "GT", "GE") and cx:
-            return self.tgt.from_bool(False)  # V5 CTR: complex .LT./.GT./... undefined
+            # §6.3.3: a complex operand may be compared ONLY with .EQ./.NE. -- complex values have
+            # no ordering, so .LT./.LE./.GT./.GE. is a nonsense comparison with no defined result.
+            # gfortran rejects it in every mode; forterp does too (a hard error on all dialects),
+            # rather than the silent .FALSE. it used to return.
+            raise RuntimeError(
+                "COMPLEX quantities cannot be ordered -- a complex operand may be compared only "
+                "with .EQ. or .NE. (F77 6.3.3)"
+            )
         if op == "LT":
             return self.tgt.from_bool(a < b)
         if op == "LE":

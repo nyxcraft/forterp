@@ -112,3 +112,31 @@ def test_int_and_conversions_of_complex_use_the_real_part():
         "        COMPLEX C, D\n",
     )
     assert [out(eng, i) for i in range(1, 5)] == [1.0, 2.5, 1.0, 1.0]
+
+
+# ---- §6.3.3: a complex operand may be compared ONLY with .EQ./.NE. --------------------------
+def test_complex_ordering_comparison_is_rejected():
+    # Complex values have no ordering, so .LT./.LE./.GT./.GE. on a complex operand is a nonsense
+    # comparison with no defined result -- a hard error on every dialect (gfortran rejects it in
+    # all modes too), rather than the silent .FALSE. forterp used to return.
+    import pytest
+
+    import forterp
+
+    src = (
+        "      PROGRAM T\n      COMMON /O/ L\n      LOGICAL L\n      COMPLEX X,Y\n"
+        "      X=(1.,0.)\n      Y=(2.,0.)\n      L=X.LT.Y\n      END\n"
+    )
+    for dialect in (forterp.F77, forterp.FORTRAN10):
+        with pytest.raises(RuntimeError, match="cannot be ordered"):
+            forterp.run_source(src, dialect=dialect, target=forterp.NATIVE)
+
+
+def test_complex_equality_comparison_still_works():
+    import forterp
+
+    src = (
+        "      PROGRAM T\n      COMMON /O/ L\n      LOGICAL L\n      COMPLEX X,Y\n"
+        "      X=(1.,0.)\n      Y=(2.,0.)\n      L=X.NE.Y\n      END\n"
+    )
+    assert forterp.run_source(src, dialect=forterp.F77, target=forterp.NATIVE).commons["O"][0]

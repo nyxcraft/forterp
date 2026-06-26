@@ -581,9 +581,10 @@ value. — ✓</li>
 <li><strong>Relational (6.3).</strong> <code>.LT. .LE. .EQ. .NE. .GT. .GE.</code>; compare two arithmetic or two
 character operands (never mixed); a complex operand only with <code>.EQ.</code>/<code>.NE.</code>; the shorter
 character operand is blank-padded on the right; <code>.EQ.</code>/<code>.NE.</code> are collating-independent. — ✓
-— ▲ a <em>prohibited</em> ordering comparison on a complex operand (e.g. <code>C1 .LT. C2</code>) is not
-diagnosed; forterp evaluates it with no guaranteed result (a nonconforming program; &quot;no
-predictable value&quot; latitude).</li>
+— ✓ an ordering comparison on a complex operand (<code>C1 .LT. C2</code> etc.) is <strong>rejected</strong> on every
+dialect (<code>RuntimeError</code>, §6.3.3): complex values have no ordering, so it is a nonsense
+comparison with no defined result — gfortran rejects it in all modes, and forterp now does too
+rather than returning a silent <code>.FALSE.</code>.</li>
 <li><strong>Logical (6.4).</strong> <code>.NOT. .AND. .OR. .EQV. .NEQV.</code>, precedence <code>.NOT.</code> &gt; <code>.AND.</code> &gt; <code>.OR.</code> &gt;
 <code>.EQV./.NEQV.</code>, left-associative within a level. — ✓ verified.</li>
 <li><strong>Operator-class precedence (6.5).</strong> arithmetic &gt; character &gt; relational &gt; logical. — ✓</li>

@@ -481,9 +481,10 @@ is the full language; forterp does not implement the separate "subset FORTRAN" l
 - **Relational (6.3).** `.LT. .LE. .EQ. .NE. .GT. .GE.`; compare two arithmetic or two
   character operands (never mixed); a complex operand only with `.EQ.`/`.NE.`; the shorter
   character operand is blank-padded on the right; `.EQ.`/`.NE.` are collating-independent. — ✓
-  — ▲ a *prohibited* ordering comparison on a complex operand (e.g. `C1 .LT. C2`) is not
-  diagnosed; forterp evaluates it with no guaranteed result (a nonconforming program; "no
-  predictable value" latitude).
+  — ✓ an ordering comparison on a complex operand (`C1 .LT. C2` etc.) is **rejected** on every
+  dialect (`RuntimeError`, §6.3.3): complex values have no ordering, so it is a nonsense
+  comparison with no defined result — gfortran rejects it in all modes, and forterp now does too
+  rather than returning a silent `.FALSE.`.
 - **Logical (6.4).** `.NOT. .AND. .OR. .EQV. .NEQV.`, precedence `.NOT.` > `.AND.` > `.OR.` >
   `.EQV./.NEQV.`, left-associative within a level. — ✓ verified.
 - **Operator-class precedence (6.5).** arithmetic > character > relational > logical. — ✓
