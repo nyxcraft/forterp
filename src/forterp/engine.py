@@ -783,6 +783,17 @@ class Engine:
             # consume, so chained itertools.repeat bounds memory to what is actually used.
             streams = []
             for count, v in values:
+                # the repeat count of `n*value` may be a PARAMETER (or expression), not a
+                # literal -- e.g. DATA D(1),D(2) / IPN001*1.5 / with PARAMETER(IPN001=2). Resolve
+                # it to an int (the value side already goes through _const_val below).
+                if not isinstance(count, int):
+                    count = int(self._const_val(count, unit))
+                # a CHARACTER/Hollerith PARAMETER as a DATA value (e.g. PARAMETER(APK='X');
+                # DATA C/n*APK/): unfold it to its text so the string paths below keep it as
+                # characters -- fit to a CHARACTER target, or pack as Hollerith -- instead of
+                # _const_val packing it to a word before the target type is known.
+                if isinstance(v, A.Var) and isinstance(unit.consts.get(v.name), str):
+                    v = A.StrLit(unit.consts[v.name])
                 if isinstance(v, A.StrLit) and self.character_type:
                     # CHARACTER DATA value: keep the raw str -- _data_assign fits it to each
                     # target (pad/truncate for a CHARACTER target, pack for a numeric Hollerith).

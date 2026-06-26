@@ -72,8 +72,13 @@ overlapped at offset 0. The running offset is now tracked per block, so the mult
 declarations append -- and positional association across units (renaming, viewing blank COMMON
 as one array) lines up.
 
-With that, all 97 self-checking F77 FCVS routines report zero errors; the 43 print-and-eyeball
+With that, every self-checking F77 FCVS routine reports zero errors; the print-and-eyeball
 routines are validated separately against gfortran goldens (test_fcvs77_golden.py).
+
+Output-conformance (golden) work since then: FM500 (BLOCK DATA) now matches gfortran -- a DATA
+n*value repeat count may be a PARAMETER, not a literal (DATA D(1),D(2)/IPN001*x/), and a
+CHARACTER PARAMETER used as a DATA value (PARAMETER(APK='X'); DATA C/n*APK/) is kept as text
+and fit to the target rather than packed as a Hollerith word too early.
 
 Landed since the restore: IMPLICIT CHARACTER*<len> (the audit-harness preamble), the
 optional comma after a DO label, LOGICAL/COMPLEX PARAMETER constants, the widthless A
@@ -112,9 +117,9 @@ def test_f77_conformance_baseline():
     # the fix (a gain) or investigate (a regression).
     assert R["n_run"] == 140
     assert R["n_gap"] == 0
-    assert R["total_pass"] == 1669
+    assert R["total_pass"] == 1697
     assert R["total_err"] == 0  # the entire self-checking F77 FCVS corpus passes
-    assert len(R["nosummary"]) == 42
+    assert len(R["nosummary"]) == 41
 
 
 def test_self_check_failures_do_not_grow():
@@ -134,7 +139,7 @@ def test_every_routine_runs_all_its_declared_tests():
     # Non-vacuity: the check actually reconciled a substantial set (the routines printing FCVS's
     # "X OF Y TESTS EXECUTED"). Older self-checkers lack that line, but a mid-run crash there
     # prints no summary at all and so moves the pinned `nosummary` set instead.
-    assert R["n_checked"] == 75
+    assert R["n_checked"] == 76
 
 
 def test_inspection_tests_are_all_golden_validated():
@@ -145,6 +150,6 @@ def test_inspection_tests_are_all_golden_validated():
     from test_fcvs77_golden import KNOWN_DIVERGENT
 
     insp = [n[:-4] for n in R["inspect_routines"]]  # strip ".FOR"
-    assert len(insp) == 9
+    assert len(insp) == 10
     unverified = sorted(n for n in insp if n in KNOWN_DIVERGENT)
     assert not unverified, f"INSPECT routines whose output is NOT golden-validated: {unverified}"

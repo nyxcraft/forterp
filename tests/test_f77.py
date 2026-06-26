@@ -795,6 +795,23 @@ def test_integer_statement_function_truncates_its_real_result():
     assert _out(_cprog(body))[0] == 4
 
 
+def test_data_parameter_repeat_count_and_character_parameter_value():
+    # FM500: a DATA `n*value` repeat count may be a PARAMETER (not a literal), and a CHARACTER
+    # PARAMETER used as a DATA value is kept as text (fit to the target), not packed as Hollerith.
+    src = (
+        "      PROGRAM T\n      COMMON /O/ N(8)\n"
+        "      INTEGER A(3)\n      CHARACTER C(2)*1\n"
+        "      PARAMETER (NP=3, CX='X')\n"
+        "      DATA A /NP*7/\n      DATA C /2*CX/\n"
+        "      N(1)=A(1)+A(2)+A(3)\n"
+        "      N(2)=0\n      IF (C(1).EQ.'X' .AND. C(2).EQ.'X') N(2)=1\n"
+        "      END\n"
+    )
+    out = _out(src)
+    assert out[0] == 21  # 3*7 -- the PARAMETER repeat count NP resolved
+    assert out[1] == 1  # CHARACTER PARAMETER value kept as 'X', not a packed word
+
+
 def test_concat_operator_only_tokenized_under_character_type():
     # // is the concat operator only when CHARACTER is in play; FORTRAN-10 must not see it.
     src = "      PROGRAM T\n      COMMON /O/ S\n      CHARACTER S*4\n      S='A'//'B'\n      END\n"
