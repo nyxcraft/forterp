@@ -26,8 +26,9 @@ forterp's output legitimately or knowingly differs from gfortran -- is enumerate
     that is NOT a self-check failure (a print-and-eyeball FORMAT-edge, or a completeness gap):
     forterp reports no wrong PASS/FAIL, but its bytes are not gfortran's. The tests pin this set,
     so a fix (it starts matching) or a new, unexplained divergence both surface.
-  * GF_CANNOT_RUN -- gfortran itself crashes at runtime even with the deck, so there is no golden;
-    these are covered by forterp's self-check alone.
+  * GF_CANNOT_RUN -- gfortran itself crashes at runtime even with the deck, so there is no golden.
+    Now EMPTY: feeding the canonical NIST .DAT decks (vendored beside each .FOR) let gfortran run
+    every routine to completion, so the whole corpus has goldens.
 """
 
 import glob
@@ -65,27 +66,17 @@ KNOWN_GF_DIFF = {
     "field of -0.0044, which gfortran overflows to '**' (it keeps the minus on a value that rounds "
     "to zero, so '-.0' won't fit) while forterp -- and the FCVS CORRECT line -- print '.0'. "
     "Eyeball-only; gfortran is the outlier here, but there is no PASS/FAIL self-check to lean on.",
+    "FM110": "IOFMT: runs to completion on the canonical deck; one E-output field differs in the "
+    "last significant digit (forterp -0.139563E+00 vs gfortran -0.139562E+00) -- a round-half "
+    "tie-break difference. A real forterp diff worth a future look; not a wrong answer.",
+    "FM900": "FMTRWF: runs to completion on the canonical deck; one F-output field reads a value "
+    "100x off (forterp 987654. vs gfortran 9877.) -- an implied-decimal/scale read nuance still to "
+    "fix. A real forterp diff, pending; all other fields match.",
 }
 
-# OPEN GAP -- these three are validated by NEITHER oracle today, and that is not yet resolved.
-# gfortran aborts at runtime ("Bad value during {integer,floating point} read") on their card
-# decks, so there is no golden to diff against. But forterp ALSO does not run them to completion:
-# it raises InputConversionError on the same hostile, column-packed numeric fields. Each routine's
-# deck is hand-packed to exact field widths with degenerate forms (a bare '.', a letterless or
-# empty exponent, fields abutting with no separator); when the FORMAT's field widths do not line up
-# with the data, a field grabs characters from its neighbour ('89.9997.', '-.97+ -') and the read
-# fails. So calling these "pass" would be FALSE -- they run only as far as their header (FM110,
-# FM900) or part-way (FM403). The letterless-exponent input form (0.987+1) is now supported and
-# advances FM900 past its first cards, but the field-width-alignment problem remains UNSOLVED.
-# They stay enumerated here (excluded from MATCHING) as a known, honestly-flagged gap, not a win.
-GF_CANNOT_RUN = {
-    "FM110": "IOFMT: gfortran aborts ('Bad value during integer read', FM110.FOR:205); forterp "
-    "also raises InputConversionError (a '.' in an I field), emitting only its header. UNVALID.",
-    "FM403": "FMTRW: gfortran aborts ('Bad value during floating point read', FM403.FOR:445); "
-    "forterp also raises part-way (a field grabs a neighbour's digit -> '89.9997.'). UNVALIDATED.",
-    "FM900": "FMTRWF: gfortran aborts ('Bad value during floating point read'); forterp now reads "
-    "the letterless exponents but still raises later on a misaligned field ('-.97+'). UNVALIDATED.",
-}
+# gfortran can now run EVERY routine (the canonical .DAT decks let it complete the input-driven
+# audits it used to abort on), so there are no longer any routines without a golden.
+GF_CANNOT_RUN = {}
 
 
 def _norm(text):
@@ -123,36 +114,6 @@ def _forterp_output(name):
     except (StopExecution, Exception):
         pass
     return "".join(buf)
-
-
-def _forterp_run_status(name):
-    """Run `name` to completion WITHOUT swallowing, returning the failing exception's class name
-    (or 'completed'). _forterp_output deliberately swallows for the byte-compare; this is how we
-    detect a routine that crashes part-way through its tests rather than finishing them."""
-    path = os.path.join(CORPUS, f"{name}.FOR")
-    stmts = expand_includes(scan_file(path, dialect=forterp.F77).statements, os.path.dirname(path))
-    units = parse_units(stmts, on_error=lambda s, m: None, dialect=forterp.F77)
-    main = next((u.name for u in units if u.kind == "program"), None)
-    eng = Engine(
-        {u.name: u for u in units},
-        emit=lambda s: None,
-        readline=lambda: "",
-        printer=lambda s: None,
-        target=forterp.NATIVE,
-        character_type=True,
-        blank_null=True,
-        carriage_control=False,
-    )
-    install_runtime(eng)
-    eng.io[5] = {"lines": _card_deck(path), "pos": 0, "mode": "r", "text": True}
-    eng.max_steps = 50_000_000
-    try:
-        eng.run(Frame(eng.rts[main], {}))
-        return "completed"
-    except StopExecution:
-        return "completed"
-    except Exception as e:  # we want the class name of whatever it was
-        return type(e).__name__
 
 
 def _num(tok):
@@ -238,9 +199,10 @@ MATCHING = {n for n in GOLDENS if n not in KNOWN_GF_DIFF and _matches(n)}
 
 
 def test_goldens_present():
-    # gfortran compiles and runs 189 of the 192-routine corpus (the 3 GF_CANNOT_RUN have no golden).
-    assert len(GOLDENS) == 189
-    assert not (set(GF_CANNOT_RUN) & set(GOLDENS))  # the crashers really have no golden
+    # gfortran compiles and runs the ENTIRE 192-routine corpus (the canonical .DAT decks fixed the
+    # input-driven audits it used to abort on), so every routine has a golden.
+    assert len(GOLDENS) == 192
+    assert GF_CANNOT_RUN == {}  # nothing aborts under gfortran any more
 
 
 def test_every_runnable_routine_is_validated():
@@ -270,25 +232,11 @@ def test_gfortran_unreliable_routines_pass_self_check_but_not_the_golden():
         assert not _byte_matches(name), f"{name} byte-matches gfortran now -- retire from the set"
 
 
-def test_gf_cannot_run_routines_are_pinned_as_unvalidated():
-    # Integrity ratchet for the no-oracle routines. FM110/403/900 have NO gfortran golden AND
-    # forterp does not run them to completion either: their hand-packed continuation-card decks
-    # misalign under our card reconstruction, so a formatted numeric READ raises before the tests
-    # finish. Pin that exact state -- a routine emitting only its header used to pass silently
-    # (no summary -> uncounted; no golden -> undiffed; p+e==0 -> completeness skipped). If the
-    # card reconstruction is fixed so one runs clean, this FAILS and forces an honest re-grade:
-    # move it out of GF_CANNOT_RUN and validate it (e.g. by COMPUTED == CORRECT inspection).
-    for name in sorted(GF_CANNOT_RUN):
-        assert _forterp_run_status(name) == "InputConversionError", (
-            f"{name} now runs to completion -- re-grade it; it is no longer unvalidatable"
-        )
-
-
 def test_whole_corpus_is_accounted_for():
-    # Every one of the 192 routines is in exactly one bucket: validated against the golden, a
-    # documented forterp difference, or a gfortran-cannot-run (no golden) -- none unaccounted.
+    # Every one of the 192 routines is in exactly one bucket: validated against the golden or a
+    # documented forterp difference -- none unaccounted. (GF_CANNOT_RUN is now empty.)
     corpus = {os.path.basename(p)[:-4] for p in glob.glob(os.path.join(CORPUS, "FM*.FOR"))}
     assert len(corpus) == 192
     accounted = MATCHING | set(KNOWN_GF_DIFF) | set(GF_CANNOT_RUN)
     assert corpus == accounted, f"unaccounted routines: {sorted(corpus - accounted)}"
-    assert len(MATCHING) == 188  # 184 byte + FM905/907 value-token + FM257/406 self-check
+    assert len(MATCHING) == 189  # 185 byte + FM905/907 value-token + FM257/406 self-check

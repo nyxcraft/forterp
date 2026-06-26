@@ -64,7 +64,7 @@ def test_every_routine_runs_all_its_declared_tests():
     # Non-vacuity: the check actually reconciled a substantial set (the routines printing FCVS's
     # "X OF Y TESTS EXECUTED"). Older self-checkers lack that line, but a mid-run crash there
     # prints no summary at all and so moves the pinned `nosummary` set instead.
-    assert R["n_checked"] == 100
+    assert R["n_checked"] == 103
 
 
 def test_inspection_tests_are_all_golden_validated():
@@ -75,6 +75,6 @@ def test_inspection_tests_are_all_golden_validated():
     from test_fcvs_golden import KNOWN_GF_DIFF, MATCHING
 
     insp = [n[:-4] for n in R["inspect_routines"]]  # strip ".FOR"
-    assert len(insp) == 13
+    assert len(insp) == 16
     unverified = sorted(n for n in insp if n not in MATCHING and n not in KNOWN_GF_DIFF)
     assert not unverified, f"INSPECT routines neither golden-validated nor documented: {unverified}"

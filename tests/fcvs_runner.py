@@ -123,10 +123,18 @@ _CARD = re.compile(r"^CARD\s+(\d+)")
 
 
 def _card_deck(path):
-    """Some FCVS audits (e.g. FM923, list-directed input) document their card-reader input
-    deck IN the source as `CARD nn  <image>` comment lines -- 34 card images in cols 1-80,
-    with cols 73-80 the sequence field. Reconstruct the deck (a card may span two display
-    lines) so the harness can feed it on unit 5; routines without such comments get []."""
+    """The card-reader input deck for an FCVS audit, fed on unit 5.
+
+    Authoritative source: the canonical NIST `<NAME>.DAT` deck vendored beside the `.FOR` --
+    each line is one 80-column card, column-exact. The `CARD nn <image>` comments in the source
+    only DOCUMENT that deck and wrap/truncate at the 72-column display boundary, so reconstructing
+    from them is lossy (continuation cards merge, exponents get clipped); prefer the .DAT. Fall
+    back to the comment reconstruction for any routine without a vendored .DAT. Routines with
+    neither get []."""
+    dat = os.path.splitext(path)[0] + ".DAT"
+    if os.path.exists(dat):
+        with open(dat) as fh:
+            return [ln.rstrip() for ln in fh]
     cards = {}
     try:
         with open(path) as fh:

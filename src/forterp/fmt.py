@@ -86,13 +86,20 @@ def _scan_width_decimals(s, p):
     n = len(s)
     w = 0
     has_w = False
+    while p < n and s[p] in " \t":  # blanks insignificant between the letter and its width
+        p += 1
     while p < n and s[p].isdigit():
         w = w * 10 + int(s[p])
         has_w = True
         p += 1
     d = None
-    if p < n and s[p] == ".":
-        p += 1
+    q = p
+    while q < n and s[q] in " \t":  # a blank may sit between the width and the '.decimals'
+        q += 1
+    if q < n and s[q] == ".":
+        p = q + 1
+        while p < n and s[p] in " \t":
+            p += 1
         d = 0
         while p < n and s[p].isdigit():
             d = d * 10 + int(s[p])
@@ -132,6 +139,8 @@ def _parse_seq(s, p, depth=0):
         rep = 0
         while p < n and s[p].isdigit():
             rep = rep * 10 + int(s[p])
+            p += 1
+        while p < n and s[p] in " \t":  # blanks insignificant between a count and its descriptor
             p += 1
         if p < n and s[p] in "pP":  # scale factor:  [sign] n P
             p += 1
@@ -429,6 +438,12 @@ def _efmt(v, w, d, letter="E", scale=0, exp_width=None, plus=False):
     exp_shown = e0 - scale
     mant = r / (10.0**exp_shown)
     body = f"{mant:.{frac}f}"
+    if scale <= 0 and frac and float(body) >= 1.0:
+        # the final round to `frac` digits bumped the mantissa to 1.0 (e.g. 0.99 -> "1.0"), which
+        # is outside [0.1,1): carry the decade and renormalise, so 0.9876543 in D8.1 is 0.1D+01.
+        e0 += 1
+        exp_shown = e0 - scale
+        body = f"{r / (10.0**exp_shown):.{frac}f}"
     if frac == 0:
         body += "."
     es = "+" if exp_shown >= 0 else "-"
@@ -727,9 +742,10 @@ def _read_real(field, d, scale, blank_zero=True):
     by 10**k. An all-blank field reads as zero; any other unreadable field is a runtime
     input error (V5 -> ERR= or halt). `blank_zero` selects blanks-as-zeros vs ignored."""
     s = _blank_fill(field, blank_zero).replace("D", "E").replace("d", "e")
-    if not s or s in ("+", "-"):  # all-blank field -> zero (blanks-as-zero)
-        return 0.0
     s = _exp_letter(s)  # FORTRAN's letterless exponent form: 0.987+1 -> 0.987e+1
+    mant = s.lower().split("e", 1)[0]  # the mantissa, before any exponent
+    if mant.replace(".", "", 1) in ("", "+", "-"):  # no mantissa digits (blank/sign/bare '.') -> 0
+        return 0.0
     try:
         v = float(s)
     except ValueError:
