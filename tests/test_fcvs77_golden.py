@@ -31,10 +31,11 @@ from forterp.source import expand_includes, scan_file
 GOLD = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fcvs77_golden")
 CORPUS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fcvs77")
 
-# Output does not yet match gfortran -- the punch-list. Shrinks as bugs are fixed.
+# Output does not yet match gfortran because of a forterp BUG -- the punch-list. Shrinks as bugs
+# are fixed. (All the entries below are the COMPLEX / CHARACTER value-model cluster: a COMPLEX
+# stored as one Python value can't be EQUIVALENCEd onto a REAL(2) overlay, and a CHARACTER
+# function result / sequence association needs sub-word storage.)
 KNOWN_DIVERGENT = {
-    "FM257",
-    "FM406",
     "FM503",
     "FM509",
     "FM700",
@@ -59,6 +60,17 @@ KNOWN_DIVERGENT = {
     "FM909",
     # FM910 fixed -- unformatted COMPLEX round-trips through the JSON record store, and the
     # multi-record CHARACTER-ARRAY internal READ advances records on '/'.
+}
+
+# Output differs from the gfortran golden NOT because of a forterp bug, but because gfortran is an
+# unreliable oracle for that routine -- forterp's output is correct (or more correct). These are
+# permanent, documented divergences, kept OUT of the bug punch-list above. Each is still validated
+# by the routine's own self-check (it reports PASS), which the conformance harness checks.
+GFORTRAN_UNRELIABLE = {
+    "FM406": "gfortran computes -0.0 where the test wants 0.0 and so FAILs its OWN test 3; "
+    "forterp produces 0.0 and PASSES. Matching would mean reproducing gfortran's -0.0 quirk.",
+    "FM257": "PAUSE: in batch gfortran blocks / writes PAUSE to stderr, so the golden is only "
+    "the header. forterp prints the PAUSE message to the terminal and runs every test (all PASS).",
 }
 
 
@@ -167,8 +179,13 @@ def test_goldens_present():
 
 
 def test_expected_outputs_match_gfortran():
-    # Every routine not on the punch-list reproduces gfortran's output exactly.
-    regressed = sorted(n for n in GOLDENS if n not in KNOWN_DIVERGENT and n not in MATCHING)
+    # Every routine that is neither on the bug punch-list nor a documented gfortran-unreliable
+    # divergence reproduces gfortran's output exactly.
+    regressed = sorted(
+        n
+        for n in GOLDENS
+        if n not in KNOWN_DIVERGENT and n not in GFORTRAN_UNRELIABLE and n not in MATCHING
+    )
     assert not regressed, f"output regressed vs gfortran golden: {regressed}"
 
 
@@ -176,6 +193,14 @@ def test_punchlist_has_no_stale_entries():
     # A routine that now matches must be removed from KNOWN_DIVERGENT -- keeps it honest.
     fixed = sorted(n for n in KNOWN_DIVERGENT if n in MATCHING)
     assert not fixed, f"these now match gfortran -- drop from KNOWN_DIVERGENT: {fixed}"
+
+
+def test_gfortran_unreliable_routines_still_diverge():
+    # The documented gfortran-unreliable divergences are, by definition, NOT expected to match.
+    # If one ever does (e.g. the goldens are regenerated with a gfortran lacking the -0.0 quirk),
+    # that is good news -- move it out of GFORTRAN_UNRELIABLE so it is validated normally.
+    surprising = sorted(n for n in GFORTRAN_UNRELIABLE if n in MATCHING)
+    assert not surprising, f"now match gfortran -- drop from GFORTRAN_UNRELIABLE: {surprising}"
 
 
 def test_most_of_the_corpus_matches():
