@@ -70,6 +70,14 @@ def test_render_integer_overflow_yields_asterisks():
     assert render(parse_format("(I4)"), [42]) == ("  42", False)  # fits -> normal
 
 
+def test_render_iw_dot_zero_of_zero_is_blank():
+    # Iw.m with m=0 prints at least 0 digits, so a ZERO value is an ALL-BLANK field (X3.9-1978
+    # 13.5.9.1) -- not "0". Nonzero is unaffected, and m>0 still zero-fills. Regression: FM903.
+    assert render(parse_format("(I5.0)"), [0]) == ("     ", False)  # zero -> blanks
+    assert render(parse_format("(I5.0)"), [12]) == ("   12", False)  # nonzero -> normal
+    assert render(parse_format("(I5.2)"), [0]) == ("   00", False)  # m=2 still zero-fills
+
+
 def test_render_real_overflow_yields_asterisks():
     assert render(parse_format("(F4.1)"), [12345.6]) == ("****", False)
     assert render(parse_format("(F6.2)"), [3.14159]) == ("  3.14", False)  # fits

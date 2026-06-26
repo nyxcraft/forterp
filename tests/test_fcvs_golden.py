@@ -66,8 +66,6 @@ KNOWN_GF_DIFF = {
     "stops short of gfortran's on some repeat-count fields. Eyeball-only; no self-check.",
     "FM901": "AFMTF print-and-eyeball A-FORMAT-of-CHARACTER audit: forterp wraps a CHARACTER value "
     "onto the next record where gfortran keeps it inline. Eyeball-only; the tests are INSPECT.",
-    "FM903": "IOFMTF print-and-eyeball FORMAT audit: forterp fills a trailing numeric field (0/+0) "
-    "that gfortran leaves blank (an edit-descriptor / io-list-exhaustion edge). Eyeball-only.",
 }
 
 # gfortran itself crashes at runtime on these (even fed the card deck), so there is NO golden to
@@ -238,4 +236,4 @@ def test_whole_corpus_is_accounted_for():
     assert len(corpus) == 192
     accounted = MATCHING | set(KNOWN_GF_DIFF) | set(GF_CANNOT_RUN)
     assert corpus == accounted, f"unaccounted routines: {sorted(corpus - accounted)}"
-    assert len(MATCHING) == 185  # 181 byte + FM905/907 value-token + FM257/406 self-check
+    assert len(MATCHING) == 186  # 182 byte + FM905/907 value-token + FM257/406 self-check

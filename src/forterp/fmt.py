@@ -356,6 +356,8 @@ def _rfmt(v, w, target=NATIVE):
 
 def _ifmt(iv, w, m=None, plus=False):
     iv = int(iv)
+    if iv == 0 and m == 0:  # Iw.0 of a zero value is an ALL-BLANK field (X3.9-1978 13.5.9.1)
+        return " " * w if w else ""
     digits = str(abs(iv))
     if m is not None and len(digits) < m:  # Iw.m: at least m digits, zero-filled (13.5.9.1)
         digits = digits.zfill(m)
