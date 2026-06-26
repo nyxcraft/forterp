@@ -69,10 +69,18 @@ KNOWN_GF_DIFF = {
 
 # gfortran itself crashes at runtime on these (even fed the card deck), so there is NO golden to
 # diff against -- they rely on forterp's self-check alone (the conformance baselines run them).
+# All three die the same way: a formatted numeric READ of a DELIBERATELY DEGENERATE field (a bare
+# '.', a sign or exponent letter with no digits, an all-blank field) -- exactly the optional
+# components X3.9-1978 13.5.9 requires a processor to accept. forterp reads them leniently (the
+# F66/V5 rules the tests check: optional sign/leading-zero, blanks-as-zeros) and PASSes; gfortran's
+# strict runtime rejects them with "Bad value during {integer,floating point} read" and aborts.
 GF_CANNOT_RUN = {
-    "FM110": "gfortran aborts at runtime (backtrace, no usable stdout) even with the card deck.",
-    "FM403": "gfortran aborts at runtime (backtrace, no usable stdout) even with the card deck.",
-    "FM900": "gfortran aborts at runtime (backtrace, no usable stdout) even with the card deck.",
+    "FM110": "IOFMT: READ at FM110.FOR:205 (4(I5),4(F3.1),... over cards 1-2) hits a bare '.' / "
+    "blank in an I field -> gfortran 'Bad value during integer read', Error termination.",
+    "FM403": "FMTRW: READ at FM403.FOR:445 (E8.1..E14.7, 'LEADING PLUS SIGN/ZERO OPTIONAL' card "
+    "10) hits a sign/exponent-only field -> gfortran 'Bad value during floating point read'.",
+    "FM900": "FMTRWF: READ at FM900.FOR:445 (D9.2 group over cards 13-14) hits a degenerate D "
+    "field -> gfortran 'Bad value during floating point read', Error termination -- no stdout.",
 }
 
 
