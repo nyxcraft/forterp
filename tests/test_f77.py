@@ -94,6 +94,24 @@ def test_endif_one_word_and_two_word_spellings():
     assert _out(one)[0] == 1 and _out(two)[0] == 1
 
 
+def test_goto_targets_a_labeled_end_if():
+    # A GO TO may jump to a label on the END IF -- the construct's join point (a legal early exit
+    # from the THEN block). Block-IF lowering must keep that source label on the synthesized join,
+    # else the jump raises "jump to undefined statement label". Regression for FM255 / FM260.
+    body = (
+        "      N(1)=0\n"
+        "      IF (1 .EQ. 1) THEN\n"
+        "        N(1)=10\n"
+        "        GO TO 50\n"
+        "        N(1)=20\n"  # dead: the GO TO skips to the join
+        "   50 END IF\n"
+        "      N(2)=N(1)+1\n"
+    )
+    res = _out(_prog(body))
+    assert res[0] == 10  # THEN entered; GO TO 50 jumped to the join, skipping N(1)=20
+    assert res[1] == 11  # execution continued normally after the END IF join
+
+
 # ---- DO WHILE (FORTRAN-10 dialect; not in strict ANSI F77) ---------------------------------
 def test_do_while_accumulates():
     body = (
