@@ -325,12 +325,24 @@ $                   [DEC] suppress trailing newline
 <ul>
 <li>A repeat count may precede most descriptors (<code>3I5</code>, <code>2F8.2</code>). If the I/O list is longer
 than the format, control reverts to the last open group.</li>
+<li><strong>Blanks are insignificant</strong> in a FORMAT except inside an <code>nH</code> / <code>'…'</code> literal (§3.2.3):
+<code>3 I4</code> is <code>3I4</code>, <code>F5 .2</code> is <code>F5.2</code>, <code>5 X</code> is <code>5X</code> — the blanks are dropped, the literal
+text keeps its spaces.</li>
 <li><strong>[DEC]</strong> A <em>bare</em> descriptor with no width (<code>I</code>, <code>F</code>, <code>A</code>, …) takes the FORTRAN-10 V5
 default width (<code>I15</code>, <code>F15.7</code>, <code>E15.7</code>, <code>D25.18</code>, <code>G15.7</code>, <code>A5</code>, <code>O15</code>, <code>L15</code>, <code>R5</code>,
 §13.2.6); F66 requires an explicit width on every descriptor.</li>
-<li>On input, the <code>D</code> and <code>E</code> exponent letters are interchangeable (<code>1.5D2</code> == <code>1.5E2</code>).</li>
+<li>On input, the <code>D</code> and <code>E</code> exponent letters are interchangeable (<code>1.5D2</code> == <code>1.5E2</code>), and the
+exponent letter may be <strong>dropped before a signed exponent</strong> (<code>0.987+1</code> == <code>0.987E+1</code>,
+<code>-.334-4</code> == <code>-.334E-4</code>; §13.5.9.2.2). A field with <strong>no mantissa digits</strong> is zero — a bare
+<code>.</code>, a lone sign, or a sign-and-point with an exponent (<code>+.E00</code>) all read as <code>0.0</code>.</li>
 <li>The <code>kP</code> scale factor applies on <strong>input</strong> as well as output: a field with no exponent
-of its own is divided by <code>10**k</code> (§7.2.3.5.1).</li>
+of its own is divided by <code>10**k</code> (§7.2.3.5.1). It <strong>persists</strong> until reset, <em>including across
+the records a <code>/</code>-split or reverted format spans</em> — so the reverted group of <code>+1P,(F8.1)</code>
+keeps the scale. On <strong>output</strong> the scale shifts the decimal point; for <code>G</code> editing it applies
+only when the value falls into the E-form range — while <code>G</code> is in its F-form range the scale
+factor has <strong>no effect</strong> (§13.5.9.2.3).</li>
+<li><code>E</code>/<code>D</code>/<code>G</code> output rounds the mantissa <strong>once</strong> to the displayed precision (a value that
+rounds up out of <code>[0.1,1)</code> renormalises, so <code>0.9876543</code> in <code>D8.1</code> is <code>0.1D+01</code>).</li>
 <li>On input, an <code>nH</code> / <code>'…'</code> field reads its characters <em>from</em> the record and the FORMAT
 itself is updated, so a later WRITE with the same FORMAT echoes them (§7.2.3.8).</li>
 </ul>

@@ -34,6 +34,7 @@
         <p class="docs-sidebar__eyebrow">On this page</p>
         <nav class="section-nav" aria-label="On this page">
 <ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#2026-06-26-fcvs-one-corpus-canonical-decks-the-whole-set-byte-matches-gfortran">2026-06-26 — FCVS: one corpus, canonical decks, the whole set byte-matches gfortran</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#2026-06-24-fortran-77-support-fcvs-77-conformance-the-f77-branch">2026-06-24 — FORTRAN 77 support + FCVS-77 conformance (the `f77` branch)</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#2026-06-24-the-monitor-rename-override-docs-and-pypi-release-wiring">2026-06-24 — the monitor rename, override docs, and PyPI release wiring</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#2026-06-23-host-services-terminal-modes-and-real-binary-files">2026-06-23 — host services, terminal modes, and real binary files</a></li>
@@ -56,6 +57,43 @@
           <p class="docs-article__source">Changelog</p>
         </header>
         <div class="prose">
+<h2 id="2026-06-26-fcvs-one-corpus-canonical-decks-the-whole-set-byte-matches-gfortran">2026-06-26 — FCVS: one corpus, canonical decks, the whole set byte-matches gfortran</h2>
+<ul>
+<li><strong>Merged <code>fcvs77/</code> into one <code>tests/fcvs/</code></strong> (192 routines). F66 runs the F66-valid subset
+(<code>F66_SUBSET</code>, 52); F77 runs the full corpus. The whole-corpus gfortran differential
+(<code>tests/fcvs_golden/</code>, <code>test_fcvs_golden.py</code>) runs forterp over all 192 under F77 and compares
+byte-for-byte, with each routine pinned to exactly one validation metric.</li>
+<li><strong>Canonical NIST <code>.DAT</code> input decks.</strong> The card-reader audits were fed a deck <em>reconstructed</em>
+from the <code>CARD nn</code> image comments — lossy at the 72-column display boundary (continuation cards
+merged, exponents clipped), which corrupted the input to <em>both</em> forterp and gfortran. Vendored
+the pristine public-domain decks (<code>tests/fcvs/*.DAT</code>, from <code>gklimowicz/FCVS</code>; our <code>.FOR</code> are
+byte-identical to that repo); <code>_card_deck</code> now reads a sibling <code>.DAT</code> first. With correct decks
+<strong>gfortran runs all 192</strong> (it used to abort on three) and <strong>forterp byte-matches 191 of 192</strong>.</li>
+<li><strong>Edit-descriptor fixes</strong> the correct decks exposed (<code>fmt.py</code> / <code>engine.py</code>):
+<ul>
+<li>letterless signed exponent on real input (<code>0.987+1</code> = 0.987×10¹, <code>-.334-4</code>);</li>
+<li>a no-digit-mantissa field reads as zero (a bare <code>.</code>, a sign, <code>+.E00</code>);</li>
+<li><strong>blanks are insignificant in a FORMAT</strong> except in <code>'…'</code>/<code>nH</code> literals (<code>3 I4</code> → <code>3I4</code>,
+<code>F5 .2</code> → <code>F5.2</code>, <code>5 X</code> → <code>5X</code>);</li>
+<li><code>E</code>/<code>D</code>/<code>G</code> output rounds the mantissa <strong>once</strong> (no double-round): <code>-0.1395624534</code> in <code>E13.6</code>
+is <code>-0.139562</code>, and a round that bumps the mantissa to 1.0 renormalises (<code>0.9876543</code> in
+<code>D8.1</code> → <code>0.1D+01</code>);</li>
+<li>the <code>nP</code> scale factor's scope: <strong>no effect on <code>G</code> in its F-form range</strong> (only the E-form
+fallback scales), and it <strong>persists across a reverted format on input</strong> (<code>read_values</code> threads
+the scale/blank state across records) — so <code>+1P,(F8.1)</code> keeps the scale on the reverted read.</li>
+<li>widthless <code>A</code> and multi-record <code>/</code> now work on the card-unit read path; A-input into a
+CHARACTER substring uses the substring window length; an I/O-list implied-DO leaves its
+control variable at the terminal value; <code>Iw.0</code> of zero is an all-blank field.</li>
+</ul>
+</li>
+<li><strong>FM001's by-design FORCE-FAIL is a negative-test pass.</strong> FM001 TEST 002 (&quot;FORCE FAIL CODE TO
+BE EXECUTED&quot;) exercises the suite's own fail-reporting path; the runner reclassifies that one
+expected failure as a pass, so the corpus' counted-error total is a genuine <strong>0</strong>.</li>
+<li><strong>Result:</strong> zero parse-gaps, every routine runs all its declared sub-tests and self-checks
+clean; <code>GF_CANNOT_RUN</code> is empty; the lone <code>KNOWN_GF_DIFF</code> is <strong>FM111</strong>, where gfortran is the
+outlier (it overflows <code>F2.1</code> of a value rounding to zero) and forterp matches the routine's own
+printed CORRECT line. See <a href="../fortran77/index.html">docs/FORTRAN77.md §8</a>.</li>
+</ul>
 <h2 id="2026-06-24-fortran-77-support-fcvs-77-conformance-the-f77-branch">2026-06-24 — FORTRAN 77 support + FCVS-77 conformance (the <code>f77</code> branch)</h2>
 <ul>
 <li><strong>F77 dialect</strong> (<code>forterp.F77</code>, <code>forterp.f77</code>; <code>character_type</code>/<code>block_if</code>/<code>save_stmt</code>/

@@ -393,13 +393,15 @@ against internal mocks — see <code>tests/conftest.py</code> (<code>run()</code
 hand back the <code>Engine</code> to inspect COMMON). Conformance is the <strong>FCVS</strong> corpus
 (<code>tests/fcvs/</code>, driven by <code>tests/fcvs_runner.py</code>): each audit routine is self-checking and
 prints a PASS/ERROR tally to the line printer, which the runner captures and parses. The
-corpus is <strong>curated F66</strong>: the F77 audit routines (those using the <code>CHARACTER</code> type, absent
-from F66) were removed from the original 192-file FCVS set, so every file in <code>tests/fcvs/</code>
-parses and runs — a parse failure is now a regression, not &quot;out of scope.&quot; The corpus is
-run across <strong>both seams</strong>: the value-model axis (pinned to <code>PDP10</code>, the target the
-unit suite asserts, and again under the default <code>NATIVE</code>) and the front-end-dialect axis
-(under <code>F66</code>, since the audits are pure ANSI). All runs produce the identical conformance
-aggregate — independent evidence both seams preserve standard behavior. 471 tests pass
+corpus is the <strong>full 192-routine FCVS set</strong> (pristine from the public-domain NIST suite,
+with the canonical <code>.DAT</code> input decks): every file parses and runs, so a parse failure is a
+regression, not &quot;out of scope.&quot; <code>test_fcvs_f66_conformance.py</code> runs the F66-valid subset
+(<code>F66_SUBSET</code>, 52 routines) under <code>F66</code>; <code>test_fcvs_f77_conformance.py</code> runs all 192 under
+<code>F77</code>; both also run under both value-model targets (<code>NATIVE</code> and <code>PDP10</code>) and produce the
+identical aggregate — independent evidence both seams preserve standard behavior. On top of
+the self-check, <code>test_fcvs_golden.py</code> is a <strong>second, independent oracle</strong>: a byte-for-byte
+diff against committed gfortran (<code>-std=legacy</code>) output (<code>tests/fcvs_golden/</code>), so the
+print-and-eyeball routines that carry no PASS/FAIL tally are still validated. 683 tests pass
 standalone.</p>
 <hr />
 <h2 id="10-engine-runtime-state-reference">10. Engine runtime state (reference)</h2>

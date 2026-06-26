@@ -47,10 +47,14 @@ the primary sources are:
 ## Conformance
 
 The interpreter is exercised against the **FCVS** (FORTRAN Compiler Validation System) audit
-corpus — one set in `tests/fcvs/`. FORTRAN-66 is checked against the F66-valid subset of it, and
-FORTRAN-77 against the whole corpus (the rest uses `CHARACTER` and other F77 features). gfortran
-golden outputs under `tests/fcvs_golden/` validate the print-only routines (no gfortran needed
-at test time). Run `pytest` to execute them.
+corpus — one set of 192 routines in `tests/fcvs/`, pristine from the public-domain NIST suite,
+with their canonical `.DAT` input decks. FORTRAN-66 is checked against the F66-valid subset, and
+FORTRAN-77 against the whole corpus. All 192 parse, run every declared sub-test, and self-check
+with zero failures. gfortran golden outputs under `tests/fcvs_golden/` independently validate the
+print-only routines (no gfortran needed at test time): with the canonical decks gfortran runs the
+whole corpus and forterp byte-matches 191 of 192 — the lone exception (FM111) is a documented
+gfortran outlier where forterp matches the routine's own CORRECT line. Run `pytest` to execute
+them; see [FORTRAN77.md §8](FORTRAN77.md#8-conformance--fcvs-77) for the full breakdown.
 
 ## Security & trust model
 

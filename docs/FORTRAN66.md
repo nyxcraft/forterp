@@ -237,12 +237,24 @@ $                   [DEC] suppress trailing newline
 ```
 - A repeat count may precede most descriptors (`3I5`, `2F8.2`). If the I/O list is longer
   than the format, control reverts to the last open group.
+- **Blanks are insignificant** in a FORMAT except inside an `nH` / `'…'` literal (§3.2.3):
+  `3 I4` is `3I4`, `F5 .2` is `F5.2`, `5 X` is `5X` — the blanks are dropped, the literal
+  text keeps its spaces.
 - **[DEC]** A *bare* descriptor with no width (`I`, `F`, `A`, …) takes the FORTRAN-10 V5
   default width (`I15`, `F15.7`, `E15.7`, `D25.18`, `G15.7`, `A5`, `O15`, `L15`, `R5`,
   §13.2.6); F66 requires an explicit width on every descriptor.
-- On input, the `D` and `E` exponent letters are interchangeable (`1.5D2` == `1.5E2`).
+- On input, the `D` and `E` exponent letters are interchangeable (`1.5D2` == `1.5E2`), and the
+  exponent letter may be **dropped before a signed exponent** (`0.987+1` == `0.987E+1`,
+  `-.334-4` == `-.334E-4`; §13.5.9.2.2). A field with **no mantissa digits** is zero — a bare
+  `.`, a lone sign, or a sign-and-point with an exponent (`+.E00`) all read as `0.0`.
 - The `kP` scale factor applies on **input** as well as output: a field with no exponent
-  of its own is divided by `10**k` (§7.2.3.5.1).
+  of its own is divided by `10**k` (§7.2.3.5.1). It **persists** until reset, *including across
+  the records a `/`-split or reverted format spans* — so the reverted group of `+1P,(F8.1)`
+  keeps the scale. On **output** the scale shifts the decimal point; for `G` editing it applies
+  only when the value falls into the E-form range — while `G` is in its F-form range the scale
+  factor has **no effect** (§13.5.9.2.3).
+- `E`/`D`/`G` output rounds the mantissa **once** to the displayed precision (a value that
+  rounds up out of `[0.1,1)` renormalises, so `0.9876543` in `D8.1` is `0.1D+01`).
 - On input, an `nH` / `'…'` field reads its characters *from* the record and the FORMAT
   itself is updated, so a later WRITE with the same FORMAT echoes them (§7.2.3.8).
 

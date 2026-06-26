@@ -81,10 +81,14 @@ document the interpreter was validated against.</li>
 </ul>
 <h2 id="conformance">Conformance</h2>
 <p>The interpreter is exercised against the <strong>FCVS</strong> (FORTRAN Compiler Validation System) audit
-corpus — one set in <code>tests/fcvs/</code>. FORTRAN-66 is checked against the F66-valid subset of it, and
-FORTRAN-77 against the whole corpus (the rest uses <code>CHARACTER</code> and other F77 features). gfortran
-golden outputs under <code>tests/fcvs_golden/</code> validate the print-only routines (no gfortran needed
-at test time). Run <code>pytest</code> to execute them.</p>
+corpus — one set of 192 routines in <code>tests/fcvs/</code>, pristine from the public-domain NIST suite,
+with their canonical <code>.DAT</code> input decks. FORTRAN-66 is checked against the F66-valid subset, and
+FORTRAN-77 against the whole corpus. All 192 parse, run every declared sub-test, and self-check
+with zero failures. gfortran golden outputs under <code>tests/fcvs_golden/</code> independently validate the
+print-only routines (no gfortran needed at test time): with the canonical decks gfortran runs the
+whole corpus and forterp byte-matches 191 of 192 — the lone exception (FM111) is a documented
+gfortran outlier where forterp matches the routine's own CORRECT line. Run <code>pytest</code> to execute
+them; see <a href="../fortran77/index.html#8-conformance--fcvs-77">FORTRAN77.md §8</a> for the full breakdown.</p>
 <h2 id="security-trust-model">Security &amp; trust model</h2>
 <p>forterp is an <strong>interpreter, not a sandbox</strong>: a program runs with the invoking process's
 privileges and its <code>OPEN</code>/<code>READ</code>/<code>WRITE</code> reach the real filesystem (absolute or <code>..</code> paths

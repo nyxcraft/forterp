@@ -1,5 +1,39 @@
 # Changelog
 
+## 2026-06-26 — FCVS: one corpus, canonical decks, the whole set byte-matches gfortran
+
+- **Merged `fcvs77/` into one `tests/fcvs/`** (192 routines). F66 runs the F66-valid subset
+  (`F66_SUBSET`, 52); F77 runs the full corpus. The whole-corpus gfortran differential
+  (`tests/fcvs_golden/`, `test_fcvs_golden.py`) runs forterp over all 192 under F77 and compares
+  byte-for-byte, with each routine pinned to exactly one validation metric.
+- **Canonical NIST `.DAT` input decks.** The card-reader audits were fed a deck *reconstructed*
+  from the `CARD nn` image comments — lossy at the 72-column display boundary (continuation cards
+  merged, exponents clipped), which corrupted the input to *both* forterp and gfortran. Vendored
+  the pristine public-domain decks (`tests/fcvs/*.DAT`, from `gklimowicz/FCVS`; our `.FOR` are
+  byte-identical to that repo); `_card_deck` now reads a sibling `.DAT` first. With correct decks
+  **gfortran runs all 192** (it used to abort on three) and **forterp byte-matches 191 of 192**.
+- **Edit-descriptor fixes** the correct decks exposed (`fmt.py` / `engine.py`):
+  - letterless signed exponent on real input (`0.987+1` = 0.987×10¹, `-.334-4`);
+  - a no-digit-mantissa field reads as zero (a bare `.`, a sign, `+.E00`);
+  - **blanks are insignificant in a FORMAT** except in `'…'`/`nH` literals (`3 I4` → `3I4`,
+    `F5 .2` → `F5.2`, `5 X` → `5X`);
+  - `E`/`D`/`G` output rounds the mantissa **once** (no double-round): `-0.1395624534` in `E13.6`
+    is `-0.139562`, and a round that bumps the mantissa to 1.0 renormalises (`0.9876543` in
+    `D8.1` → `0.1D+01`);
+  - the `nP` scale factor's scope: **no effect on `G` in its F-form range** (only the E-form
+    fallback scales), and it **persists across a reverted format on input** (`read_values` threads
+    the scale/blank state across records) — so `+1P,(F8.1)` keeps the scale on the reverted read.
+  - widthless `A` and multi-record `/` now work on the card-unit read path; A-input into a
+    CHARACTER substring uses the substring window length; an I/O-list implied-DO leaves its
+    control variable at the terminal value; `Iw.0` of zero is an all-blank field.
+- **FM001's by-design FORCE-FAIL is a negative-test pass.** FM001 TEST 002 ("FORCE FAIL CODE TO
+  BE EXECUTED") exercises the suite's own fail-reporting path; the runner reclassifies that one
+  expected failure as a pass, so the corpus' counted-error total is a genuine **0**.
+- **Result:** zero parse-gaps, every routine runs all its declared sub-tests and self-checks
+  clean; `GF_CANNOT_RUN` is empty; the lone `KNOWN_GF_DIFF` is **FM111**, where gfortran is the
+  outlier (it overflows `F2.1` of a value rounding to zero) and forterp matches the routine's own
+  printed CORRECT line. See [docs/FORTRAN77.md §8](docs/FORTRAN77.md).
+
 ## 2026-06-24 — FORTRAN 77 support + FCVS-77 conformance (the `f77` branch)
 
 - **F77 dialect** (`forterp.F77`, `forterp.f77`; `character_type`/`block_if`/`save_stmt`/

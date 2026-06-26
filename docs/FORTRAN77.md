@@ -262,18 +262,42 @@ The F77 dialect is the 1978 standard, not a superset of everything later or DEC-
 ## 8. Conformance — FCVS-77
 
 The interpreter is exercised against the whole **FCVS** (FORTRAN Compiler Validation System)
-audit corpus — one set of **192 routines** in `tests/fcvs/`, restored to pristine form (verified
-against gfortran). FORTRAN-77 is valid against all of it; the F66-valid subset is also run under
-FORTRAN-66 (`test_fcvs_f66_conformance.py`).
+audit corpus — one set of **192 routines** in `tests/fcvs/`, pristine from the public-domain
+NIST suite (the `.FOR` files are byte-identical to [github.com/gklimowicz/FCVS](https://github.com/gklimowicz/FCVS)).
+FORTRAN-77 is valid against all of it; the F66-valid subset is also run under FORTRAN-66
+(`test_fcvs_f66_conformance.py`).
 
-- **All 192 parse and run** under F77 — the front end is complete (zero parse-gaps).
-- The self-checking routines report **zero genuine failures** (the one counted error is FM001's
-  by-design FORCE-FAIL self-test) — pinned in `tests/test_fcvs_f77_conformance.py`.
+Card-reader input comes from the **canonical NIST `<NAME>.DAT` decks vendored beside each
+`.FOR`** (one 80-column card per line) — not from the `CARD nn` image comments in the source,
+which wrap at the 72-column display boundary and so reconstruct lossily. `fcvs_runner._card_deck`
+reads a sibling `.DAT` first; nine routines have one (FM110/111/403/404/900/901/903/906/923).
+
+- **All 192 parse and run** under F77 — the front end is complete (zero parse-gaps) — and each
+  runs *every* declared sub-test (no mid-run crash; the completeness check reconciles FCVS's own
+  "X OF Y TESTS EXECUTED").
+- The self-checking routines report **zero failures**. FM001 TEST 002 ("FORCE FAIL CODE TO BE
+  EXECUTED") is a *negative* assertion — the suite testing its own fail-reporting path — so the
+  runner counts that one by-design failure as a pass. Pinned in `tests/test_fcvs_f77_conformance.py`.
 - The **print-and-eyeball** routines (no self-check) are validated by a **golden** diff against
-  gfortran output committed under `tests/fcvs_golden/` — `test_fcvs_golden.py` compares
-  without needing gfortran at test time (regenerate with `tests/fcvs_golden/regenerate.py`).
-  Where gfortran is itself an unreliable oracle, the routine is validated by its own self-check
-  instead.
+  gfortran output committed under `tests/fcvs_golden/` — `test_fcvs_golden.py` compares without
+  needing gfortran at test time (regenerate with `tests/fcvs_golden/regenerate.py`, which now
+  feeds those `.DAT` decks). With the correct decks, **gfortran runs the entire 192-routine
+  corpus** (it used to abort on three) and **forterp byte-matches 191 of 192**. Each routine sits
+  in exactly one validation bucket, all enforced by `test_whole_corpus_is_accounted_for`:
+  - *byte-match* against the golden (the large majority);
+  - *value-token* compare for list-directed output, whose field widths/precision the standard
+    leaves processor-dependent (FM905/907);
+  - the routine's *own self-check* where gfortran is the unreliable oracle (FM257 PAUSE in batch,
+    FM406's `-0.0`);
+  - **`KNOWN_GF_DIFF`** — documented, non-matching: just **FM111**, where gfortran is the outlier
+    (it overflows `F2.1` of a value that rounds to zero to `**`, keeping the sign) and forterp
+    matches the routine's own printed CORRECT line (`.0`).
+
+Driving this corpus to a clean pass surfaced and fixed a series of real edit-descriptor bugs —
+the letterless signed exponent on input (`0.987+1`), a no-digit-mantissa field as zero (`.`,
+`+.E00`), blank-insignificance in a FORMAT (`3 I4` = `3I4`, `F5 .2` = `F5.2`), E/D output that
+rounds once (no double-round), and the `nP` scale factor's correct scope (no effect on G in
+F-form; persists across a reverted format on input). See [FORTRAN66.md](FORTRAN66.md) §I/O.
 
 This corpus is independent of the interpreter's own assumptions (it predates the project by
 ~40 years), so it is the primary check on F77 conformance. See also

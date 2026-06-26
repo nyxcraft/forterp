@@ -296,13 +296,15 @@ against internal mocks — see `tests/conftest.py` (`run()`/`run_int()` compile 
 hand back the `Engine` to inspect COMMON). Conformance is the **FCVS** corpus
 (`tests/fcvs/`, driven by `tests/fcvs_runner.py`): each audit routine is self-checking and
 prints a PASS/ERROR tally to the line printer, which the runner captures and parses. The
-corpus is **curated F66**: the F77 audit routines (those using the `CHARACTER` type, absent
-from F66) were removed from the original 192-file FCVS set, so every file in `tests/fcvs/`
-parses and runs — a parse failure is now a regression, not "out of scope." The corpus is
-run across **both seams**: the value-model axis (pinned to `PDP10`, the target the
-unit suite asserts, and again under the default `NATIVE`) and the front-end-dialect axis
-(under `F66`, since the audits are pure ANSI). All runs produce the identical conformance
-aggregate — independent evidence both seams preserve standard behavior. 471 tests pass
+corpus is the **full 192-routine FCVS set** (pristine from the public-domain NIST suite,
+with the canonical `.DAT` input decks): every file parses and runs, so a parse failure is a
+regression, not "out of scope." `test_fcvs_f66_conformance.py` runs the F66-valid subset
+(`F66_SUBSET`, 52 routines) under `F66`; `test_fcvs_f77_conformance.py` runs all 192 under
+`F77`; both also run under both value-model targets (`NATIVE` and `PDP10`) and produce the
+identical aggregate — independent evidence both seams preserve standard behavior. On top of
+the self-check, `test_fcvs_golden.py` is a **second, independent oracle**: a byte-for-byte
+diff against committed gfortran (`-std=legacy`) output (`tests/fcvs_golden/`), so the
+print-and-eyeball routines that carry no PASS/FAIL tally are still validated. 683 tests pass
 standalone.
 
 ---
