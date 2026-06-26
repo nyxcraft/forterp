@@ -405,3 +405,28 @@ def test_equivalence_across_two_common_blocks_rejected(dlc):
     )
     with pytest.raises(RuntimeError, match="two COMMON blocks"):
         run(src, dialect=dlc)
+
+
+def test_equivalence_character_with_numeric_rejected():
+    # §8.2.3: a CHARACTER entity may be equivalenced only with other CHARACTER entities. Mixing
+    # char and numeric (its only use is byte type-punning, which the value-slot model can't do)
+    # is a hard error on every dialect. (CHARACTER needs the F77 dialect.)
+    import forterp
+
+    src = (
+        "      PROGRAM T\n      REAL R\n      CHARACTER*4 C\n      EQUIVALENCE (R, C)\n      END\n"
+    )
+    with pytest.raises(RuntimeError, match="CHARACTER entity"):
+        forterp.run_source(src, dialect=forterp.F77, target=forterp.NATIVE)
+
+
+def test_equivalence_character_with_character_is_allowed():
+    import forterp
+
+    src = (
+        "      PROGRAM T\n      COMMON /O/ S\n      CHARACTER*4 S, A, B\n"
+        "      EQUIVALENCE (A, B)\n      A='WXYZ'\n      S=B\n      END\n"
+    )
+    assert forterp.run_source(src, dialect=forterp.F77, target=forterp.NATIVE).commons["O"][0] == (
+        "WXYZ"
+    )

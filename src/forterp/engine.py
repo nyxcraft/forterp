@@ -829,6 +829,15 @@ class Engine:
         for group in u.equivs:
             if not group:
                 continue
+            # §8.2.3: a CHARACTER entity may be equivalenced ONLY with other CHARACTER entities.
+            # Mixing character and numeric is prohibited (the only use is byte type-punning, which
+            # the value-slot model cannot do faithfully -- it would just overwrite the shared slot
+            # with one type). Reject on every dialect rather than silently mis-handle it.
+            if len({self.type_of(u, nm) == "CHARACTER" for nm, _ in group}) > 1:
+                raise RuntimeError(
+                    "EQUIVALENCE mixes a CHARACTER entity with a non-character entity -- a "
+                    "character entity may be equivalenced only with character entities (F77 8.2.3)"
+                )
             n0, s0 = group[0]
             base0 = elem_off(n0, s0)
             find(n0)

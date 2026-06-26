@@ -342,7 +342,7 @@ the repo). Status legend: **✓** forterp conforms · **▲** intentional/​doc
 or extension · **✗** known gap (see [§8](#8-conformance--fcvs-77) and the test suite). This
 is the full language; forterp does not implement the separate "subset FORTRAN" level.
 
-### §1 Conformance, §2 Terms
+### §1 Conformance
 
 - **Conformance (1.4).** "must" is a requirement, "must not" a prohibition (1.5). A
   conforming *program* uses only standard forms; a conforming *processor* runs them per the
@@ -350,6 +350,9 @@ is the full language; forterp does not implement the separate "subset FORTRAN" l
   meaning. A program must not use processor-added intrinsics; a name in `EXTERNAL` overrides
   any like-named processor intrinsic. — ✓ forterp's F77 is the full language; the DEC
   extensions live on the separate `FORTRAN10` dialect, off under `F77`.
+
+### §2 Terms and concepts
+
 - **Symbolic name (2.2).** 1–6 letters/digits, first a letter. — ✓
 - **Statement label (2.2).** 1–5 digits, at least one nonzero. — ✓
 - **No reserved words (2.2).** keyword vs name is by context. — ✓
@@ -491,16 +494,24 @@ is the full language; forterp does not implement the separate "subset FORTRAN" l
 - **Integrity of parentheses (6.6.3).** a parenthesized subexpression is evaluated as a unit
   (`A*(B*C)` is not regrouped to `(A*B)*C`). — ✓ (forterp evaluates the parse tree as written).
 
-### §7 Statement classification, §8 Specification statements
+### §7 Statement classification
 
 - **Statement classes (§7).** all executable and nonexecutable statements listed are
   supported. — ✓
+
+### §8 Specification statements
+
 - **DIMENSION / COMMON / EQUIVALENCE (8.1–8.3).** array declarators in `DIMENSION`/type/
   `COMMON`; `EQUIVALENCE` shares storage with no type conversion; named and blank (`//`)
   common; repeated common names continue the list; `EQUIVALENCE` may extend a common block
-  only forward. — ✓ (forterp detects contradictory `EQUIVALENCE`). — ▲ the "all entities in a
-  character common block must be character" (8.3.1) and "character equivalences only with
-  character" (8.2.3) restrictions are not enforced (accept-more leniency).
+  only forward. — ✓ (forterp detects contradictory `EQUIVALENCE`). — ▲ §8.3.1 ("all entities in a
+  character common block must be character") is **not** enforced — a mixed char/numeric COMMON
+  block is accepted (harmless: the values are stored and read back correctly, and gfortran accepts
+  it in every mode incl. `-std=f95`). — ✓ §8.2.3 ("a character entity may be equivalenced only
+  with character entities") **is** enforced: a char⟷numeric `EQUIVALENCE` is a hard error on every
+  dialect (`RuntimeError`). Its only use is byte type-punning, which the value-slot model can't do
+  faithfully (it would silently overwrite the shared slot with one type); gfortran also rejects it
+  under `-std=f95` (a "GNU Extension" otherwise).
 - **Type-statements (8.4).** `INTEGER`/`REAL`/`DOUBLE PRECISION`/`COMPLEX`/`LOGICAL`/
   `CHARACTER`; `CHARACTER*len` with a statement-wide default, per-entity `*len` overrides,
   per-element length for arrays, and `*(*)` assumed length for dummies / external functions /
@@ -522,7 +533,7 @@ is the full language; forterp does not implement the separate "subset FORTRAN" l
   block; listless `SAVE` saves everything; a no-op in a main program. — ✓ (verified a saved
   counter persists across calls).
 
-### §9 DATA, §10 Assignment
+### §9 DATA statement
 
 - **DATA (§9).** `DATA nlist /clist/ …`; `r*c` repeat counts; an unsubscripted array name
   takes one constant per element (column-major); implied-DO `(…, i=m1,m2[,m3])` with a
@@ -530,6 +541,9 @@ is the full language; forterp does not implement the separate "subset FORTRAN" l
   match; a character entity longer than its constant is blank-padded on the right, shorter is
   truncated. Named-common entities are initialized only in `BLOCK DATA`; blank common and
   dummy arguments cannot be initialized. — ✓ (`V/3*7./`, `(V(I),I=1,3)/…/` verified).
+
+### §10 Assignment statements
+
 - **Arithmetic assignment (10.1).** `v = e` converts `e` to `v`'s type (Table 4): `INT`
   truncates toward zero (`I=3.9`→3, `I=-3.9`→−3), `REAL`/`DBLE`/`CMPLX` as appropriate. — ✓
 - **Logical assignment (10.2).** `v = e`, `e` logical. — ✓
@@ -741,3 +755,55 @@ Appendices A–D) and checking forterp against each rule. Findings:
   choices documented in [§8](#8-conformance--fcvs-77). (Two restrictions the standard places on
   *programs* are now actively enforced under F77 — statement order §3.5 and no-recursion §15.5.2
   — rather than left lenient.)
+
+---
+
+## 11. Non-breaking extensions
+
+§1.4 lets a conforming processor "allow additional forms and relationships **provided that such
+additions do not … change the proper interpretation of a standard-conforming program**." The
+items below are places where forterp accepts or does *more* than strict ANSI X3.9-1978 — but
+because a conforming program never relies on the prohibited or undefined form, **none of them can
+change a conforming program's result.** (Contrast the value model — NATIVE `REAL`≡`DOUBLE
+PRECISION` precision, `DOUBLE PRECISION` as one storage slot — which *can* affect a conforming
+program and is therefore a `▲` divergence in §10, not an extension.)
+
+### On by default
+
+- **Longer names (§2.2).** A name over six characters is accepted (significant to the first six),
+  not rejected.
+- **Non-fatal arithmetic (§6.6).** Divide-by-zero, `0**0`, `0**negative`, and a negative base to a
+  real power do not trap — they yield a value (IEEE `Inf`/`NaN` on NATIVE, FOROTS recovery on
+  PDP10). The op is prohibited, so any result conforms.
+- **Unchecked array access (§5.4).** An out-of-bounds subscript traverses the `COMMON`/
+  `EQUIVALENCE` storage sequence — the deliberate over-/under-indexing idioms reach the
+  neighbouring variable (read *and* write) — instead of trapping; it reads 0 only past the whole
+  store.
+- **Out-of-range substring (§5.7).** A window outside `1 ≤ e1 ≤ e2 ≤ len` is clamped/blank-padded
+  rather than trapped.
+- **`DOUBLE PRECISION` ⊗ `COMPLEX` arithmetic (§6.1.4).** The Table-2/3 "Prohibited" combination is
+  promoted to the double-complex result (identical to gfortran in every mode).
+- **Mixed `COMMON` (§8.3.1).** A common block may hold both character and numeric entities; each is
+  stored and read back correctly.
+
+### Opt-in (off by default)
+
+- **`recursion`** *(dialect knob)* — permit a subprogram to reference itself, with correct
+  per-activation local storage (§15.5.2). Off by default, a re-entry is a hard error (the static
+  store would otherwise corrupt silently).
+- **`unlimited_rank`** *(dialect knob)* — lift the seven-dimension array cap (§5.1).
+- **target value model** *(`NATIVE` vs `PDP10`)* — selects the result of undefined arithmetic
+  (IEEE vs FOROTS) and the storage/precision model; see §10 §2.13.
+
+### The inverse — a conformance check
+
+- **`bounds_check`** *(dialect knob)* — turns the unchecked array/substring latitude above into
+  hard errors (`OobError`, the gfortran `-fcheck=bounds` analog). Not an extension — a strictness
+  gate for *testing* whether a program stays in bounds.
+
+### Dialect supersets
+
+The `FORTRAN10` dialect adds the full DEC FORTRAN-10 V5 superset — octal `"…` literals, `DO WHILE`,
+`.XOR.` and the symbolic relationals (`==` `<` `>`), the `A(lo/hi)` bound form, tab-format source,
+`TYPE`/`ACCEPT`/`ENCODE`/`DECODE` and random-access I/O — **all off under `F77`** (see
+[§7](#7-what-the-f77-dialect-does-not-add) and [§9](#9-the-f77-dialect-knobs)).
