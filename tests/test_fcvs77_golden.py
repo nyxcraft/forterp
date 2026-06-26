@@ -32,18 +32,18 @@ GOLD = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fcvs77_golden")
 CORPUS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fcvs77")
 
 # Output does not yet match gfortran because of a forterp BUG -- the punch-list. Shrinks as bugs
-# are fixed. What remains is the CHARACTER value-model cluster: a CHARACTER function result
-# (FM715) and CHARACTER sequence association (FM509) need sub-word storage, and FM909 mixes a
-# CHARACTER overlay with a COMPLEX value mismatch.
+# are fixed. What remains is the CHARACTER value-model: a CHARACTER function result (FM715) and
+# CHARACTER sequence association (FM509) need sub-word storage (the analogue of the COMPLEX
+# two-word rework).
 #
-# The COMPLEX cluster (FM503/700/722/809/811/813/815/817/820/828-834/908) was cleared by giving a
-# storage-associated COMPLEX scalar two word-cells (real, imag) so an EQUIVALENCEd REAL(2) reads
-# each part -- see ComplexPairRef. FM915/FM905/FM907/FM910 cleared earlier (INQUIRE specifiers;
-# FORTRAN-shaped list-directed output; unformatted COMPLEX + multi-record internal READ).
+# Cleared: the COMPLEX cluster (FM503/700/722/809/811/813/815/817/820/828-834/908) via a two-word
+# storage-associated COMPLEX scalar (ComplexPairRef); FM909 via a COMPLEX internal-file WRITE
+# expanding to two reals, the Gw.dEe F-form trailing-blank count, and nX advancing (not blanking)
+# the output cursor; and FM915/FM905/FM907/FM910 earlier (INQUIRE specifiers; FORTRAN-shaped
+# list-directed output; unformatted COMPLEX + multi-record internal READ).
 KNOWN_DIVERGENT = {
     "FM509",
     "FM715",
-    "FM909",
 }
 
 # Output differs from the gfortran golden NOT because of a forterp bug, but because gfortran is an
@@ -189,4 +189,4 @@ def test_gfortran_unreliable_routines_still_diverge():
 
 def test_most_of_the_corpus_matches():
     # Floor on validated output coverage (ratchets up as the punch-list shrinks).
-    assert len(MATCHING) >= 126
+    assert len(MATCHING) >= 127

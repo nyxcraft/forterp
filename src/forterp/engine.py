@@ -2375,7 +2375,7 @@ class Engine:
             )
             self._assign_reads(s.items, reads, frame)
         elif isinstance(s.unit, A.Substring):  # WRITE into a substring slice of the base
-            text = render(items, self._unf_values(s.items, frame), self.tgt)[0]
+            text = render(items, self._cx_expand(self._unf_values(s.items, frame)), self.tgt)[0]
             base = s.unit.base
             ref = self.arg_ref(base, frame)
             n = self.char_length(frame.rt.unit, base.name)
@@ -2388,13 +2388,13 @@ class Engine:
         elif isinstance(s.unit, A.Var) and s.unit.name in frame.rt.unit.arrays:
             # WRITE to a CHARACTER ARRAY internal file: each element is a record, and a
             # '/'-split or reverted FORMAT writes to consecutive elements (X3.9-1978 12.2.2)
-            text = render(items, self._unf_values(s.items, frame), self.tgt)[0]
+            text = render(items, self._cx_expand(self._unf_values(s.items, frame)), self.tgt)[0]
             n = self.char_length(frame.rt.unit, s.unit.name)
             view = self.arrayview(frame, s.unit.name)
             for i, rec in enumerate(text.split("\n")):
                 view.loc(i).write(rec[:n].ljust(n) if n else rec)
         else:  # WRITE: render the list, store into the CHARACTER variable (truncate / blank-pad)
-            text = render(items, self._unf_values(s.items, frame), self.tgt)[0]
+            text = render(items, self._cx_expand(self._unf_values(s.items, frame)), self.tgt)[0]
             n = self.char_length(frame.rt.unit, s.unit.name)
             self.arg_ref(s.unit, frame).write(text[:n].ljust(n) if n else text)
         self.last_io_error = IO_OK

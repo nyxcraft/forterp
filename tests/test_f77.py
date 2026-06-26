@@ -743,6 +743,19 @@ def test_internal_write_mixed_a_and_i():
     assert _out(_cprog(body))[0] == "ITEM   9    "
 
 
+def test_internal_write_of_complex_expands_to_two_reals():
+    # A WRITE to an internal CHARACTER file transfers a COMPLEX as two reals under format control
+    # (V5 Ch4), like a device WRITE -- it must not hand the Python complex to the F editor.
+    # Regression for FM909 test 16.
+    src = (
+        "      PROGRAM T\n      COMMON /O/ R\n      CHARACTER R*24, BUF*24\n      COMPLEX C\n"
+        "      C=(2.343,34.394)\n      WRITE(UNIT=BUF,FMT=10) C\n  10  FORMAT(F10.5,1X,F10.5)\n"
+        "      R=BUF\n      END\n"
+    )
+    eng = forterp.run_source(src, dialect=forterp.F77, target=forterp.NATIVE)
+    assert eng.commons["O"][0].rstrip() == "   2.34300   34.39400"  # F10.5,1X,F10.5; R*24 pads
+
+
 # ---- INQUIRE (Phase 3) ----------------------------------------------------------------------
 def test_inquire_exist_by_file(tmp_path):
     (tmp_path / "THERE.DAT").write_text("hi")

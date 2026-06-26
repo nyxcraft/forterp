@@ -107,6 +107,23 @@ def test_render_g_format_f_or_e_by_magnitude():
     assert render(parse_format("(G12.4)"), [5.0e6]) == ("  0.5000E+07", False)  # E range
 
 
+def test_render_g_format_explicit_exponent_width_reserves_e_plus_2_blanks():
+    # Gw.dEe in F-form reserves e+2 trailing blanks (the width of an E+ddd exponent), not the
+    # default 4 (X3.9-1978 13.5.9.2.3). G14.5E3: e=3 -> 5 trailing blanks; the value is right-
+    # justified in w-5=9 columns. Regression for FM909 test 12.
+    assert render(parse_format("(G14.5E3)"), [1.445673]) == ("   1.4457     ", False)
+    assert render(parse_format("(G12.5)"), [314.5673]) == ("  314.57    ", False)  # default 4
+
+
+def test_render_nX_advances_without_erasing_overlapped_output():
+    # nX transmits no characters: it advances the cursor like TR and must NOT blank positions an
+    # earlier (positionally overlapping) field wrote. Here E10.4E2 writes the field, TL10 backs
+    # up, F6.4 overwrites the mantissa, and 6X steps over the surviving 'E+03' exponent.
+    # Regression for FM909 test 14 (positional editing).
+    fmt = parse_format("(E10.4E2,TL10,F6.4,6X,I1)")
+    assert render(fmt, [349.45, 3.4945, 3]) == ("3.4945E+03  3", False)
+
+
 # ---- output rendering: characters ------------------------------------------
 def test_render_char_exact_and_padded():
     assert render(parse_format("(A2)"), [pack5("HI")], PDP10) == ("HI", False)

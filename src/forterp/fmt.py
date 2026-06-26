@@ -267,7 +267,11 @@ def render(items, values, target=NATIVE):
             if k == "lit":
                 rec.emit(it.a)
             elif k == "X":
-                rec.emit(" " * (it.a or 1))
+                # nX transmits NO characters (X3.9-1978 13.5.3): it advances the cursor like TR,
+                # it does not overwrite. A later emit blank-fills any gap (_Record.emit). This only
+                # differs from blanking under positional overlap -- T/TL back, then X forward over
+                # chars an earlier field wrote (FM909: 6X must not erase an E+03 exponent).
+                rec.pos += it.a or 1
             elif k == "T":
                 rec.tab(it.a or 1)
             elif k == "TL":  # tab left (13.5.4): back up, not past column 1
@@ -450,12 +454,15 @@ def _gfmt(v, w, d, scale=0, exp_width=None, plus=False):
         decimals = max(0, min(d - 1 - e, d))
     val = v * (10.0**scale) if scale else v  # F-form scale: ext = int*10**n
     body = _real(val, 0, decimals, plus)  # F field, no width yet
+    # Trailing blanks reserve the space an exponent would occupy (X3.9-1978 13.5.9.2.3): 4 by
+    # default, or e+2 for an explicit Gw.dEe (the width of an E+ddd... exponent).
+    n = 4 if exp_width is None else exp_width + 2
     if not w:
-        return body + "    "
-    fw = w - 4  # leave 4 blanks for the E exp slot
+        return body + " " * n
+    fw = w - n
     if len(body) > fw:
         return "*" * w
-    return body.rjust(fw) + "    "
+    return body.rjust(fw) + " " * n
 
 
 def _carriage_one(rec):
