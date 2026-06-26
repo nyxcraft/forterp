@@ -365,6 +365,7 @@ class Engine:
         character_type=False,
         zero_trip_do=False,
         blank_null=False,
+        carriage_control=True,
         max_array_words=50_000_000,
         forots=False,
         tty_width=80,
@@ -395,6 +396,11 @@ class Engine:
         # blank_null: a width'd numeric input field's blanks are ignored (FORTRAN-10/F77 default)
         # vs read as zeros (ANSI F66 7.2.3.6). read_values takes blank_zero = not this.
         self.blank_null = blank_null
+        # carriage_control: interpret the ASA control column (col 1) of formatted output as a
+        # line printer would (form-feed/space/overprint). True models a printer (the forterp
+        # default); set False to emit raw records with the control char kept as data -- a unit
+        # connected to a FILE, the gfortran/modern convention, so output compares byte-for-byte.
+        self.carriage_control = carriage_control
         #  - character_type: the F77 CHARACTER data type is in play. A string literal then
         #    evaluates to a Python str (a character constant), not a packed-ASCII Hollerith
         #    word -- so CHARACTER vars/concatenation/comparison work. Off for F66/FORTRAN-10,
@@ -2091,7 +2097,8 @@ class Engine:
 
             sink(apply_carriage_advance(text))
             return
-        text = apply_carriage(text)
+        if self.carriage_control:  # printer model: interpret the ASA control column (col 1)
+            text = apply_carriage(text)  # else file model: keep the control char as raw data
         if not suppress:
             text += "\n"
         sink(text)

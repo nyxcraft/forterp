@@ -41,6 +41,18 @@ def test_explicit_tty_open_overrides_default_device():
     assert "TERM\n" in "".join(eng.out)
 
 
+def test_carriage_control_false_keeps_the_raw_asa_column():
+    # carriage_control=False (file output, the gfortran/modern convention): the ASA control
+    # character is kept as data in column 1 instead of being interpreted. Here '1' (page eject)
+    # stays literal rather than becoming a form-feed -- so output compares byte-for-byte with a
+    # file-based reference. The default (True, a printer) still interprets it.
+    src = "        PROGRAM T\n        WRITE(6,10)\n  10    FORMAT('1PAGE')\n" + END
+    raw = run(src, setup=lambda e: setattr(e, "carriage_control", False))
+    assert printed(raw) == "1PAGE\n"
+    printer = run(src)  # default: '1' interpreted as a form-feed, not kept as data
+    assert printed(printer) == "\fPAGE\n"
+
+
 # ---- the READ side: unit 5 defaults to terminal input (V5 Table 10-1) ----
 def test_unopened_unit5_reads_from_terminal_list_directed():
     # The documented READ(5,*) on an UNOPENED unit auto-connects to terminal input

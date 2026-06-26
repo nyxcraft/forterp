@@ -5,10 +5,11 @@ to completion (regenerate with `python tests/fcvs77_golden/regenerate.py` -- nee
 This validates forterp's formatted output -- crucially the print-and-eyeball routines that
 carry no self-check -- WITHOUT gfortran at test time.
 
-The compare normalises the ASA carriage-control column: gfortran prints column 1 literally
-(`1`, ` `, `0`, `+`), while forterp interprets it (formfeed / single / double space). We drop
-that column from the golden, strip forterp's interpreted formfeed, and compare the non-blank
-text lines.
+forterp runs under carriage_control=False (file output), so -- like gfortran writing to a file
+-- it emits raw records with the ASA control character kept as data in column 1, rather than
+interpreting it as a printer (forterp's default). Both sides are then raw, so the compare just
+drops that one control column and trailing whitespace and matches line-for-line, blank lines
+and page breaks INCLUDED (no normalisation that could mask a spurious blank-line / break diff).
 
 KNOWN_DIVERGENT is the output-conformance punch-list: routines whose output does not yet match
 gfortran (early termination on an unsupported feature, or a value/format bug). The tests assert
@@ -68,15 +69,12 @@ KNOWN_DIVERGENT = {
 }
 
 
-def _norm(text, drop_col1):
-    out = []
-    for ln in text.splitlines():
-        if drop_col1 and ln:
-            ln = ln[1:]  # gfortran emits the ASA control column literally -- drop it
-        ln = ln.replace("\f", "").rstrip()  # forterp interprets it (formfeed) -- drop that
-        if ln:
-            out.append(ln)
-    return out
+def _norm(text):
+    # Both sides now emit RAW records (forterp under carriage_control=False, like gfortran's
+    # file output): the ASA control column is data in column 1. Drop that one control column
+    # and trailing whitespace, then compare line-for-line -- blank lines and form-feeds INCLUDED
+    # (the old normaliser dropped them, which masked spurious blank-line / page-break diffs).
+    return [(ln[1:] if ln else ln).rstrip() for ln in text.splitlines()]
 
 
 def _forterp_output(name):
@@ -99,6 +97,7 @@ def _forterp_output(name):
             character_type=True,
             zero_trip_do=forterp.F77.zero_trip_do,
             blank_null=forterp.F77.blank_null,
+            carriage_control=False,  # file output (raw ASA column), to compare with gfortran
         )
         install_runtime(eng)
         eng.io[5] = {"lines": _card_deck(path), "pos": 0, "mode": "r", "text": True}
@@ -111,8 +110,8 @@ def _forterp_output(name):
 
 def _matches(name):
     with open(os.path.join(GOLD, f"{name}.out")) as f:
-        gold = _norm(f.read(), True)
-    return _norm(_forterp_output(name), False) == gold
+        gold = _norm(f.read())
+    return _norm(_forterp_output(name)) == gold
 
 
 GOLDENS = sorted(os.path.basename(p)[:-4] for p in glob.glob(os.path.join(GOLD, "FM*.out")))
