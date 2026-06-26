@@ -37,7 +37,6 @@ KNOWN_DIVERGENT = {
     "FM103",
     "FM108",
     "FM257",
-    "FM311",
     "FM406",
     "FM503",
     "FM509",
@@ -133,4 +132,4 @@ def test_punchlist_has_no_stale_entries():
 
 def test_most_of_the_corpus_matches():
     # Floor on validated output coverage (ratchets up as the punch-list shrinks).
-    assert len(MATCHING) >= 103
+    assert len(MATCHING) >= 104

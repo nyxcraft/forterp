@@ -1802,12 +1802,11 @@ def _route(unit, st, toks, on_warn=None, dialect=F66):
     # is dimensioned; the array guard keeps the two cases unambiguous.)
     if (
         isinstance(stmt, A.Assign)
-        and isinstance(stmt.target, A.Ref)
+        and isinstance(stmt.target, A.Ref)  # parenthesised -> NAME(...) =, incl. zero-arg NAME()
         and stmt.target.name not in unit.arrays
         and st.label is None
         and not unit.code
-        and stmt.target.args
-        and all(isinstance(a, A.Var) for a in stmt.target.args)
+        and all(isinstance(a, A.Var) for a in stmt.target.args)  # all() of [] is True: 0-arg ok
     ):
         unit.stmt_funcs[stmt.target.name] = ([a.name for a in stmt.target.args], stmt.expr)
         return

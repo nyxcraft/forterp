@@ -332,6 +332,29 @@ def test_endfile_then_backspace_does_not_clobber_a_record():
     assert eng.commons["O"][0] == 5
 
 
+def test_zero_argument_statement_function():
+    # FM311: a statement function may take ZERO dummy arguments -- F() = expr; R = F() uses the
+    # current value of the body. Previously F() was mis-parsed as an array reference.
+    src = (
+        "        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n        COMMON /OUT/ V(8)\n"
+        "        F() = K\n        K = 7\n        V(1) = F()\n" + END
+    )
+    assert out(run(src), 1) == 7
+
+
+def test_statement_function_dummy_shadows_enclosing_function_dummy():
+    # FM311: a statement function dummy with the SAME NAME as the enclosing function's dummy
+    # argument shadows it inside the SF body. G(X)=X+1 with FUNCTION FF(X): G(10.) must use 10.,
+    # not FF's X (5.5). So FF(5.5) = 5.5 + (10.+1.) = 16.5, not 5.5 + (5.5+1.) = 12.0.
+    src = (
+        "        PROGRAM T\n        COMMON /OUT/ V(8)\n        REAL V\n"
+        "        V(1) = FF(5.5)\n        END\n"
+        "        REAL FUNCTION FF(X)\n        G(X) = X + 1.0\n"
+        "        Y = G(10.0)\n        FF = X + Y\n        RETURN\n        END\n"
+    )
+    assert abs(out(run(src), 1) - 16.5) < 1e-4
+
+
 def test_assigned_format_label_in_write():
     # FM252 / F66 7.2.3.10: an INTEGER variable ASSIGNed a FORMAT label is a valid format
     # reference -- WRITE(u, I) uses FORMAT statement I, not the variable's bits as Hollerith.

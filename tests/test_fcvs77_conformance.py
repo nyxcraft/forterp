@@ -117,9 +117,9 @@ def test_f77_conformance_baseline():
     # the fix (a gain) or investigate (a regression).
     assert R["n_run"] == 140
     assert R["n_gap"] == 0
-    assert R["total_pass"] == 1713
+    assert R["total_pass"] == 1750
     assert R["total_err"] == 0  # the entire self-checking F77 FCVS corpus passes
-    assert len(R["nosummary"]) == 40
+    assert len(R["nosummary"]) == 39
 
 
 def test_self_check_failures_do_not_grow():

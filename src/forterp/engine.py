@@ -1097,10 +1097,18 @@ class Engine:
             )
         actuals = [self.eval(a, frame) for a in arg_nodes]
         store = frame.rt.local_scalars
-        saved = {p: store[p] for p in params if p in store}
-        present = {p for p in params if p in store}
+        args = frame.args
+        # A statement function's dummy shadows a same-named local AND a same-named dummy argument
+        # of the enclosing procedure (FM311: RFOS14(RDON12) inside FUNCTION FF315(RDON12)). Since
+        # a scalar read resolves frame.args before local_scalars, bind the param wherever it would
+        # be read -- override frame.args when it collides there, else local_scalars -- and restore.
+        saved_arg = {p: args[p] for p in params if p in args}
+        saved_loc = {p: store[p] for p in params if p in store and p not in args}
         for p, v in zip(params, actuals):
-            store[p] = v
+            if p in args:
+                args[p] = TempRef(v)
+            else:
+                store[p] = v
         try:
             # A statement function's value is converted to the function's own (implicit
             # or declared) type before use -- e.g. an INTEGER-named SF truncates a real
@@ -1109,9 +1117,11 @@ class Engine:
             return self._coerce_result(self.eval(body, frame), self.type_of(frame.rt.unit, name))
         finally:
             for p in params:
-                if p in present:
-                    store[p] = saved[p]
-                else:
+                if p in saved_arg:
+                    args[p] = saved_arg[p]
+                elif p in saved_loc:
+                    store[p] = saved_loc[p]
+                elif p not in args:
                     store.pop(p, None)
 
     def _coerce_result(self, val, ttype):
