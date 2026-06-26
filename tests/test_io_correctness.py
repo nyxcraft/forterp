@@ -122,3 +122,24 @@ def test_list_directed_input_complex_and_d_exponent_spanning_records():
     deck = {"lines": ["2.5D0  (3.0,", "4.0)"], "pos": 0, "mode": "r", "text": True}
     eng = run(src, setup=lambda e: e.io.__setitem__(5, deck), dialect=forterp.FORTRAN10)
     assert [out(eng, i) for i in range(1, 4)] == [2.5, 3.0, 4.0]
+
+
+def test_formatted_read_from_text_unit_widthless_a_and_slash_multirecord():
+    # A formatted READ from a TEXT/card unit must honour both (a) widthless A -- each item reads
+    # its own declared CHARACTER length, not one column -- and (b) a `/` that advances to the next
+    # record. Regression: FM404 (AFMTS), whose card-reader path lacked both and so read 1 column
+    # per A field and could not span records on `A4 / 2A4`.
+    src = (
+        "      PROGRAM T\n"
+        "      CHARACTER C1*1,C2*2,C3*3,D1*4,D2*4,D3*4\n"
+        "      READ(5,10) C1,C2,C3\n"
+        "   10 FORMAT(A,2A)\n"
+        "      READ(5,30) D1,D2,D3\n"
+        "   30 FORMAT(A4 / 2A4)\n"
+        "      WRITE(6,20) C1,C2,C3,D1,D2,D3\n"
+        "   20 FORMAT(A1,1X,A2,1X,A3,1X,A4,1X,A4,1X,A4)\n"
+        "      END\n"
+    )
+    deck = {"lines": ["abcdef", "WXYZ", "AAAABBBB"], "pos": 0, "mode": "r", "text": True}
+    eng = run(src, setup=lambda e: e.io.__setitem__(5, deck), dialect=forterp.F77)
+    assert printed(eng).strip() == "a bc def WXYZ AAAA BBBB"

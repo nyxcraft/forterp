@@ -2622,8 +2622,6 @@ class Engine:
         """Formatted READ from a sequential file of TEXT records (an F77 formatted WRITE).
         Honours `/`: the format is split at each top-level slash into per-record field groups,
         and each group consumes the next record -- so multi-record write/read round-trips."""
-        from .fmt import read_values
-
         recs = st["recs"]
         if s.fmt in (None, "*"):  # list-directed / unformatted read of a text record
             if st["pos"] >= len(recs) or recs[st["pos"]] is ENDFILE_MARK:
@@ -2634,6 +2632,15 @@ class Engine:
             self._ld_in(line, self._ld_targets(s.items, frame))
             self.last_io_error = IO_OK
             return None
+        return self._read_fmt_records(st, s, frame, recs)
+
+    def _read_fmt_records(self, st, s, frame, records):
+        """Formatted READ across a list of TEXT `records`, honouring `/` (the format splits at
+        each top-level slash into per-record field groups) and FORMAT reversion -- consuming
+        records until the io-list is filled. Shared by the sequential-file (`recs`) and the
+        text/card-unit (`lines`) read paths."""
+        from .fmt import read_values
+
         items = self._parsed(self._fmt_spec(s.fmt, frame))
         rev = getattr(items, "rev", 0)  # FORMAT reversion restart (last top-level group)
 
@@ -2657,10 +2664,10 @@ class Engine:
         vals, start, eof = [], 0, False
         while len(vals) < needed and not eof:
             for g in split(items[start:]):
-                if st["pos"] >= len(recs) or recs[st["pos"]] is ENDFILE_MARK:
+                if st["pos"] >= len(records) or records[st["pos"]] is ENDFILE_MARK:
                     eof = True
                     break
-                line = recs[st["pos"]]
+                line = records[st["pos"]]
                 st["pos"] += 1
                 vals += read_values(
                     g,
@@ -2987,17 +2994,16 @@ class Engine:
         return cand
 
     def _read_text(self, s, st, frame):
-        """Formatted/list-directed READ from a text file unit: read
-        the next line and parse it per the FORMAT (or by tokens if list-directed)."""
-        from .fmt import read_values
-
+        """Formatted/list-directed READ from a text file unit: parse the next record(s) per
+        the FORMAT (sharing the multi-record `/` + widthless-A logic with the sequential-file
+        path), or by tokens if list-directed."""
         lines = st["lines"]
         if st["pos"] >= len(lines):
             self.last_io_error = IO_EOF
             return Goto(s.specs["END"]) if "END" in s.specs else None
-        line = lines[st["pos"]]
-        st["pos"] += 1
         if s.fmt is None or s.fmt == "*":
+            line = lines[st["pos"]]
+            st["pos"] += 1
 
             def next_line():  # list-directed reads span records until the list is filled
                 if st["pos"] >= len(lines):
@@ -3007,23 +3013,9 @@ class Engine:
                 return ln
 
             self._ld_in(line, self._ld_targets(s.items, frame), next_line)
-        else:
-            spec = self._fmt_spec(s.fmt, frame)
-            items = self._parsed(spec)
-            self._assign_reads(
-                s.items,
-                read_values(
-                    items,
-                    line,
-                    self.tgt,
-                    self.free_form_input,
-                    self.character_type,
-                    blank_zero=self._blank_zero(st),
-                ),
-                frame,
-            )
-        self.last_io_error = IO_OK
-        return None
+            self.last_io_error = IO_OK
+            return None
+        return self._read_fmt_records(st, s, frame, lines)
 
     def _out_values(self, items, frame, typed=False):
         """Output I/O-list values, SNAPSHOTTED in list order. An implied-DO is unrolled here and
