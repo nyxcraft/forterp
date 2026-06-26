@@ -124,7 +124,7 @@ def _run_one(path, target=PDP10, dialect=FORTRAN10, character_type=False):
 def run_corpus(corpus_dir=CORPUS_DIR, target=PDP10, dialect=FORTRAN10, character_type=False):
     """Run every FM*.FOR. Returns a dict with the aggregate + per-file detail."""
     run = {}
-    gap, nosummary, incomplete = [], [], []
+    gap, nosummary, incomplete, inspect_routines = [], [], [], []
     total_pass = total_err = n_checked = 0
     for path in sorted(glob.glob(os.path.join(corpus_dir, "FM*.FOR"))):
         name = os.path.basename(path)
@@ -144,6 +144,10 @@ def run_corpus(corpus_dir=CORPUS_DIR, target=PDP10, dialect=FORTRAN10, character
         #    require pass+fail+deleted+inspect == the declared total.
         # Print-and-eyeball routines (no tally, no EXECUTED line) are validated by the gfortran
         # goldens instead (test_fcvs77_golden.py), so they are not reconciled here.
+        if meta[
+            "inspect"
+        ]:  # has require-INSPECTION tests -> only the gfortran golden validates them
+            inspect_routines.append(name)
         if meta["executed_of"] is not None:
             n_checked += 1
             if meta["executed"] != meta["executed_of"]:
@@ -161,6 +165,7 @@ def run_corpus(corpus_dir=CORPUS_DIR, target=PDP10, dialect=FORTRAN10, character
         "gap": gap,
         "nosummary": nosummary,
         "incomplete": incomplete,
+        "inspect_routines": inspect_routines,  # routines with require-INSPECTION tests
         "n_checked": n_checked,  # routines whose completeness was actually reconciled
         "n_run": len(run),
         "n_gap": len(gap),

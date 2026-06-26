@@ -135,3 +135,16 @@ def test_every_routine_runs_all_its_declared_tests():
     # "X OF Y TESTS EXECUTED"). Older self-checkers lack that line, but a mid-run crash there
     # prints no summary at all and so moves the pinned `nosummary` set instead.
     assert R["n_checked"] == 75
+
+
+def test_inspection_tests_are_all_golden_validated():
+    # A require-INSPECTION sub-test prints a value the program can't self-judge (PASS/FAIL), so
+    # its ONLY validation is the gfortran golden. If such a routine drifts onto the divergent
+    # punch-list, those inspection results become unverified -- guard against that here. (Today
+    # all 9 INSPECT-bearing routines match gfortran exactly.)
+    from test_fcvs77_golden import KNOWN_DIVERGENT
+
+    insp = [n[:-4] for n in R["inspect_routines"]]  # strip ".FOR"
+    assert len(insp) == 9
+    unverified = sorted(n for n in insp if n in KNOWN_DIVERGENT)
+    assert not unverified, f"INSPECT routines whose output is NOT golden-validated: {unverified}"
