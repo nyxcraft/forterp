@@ -121,3 +121,17 @@ def test_self_check_failures_do_not_grow():
     # The known self-check failures (value/semantic conformance, not parse/control-flow).
     # A ratchet: fixing a bug should LOWER this -- update it down, never silently up.
     assert R["total_err"] <= 0
+
+
+def test_every_routine_runs_all_its_declared_tests():
+    # Completeness, not just correctness: a routine that crashed after a few passes would read
+    # as "0 failures". Enforce FCVS's own accounting -- "X OF Y TESTS EXECUTED" must have X==Y,
+    # and a self-checker's pass+fail+deleted+inspect must equal its declared total. Empty means
+    # no routine terminated early. (Print-and-eyeball routines are golden-validated separately.)
+    assert R["incomplete"] == [], "routines that did not run every declared test:\n" + "\n".join(
+        R["incomplete"]
+    )
+    # Non-vacuity: the check actually reconciled a substantial set (the routines printing FCVS's
+    # "X OF Y TESTS EXECUTED"). Older self-checkers lack that line, but a mid-run crash there
+    # prints no summary at all and so moves the pinned `nosummary` set instead.
+    assert R["n_checked"] == 75

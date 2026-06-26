@@ -37,6 +37,14 @@ _PASS = re.compile(r"(\d+)\s+TESTS?\s+PASSED")
 # "nnn ERRORS ENCOUNTERED"; the FM2xx+ audits print "nnn TESTS FAILED". Count both, or a
 # routine's failures go silently uncounted (e.g. FM201's "1 TESTS FAILED").
 _ERRS = re.compile(r"(\d+)\s+(?:ERRORS?\s+ENCOUNTERED|TESTS?\s+FAILED)")
+# FCVS completeness signals: the routine's own count of how many of its declared tests it
+# actually executed ("nnn OF nnn TESTS EXECUTED"), plus DELETED / require-INSPECTION tallies
+# and the declared total ("THIS PROGRAM HAS nnn TESTS"). Used to assert no early termination:
+# a routine that crashed after printing a few passes would otherwise read as "0 failures".
+_EXEC = re.compile(r"(\d+)\s+OF\s+(\d+)\s+TESTS?\s+EXECUTED")
+_DELETED = re.compile(r"(\d+)\s+TESTS?\s+(?:WERE\s+)?DELETED")
+_INSPECT = re.compile(r"(\d+)\s+TESTS?\s+REQUIRE\s+INSPECTION")
+_DECLARED = re.compile(r"THIS PROGRAM HAS\s+(\d+)\s+TESTS")
 
 
 _CARD = re.compile(r"^CARD\s+(\d+)")
@@ -62,20 +70,22 @@ def _card_deck(path):
 
 
 def _run_one(path, target=PDP10, dialect=FORTRAN10, character_type=False):
-    """Run a single audit routine. Returns (status, passed, errors): status in
-    {"run", "gap"}, passed/errors 0 unless status=="run". The curated F66 corpus is
+    """Run a single audit routine. Returns (status, passed, errors, meta): status in
+    {"run", "gap"}, passed/errors 0 unless status=="run"; meta carries the completeness
+    signals (executed / executed_of / deleted / inspect / declared). The curated F66 corpus is
     column-formatted Hollerith, so a parse failure ("gap") is a regression; the F77
     corpus opts into `character_type` (the CHARACTER data type) and treats gaps as
     tracked feature gaps, not regressions."""
     stmts = expand_includes(scan_file(path, dialect=dialect).statements, os.path.dirname(path))
     errs = []
     units = parse_units(stmts, on_error=lambda st, m: errs.append(m), dialect=dialect)
+    _NOMETA = {"executed": None, "executed_of": None, "deleted": 0, "inspect": 0, "declared": None}
     if errs:
-        return ("gap", 0, 0)
+        return ("gap", 0, 0, _NOMETA)
 
     main = next((u.name for u in units if u.kind == "program"), None)
     if main is None:
-        return ("gap", 0, 0)
+        return ("gap", 0, 0, _NOMETA)
     listing = []  # the line-printer (LPT) buffer
     try:
         # Build + run inside the guard: a build-time crash (e.g. an unsupported DATA
@@ -99,30 +109,59 @@ def _run_one(path, target=PDP10, dialect=FORTRAN10, character_type=False):
     except (StopExecution, Exception):
         pass
     report = "".join(listing)
-    mp, me = _PASS.search(report), _ERRS.search(report)
-    return ("run", int(mp.group(1)) if mp else 0, int(me.group(1)) if me else 0)
+    mp, me, mx = _PASS.search(report), _ERRS.search(report), _EXEC.search(report)
+    md, mi, mt = _DELETED.search(report), _INSPECT.search(report), _DECLARED.search(report)
+    meta = {
+        "executed": int(mx.group(1)) if mx else None,
+        "executed_of": int(mx.group(2)) if mx else None,
+        "deleted": int(md.group(1)) if md else 0,
+        "inspect": int(mi.group(1)) if mi else 0,
+        "declared": int(mt.group(1)) if mt else None,
+    }
+    return ("run", int(mp.group(1)) if mp else 0, int(me.group(1)) if me else 0, meta)
 
 
 def run_corpus(corpus_dir=CORPUS_DIR, target=PDP10, dialect=FORTRAN10, character_type=False):
     """Run every FM*.FOR. Returns a dict with the aggregate + per-file detail."""
     run = {}
-    gap, nosummary = [], []
-    total_pass = total_err = 0
+    gap, nosummary, incomplete = [], [], []
+    total_pass = total_err = n_checked = 0
     for path in sorted(glob.glob(os.path.join(corpus_dir, "FM*.FOR"))):
         name = os.path.basename(path)
-        status, p, e = _run_one(path, target, dialect, character_type)
+        status, p, e, meta = _run_one(path, target, dialect, character_type)
         if status == "gap":  # parse failure -> regression (curated F66)
             gap.append(name)
-        else:
-            run[name] = (p, e)
-            total_pass += p
-            total_err += e
-            if p == 0 and e == 0:
-                nosummary.append(name)  # ran, but printed no PASS/ERR summary
+            continue
+        run[name] = (p, e)
+        total_pass += p
+        total_err += e
+        if p == 0 and e == 0:
+            nosummary.append(name)  # ran, but printed no PASS/ERR summary
+        # Completeness: did the routine run EVERY test it claims? A routine that crashed after
+        # a few passes would otherwise read as "0 failures". FCVS states this two ways:
+        #  - modern audits print "X OF Y TESTS EXECUTED" -> require X == Y;
+        #  - older self-checkers (a PASS/FAIL tally + a declared total, no EXECUTED line) ->
+        #    require pass+fail+deleted+inspect == the declared total.
+        # Print-and-eyeball routines (no tally, no EXECUTED line) are validated by the gfortran
+        # goldens instead (test_fcvs77_golden.py), so they are not reconciled here.
+        if meta["executed_of"] is not None:
+            n_checked += 1
+            if meta["executed"] != meta["executed_of"]:
+                incomplete.append(f"{name}: ran {meta['executed']} of {meta['executed_of']}")
+        elif meta["declared"] is not None and (p + e) > 0:
+            n_checked += 1
+            accounted = p + e + meta["deleted"] + meta["inspect"]
+            if accounted != meta["declared"]:
+                incomplete.append(
+                    f"{name}: {accounted} accounted of {meta['declared']} declared "
+                    f"(pass {p} fail {e} del {meta['deleted']} insp {meta['inspect']})"
+                )
     return {
         "run": run,
         "gap": gap,
         "nosummary": nosummary,
+        "incomplete": incomplete,
+        "n_checked": n_checked,  # routines whose completeness was actually reconciled
         "n_run": len(run),
         "n_gap": len(gap),
         "total_pass": total_pass,

@@ -58,7 +58,12 @@ def test_only_expected_failure_is_fm001_by_design():
 
 def test_print_and_eyeball_files_have_no_autocheck():
     # FM005/FM109 print values under FORMAT descriptors for visual inspection;
-    # they self-report no PASS/FAIL summary. Documented, not a failure.
+    # they self-report no PASS/FAIL summary. Documented, not a failure. This set is also the
+    # completeness guard for this curated F66 corpus: its older audits print "nnn ERRORS
+    # ENCOUNTERED" but no "THIS PROGRAM HAS nnn TESTS"/"X OF Y EXECUTED" line to reconcile
+    # against, so a mid-run crash surfaces as a routine dropping into `nosummary` (which this
+    # pins), not as a silent partial pass. (The F77 corpus has the explicit EXECUTED line --
+    # see test_fcvs77_conformance.test_every_routine_runs_all_its_declared_tests.)
     assert set(R["nosummary"]) == {"FM005.FOR", "FM109.FOR"}
 
 
