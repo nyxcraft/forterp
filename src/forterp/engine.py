@@ -817,6 +817,10 @@ class Engine:
     def type_of(self, unit, name):
         if name in unit.types:
             return unit.types[name]
+        # A typed FUNCTION's result variable IS the function name (X3.9-1978 15.5.1): inside the
+        # function unit it carries the header's type unless the body re-declares it (checked above).
+        if name == unit.name and unit.kind == "function" and unit.ret_type:
+            return unit.ret_type
         if name and name[0] in unit.implicit:
             return unit.implicit[name[0]]
         return "INTEGER" if (name and name[0] in DEFAULT_INT_LETTERS) else "REAL"
@@ -825,6 +829,9 @@ class Engine:
         """Declared length of a CHARACTER entity (default 1; 0 means assumed length `*(*)`)."""
         if name in unit.char_len:
             return unit.char_len[name]
+        # CHARACTER*len FUNCTION result variable (the function name), when not re-declared above.
+        if name == unit.name and unit.kind == "function" and unit.ret_type == "CHARACTER":
+            return unit.ret_len if unit.ret_len is not None else 1
         if name and name[0] in unit.implicit_char_len:  # IMPLICIT CHARACTER*len (letter)
             return unit.implicit_char_len[name[0]]
         return 1
@@ -869,12 +876,15 @@ class Engine:
                 self._data_assign(rt, unit, tgt, it)
 
     def _const_value(self, v):
-        """Materialize a stored PARAMETER value into a runtime value. A Hollerith
-        constant is kept as a raw str by the parser (which has no Target) and packed
-        here through the engine's target, so it matches a literal of the same text."""
+        """Materialize a stored PARAMETER value into a runtime value. A Hollerith constant is
+        kept as a raw str by the parser (which has no Target) and packed here through the engine's
+        target, so it matches a literal of the same text -- EXCEPT under the F77 CHARACTER model,
+        where a string constant is CHARACTER and stays a Python str (like a CHARACTER literal)."""
         if isinstance(v, bool):  # .TRUE./.FALSE. PARAMETER; bool is an int subclass, test first
             return self.tgt.from_bool(v)
-        return self.tgt.pack(v) if isinstance(v, str) else v
+        if isinstance(v, str):
+            return v if self.character_type else self.tgt.pack(v)
+        return v
 
     def _const_val(self, v, unit):
         if isinstance(v, bool):  # .TRUE./.FALSE. in DATA; bool is an

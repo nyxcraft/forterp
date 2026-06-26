@@ -1408,8 +1408,10 @@ def _is_header(toks):
         v0 == "BLOCK" and len(toks) > 1 and toks[1].kind == "ID" and toks[1].value == "DATA"
     ):
         return True  # BLOCK DATA [name]  (V5 Ch16)
-    if v0 in TYPE_KW:
-        for t in toks[1:4]:
+    if v0 in TYPE_KW or v0 == "CHARACTER":
+        # a typed FUNCTION header: the type may carry a length spec (CHARACTER*10, CHARACTER*(*))
+        # or be DOUBLE PRECISION before the FUNCTION keyword, so scan a few tokens, not just 1-3.
+        for t in toks[1:6]:
             if t.kind == "ID" and t.value == "FUNCTION":
                 return True
     return False
@@ -1425,12 +1427,15 @@ def _parse_header(toks):
             p.expect_id()  # DATA
         name = p.expect_id() if p.is_id() else "$BLOCKDATA"  # name is optional
         return A.ProgramUnit(kind="blockdata", name=name)
-    if p.is_id() and p.peek().value in TYPE_KW and p.peek().value not in ("SUBROUTINE", "PROGRAM"):
+    ret_len = None
+    if p.is_id() and (p.peek().value in TYPE_KW or p.peek().value == "CHARACTER"):
         # could be a typed FUNCTION header
         typ = p.advance().value
         if typ == "DOUBLE" and p.is_id("PRECISION"):
             p.advance()
             typ = "DOUBLE PRECISION"
+        elif typ == "CHARACTER":  # CHARACTER*len FUNCTION / CHARACTER*(*) FUNCTION (the result len)
+            ret_len = p._char_len()
         ret_type = typ
         # now expect FUNCTION
         p.expect_id()  # 'FUNCTION'
@@ -1452,7 +1457,7 @@ def _parse_header(toks):
                 if not p.accept_op(","):
                     break
         p.expect_op(")")
-    return A.ProgramUnit(kind=kind, name=name, params=params, ret_type=ret_type)
+    return A.ProgramUnit(kind=kind, name=name, params=params, ret_type=ret_type, ret_len=ret_len)
 
 
 def _format_body(text):

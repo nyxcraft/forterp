@@ -284,6 +284,7 @@ class ProgramUnit:
     name: str
     params: list[str] = field(default_factory=list)
     ret_type: Optional[str] = None  # for typed functions
+    ret_len: Optional[int] = None  # CHARACTER*len result length (0 = assumed, *(*))
     implicit: dict[str, str] = field(default_factory=dict)  # letter -> type
     implicit_char_len: dict[str, int] = field(
         default_factory=dict

@@ -873,3 +873,31 @@ def test_concat_operator_only_tokenized_under_character_type():
     src = "      PROGRAM T\n      COMMON /O/ S\n      CHARACTER S*4\n      S='A'//'B'\n      END\n"
     with pytest.raises(forterp.ParseError):
         forterp.run_source(src, dialect=forterp.FORTRAN10, target=forterp.NATIVE)
+
+
+# ---- CHARACTER functions (Phase 3 / FM715) --------------------------------------------------
+def test_character_function_returns_a_length_fit_string():
+    # A CHARACTER*len FUNCTION: the header parses (the *len sits between CHARACTER and FUNCTION),
+    # the result variable is typed CHARACTER*len so the body's assignment fits to length, and the
+    # caller gets the str. Regression for FM715.
+    src = (
+        "      PROGRAM T\n      COMMON /O/ R\n      CHARACTER R*10, CF*10\n"
+        "      R=CF(2)\n      END\n"
+        "      CHARACTER*10 FUNCTION CF(K)\n"
+        "      IF (K.EQ.1) THEN\n        CF='HELLO'\n      ELSE\n"
+        "        CF='GOODBYE'\n      END IF\n"
+        "      END\n"
+    )
+    eng = forterp.run_source(src, dialect=forterp.F77, target=forterp.NATIVE)
+    assert eng.commons["O"][0] == "GOODBYE   "  # fit to CHARACTER*10
+
+
+def test_character_parameter_stays_a_string_under_f77():
+    # A CHARACTER PARAMETER value is a CHARACTER constant (a Python str), not a Hollerith word
+    # packed into an integer. Regression for FM715 test 3 (COMPUTED came back as a packed int).
+    src = (
+        "      PROGRAM T\n      COMMON /O/ R\n      CHARACTER R*5, P*5\n"
+        "      PARAMETER (P='PQRST')\n      R=P\n      END\n"
+    )
+    eng = forterp.run_source(src, dialect=forterp.F77, target=forterp.NATIVE)
+    assert eng.commons["O"][0] == "PQRST"
