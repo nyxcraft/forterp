@@ -2274,6 +2274,14 @@ class Engine:
             hi = int(self.eval(s.unit.hi, frame)) if s.unit.hi is not None else n
             width = max(hi - lo + 1, 0)
             ref.write((cur[: lo - 1] + text[:width].ljust(width) + cur[hi:])[:n].ljust(n))
+        elif isinstance(s.unit, A.Var) and s.unit.name in frame.rt.unit.arrays:
+            # WRITE to a CHARACTER ARRAY internal file: each element is a record, and a
+            # '/'-split or reverted FORMAT writes to consecutive elements (X3.9-1978 12.2.2)
+            text = render(items, self._unf_values(s.items, frame), self.tgt)[0]
+            n = self.char_length(frame.rt.unit, s.unit.name)
+            view = self.arrayview(frame, s.unit.name)
+            for i, rec in enumerate(text.split("\n")):
+                view.loc(i).write(rec[:n].ljust(n) if n else rec)
         else:  # WRITE: render the list, store into the CHARACTER variable (truncate / blank-pad)
             text = render(items, self._unf_values(s.items, frame), self.tgt)[0]
             n = self.char_length(frame.rt.unit, s.unit.name)

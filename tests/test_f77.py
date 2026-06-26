@@ -692,6 +692,17 @@ def test_internal_file_round_trip():
     assert _out(_cprog(body))[0] == 7
 
 
+def test_internal_file_character_array_write():
+    # FM909 / X3.9-1978 12.2.2: a CHARACTER ARRAY is an internal file whose ELEMENTS are the
+    # records. A WRITE with FORMAT reversion (two values, one I5) fills consecutive elements.
+    src = (
+        "      PROGRAM T\n      COMMON /O/ S\n      CHARACTER S*10, A(2)*5\n"
+        "      WRITE(A,10) 42, 99\n   10 FORMAT(I5)\n      S=A(1)//A(2)\n      END\n"
+    )
+    eng = forterp.run_source(src, dialect=forterp.F77, target=forterp.NATIVE)
+    assert eng.commons["O"][0] == "   42   99"
+
+
 def test_internal_write_mixed_a_and_i():
     body = (
         "      CHARACTER R*12, W*5\n      INTEGER K\n"
