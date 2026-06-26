@@ -1,7 +1,7 @@
 """Differential validation of forterp's formatted output against gfortran goldens.
 
-tests/fcvs77_golden/<NAME>.out holds gfortran's stdout for each FCVS-77 routine gfortran runs
-to completion (regenerate with `python tests/fcvs77_golden/regenerate.py` -- needs gfortran).
+tests/fcvs_golden/<NAME>.out holds gfortran's stdout for each FCVS-77 routine gfortran runs
+to completion (regenerate with `python tests/fcvs_golden/regenerate.py` -- needs gfortran).
 This validates forterp's formatted output -- crucially the print-and-eyeball routines that
 carry no self-check -- WITHOUT gfortran at test time.
 
@@ -29,8 +29,8 @@ from forterp.parser import parse_units
 from forterp.runtime import install_runtime
 from forterp.source import expand_includes, scan_file
 
-GOLD = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fcvs77_golden")
-CORPUS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fcvs77")
+GOLD = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fcvs_golden")
+CORPUS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fcvs")
 
 # The forterp-bug output punch-list -- now EMPTY: every FCVS-77 routine gfortran completes either
 # matches forterp's output exactly (129/131) or is a documented gfortran-unreliable divergence

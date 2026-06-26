@@ -3,7 +3,7 @@
 operators, and 8-bit ASCII packed into integers. These check the three value-model axes
 where NATIVE deliberately differs from the faithful PDP-10 target (which the rest of the
 suite validates). Broad conformance under NATIVE is covered by the FCVS corpus run
-(test_fcvs_conformance.test_native_target_runs_the_corpus_identically)."""
+(test_fcvs_f66_conformance.test_native_target_runs_the_corpus_identically)."""
 
 from conftest import out, run, run_int
 

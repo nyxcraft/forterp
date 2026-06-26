@@ -1,12 +1,12 @@
 """Regenerate the FCVS-77 golden outputs from gfortran. DEV-ONLY: needs gfortran installed.
 
-For every print-and-eyeball routine in tests/fcvs77/ that gfortran runs to completion (no
+For every print-and-eyeball routine in tests/fcvs/ that gfortran runs to completion (no
 runtime error on empty input), capture its stdout to <NAME>.out here. These goldens let the
-conformance test (test_fcvs77_golden.py) validate forterp's formatted output WITHOUT gfortran
+conformance test (test_fcvs_golden.py) validate forterp's formatted output WITHOUT gfortran
 at test time. Routines that need FCVS control-card input (gfortran aborts at EOF) are skipped
 and listed at the end -- they can't be golden-compared until the input harness is modeled.
 
-Run:  python tests/fcvs77_golden/regenerate.py
+Run:  python tests/fcvs_golden/regenerate.py
 """
 
 import glob
@@ -15,7 +15,7 @@ import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-CORPUS = os.path.join(HERE, "..", "fcvs77")
+CORPUS = os.path.join(HERE, "..", "fcvs")
 
 
 def main():

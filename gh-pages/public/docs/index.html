@@ -81,9 +81,10 @@ document the interpreter was validated against.</li>
 </ul>
 <h2 id="conformance">Conformance</h2>
 <p>The interpreter is exercised against the <strong>FCVS</strong> (FORTRAN Compiler Validation System) audit
-corpus: <code>tests/fcvs/</code> checks the FORTRAN-66 standard, and <code>tests/fcvs77/</code> the FORTRAN-77
-<code>CHARACTER</code>/feature routines (with gfortran golden outputs under <code>tests/fcvs77_golden/</code> for
-the print-only routines — no gfortran needed at test time). Run <code>pytest</code> to execute them.</p>
+corpus — one set in <code>tests/fcvs/</code>. FORTRAN-66 is checked against the F66-valid subset of it, and
+FORTRAN-77 against the whole corpus (the rest uses <code>CHARACTER</code> and other F77 features). gfortran
+golden outputs under <code>tests/fcvs_golden/</code> validate the print-only routines (no gfortran needed
+at test time). Run <code>pytest</code> to execute them.</p>
 <h2 id="security-trust-model">Security &amp; trust model</h2>
 <p>forterp is an <strong>interpreter, not a sandbox</strong>: a program runs with the invoking process's
 privileges and its <code>OPEN</code>/<code>READ</code>/<code>WRITE</code> reach the real filesystem (absolute or <code>..</code> paths

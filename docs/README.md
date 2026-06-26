@@ -47,9 +47,10 @@ the primary sources are:
 ## Conformance
 
 The interpreter is exercised against the **FCVS** (FORTRAN Compiler Validation System) audit
-corpus: `tests/fcvs/` checks the FORTRAN-66 standard, and `tests/fcvs77/` the FORTRAN-77
-`CHARACTER`/feature routines (with gfortran golden outputs under `tests/fcvs77_golden/` for
-the print-only routines — no gfortran needed at test time). Run `pytest` to execute them.
+corpus — one set in `tests/fcvs/`. FORTRAN-66 is checked against the F66-valid subset of it, and
+FORTRAN-77 against the whole corpus (the rest uses `CHARACTER` and other F77 features). gfortran
+golden outputs under `tests/fcvs_golden/` validate the print-only routines (no gfortran needed
+at test time). Run `pytest` to execute them.
 
 ## Security & trust model
 

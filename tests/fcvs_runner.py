@@ -7,11 +7,11 @@ printer (unit 6). We capture that printer listing (engine.printer sink) and pars
 the summary -- the report IS line-printer output, not terminal I/O, so it is read
 from a dedicated buffer, separate from any terminal stream.
 
-This is a CURATED F66 corpus: it holds only the FCVS audit routines that are valid
-FORTRAN-66 and run on this interpreter. The F77 routines (those using the CHARACTER
-type -- which does not exist in F66) were removed from the original 192-file set, so
-that what sits in tests/fcvs/ is exactly what runs. Every file here must parse clean;
-a parse failure is therefore a real regression (status "gap"), not "out of scope."
+FCVS is ONE corpus (192 routines) -- tests/fcvs/. It is NOT split by dialect; the dialect just
+determines how much of it is valid: FORTRAN-66 is valid against the F66_SUBSET (the routines that
+predate the F77 CHARACTER type etc.), while FORTRAN-77 is valid against ALL of it. So the F66
+driver runs `run_corpus(files=F66_SUBSET)` and the F77 driver runs the whole directory. Within a
+run, every selected file must parse clean; a parse failure is a real regression (status "gap").
 
 Run as a module:  python -m fcvs_runner [--verbose]
 or import run_corpus() for the regression test.
@@ -31,6 +31,67 @@ from forterp.source import expand_includes, scan_file
 from forterp.target import PDP10
 
 CORPUS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fcvs")
+
+# The subset of the FCVS corpus that is valid FORTRAN-66 (and runs on this interpreter): the
+# routines that predate the F77 features (CHARACTER, block IF, ...). The rest of tests/fcvs/ needs
+# F77. This list IS the curation -- F66 runs only these; F77 runs the whole directory. (Numbering
+# does not split cleanly -- e.g. FM100-108 need F77 but FM109 is F66 -- so it is enumerated.)
+F66_SUBSET = frozenset(
+    {
+        "FM001.FOR",
+        "FM002.FOR",
+        "FM003.FOR",
+        "FM004.FOR",
+        "FM005.FOR",
+        "FM006.FOR",
+        "FM007.FOR",
+        "FM008.FOR",
+        "FM009.FOR",
+        "FM010.FOR",
+        "FM011.FOR",
+        "FM012.FOR",
+        "FM013.FOR",
+        "FM014.FOR",
+        "FM016.FOR",
+        "FM017.FOR",
+        "FM018.FOR",
+        "FM019.FOR",
+        "FM020.FOR",
+        "FM021.FOR",
+        "FM022.FOR",
+        "FM023.FOR",
+        "FM024.FOR",
+        "FM025.FOR",
+        "FM026.FOR",
+        "FM028.FOR",
+        "FM030.FOR",
+        "FM031.FOR",
+        "FM032.FOR",
+        "FM033.FOR",
+        "FM034.FOR",
+        "FM035.FOR",
+        "FM036.FOR",
+        "FM037.FOR",
+        "FM038.FOR",
+        "FM039.FOR",
+        "FM040.FOR",
+        "FM041.FOR",
+        "FM042.FOR",
+        "FM043.FOR",
+        "FM044.FOR",
+        "FM045.FOR",
+        "FM050.FOR",
+        "FM056.FOR",
+        "FM060.FOR",
+        "FM061.FOR",
+        "FM062.FOR",
+        "FM080.FOR",
+        "FM097.FOR",
+        "FM098.FOR",
+        "FM099.FOR",
+        "FM109.FOR",
+    }
+)
 
 _PASS = re.compile(r"(\d+)\s+TESTS?\s+PASSED")
 # Two FCVS summary dialects report failures differently: the FM0xx/FM1xx audits print
@@ -126,13 +187,20 @@ def _run_one(path, target=PDP10, dialect=FORTRAN10, character_type=False):
     return ("run", int(mp.group(1)) if mp else 0, int(me.group(1)) if me else 0, meta)
 
 
-def run_corpus(corpus_dir=CORPUS_DIR, target=PDP10, dialect=FORTRAN10, character_type=False):
-    """Run every FM*.FOR. Returns a dict with the aggregate + per-file detail."""
+def run_corpus(
+    corpus_dir=CORPUS_DIR, target=PDP10, dialect=FORTRAN10, character_type=False, files=None
+):
+    """Run FM*.FOR from `corpus_dir`. With `files` (a set/iterable of basenames) restrict the run
+    to that subset -- the FCVS corpus is one set, but only F66_SUBSET is valid FORTRAN-66, so the
+    F66 driver passes that subset while the F77 driver runs all. Returns the aggregate + detail."""
     run = {}
     gap, nosummary, incomplete, inspect_routines = [], [], [], []
     total_pass = total_err = n_checked = 0
+    chosen = set(files) if files is not None else None
     for path in sorted(glob.glob(os.path.join(corpus_dir, "FM*.FOR"))):
         name = os.path.basename(path)
+        if chosen is not None and name not in chosen:
+            continue
         status, p, e, meta = _run_one(path, target, dialect, character_type)
         if status == "gap":  # parse failure -> regression (curated F66)
             gap.append(name)
@@ -148,7 +216,7 @@ def run_corpus(corpus_dir=CORPUS_DIR, target=PDP10, dialect=FORTRAN10, character
         #  - older self-checkers (a PASS/FAIL tally + a declared total, no EXECUTED line) ->
         #    require pass+fail+deleted+inspect == the declared total.
         # Print-and-eyeball routines (no tally, no EXECUTED line) are validated by the gfortran
-        # goldens instead (test_fcvs77_golden.py), so they are not reconciled here.
+        # goldens instead (test_fcvs_golden.py), so they are not reconciled here.
         if meta[
             "inspect"
         ]:  # has require-INSPECTION tests -> only the gfortran golden validates them
@@ -184,7 +252,7 @@ def main(argv=None):
     import sys
 
     verbose = "--verbose" in (argv or sys.argv[1:])
-    r = run_corpus()
+    r = run_corpus(files=F66_SUBSET)  # the F66-valid subset (the F77 routines need the F77 driver)
     print(
         f"FCVS F66 corpus: {r['n_run']} routines run, {r['n_gap']} parse-failure(s) (should be 0)"
     )

@@ -304,18 +304,19 @@ scope; the source form is fixed-form card image as in <a href="../reference/inde
 </ul>
 <hr />
 <h2 id="8-conformance-fcvs-77">8. Conformance — FCVS-77</h2>
-<p>The interpreter is exercised against the FORTRAN-77 audit routines of the <strong>FCVS</strong> (FORTRAN
-Compiler Validation System) — the 140 routines that use <code>CHARACTER</code> and the F77 features,
-restored to pristine form (verified against gfortran) under <code>tests/fcvs77/</code>.</p>
+<p>The interpreter is exercised against the whole <strong>FCVS</strong> (FORTRAN Compiler Validation System)
+audit corpus — one set of <strong>192 routines</strong> in <code>tests/fcvs/</code>, restored to pristine form (verified
+against gfortran). FORTRAN-77 is valid against all of it; the F66-valid subset is also run under
+FORTRAN-66 (<code>test_fcvs_f66_conformance.py</code>).</p>
 <ul>
-<li><strong>All 140 parse and run</strong> — the front end is complete (zero parse-gaps).</li>
-<li>The self-checking routines report <strong>1550 sub-test passes</strong> against a tracked, ratcheting
-punch-list of remaining <strong>value/semantic</strong> failures (numeric precision, some <code>INQUIRE</code>
-variants, formatting) — pinned in <code>tests/test_fcvs77_conformance.py</code>.</li>
-<li>The <strong>print-and-eyeball</strong> routines (no self-check) are validated by a <strong>golden</strong> diff
-against gfortran output committed under <code>tests/fcvs77_golden/</code> — <code>test_fcvs77_golden.py</code>
-compares without needing gfortran at test time (regenerate with
-<code>tests/fcvs77_golden/regenerate.py</code>).</li>
+<li><strong>All 192 parse and run</strong> under F77 — the front end is complete (zero parse-gaps).</li>
+<li>The self-checking routines report <strong>zero genuine failures</strong> (the one counted error is FM001's
+by-design FORCE-FAIL self-test) — pinned in <code>tests/test_fcvs_f77_conformance.py</code>.</li>
+<li>The <strong>print-and-eyeball</strong> routines (no self-check) are validated by a <strong>golden</strong> diff against
+gfortran output committed under <code>tests/fcvs_golden/</code> — <code>test_fcvs_golden.py</code> compares
+without needing gfortran at test time (regenerate with <code>tests/fcvs_golden/regenerate.py</code>).
+Where gfortran is itself an unreliable oracle, the routine is validated by its own self-check
+instead.</li>
 </ul>
 <p>This corpus is independent of the interpreter's own assumptions (it predates the project by
 ~40 years), so it is the primary check on F77 conformance. See also

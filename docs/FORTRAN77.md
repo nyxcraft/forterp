@@ -261,18 +261,19 @@ The F77 dialect is the 1978 standard, not a superset of everything later or DEC-
 
 ## 8. Conformance — FCVS-77
 
-The interpreter is exercised against the FORTRAN-77 audit routines of the **FCVS** (FORTRAN
-Compiler Validation System) — the 140 routines that use `CHARACTER` and the F77 features,
-restored to pristine form (verified against gfortran) under `tests/fcvs77/`.
+The interpreter is exercised against the whole **FCVS** (FORTRAN Compiler Validation System)
+audit corpus — one set of **192 routines** in `tests/fcvs/`, restored to pristine form (verified
+against gfortran). FORTRAN-77 is valid against all of it; the F66-valid subset is also run under
+FORTRAN-66 (`test_fcvs_f66_conformance.py`).
 
-- **All 140 parse and run** — the front end is complete (zero parse-gaps).
-- The self-checking routines report **1550 sub-test passes** against a tracked, ratcheting
-  punch-list of remaining **value/semantic** failures (numeric precision, some `INQUIRE`
-  variants, formatting) — pinned in `tests/test_fcvs77_conformance.py`.
-- The **print-and-eyeball** routines (no self-check) are validated by a **golden** diff
-  against gfortran output committed under `tests/fcvs77_golden/` — `test_fcvs77_golden.py`
-  compares without needing gfortran at test time (regenerate with
-  `tests/fcvs77_golden/regenerate.py`).
+- **All 192 parse and run** under F77 — the front end is complete (zero parse-gaps).
+- The self-checking routines report **zero genuine failures** (the one counted error is FM001's
+  by-design FORCE-FAIL self-test) — pinned in `tests/test_fcvs_f77_conformance.py`.
+- The **print-and-eyeball** routines (no self-check) are validated by a **golden** diff against
+  gfortran output committed under `tests/fcvs_golden/` — `test_fcvs_golden.py` compares
+  without needing gfortran at test time (regenerate with `tests/fcvs_golden/regenerate.py`).
+  Where gfortran is itself an unreliable oracle, the routine is validated by its own self-check
+  instead.
 
 This corpus is independent of the interpreter's own assumptions (it predates the project by
 ~40 years), so it is the primary check on F77 conformance. See also

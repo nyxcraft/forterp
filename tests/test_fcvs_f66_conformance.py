@@ -1,39 +1,31 @@
-"""Regression over the curated F66 FCVS corpus (tests/fcvs/).
+"""Regression over the FORTRAN-66-valid subset of the FCVS corpus (tests/fcvs/).
 
-Runs the FORTRAN-66 audit routines through the interpreter and pins the aggregate
-result. The corpus is curated: only the FCVS routines that are valid F66 and run on
-this interpreter are kept -- the F77 (CHARACTER) routines were removed from the
-original 192-file set, so every file here parses and runs. FCVS is independent of our
-own assumptions (it predates this project by ~40 years), so a regression here catches
-conformance drift our own hand-written tests (test_f66_conformance.py) might share a
-blind spot with.
+FCVS is one 192-routine corpus (tests/fcvs/); this driver runs the F66_SUBSET of it -- the
+routines that are valid FORTRAN-66 (the rest need F77 features like CHARACTER and are exercised
+by test_fcvs_f77_conformance.py, which runs the whole directory under F77). Pins the aggregate
+result. FCVS is independent of our own assumptions (it predates this project by ~40 years), so a
+regression here catches conformance drift our own hand-written tests (test_f66_conformance.py)
+might share a blind spot with.
 
 These numbers are the locked-in baseline; a change means real behavior moved.
 """
 
-from fcvs_runner import run_corpus
+from fcvs_runner import F66_SUBSET, run_corpus
 
 from forterp.dialect import F66
 from forterp.target import NATIVE
 
-R = run_corpus()  # default: FORTRAN10 dialect, PDP10 target
-R_NATIVE = run_corpus(target=NATIVE)  # value-model axis
-R_STRICT = run_corpus(dialect=F66)  # front-end dialect axis (ANSI, DEC ext off)
+R = run_corpus(files=F66_SUBSET)  # default: FORTRAN10 dialect, PDP10 target
+R_NATIVE = run_corpus(target=NATIVE, files=F66_SUBSET)  # value-model axis
+R_STRICT = run_corpus(dialect=F66, files=F66_SUBSET)  # front-end dialect axis (ANSI, DEC ext off)
 
 
 def test_curated_corpus_all_parses_and_runs():
-    # Every file in the curated corpus must parse clean and run -- a parse failure is a
-    # regression, not "out of scope" (the F77 routines were removed). 52 routines today;
-    # this guards against re-introducing non-runnable source.
-    import glob
-    import os
-
-    from fcvs_runner import CORPUS_DIR
-
-    n_files = len(glob.glob(os.path.join(CORPUS_DIR, "FM*.FOR")))
+    # Every routine in the F66_SUBSET must parse clean and run under F66 -- a parse failure is a
+    # regression, not "out of scope." This guards against the subset listing a non-F66 routine.
     assert R["n_gap"] == 0  # nothing fails to parse
-    assert R["n_run"] == n_files  # every file ran
-    assert R["n_run"] == 52  # the current curated count
+    assert R["n_run"] == len(F66_SUBSET)  # every selected file ran
+    assert R["n_run"] == 52  # the current F66-valid count
 
 
 def test_blanks_insignificance_files_run_and_pass():
@@ -63,7 +55,7 @@ def test_print_and_eyeball_files_have_no_autocheck():
     # ENCOUNTERED" but no "THIS PROGRAM HAS nnn TESTS"/"X OF Y EXECUTED" line to reconcile
     # against, so a mid-run crash surfaces as a routine dropping into `nosummary` (which this
     # pins), not as a silent partial pass. (The F77 corpus has the explicit EXECUTED line --
-    # see test_fcvs77_conformance.test_every_routine_runs_all_its_declared_tests.)
+    # see test_fcvs_f77_conformance.test_every_routine_runs_all_its_declared_tests.)
     assert set(R["nosummary"]) == {"FM005.FOR", "FM109.FOR"}
 
 
