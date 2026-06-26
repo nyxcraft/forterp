@@ -2996,13 +2996,43 @@ class Engine:
         self.last_io_error = IO_OK
         return None
 
+    def _out_values(self, items, frame, typed=False):
+        """Output I/O-list values, SNAPSHOTTED in list order. An implied-DO is unrolled here and
+        each value read AT its trip -- unlike collecting references and reading them afterward
+        (_item_refs), which is right for input and for array elements (distinct cells) but WRONG
+        for a bare loop variable, whose single cell has changed to its final value by the time the
+        reads happen (X3.9-1978 12.8.2: each item value is determined as the list is processed).
+        Returns [value], or [(value, declared-type)] when `typed` (list-directed needs the type)."""
+        out = []
+
+        def walk(it):
+            if isinstance(it, A.ImpliedDo):
+                lo = self.eval(it.start, frame)
+                hi = self.eval(it.stop, frame)
+                step = self.eval(it.step, frame) if it.step else 1
+                i = lo
+                vref = self.scalar_ref(frame, it.var)
+                while (step > 0 and i <= hi) or (step < 0 and i >= hi):
+                    vref.write(i)
+                    for sub in it.items:
+                        walk(sub)  # read each sub's value NOW, at this trip
+                    i += step
+            elif typed:
+                out.extend((r.read(), ty) for r, ty in self._item_refs_typed(it, frame))
+            else:
+                out.extend(r.read() for r in self._item_refs(it, frame))
+
+        for it in items:
+            walk(it)
+        return out
+
     def _unf_values(self, items, frame):
-        return [r.read() for it in items for r in self._item_refs(it, frame)]
+        return self._out_values(items, frame)
 
     def _ld_typed(self, items, frame):
         """(value, declared-type) per I/O-list element -- list-directed output needs the type
         to render a LOGICAL as T/F rather than as the integer 1/0 it is stored as."""
-        return [(r.read(), ty) for it in items for (r, ty) in self._item_refs_typed(it, frame)]
+        return self._out_values(items, frame, typed=True)
 
     def _unf_refs(self, items, frame):
         return [r for it in items for r in self._item_refs(it, frame)]

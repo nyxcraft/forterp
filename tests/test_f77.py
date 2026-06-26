@@ -916,3 +916,17 @@ def test_character_substring_actual_to_array_dummy_seq_association():
     )
     eng = forterp.run_source(src, dialect=forterp.F77, target=forterp.NATIVE)
     assert eng.commons["O"][:2] == ["CD", "EF"]
+
+
+def test_output_implied_do_snapshots_the_loop_variable():
+    # X3.9-1978 12.8.2: each output value is taken as the list is processed, so an implied-DO over
+    # the loop variable ITSELF prints 1,2,3,4 -- not its final value 4 repeated. forterp used to
+    # collect element references and read them after the loop (a bare loop var -> its one cell,
+    # already advanced to 4). Array elements (distinct cells) were and stay correct.
+    src = (
+        "      PROGRAM T\n      COMMON /O/ S\n      CHARACTER S*12\n      DIMENSION A(3)\n"
+        "      A(1)=7\n      A(2)=8\n      A(3)=9\n"
+        "      WRITE(S,10) (I, I=1,4)\n  10  FORMAT(4I3)\n      END\n"
+    )
+    eng = forterp.run_source(src, dialect=forterp.F77, target=forterp.NATIVE)
+    assert eng.commons["O"][0] == "  1  2  3  4"
