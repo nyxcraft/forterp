@@ -149,6 +149,48 @@ def test_doubled_apostrophe_is_an_embedded_apostrophe_not_empty():
     assert eng.commons["O"][0] == "O'CLOCK "
 
 
+# ---- §5.1: an array has at most seven dimensions ------------------------------------------
+
+
+def test_array_rank_above_seven_is_rejected():
+    # §5.1: "The minimum number of dimensions is one and the maximum is seven." Enforced on
+    # every dialect; an 8-D declarator is a hard error.
+    import pytest
+
+    for dialect in (forterp.F77, forterp.FORTRAN10, forterp.F66):
+        with pytest.raises(forterp.ParseError) as exc:
+            forterp.run_source(
+                "      PROGRAM T\n      DIMENSION A(2,2,2,2,2,2,2,2)\n      END\n",
+                dialect=dialect,
+                target=forterp.NATIVE,
+            )
+        assert "seven" in str(exc.value)
+
+
+def test_seven_dimensions_is_allowed():
+    # The cap is exactly seven -- a 7-D array (which FCVS itself uses) parses fine.
+    eng = forterp.run_source(
+        "      PROGRAM T\n      COMMON /O/ N(2)\n      DIMENSION A(2,2,2,2,2,2,2)\n"
+        "      A(1,1,1,1,1,1,1)=9.0\n      N(1)=A(1,1,1,1,1,1,1)\n      END\n",
+        dialect=forterp.F77,
+        target=forterp.NATIVE,
+    )
+    assert eng.commons["O"][0] == 9
+
+
+def test_unlimited_rank_knob_lifts_the_cap():
+    import dataclasses
+
+    relaxed = dataclasses.replace(forterp.F77, unlimited_rank=True)
+    eng = forterp.run_source(
+        "      PROGRAM T\n      COMMON /O/ N(2)\n      DIMENSION A(2,2,2,2,2,2,2,2)\n"
+        "      A(1,1,1,1,1,1,1,1)=5.0\n      N(1)=A(1,1,1,1,1,1,1,1)\n      END\n",
+        dialect=relaxed,
+        target=forterp.NATIVE,
+    )
+    assert eng.commons["O"][0] == 5
+
+
 # ---- §15.5.2: recursion is rejected by default (was silently wrong; see test_recursion.py) ---
 
 

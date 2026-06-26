@@ -471,6 +471,7 @@ class Engine:
         tty_width=80,
         tty_autowrap=True,
         allow_recursion=False,
+        bounds_check=False,
     ):
         from forterp.forlib import Fortran10RNG
 
@@ -514,6 +515,11 @@ class Engine:
         # (see _enter_unit/_leave_unit). `_active` is the set of currently-running routines.
         self.allow_recursion = allow_recursion
         self._active = set()
+        # bounds_check: when True, an array subscript outside its declared bounds raises OobError
+        # (the gfortran -fcheck=bounds analog -- §5.4). Default False keeps the faithful unchecked
+        # model: an out-of-bounds access traverses the COMMON/EQUIVALENCE storage sequence (the
+        # deliberate over-/under-indexing tricks land in the neighbor), 0 only past the whole store.
+        self.bounds_check = bounds_check
         self.units = units
         self.commons = {}  # block -> list (flat store)
         self.rts = {}  # unit name -> UnitRT
@@ -1071,6 +1077,32 @@ class Engine:
             rt.local_arrays[name] = self._alloc_words(array_size(dims))
         return ArrayView(rt.local_arrays[name], 0), dims
 
+    def _idx(self, subs, dims, name=None):
+        """linidx() with optional declared-bounds checking (§5.4). With bounds_check off this is
+        just linidx -- the faithful unchecked path. With it on, a subscript outside its declared
+        [lo,hi] raises OobError even when it would land in a valid neighbor (the -fcheck=bounds
+        analog). Assumed-size dims have a huge sentinel upper bound, so they never false-positive;
+        the lower bound is still checked."""
+        if self.bounds_check and len(subs) == len(dims):
+            for k, (lo, hi) in enumerate(dims):
+                if not (lo <= subs[k] <= hi):
+                    where = f"{name}, " if name else ""
+                    raise OobError(
+                        f"subscript {k + 1} of {where}value {subs[k]} is outside its declared "
+                        f"bounds [{lo}:{hi}] (F77 5.4)"
+                    )
+        return linidx(subs, dims)
+
+    def _check_substr(self, lo, hi, n, name=None):
+        """§5.7.1: a substring must satisfy 1 <= e1 <= e2 <= len. With bounds_check off the
+        caller's lenient clamp/blank-pad stands (the faithful default); with it on, an
+        out-of-range window raises OobError -- the substring half of -fcheck=bounds."""
+        if self.bounds_check and not (1 <= lo <= hi <= n):
+            where = name or "substring"
+            raise OobError(
+                f"substring {where}({lo}:{hi}) is outside its declared length {n} (F77 5.7.1)"
+            )
+
     def _array_base(self, frame, name):
         """The backing store and base offset of array `name`, without building an ArrayView
         -- the read/write fast paths use this with oob_read/oob_write. (arrayview() builds
@@ -1174,6 +1206,7 @@ class Engine:
             s = str(self.eval(node.base, frame))
             lo = int(self.eval(node.lo, frame)) if node.lo is not None else 1
             hi = int(self.eval(node.hi, frame)) if node.hi is not None else len(s)
+            self._check_substr(lo, hi, len(s), getattr(node.base, "name", None))
             return s[lo - 1 : hi]
         raise RuntimeError(f"cannot eval {node}")
 
@@ -1227,9 +1260,9 @@ class Engine:
             dims = self._dims(name, frame)
             subs = [self.eval(a, frame) for a in node.args]
             if type(frame.args.get(name)) is SubstringRef:  # CHARACTER seq-association: char window
-                return self.arrayview(frame, name).loc(linidx(subs, dims)).read()
+                return self.arrayview(frame, name).loc(self._idx(subs, dims, name)).read()
             store, base = self._array_base(frame, name)  # read directly, no CellRef/ArrayView
-            return oob_read(store, base + linidx(subs, dims))
+            return oob_read(store, base + self._idx(subs, dims, name))
         proc = frame.args.get(name)
         if isinstance(proc, ProcRef):  # reference to a dummy procedure (function)
             t = proc.target
@@ -1448,7 +1481,7 @@ class Engine:
         if isinstance(node, A.Ref) and node.name in frame.rt.unit.arrays:
             dims = self._dims(node.name, frame)
             subs = [self.eval(a, frame) for a in node.args]
-            return self.arrayview(frame, node.name).loc(linidx(subs, dims))
+            return self.arrayview(frame, node.name).loc(self._idx(subs, dims, node.name))
         if self.character_type and isinstance(node, A.Substring):
             # a CHARACTER substring lvalue (S(lo:hi)) used as an I/O item / actual argument:
             # a writable view that splices back into the base (not a read-only temporary)
@@ -1456,6 +1489,7 @@ class Engine:
             n = self.char_length(frame.rt.unit, node.base.name)
             lo = int(self.eval(node.lo, frame)) if node.lo is not None else 1
             hi = int(self.eval(node.hi, frame)) if node.hi is not None else n
+            self._check_substr(lo, hi, n, node.base.name)
             return SubstringRef(base, lo, hi, n)
         return TempRef(self.eval(node, frame))
 
@@ -1687,6 +1721,7 @@ class Engine:
         cur = cur.ljust(n)[:n] if isinstance(cur, str) else " " * n
         lo = int(self.eval(sub.lo, frame)) if sub.lo is not None else 1
         hi = int(self.eval(sub.hi, frame)) if sub.hi is not None else n
+        self._check_substr(lo, hi, n, sub.base.name)
         width = max(hi - lo + 1, 0)
         rhs = str(self.eval(s.expr, frame))[:width].ljust(width)
         ref.write((cur[: lo - 1] + rhs + cur[hi:])[:n].ljust(n))
@@ -1736,10 +1771,10 @@ class Engine:
             dims = self._dims(tgt.name, frame)
             subs = [self.eval(a, frame) for a in tgt.args]
             if type(frame.args.get(tgt.name)) is SubstringRef:  # CHARACTER seq-association window
-                self.arrayview(frame, tgt.name).loc(linidx(subs, dims)).write(val)
+                self.arrayview(frame, tgt.name).loc(self._idx(subs, dims, tgt.name)).write(val)
             else:
                 store, base = self._array_base(frame, tgt.name)
-                oob_write(store, base + linidx(subs, dims), val)
+                oob_write(store, base + self._idx(subs, dims, tgt.name), val)
 
     def exec_do(self, s, frame):
         start = self.eval(s.start, frame)

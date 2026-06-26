@@ -429,17 +429,27 @@ is the full language; forterp does not implement the separate "subset FORTRAN" l
   (default `lo`=1, `hi`≥`lo`); the last `hi` may be `*` (assumed-size); variables in a bound
   ⇒ adjustable (dummy arrays only); constant/adjustable/assumed-size kinds; actual
   declarators must be constant. — ✓ lower bounds, assumed-size, and adjustable arrays are all
-  supported. — ▲ forterp does not cap the rank at 7 (an 8-D declarator runs); lenient.
+  supported; the seven-dimension maximum is **enforced** on every dialect (an 8-D+ declarator
+  is a hard error, `?FTNRNK`), liftable with the `unlimited_rank` knob. (F66's stricter
+  three-dimension limit is left lenient — an accept-more for the base dialect.)
 - **Element ordering (5.2.4).** column-major — the first subscript varies fastest. — ✓
   (verified by `EQUIVALENCE`-flattening).
 - **Subscripts (5.4).** one integer subscript expression per dimension; the value must lie
   within the declared bounds (a *program* requirement — a processor need not detect a
-  violation). — ▲ forterp does not trap an out-of-bounds subscript: a read returns 0, by
-  design (faithful to FORTRAN-10; auditable via `forterp.debug.oob_census()`).
+  violation). — ▲ by default forterp does not trap an out-of-bounds subscript; it reproduces
+  the FORTRAN-10 unchecked-storage model **faithfully**: an out-of-bounds access traverses the
+  `COMMON`/`EQUIVALENCE` storage sequence, so the deliberate over-/under-indexing tricks land in
+  the neighbouring variable (read and write, both ends), reading 0 only past the whole store.
+  The standard explicitly permits this non-detection. — ✓ an opt-in **`bounds_check`** knob
+  (engine `bounds_check=True`) turns any subscript outside its declared `[lo,hi]` into a hard
+  error (`OobError`, the gfortran `-fcheck=bounds` analog — it catches the neighbour-reaching
+  case too); the store-level census `forterp.debug.oob_census()` remains available.
 - **Substring (5.7).** `v(e1:e2)` / `a(s…)(e1:e2)`, `1 ≤ e1 ≤ e2 ≤ len`, omitted `e1`⇒1,
-  `e2`⇒len, `v(:)`≡`v`, length `e2−e1+1`. — ✓ for in-range use. — ▲ an out-of-range window is
-  clamped/blank-padded rather than trapped (e.g. `S(1:9)` of a `CHARACTER*4` yields the 4
-  characters padded to 9); lenient.
+  `e2`⇒len, `v(:)`≡`v`, length `e2−e1+1`. — ✓ for in-range use. — ▲ by default an out-of-range
+  window is clamped/blank-padded rather than trapped (e.g. `S(1:9)` of a `CHARACTER*4` yields the
+  4 characters padded to 9); lenient. — ✓ the **`bounds_check`** knob covers substrings too:
+  with it on, an `e1<1` / `e2>len` / `e1>e2` window is a hard error (`OobError`), the same gate
+  as the array-subscript check (§5.4) — forterp's `-fcheck=bounds` analog spans both.
 
 ### §6 Expressions
 

@@ -529,17 +529,27 @@ value, so an embedded apostrophe (<code>'O''CLOCK'</code> → <code>O'CLOCK</cod
 (default <code>lo</code>=1, <code>hi</code>≥<code>lo</code>); the last <code>hi</code> may be <code>*</code> (assumed-size); variables in a bound
 ⇒ adjustable (dummy arrays only); constant/adjustable/assumed-size kinds; actual
 declarators must be constant. — ✓ lower bounds, assumed-size, and adjustable arrays are all
-supported. — ▲ forterp does not cap the rank at 7 (an 8-D declarator runs); lenient.</li>
+supported; the seven-dimension maximum is <strong>enforced</strong> on every dialect (an 8-D+ declarator
+is a hard error, <code>?FTNRNK</code>), liftable with the <code>unlimited_rank</code> knob. (F66's stricter
+three-dimension limit is left lenient — an accept-more for the base dialect.)</li>
 <li><strong>Element ordering (5.2.4).</strong> column-major — the first subscript varies fastest. — ✓
 (verified by <code>EQUIVALENCE</code>-flattening).</li>
 <li><strong>Subscripts (5.4).</strong> one integer subscript expression per dimension; the value must lie
 within the declared bounds (a <em>program</em> requirement — a processor need not detect a
-violation). — ▲ forterp does not trap an out-of-bounds subscript: a read returns 0, by
-design (faithful to FORTRAN-10; auditable via <code>forterp.debug.oob_census()</code>).</li>
+violation). — ▲ by default forterp does not trap an out-of-bounds subscript; it reproduces
+the FORTRAN-10 unchecked-storage model <strong>faithfully</strong>: an out-of-bounds access traverses the
+<code>COMMON</code>/<code>EQUIVALENCE</code> storage sequence, so the deliberate over-/under-indexing tricks land in
+the neighbouring variable (read and write, both ends), reading 0 only past the whole store.
+The standard explicitly permits this non-detection. — ✓ an opt-in <strong><code>bounds_check</code></strong> knob
+(engine <code>bounds_check=True</code>) turns any subscript outside its declared <code>[lo,hi]</code> into a hard
+error (<code>OobError</code>, the gfortran <code>-fcheck=bounds</code> analog — it catches the neighbour-reaching
+case too); the store-level census <code>forterp.debug.oob_census()</code> remains available.</li>
 <li><strong>Substring (5.7).</strong> <code>v(e1:e2)</code> / <code>a(s…)(e1:e2)</code>, <code>1 ≤ e1 ≤ e2 ≤ len</code>, omitted <code>e1</code>⇒1,
-<code>e2</code>⇒len, <code>v(:)</code>≡<code>v</code>, length <code>e2−e1+1</code>. — ✓ for in-range use. — ▲ an out-of-range window is
-clamped/blank-padded rather than trapped (e.g. <code>S(1:9)</code> of a <code>CHARACTER*4</code> yields the 4
-characters padded to 9); lenient.</li>
+<code>e2</code>⇒len, <code>v(:)</code>≡<code>v</code>, length <code>e2−e1+1</code>. — ✓ for in-range use. — ▲ by default an out-of-range
+window is clamped/blank-padded rather than trapped (e.g. <code>S(1:9)</code> of a <code>CHARACTER*4</code> yields the
+4 characters padded to 9); lenient. — ✓ the <strong><code>bounds_check</code></strong> knob covers substrings too:
+with it on, an <code>e1&lt;1</code> / <code>e2&gt;len</code> / <code>e1&gt;e2</code> window is a hard error (<code>OobError</code>), the same gate
+as the array-subscript check (§5.4) — forterp's <code>-fcheck=bounds</code> analog spans both.</li>
 </ul>
 <h3 id="6-expressions">§6 Expressions</h3>
 <ul>

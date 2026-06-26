@@ -1131,6 +1131,12 @@ class StatementParser:
         finally:
             self._no_div = saved
         self.expect_op(")")
+        if len(dims) > 7 and not self.dialect.unlimited_rank:  # F77 5.1: max seven dimensions
+            raise ParseError(
+                f"array has {len(dims)} dimensions; the maximum is seven (F77 5.1). "
+                f"Set the `unlimited_rank` dialect knob to lift the cap.",
+                "RNK",
+            )
         return dims
 
     def _require_assumed_size(self):

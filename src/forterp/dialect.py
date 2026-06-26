@@ -77,6 +77,17 @@ class Dialect:
     # local storage. A capability gate, not a strictness one -- usable with any dialect.
     recursion: bool = False
 
+    # unlimited_rank: §5.1 caps an array at seven dimensions. Enforced by default (an 8-D+
+    # declarator is rejected); turn ON to lift the cap. A relax gate, usable with any dialect.
+    # (F66's stricter 3-dimension limit is left lenient -- an accept-more for the base dialect.)
+    unlimited_rank: bool = False
+
+    # bounds_check: when ON, an array subscript outside its declared bounds (§5.4) is a hard error
+    # (the gfortran -fcheck=bounds analog). OFF by default, preserving the faithful unchecked model
+    # where deliberate over-/under-indexing traverses the COMMON/EQUIVALENCE storage sequence. A
+    # diagnostic gate, usable with any dialect.
+    bounds_check: bool = False
+
 
 F66 = Dialect()  # ANSI X3.9-1966 -- the default dialect
 FORTRAN10 = Dialect(  # DEC FORTRAN-10 V5 superset: every extension on
