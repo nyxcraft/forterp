@@ -19,6 +19,7 @@ a routine forces removing its name here, keeping the list honest.
 
 import glob
 import os
+import re
 
 from fcvs_runner import _card_deck
 
@@ -46,8 +47,8 @@ KNOWN_DIVERGENT = set()
 
 # Output differs from the gfortran golden NOT because of a forterp bug, but because gfortran is an
 # unreliable oracle for that routine -- forterp's output is correct (or more correct). These are
-# permanent, documented divergences, kept OUT of the bug punch-list above. Each is still validated
-# by the routine's own self-check (it reports PASS), which the conformance harness checks.
+# validated by the self-check inspection metric (_self_check_ok / _CHECKERS below) instead of a
+# byte-match: each is a self-checking FCVS routine, so its own PASS tally is the true signal.
 GFORTRAN_UNRELIABLE = {
     "FM406": "gfortran computes -0.0 where the test wants 0.0 and so FAILs its OWN test 3; "
     "forterp produces 0.0 and PASSES. Matching would mean reproducing gfortran's -0.0 quirk.",
@@ -135,11 +136,34 @@ def _value_match(name):
     return True
 
 
+# Inspection metric for a routine whose gfortran golden is an unreliable oracle (GFORTRAN_UNRELIABLE
+# below): rather than byte-match gfortran, validate forterp by the routine's OWN self-check. It
+# passes iff it reports at least one PASS and ZERO FAILs -- across both the per-test result lines
+# ("nnn  PASS/FAIL") and any "nnn TESTS FAILED" summary. (Applied only to the curated set below,
+# each verified to run its tests; FCVS routines are self-checking by design, so a clean PASS tally
+# is a true pass/fail signal even where gfortran's transcript is wrong or truncated.)
+_TEST_RESULT = re.compile(r"^\s*\d+\s+(PASS|FAIL)\b")
+_TESTS_FAILED = re.compile(r"(\d+)\s+TESTS?\s+FAILED")
+
+
+def _self_check_ok(name):
+    lines = _norm(_forterp_output(name))
+    results = [m.group(1) for ln in lines if (m := _TEST_RESULT.match(ln))]
+    summary_fails = [int(m.group(1)) for ln in lines if (m := _TESTS_FAILED.search(ln))]
+    return "PASS" in results and "FAIL" not in results and not any(summary_fails)
+
+
 # Per-routine output checkers. Exact (byte-for-byte, see _norm) is the default and stays that
 # way for almost every routine -- no masking. A routine whose output is genuinely
 # processor-dependent (list-directed WRITE, whose field widths / real precision the standard does
-# NOT fix) opts into a tailored, as-exact-as-possible value comparison instead.
-_CHECKERS = {"FM905": _value_match, "FM907": _value_match}
+# NOT fix) opts into a tailored value comparison; one whose gfortran golden is unreliable opts
+# into the self-check inspection metric instead.
+_CHECKERS = {
+    "FM905": _value_match,
+    "FM907": _value_match,
+    "FM257": _self_check_ok,  # gfortran blocks at PAUSE -> validate by FM257's own self-check
+    "FM406": _self_check_ok,  # gfortran fails its own -0.0 test -> validate by FM406's self-check
+}
 
 
 def _matches(name):
@@ -160,15 +184,13 @@ def test_goldens_present():
     assert len(GOLDENS) == 131
 
 
-def test_expected_outputs_match_gfortran():
-    # Every routine that is neither on the bug punch-list nor a documented gfortran-unreliable
-    # divergence reproduces gfortran's output exactly.
-    regressed = sorted(
-        n
-        for n in GOLDENS
-        if n not in KNOWN_DIVERGENT and n not in GFORTRAN_UNRELIABLE and n not in MATCHING
-    )
-    assert not regressed, f"output regressed vs gfortran golden: {regressed}"
+def test_every_routine_is_validated():
+    # Every routine gfortran completes is validated by SOME metric: byte-for-byte against the
+    # golden (the default), value tokens for processor-dependent list-directed output (FM905/907),
+    # or its own self-check where gfortran is an unreliable oracle (GFORTRAN_UNRELIABLE). Nothing
+    # is silently unchecked -- a routine that stops being validated must be on the bug punch-list.
+    unvalidated = sorted(n for n in GOLDENS if n not in KNOWN_DIVERGENT and n not in MATCHING)
+    assert not unvalidated, f"no longer validated vs gfortran: {unvalidated}"
 
 
 def test_punchlist_has_no_stale_entries():
@@ -177,14 +199,20 @@ def test_punchlist_has_no_stale_entries():
     assert not fixed, f"these now match gfortran -- drop from KNOWN_DIVERGENT: {fixed}"
 
 
-def test_gfortran_unreliable_routines_still_diverge():
-    # The documented gfortran-unreliable divergences are, by definition, NOT expected to match.
-    # If one ever does (e.g. the goldens are regenerated with a gfortran lacking the -0.0 quirk),
-    # that is good news -- move it out of GFORTRAN_UNRELIABLE so it is validated normally.
-    surprising = sorted(n for n in GFORTRAN_UNRELIABLE if n in MATCHING)
-    assert not surprising, f"now match gfortran -- drop from GFORTRAN_UNRELIABLE: {surprising}"
+def test_gfortran_unreliable_routines_pass_self_check_but_not_the_golden():
+    # The gfortran-unreliable routines are validated by their self-check, NOT the golden. Assert
+    # both halves of that classification hold: each PASSES its self-check, AND its raw output still
+    # differs from gfortran's golden -- so the alternate metric is warranted, not masking a real
+    # match. If one starts byte-matching (e.g. goldens regenerated with a fixed gfortran), retire
+    # it from GFORTRAN_UNRELIABLE so it is validated the normal way.
+    for name in sorted(GFORTRAN_UNRELIABLE):
+        assert _self_check_ok(name), f"{name}: self-check no longer passes"
+        with open(os.path.join(GOLD, f"{name}.out")) as f:
+            byte_matches = _norm(_forterp_output(name)) == _norm(f.read())
+        assert not byte_matches, f"{name} byte-matches gfortran now -- retire it from the set"
 
 
-def test_most_of_the_corpus_matches():
-    # Floor on validated output coverage (ratchets up as the punch-list shrinks).
-    assert len(MATCHING) >= 129
+def test_whole_corpus_is_validated():
+    # Floor on validated coverage. Now every routine gfortran completes is validated (129 by the
+    # golden incl. the two value-token routines, plus FM257/FM406 by self-check) -- the full 131.
+    assert len(MATCHING) == len(GOLDENS) == 131
