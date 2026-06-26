@@ -67,8 +67,9 @@
 <li><a class="section-nav__link section-nav__link--l3" href="#11-control-statements">§11 Control statements</a></li>
 <li><a class="section-nav__link section-nav__link--l3" href="#12-input-output-statements">§12 Input/output statements</a></li>
 <li><a class="section-nav__link section-nav__link--l3" href="#13-format-specification">§13 Format specification</a></li>
-<li><a class="section-nav__link section-nav__link--l3" href="#14-main-program-16-block-data">§14 Main program, §16 Block data</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#14-main-program">§14 Main program</a></li>
 <li><a class="section-nav__link section-nav__link--l3" href="#15-functions-and-subroutines">§15 Functions and subroutines</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#16-block-data">§16 Block data</a></li>
 <li><a class="section-nav__link section-nav__link--l3" href="#17-association-and-definition">§17 Association and definition</a></li>
 <li><a class="section-nav__link section-nav__link--l3" href="#18-scopes-and-classes-of-symbolic-names">§18 Scopes and classes of symbolic names</a></li>
 <li><a class="section-nav__link section-nav__link--l3" href="#appendices-ad">Appendices A–D</a></li>
@@ -688,16 +689,11 @@ end-of-record acts as a blank; complex <code>(re,im)</code> and apostrophe strin
 magnitude, logical <code>T</code>/<code>F</code>, complex <code>(re,im)</code>, character without apostrophes, each record led
 by a blank. — ✓ (processor-dependent widths validated by the gfortran value-token metric).</li>
 </ul>
-<h3 id="14-main-program-16-block-data">§14 Main program, §16 Block data</h3>
+<h3 id="14-main-program">§14 Main program</h3>
 <ul>
 <li><strong>Main program (§14).</strong> an optional <code>PROGRAM pgm</code> first statement; exactly one main program;
 execution starts at its first executable; a main program contains no <code>BLOCK DATA</code>/<code>FUNCTION</code>/
 <code>SUBROUTINE</code>/<code>ENTRY</code>/<code>RETURN</code> and cannot be referenced. — ✓ (<code>PROGRAM</code> optional and named).</li>
-<li><strong>Block data (§16).</strong> <code>BLOCK DATA [sub]</code> supplies initial values for <strong>named</strong> common blocks
-via <code>DATA</code>, using only specification statements; only named-common entities may be
-initialized. — ✓ verified (a <code>BLOCK DATA</code> initializes a named block read by the main program).
-— ▲ the &quot;specify all entities of an initialized block&quot; and &quot;≤1 unnamed block-data&quot; rules are
-not enforced (lenient).</li>
 </ul>
 <h3 id="15-functions-and-subroutines">§15 Functions and subroutines</h3>
 <ul>
@@ -726,6 +722,14 @@ and lexical-comparison families) with the Table-5 semantics verified (<code>INT<
 <code>NINT</code> round-half-away, <code>MOD</code>/<code>SIGN</code>/<code>DIM</code>, <code>ICHAR</code>/<code>CHAR</code> inverse, <code>INDEX</code> first occurrence,
 <code>LGE</code>/<code>LGT</code>/<code>LLE</code>/<code>LLT</code> on the ASCII collating sequence). <code>LEN</code>'s argument need not be defined
 (Note 11) — the fix recorded in §8.</li>
+</ul>
+<h3 id="16-block-data">§16 Block data</h3>
+<ul>
+<li><strong>Block data (§16).</strong> <code>BLOCK DATA [sub]</code> supplies initial values for <strong>named</strong> common blocks
+via <code>DATA</code>, using only specification statements; only named-common entities may be
+initialized. — ✓ verified (a <code>BLOCK DATA</code> initializes a named block read by the main program).
+— ▲ the &quot;specify all entities of an initialized block&quot; and &quot;≤1 unnamed block-data&quot; rules are
+not enforced (lenient).</li>
 </ul>
 <h3 id="17-association-and-definition">§17 Association and definition</h3>
 <ul>

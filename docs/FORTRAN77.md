@@ -590,16 +590,11 @@ is the full language; forterp does not implement the separate "subset FORTRAN" l
   magnitude, logical `T`/`F`, complex `(re,im)`, character without apostrophes, each record led
   by a blank. — ✓ (processor-dependent widths validated by the gfortran value-token metric).
 
-### §14 Main program, §16 Block data
+### §14 Main program
 
 - **Main program (§14).** an optional `PROGRAM pgm` first statement; exactly one main program;
   execution starts at its first executable; a main program contains no `BLOCK DATA`/`FUNCTION`/
   `SUBROUTINE`/`ENTRY`/`RETURN` and cannot be referenced. — ✓ (`PROGRAM` optional and named).
-- **Block data (§16).** `BLOCK DATA [sub]` supplies initial values for **named** common blocks
-  via `DATA`, using only specification statements; only named-common entities may be
-  initialized. — ✓ verified (a `BLOCK DATA` initializes a named block read by the main program).
-  — ▲ the "specify all entities of an initialized block" and "≤1 unnamed block-data" rules are
-  not enforced (lenient).
 
 ### §15 Functions and subroutines
 
@@ -628,6 +623,14 @@ is the full language; forterp does not implement the separate "subset FORTRAN" l
   `NINT` round-half-away, `MOD`/`SIGN`/`DIM`, `ICHAR`/`CHAR` inverse, `INDEX` first occurrence,
   `LGE`/`LGT`/`LLE`/`LLT` on the ASCII collating sequence). `LEN`'s argument need not be defined
   (Note 11) — the fix recorded in §8.
+
+### §16 Block data
+
+- **Block data (§16).** `BLOCK DATA [sub]` supplies initial values for **named** common blocks
+  via `DATA`, using only specification statements; only named-common entities may be
+  initialized. — ✓ verified (a `BLOCK DATA` initializes a named block read by the main program).
+  — ▲ the "specify all entities of an initialized block" and "≤1 unnamed block-data" rules are
+  not enforced (lenient).
 
 ### §17 Association and definition
 
