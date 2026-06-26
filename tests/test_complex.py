@@ -100,3 +100,15 @@ def test_complex_array_formatted_input():
     )
     eng = run(src, inputs=["  1.0  2.0  3.0  4.0"])
     assert [out(eng, i) for i in range(1, 5)] == [1.0, 2.0, 3.0, 4.0]
+
+
+def test_int_and_conversions_of_complex_use_the_real_part():
+    # INT / IFIX / IDINT / DBLE / AINT / NINT of a COMPLEX operate on REAL(z) (X3.9-1978 Table 5):
+    # INT((1.24,5.67)) is 1, DBLE((2.5,5.5)) is 2.5. Regression for the FCVS COMPLEX-arg tests
+    # (FM829), which used to crash in int()/float() on a complex argument.
+    eng = cx(
+        "        C=(1.24,5.67)\n        D=(2.5,5.5)\n"
+        "        V(1)=INT(C)\n        V(2)=DBLE(D)\n        V(3)=AINT(C)\n        V(4)=NINT(C)\n",
+        "        COMPLEX C, D\n",
+    )
+    assert [out(eng, i) for i in range(1, 5)] == [1.0, 2.5, 1.0, 1.0]

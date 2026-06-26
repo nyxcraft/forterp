@@ -32,34 +32,18 @@ GOLD = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fcvs77_golden")
 CORPUS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fcvs77")
 
 # Output does not yet match gfortran because of a forterp BUG -- the punch-list. Shrinks as bugs
-# are fixed. (All the entries below are the COMPLEX / CHARACTER value-model cluster: a COMPLEX
-# stored as one Python value can't be EQUIVALENCEd onto a REAL(2) overlay, and a CHARACTER
-# function result / sequence association needs sub-word storage.)
+# are fixed. What remains is the CHARACTER value-model cluster: a CHARACTER function result
+# (FM715) and CHARACTER sequence association (FM509) need sub-word storage, and FM909 mixes a
+# CHARACTER overlay with a COMPLEX value mismatch.
+#
+# The COMPLEX cluster (FM503/700/722/809/811/813/815/817/820/828-834/908) was cleared by giving a
+# storage-associated COMPLEX scalar two word-cells (real, imag) so an EQUIVALENCEd REAL(2) reads
+# each part -- see ComplexPairRef. FM915/FM905/FM907/FM910 cleared earlier (INQUIRE specifiers;
+# FORTRAN-shaped list-directed output; unformatted COMPLEX + multi-record internal READ).
 KNOWN_DIVERGENT = {
-    "FM503",
     "FM509",
-    "FM700",
     "FM715",
-    "FM722",
-    "FM809",
-    "FM811",
-    "FM813",
-    "FM815",
-    "FM817",
-    "FM820",
-    "FM828",
-    "FM829",
-    "FM830",
-    "FM831",
-    "FM833",
-    "FM834",
-    # FM915 fixed -- INQUIRE ACCESS/FORM specifiers now match gfortran.
-    # FM905 / FM907 fixed -- list-directed output is now FORTRAN-shaped (T/F logicals, CHARACTER
-    # text, char-after-char concatenation) and validated by the per-test _value_match checker.
-    "FM908",
     "FM909",
-    # FM910 fixed -- unformatted COMPLEX round-trips through the JSON record store, and the
-    # multi-record CHARACTER-ARRAY internal READ advances records on '/'.
 }
 
 # Output differs from the gfortran golden NOT because of a forterp bug, but because gfortran is an
@@ -205,4 +189,4 @@ def test_gfortran_unreliable_routines_still_diverge():
 
 def test_most_of_the_corpus_matches():
     # Floor on validated output coverage (ratchets up as the punch-list shrinks).
-    assert len(MATCHING) >= 110
+    assert len(MATCHING) >= 126

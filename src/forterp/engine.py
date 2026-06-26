@@ -176,6 +176,32 @@ class CellRef:
         oob_write(self.store, self.idx, v)
 
 
+class ComplexPairRef:
+    """A COMPLEX scalar that shares word-addressable storage (COMMON / EQUIVALENCE) occupies
+    TWO consecutive word-cells -- real part, then imaginary (X3.9-1978 Table 1 / 8.3 storage
+    association). So a REAL EQUIVALENCEd onto those words (the FCVS `EQUIVALENCE(CVAL, R2(2))`
+    idiom) reads each clean float, instead of finding one cell holding a Python complex object.
+
+    A COMPLEX decomposes losslessly into two REALs -- unlike DOUBLE PRECISION (one value smeared
+    bit-wise across two words), which forterp does not split. Non-associated COMPLEX (a local
+    scalar) stays a single complex cell; only storage association needs this pair."""
+
+    __slots__ = ("store", "idx")
+
+    def __init__(self, store, idx):
+        self.store, self.idx = store, idx
+
+    def read(self):
+        re = oob_read(self.store, self.idx)
+        im = oob_read(self.store, self.idx + 1)
+        return complex(float(re), float(im))
+
+    def write(self, v):
+        v = v if isinstance(v, complex) else complex(float(v), 0.0)
+        oob_write(self.store, self.idx, v.real)
+        oob_write(self.store, self.idx + 1, v.imag)
+
+
 class DictRef:
     """Reference to a named local scalar (lazily defaulting to 0)."""
 
@@ -320,6 +346,7 @@ class UnitRT:
     def __init__(self, unit):
         self.unit = unit
         self.common_map = {}  # name -> (block, offset, dims|None)
+        self.complex_scalars = set()  # storage-associated COMPLEX scalars (2 words, ComplexPairRef)
         self.local_scalars = {}  # static
         self.local_arrays = {}  # name -> store(list)
         self.do_terms = set()  # labels that terminate some DO
@@ -640,7 +667,7 @@ class Engine:
                 off = off_by_block.get(block, 0)
                 for name, dims in members:
                     d = dims or u.arrays.get(name)
-                    off += array_size(d) if d else 1
+                    off += array_size(d) if d else self._scalar_words(u, name)
                 off_by_block[block] = off
                 sizes[block] = max(sizes.get(block, 0), off)
         for block, n in sizes.items():
@@ -654,9 +681,16 @@ class Engine:
                 for mname, dims in members:
                     d = dims or u.arrays.get(mname)
                     rt.common_map[mname] = (block, off, d)
-                    off += array_size(d) if d else 1
+                    off += array_size(d) if d else self._scalar_words(u, mname)
                 off_by_block[block] = off
             self._layout_equivalence(name, u, rt)  # EQUIVALENCE storage aliasing (V5 6.6)
+            # COMPLEX scalars sharing word storage occupy two cells (real, imag); the read/write
+            # fast paths consult this set to use a ComplexPairRef instead of one raw cell.
+            rt.complex_scalars = {
+                nm
+                for nm in rt.common_map
+                if nm not in u.arrays and self.type_of(u, nm) == "COMPLEX"
+            }
             self.rts[name] = rt
         # ENTRY points (V5 15.7): map each entry name to (owning unit, pc, params)
         for uname, u in self.units.items():
@@ -717,7 +751,7 @@ class Engine:
             return linidx(vals, dims)
 
         def size_of(name):
-            return array_size(u.arrays[name]) if name in u.arrays else 1
+            return array_size(u.arrays[name]) if name in u.arrays else self._scalar_words(u, name)
 
         for group in u.equivs:
             if not group:
@@ -772,6 +806,13 @@ class Engine:
                 self.commons[key] = self._alloc_words(size)
                 for m in members:
                     rt.common_map[m] = (key, off[m] - mn, u.arrays.get(m))
+
+    def _scalar_words(self, unit, name):
+        """Word-cells a SCALAR of this name occupies in word-addressable storage (COMMON /
+        EQUIVALENCE): a COMPLEX scalar spans TWO (real, imag) so a REAL overlay sees each part;
+        everything else is one. (Arrays size by element count -- a COMPLEX array stays one cell
+        per element for now, since the FCVS cluster only ever EQUIVALENCEs COMPLEX *scalars*.)"""
+        return 2 if self.type_of(unit, name) == "COMPLEX" else 1
 
     def type_of(self, unit, name):
         if name in unit.types:
@@ -954,7 +995,12 @@ class Engine:
     def _scalar_static_ref(self, rt, unit, name):
         if name in rt.common_map:
             block, off, _ = rt.common_map[name]
-            return CellRef(self.commons[block], off)
+            store = self.commons[block]
+            # A storage-associated COMPLEX scalar spans two word-cells (real, imag) so a REAL
+            # EQUIVALENCEd onto the same words reads each part; see ComplexPairRef.
+            if self.type_of(unit, name) == "COMPLEX":
+                return ComplexPairRef(store, off)
+            return CellRef(store, off)
         return DictRef(rt.local_scalars, name)
 
     # ---- name resolution within a running frame
@@ -1066,7 +1112,11 @@ class Engine:
             return frame.args[name].read()
         slot = frame.rt.common_map.get(name)
         if slot is not None:
-            return self.commons[slot[0]][slot[1]]
+            store = self.commons[slot[0]]
+            if name in frame.rt.complex_scalars:  # 2-word COMPLEX: re, im -> one complex
+                off = slot[1]
+                return complex(float(oob_read(store, off)), float(oob_read(store, off + 1)))
+            return store[slot[1]]
         return frame.rt.local_scalars.get(name, 0)
 
     def eval_ref(self, node, frame):
@@ -1498,7 +1548,10 @@ class Engine:
             else:
                 slot = frame.rt.common_map.get(name)
                 if slot is not None:
-                    self.commons[slot[0]][slot[1]] = val  # in-range COMMON scalar slot
+                    if ttype == "COMPLEX":  # 2-word COMPLEX: split into re, im cells
+                        ComplexPairRef(self.commons[slot[0]], slot[1]).write(val)
+                    else:
+                        self.commons[slot[0]][slot[1]] = val  # in-range COMMON scalar slot
                 else:
                     frame.rt.local_scalars[name] = val
         else:
@@ -3160,17 +3213,24 @@ _F66_INTRINSICS = frozenset(
     "DSQRT CSQRT ATAN DATAN ATAN2 DATAN2 DMOD CABS".split()
 )
 
+
+def _re(x):
+    """The value as a real -- a COMPLEX contributes its real part. FORTRAN INT/REAL/AINT/... of a
+    COMPLEX argument are defined as the operation on REAL(z) (X3.9-1978 Table 5)."""
+    return x.real if isinstance(x, complex) else x
+
+
 INTRINSICS = {
     # ---- DEC extensions ----
     "LSH": lambda a: _lsh(PDP10, a[0], a[1]),  # width-dependent; routed via self.tgt
     "ROT": lambda a: _rot(PDP10, a[0], a[1]),  # width-dependent; routed via self.tgt
     # ---- type conversion (INT-family wrap applied target-aware in _apply_intrinsic) ----
-    "INT": lambda a: int(a[0]),
-    "IFIX": lambda a: int(a[0]),
-    "IDINT": lambda a: int(a[0]),
-    "FLOAT": lambda a: float(a[0]),
-    "FLOATR": lambda a: float(a[0]),
-    "SNGL": lambda a: float(a[0]),
+    "INT": lambda a: int(_re(a[0])),  # INT of a COMPLEX truncates its real part
+    "IFIX": lambda a: int(_re(a[0])),
+    "IDINT": lambda a: int(_re(a[0])),
+    "FLOAT": lambda a: float(_re(a[0])),
+    "FLOATR": lambda a: float(_re(a[0])),
+    "SNGL": lambda a: float(_re(a[0])),
     "REAL": lambda a: a[0].real if isinstance(a[0], complex) else float(a[0]),
     # ---- COMPLEX (V5 Ch4/Table 15-1; values are Python complex) ----
     "CMPLX": lambda a: complex(a[0], a[1] if len(a) > 1 else 0.0),
@@ -3184,10 +3244,10 @@ INTRINSICS = {
     "CSIN": lambda a: cmath.sin(a[0]),
     "CCOS": lambda a: cmath.cos(a[0]),
     "TIM2GO": lambda a: 1.0e9,  # CPU time remaining (V5 Table 15-2): effectively unlimited
-    "DBLE": lambda a: float(a[0]),
-    "AINT": lambda a: float(int(a[0])),  # truncate toward zero
-    "ANINT": lambda a: _anint(a[0]),
-    "NINT": lambda a: int(_anint(a[0])),
+    "DBLE": lambda a: float(_re(a[0])),
+    "AINT": lambda a: float(int(_re(a[0]))),  # truncate toward zero
+    "ANINT": lambda a: _anint(_re(a[0])),
+    "NINT": lambda a: int(_anint(_re(a[0]))),
     # ---- absolute value / sign / difference ----
     "ABS": lambda a: abs(a[0]),
     "IABS": lambda a: abs(int(a[0])),

@@ -335,6 +335,21 @@ def test_equivalence_array_overlay():
     assert out(eng, 1) == 22  # P and Q overlap element-for-element
 
 
+def test_equivalence_complex_scalar_over_real_pair():
+    # A COMPLEX scalar EQUIVALENCEd onto a REAL(2) array occupies two words: R(1) is the real
+    # part, R(2) the imaginary (X3.9-1978 storage association). The whole FCVS COMPLEX cluster
+    # (FM809 et al.) leans on this idiom. Storage is genuinely shared both ways.
+    eng = run(
+        "        PROGRAM T\n        COMMON /OUT/ ARE, AIM, BACK\n"
+        "        COMPLEX C\n        REAL R(2)\n        EQUIVALENCE (C, R)\n"
+        "        C = (3.5, -2.25)\n"
+        "        ARE = R(1)\n        AIM = R(2)\n"  # read the parts out through the REAL overlay
+        "        R(1) = 8.0\n        R(2) = 9.0\n"  # write through the overlay ...
+        "        BACK = REAL(C) + AIMAG(C)\n        END\n"  # ... and the COMPLEX sees it
+    )
+    assert eng.commons["OUT"][:3] == [3.5, -2.25, 17.0]
+
+
 def test_equivalence_extends_common_forward():
     # the manual's example: COMMON/R/X,Y,Z + EQUIVALENCE(A,Y) -> A(1)=Y, A(2)=Z, A(3),A(4)
     eng = run(
