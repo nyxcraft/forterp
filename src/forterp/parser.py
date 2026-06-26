@@ -1510,6 +1510,8 @@ def _lower_structured(unit):
             if false is not None:  # no ELSE: the last arm's false-jump lands at END IF
                 out.append(A.Continue(label=false))
             out.append(A.Continue(label=end))
+            if s.label is not None:  # a source label on END IF is a valid GO TO target (the join)
+                out.append(A.Continue(label=s.label))
         elif isinstance(s, A.DoWhile):
             top, end = synth(), synth()
             out.append(A.Continue(label=top))

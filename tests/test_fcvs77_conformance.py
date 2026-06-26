@@ -117,9 +117,9 @@ def test_f77_conformance_baseline():
     # the fix (a gain) or investigate (a regression).
     assert R["n_run"] == 140
     assert R["n_gap"] == 0
-    assert R["total_pass"] == 1697
+    assert R["total_pass"] == 1713
     assert R["total_err"] == 0  # the entire self-checking F77 FCVS corpus passes
-    assert len(R["nosummary"]) == 41
+    assert len(R["nosummary"]) == 40
 
 
 def test_self_check_failures_do_not_grow():
@@ -139,7 +139,7 @@ def test_every_routine_runs_all_its_declared_tests():
     # Non-vacuity: the check actually reconciled a substantial set (the routines printing FCVS's
     # "X OF Y TESTS EXECUTED"). Older self-checkers lack that line, but a mid-run crash there
     # prints no summary at all and so moves the pinned `nosummary` set instead.
-    assert R["n_checked"] == 76
+    assert R["n_checked"] == 77
 
 
 def test_inspection_tests_are_all_golden_validated():
@@ -150,6 +150,6 @@ def test_inspection_tests_are_all_golden_validated():
     from test_fcvs77_golden import KNOWN_DIVERGENT
 
     insp = [n[:-4] for n in R["inspect_routines"]]  # strip ".FOR"
-    assert len(insp) == 10
+    assert len(insp) == 11
     unverified = sorted(n for n in insp if n in KNOWN_DIVERGENT)
     assert not unverified, f"INSPECT routines whose output is NOT golden-validated: {unverified}"
