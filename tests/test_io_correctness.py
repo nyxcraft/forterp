@@ -170,3 +170,22 @@ def test_a_input_into_a_character_substring_uses_the_window_length():
     eng = run(src, setup=lambda e: e.io.__setitem__(5, deck), dialect=forterp.F77)
     # A7 field "XXBE OR" -> rightmost 5 "BE OR" into (4:8); A2 "BE" -> "BE  " into (17:20).
     assert eng.commons["O"] == ["TO BE OR NOT TO BE  "]
+
+
+def test_io_list_implied_do_leaves_control_var_at_terminal_value():
+    # After an I/O-list implied-DO completes, its control variable is left at the terminal value
+    # (limit+step), exactly like a DO loop (X3.9-1978 11.10 / 12.8.2.3) -- so (A(I),I=1,5) leaves
+    # I=6, not 5. Regression for FM111 test 3, which writes the post-READ loop index.
+    src = (
+        "        PROGRAM T\n        DIMENSION A(5)\n        COMMON /OUT/ V(2)\n"
+        "        READ(5,10) (A(I), I=1,5)\n"
+        "   10   FORMAT(5F4.0)\n"
+        "        V(1) = I\n        V(2) = A(5)\n        END\n"
+    )
+
+    # a fresh deck per run -- run() exercises both dialects and must not share the mutated pos
+    def fresh(e):
+        e.io[5] = {"lines": ["  1.  2.  3.  4.  5."], "pos": 0, "mode": "r", "text": True}
+
+    eng = run(src, setup=fresh)
+    assert [out(eng, 1), out(eng, 2)] == [6, 5.0]

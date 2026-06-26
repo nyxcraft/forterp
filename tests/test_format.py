@@ -106,6 +106,15 @@ def test_render_e_format_scientific():
     assert render(parse_format("(E10.3)"), [5.0e6]) == (" 0.500E+07", False)
 
 
+def test_render_e_format_of_zero_drops_leading_zero_to_fit_a_narrow_field():
+    # Ew.dEe of 0.0 drops the optional leading zero when the field is too narrow for "0.dEe"
+    # (X3.9-1978 13.5.9), just as a nonzero value does -- so E5.1E1 of 0.0 is ".0E+0", not the
+    # 6-char "0.0E+0" that would overflow to "*****". Regression for FM111 (IOFMTS).
+    assert render(parse_format("(E5.1E1)"), [0.0]) == (".0E+0", False)  # narrow -> drop leading 0
+    assert render(parse_format("(E6.1E1)"), [0.0]) == ("0.0E+0", False)  # fits exactly -> keep it
+    assert render(parse_format("(E10.3)"), [0.0]) == (" 0.000E+00", False)  # roomy -> rjust
+
+
 def test_render_d_format_uses_d_exponent():
     assert render(parse_format("(D11.3)"), [12.493]) == ("  0.125D+02", False)
 

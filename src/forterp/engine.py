@@ -1898,6 +1898,7 @@ class Engine:
                     for sub in it.items:
                         walk(sub)
                     i += step
+                vref.write(i)  # control var ends at terminal value (limit+step)
                 return
             if isinstance(it, A.Var) and it.name in unit.arrays:
                 ty = self.type_of(unit, it.name)
@@ -3038,6 +3039,7 @@ class Engine:
                     for sub in it.items:
                         walk(sub)  # read each sub's value NOW, at this trip
                     i += step
+                vref.write(i)  # control var ends at terminal value (limit+step)
             elif typed:
                 out.extend((r.read(), ty) for r, ty in self._item_refs_typed(it, frame))
             else:
@@ -3101,6 +3103,7 @@ class Engine:
                 for sub in it.items:
                     out.extend(self._item_refs_typed(sub, frame))
                 i += step
+            vref.write(i)  # control var ends at terminal value (limit+step)
             return out
         if isinstance(it, A.Substring):  # NAME(lo:hi) -- a window of a CHARACTER variable
             return [(self.arg_ref(it, frame), "CHARACTER")]
@@ -3241,6 +3244,7 @@ class Engine:
                 for sub in it.items:
                     refs.extend(self._item_refs(sub, frame))
                 i += step
+            vref.write(i)  # control var ends at terminal value (limit+step)
             return refs
         return [self.arg_ref(it, frame)]
 

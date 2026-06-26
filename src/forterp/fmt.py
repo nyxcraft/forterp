@@ -414,7 +414,11 @@ def _efmt(v, w, d, letter="E", scale=0, exp_width=None, plus=False):
         frac = d if scale <= 0 else max(0, d - scale + 1)
         body = ("0." + "0" * frac) if frac > 0 else "0."
         ez = f"{letter}+{0:0{exp_width}d}" if exp_width else f"{letter}+00"
-        return _fit(f"{'+' if plus else ''}{body}{ez}", w)
+        sg = "+" if plus else ""
+        full = f"{sg}{body}{ez}"
+        if w and len(full) > w and body[:2] == "0.":
+            full = f"{sg}{body[1:]}{ez}"  # drop the optional leading 0 to fit (13.5.9): .0E+0
+        return _fit(full, w)
     sign = "-" if v < 0 else ("+" if plus else "")
     av = abs(v)
     e0 = math.floor(math.log10(av)) + 1  # av = m0 * 10^e0, m0 in [0.1,1)

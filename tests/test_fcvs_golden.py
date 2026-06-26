@@ -60,8 +60,11 @@ GFORTRAN_UNRELIABLE = {
 # honest "ours is different and here is why it's not a wrong answer." A real forterp limitation
 # worth a future fix, not a divergence we claim is correct.
 KNOWN_GF_DIFF = {
-    "FM111": "IOFMTS print-and-eyeball FORMAT audit: forterp's COMPUTED rows differ on some "
-    "edit-descriptor edges (FORMAT reversion over a long io-list). Eyeball-only; no self-check.",
+    "FM111": "IOFMTS print-and-eyeball FORMAT audit: forterp's COMPUTED lines now match the "
+    "routine's own CORRECT reference lines exactly; the sole remaining gfortran diff is one F2.1 "
+    "field of -0.0044, which gfortran overflows to '**' (it keeps the minus on a value that rounds "
+    "to zero, so '-.0' won't fit) while forterp -- and the FCVS CORRECT line -- print '.0'. "
+    "Eyeball-only; gfortran is the outlier here, but there is no PASS/FAIL self-check to lean on.",
 }
 
 # gfortran itself crashes at runtime on these (even fed the card deck), so there is NO golden to
