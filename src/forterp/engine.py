@@ -1692,15 +1692,41 @@ class Engine:
 
     # ---- formatted terminal + file I/O
     @staticmethod
-    def _ld_out(values):
-        """List-directed output: each value, space-separated, default-formatted."""
+    def _ld_out(typed):
+        """List-directed output (X3.9-1978 13.6): each value, space-separated. FORTRAN-shaped,
+        not Python-shaped -- a LOGICAL is T/F (not the 1/0 it is stored as), a CHARACTER is its
+        text (not packed/crashed), and a real exponent is uppercase E. (The exact field width /
+        real precision is processor-dependent and not reproduced here.)
+
+        `typed` is a list of (value, declared-type) pairs from _ld_typed -- the type is what tells
+        a LOGICAL apart from an INTEGER, since both are stored as a plain Python int."""
+
+        def real(x):
+            return repr(x).replace("e", "E").replace("infE", "inf")  # FORTRAN uppercase exponent
+
+        # Every value is separated from the previous by a blank EXCEPT two consecutive CHARACTER
+        # values, which run together (gfortran prints 'THREE'//'FOUR' as THREEFOUR -- the only
+        # blanks between adjacent characters are ones the data itself carries). The leading blank
+        # also fills record column 1 (carriage control), which a leading CHARACTER would otherwise
+        # not provide. Field widths / real precision beyond this are processor-dependent.
         parts = []
-        for v in values:
-            if isinstance(v, complex):
-                parts.append(f" ({v.real},{v.imag})")  # complex -> (re,im)
+        prev_char = False
+        for v, ty in typed:
+            is_char = isinstance(v, str)
+            sep = "" if (is_char and prev_char) else " "
+            if ty == "LOGICAL":  # T / F, not the integer 1 / 0
+                tok = "T" if v else "F"
+            elif is_char:  # CHARACTER / Hollerith -> the text itself
+                tok = v
+            elif isinstance(v, complex):
+                tok = f"({real(v.real)},{real(v.imag)})"
+            elif isinstance(v, float):
+                tok = real(v)
             else:
-                parts.append(" " + (repr(v) if isinstance(v, float) else str(int(v))))
-        return "".join(parts)
+                tok = str(int(v))
+            parts.append(sep + tok)
+            prev_char = is_char
+        return "".join(parts) or " "
 
     @staticmethod
     def _cx_expand(values):
@@ -1853,7 +1879,7 @@ class Engine:
             return
         values = self._unf_values(s.items, frame)
         if s.fmt == "*":  # list-directed output
-            self.emit(self._ld_out(values) + "\n")
+            self.emit(self._ld_out(self._ld_typed(s.items, frame)) + "\n")
             return
         spec = self._fmt_spec(s.fmt, frame)
         items = self._parsed(spec)
@@ -1951,7 +1977,11 @@ class Engine:
                     ref.write(v)
         else:
             values = self._unf_values(s.items, frame)
-            text = self._ld_out(values) if s.fmt == "*" else render(items, values, self.tgt)[0]
+            text = (
+                self._ld_out(self._ld_typed(s.items, frame))
+                if s.fmt == "*"
+                else render(items, values, self.tgt)[0]
+            )
             text = text[:count].ljust(count)  # fill the buffer to `count`
             words = [self.tgt.pack(text[i : i + cw].ljust(cw)) for i in range(0, count, cw)]
             if hasattr(buf, "loc"):
@@ -2118,7 +2148,7 @@ class Engine:
         sink = sink or self.emit
         values = self._unf_values(s.items, frame)
         if s.fmt == "*":  # list-directed output
-            sink(self._ld_out(values) + "\n")
+            sink(self._ld_out(self._ld_typed(s.items, frame)) + "\n")
             return
         spec = self._fmt_spec(s.fmt, frame)
         items = self._parsed(spec)
@@ -2815,8 +2845,31 @@ class Engine:
     def _unf_values(self, items, frame):
         return [r.read() for it in items for r in self._item_refs(it, frame)]
 
+    def _ld_typed(self, items, frame):
+        """(value, declared-type) per I/O-list element -- list-directed output needs the type
+        to render a LOGICAL as T/F rather than as the integer 1/0 it is stored as."""
+        return [(r.read(), ty) for it in items for (r, ty) in self._item_refs_typed(it, frame)]
+
     def _unf_refs(self, items, frame):
         return [r for it in items for r in self._item_refs(it, frame)]
+
+    # Operators whose result is a FORTRAN LOGICAL: the six relationals and the logical connectives.
+    _LOGICAL_OPS = frozenset(
+        {"EQ", "NE", "LT", "LE", "GT", "GE", "AND", "OR", "NOT", "EQV", "NEQV", "XOR"}
+    )
+
+    def _is_logical_expr(self, it):
+        """Whether an output list item is a LOGICAL-valued expression (a relational, a logical
+        connective, or a .TRUE./.FALSE. literal). Such a value is stored as a plain number, so
+        only the expression shape -- not the value -- distinguishes it for T/F list-directed
+        rendering. (CHARACTER expressions need no such test: they carry a Python str at runtime.)"""
+        if isinstance(it, A.LogicalLit):
+            return True
+        if isinstance(it, A.Binary):
+            return it.op in self._LOGICAL_OPS
+        if isinstance(it, A.Unary):
+            return it.op == "NOT"
+        return False
 
     def _item_refs_typed(self, it, frame):
         """(ref, declared-type-name) for each element of one I/O-list item, following array
@@ -2844,7 +2897,12 @@ class Engine:
                     out.extend(self._item_refs_typed(sub, frame))
                 i += step
             return out
-        ty = self.type_of(unit, it.name) if isinstance(it, (A.Var, A.Ref)) else "INTEGER"
+        if isinstance(it, (A.Var, A.Ref)):
+            ty = self.type_of(unit, it.name)
+        elif self._is_logical_expr(it):  # .TRUE. / A.GT.B / L1.AND.L2 -> LOGICAL, so it prints T/F
+            ty = "LOGICAL"
+        else:
+            ty = "INTEGER"
         return [(self.arg_ref(it, frame), ty)]
 
     def _a_field_widths(self, items, frame):
