@@ -268,6 +268,19 @@ def test_read_real_letterless_signed_exponent():
     assert read_values(parse_format("(E5.2)"), "-.97+") == [("F", approx(-0.97))]  # x10**0
 
 
+def test_read_scale_factor_persists_across_records_via_state():
+    # The P scale factor (and BN/BZ blank mode) persist until reset, INCLUDING across the records a
+    # reverted format spans (7.2.3.5). A second record read after a +1P -- e.g. the reverted group
+    # of '+1P,(F8.1)' -- must keep scale=1. The multi-record reader threads this via `state`.
+    # Regression for FM110 (IOFMT) test 11, where the reverted (F8.1) lost the +1P and DVS read 10x.
+    st = {"scale": 0, "bz": True}
+    # first record sets +1P then reads one F8.1 (no exponent): internal = external / 10
+    assert read_values(parse_format("(1P,F8.1)"), " 12345.0", state=st) == [("F", approx(1234.5))]
+    assert st["scale"] == 1  # the scale was published for the next record
+    # the reverted group, fed the SAME state, still divides by 10
+    assert read_values(parse_format("(F8.1)"), " 98765.0", state=st) == [("F", approx(9876.5))]
+
+
 def test_read_widthless_descriptors_are_free_form():
     # With the FORTRAN-10 free-form input extension (free_form=True), a WIDTHLESS
     # descriptor ([DEC]; F66 requires a width) reads one free-form, space/comma/TAB-

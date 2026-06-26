@@ -66,9 +66,6 @@ KNOWN_GF_DIFF = {
     "field of -0.0044, which gfortran overflows to '**' (it keeps the minus on a value that rounds "
     "to zero, so '-.0' won't fit) while forterp -- and the FCVS CORRECT line -- print '.0'. "
     "Eyeball-only; gfortran is the outlier here, but there is no PASS/FAIL self-check to lean on.",
-    "FM110": "IOFMT: runs to completion on the canonical deck; one E-output field differs in the "
-    "last significant digit (forterp -0.139563E+00 vs gfortran -0.139562E+00) -- a round-half "
-    "tie-break difference. A real forterp diff worth a future look; not a wrong answer.",
 }
 
 # gfortran can now run EVERY routine (the canonical .DAT decks let it complete the input-driven
@@ -236,4 +233,4 @@ def test_whole_corpus_is_accounted_for():
     assert len(corpus) == 192
     accounted = MATCHING | set(KNOWN_GF_DIFF) | set(GF_CANNOT_RUN)
     assert corpus == accounted, f"unaccounted routines: {sorted(corpus - accounted)}"
-    assert len(MATCHING) == 190  # 186 byte + FM905/907 value-token + FM257/406 self-check
+    assert len(MATCHING) == 191  # 187 byte + FM905/907 value-token + FM257/406 self-check

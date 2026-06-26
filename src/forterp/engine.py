@@ -2662,6 +2662,9 @@ class Engine:
         # widthless-A field widths from the io-list (one iterator shared across the records a
         # `/`-split or reverted format spans, so the A widths stay aligned with the data)
         a_widths = iter(self._a_field_widths(s.items, frame)) if self.character_type else None
+        # the P scale factor and BN/BZ blank mode persist across the records this read spans,
+        # including the reverted group (7.2.3.5 / 13.5.7) -- thread them through each read_values
+        rstate = {"scale": 0, "bz": self._blank_zero(st)}
         vals, start, eof = [], 0, False
         while len(vals) < needed and not eof:
             for g in split(items[start:]):
@@ -2678,6 +2681,7 @@ class Engine:
                     self.character_type,
                     a_widths,
                     blank_zero=self._blank_zero(st),
+                    state=rstate,
                 )
                 if len(vals) >= needed:
                     break

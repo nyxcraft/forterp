@@ -431,19 +431,27 @@ def _efmt(v, w, d, letter="E", scale=0, exp_width=None, plus=False):
     sign = "-" if v < 0 else ("+" if plus else "")
     av = abs(v)
     e0 = math.floor(math.log10(av)) + 1  # av = m0 * 10^e0, m0 in [0.1,1)
-    r = round(av, (d + 1) - e0)  # carry d+1 significant digits
-    if r > 0:
-        e0 = math.floor(math.log10(r)) + 1  # rounding may bump a decade
     frac = d if scale <= 0 else max(0, d - scale + 1)
-    exp_shown = e0 - scale
-    mant = r / (10.0**exp_shown)
-    body = f"{mant:.{frac}f}"
-    if scale <= 0 and frac and float(body) >= 1.0:
-        # the final round to `frac` digits bumped the mantissa to 1.0 (e.g. 0.99 -> "1.0"), which
-        # is outside [0.1,1): carry the decade and renormalise, so 0.9876543 in D8.1 is 0.1D+01.
-        e0 += 1
+    if scale > 0:
+        # A positive scale shifts the point right: the field then carries d+1 significant digits
+        # (scale integer + frac fractional), so round to that precision (V5 nP-on-E examples).
+        av = round(av, (d + 1) - e0)
+        if av > 0:
+            e0 = math.floor(math.log10(av)) + 1  # rounding may bump a decade
         exp_shown = e0 - scale
-        body = f"{r / (10.0**exp_shown):.{frac}f}"
+        body = f"{av / (10.0**exp_shown):.{frac}f}"
+    else:
+        # scale <= 0: the mantissa is 0.<d digits>, so the single format-round to `frac` digits is
+        # the authoritative round. Doing it once (not av->d+1 sig figs then ->d) avoids a double-
+        # round error: -0.1395624534 in E13.6 is -0.139562 (7th digit 4 rounds down), not -0.139563.
+        exp_shown = e0 - scale
+        body = f"{av / (10.0**exp_shown):.{frac}f}"
+        if frac and float(body) >= 1.0:
+            # the round bumped the mantissa to 1.0 (e.g. 0.99 -> "1.0"), outside [0.1,1): carry
+            # the decade and renormalise, so 0.9876543 in D8.1 is 0.1D+01.
+            e0 += 1
+            exp_shown = e0 - scale
+            body = f"{av / (10.0**exp_shown):.{frac}f}"
     if frac == 0:
         body += "."
     es = "+" if exp_shown >= 0 else "-"
@@ -582,6 +590,7 @@ def read_values(
     character_type=False,
     a_widths=None,
     blank_zero=True,
+    state=None,
 ):
     """Parse `line` per the format (F66 7.2.3); return a list of (kind, value) reads.
 
@@ -602,8 +611,11 @@ def read_values(
     (7.2.3.8). A record shorter than a field supplies only the columns it has."""
     vals = []
     pos = 0
-    scale = 0  # current P scale factor (F66 7.2.3.5)
-    bz = blank_zero  # current blank-interpretation mode; BN/BZ flip it (13.5.7)
+    # The P scale factor and BN/BZ blank mode PERSIST until reset, including across the records a
+    # `/`-split or reverted format spans (7.2.3.5 / 13.5.7). `state` (a dict) threads them across
+    # the per-record read_values calls the multi-record reader makes; absent it, start fresh.
+    scale = state["scale"] if state else 0  # current P scale factor (F66 7.2.3.5)
+    bz = state["bz"] if state else blank_zero  # current blank mode; BN/BZ flip it (13.5.7)
 
     # `line` may be several newline-joined records (an internal CHARACTER-ARRAY file). A field or
     # X edit stays WITHIN the current record -- columns past its end read as blanks (the record is
@@ -676,6 +688,8 @@ def read_values(
             bz = False
         elif k == "BZ":  # blanks in numeric fields read as zeros from here on
             bz = True
+    if state is not None:  # publish the persisting scale / blank mode for the next record
+        state["scale"], state["bz"] = scale, bz
     return vals
 
 
