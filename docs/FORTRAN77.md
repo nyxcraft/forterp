@@ -558,3 +558,105 @@ is the full language; forterp does not implement the separate "subset FORTRAN" l
   lines / new page / no advance; the control character is not printed. — ✓ on the printer path
   (`carriage_control`); ▲ under the FORTRAN-10 *terminal* model consecutive single spaces are
   not doubled (a documented device-model nuance).
+
+### §13 Format specification
+
+- **Form (13.1–13.2).** `FORMAT` statement or a character format; `([r]ed | ned | [r](fs))…`;
+  comma optional around `/`, `:`, and after `P`. Repeatable descriptors `Iw Iw.m Fw.d Ew.d
+  Ew.dEe Dw.d Gw.d Gw.dEe Lw A Aw`; non-repeatable `'…' nH Tc TLc TRc nX / : S SP SS kP BN BZ`.
+  — ✓
+- **Format control & reversion (13.3).** one repeatable descriptor per list item (complex =
+  two); on the closing `)` with items remaining, advance a record and revert to the last
+  `(` group; reversion preserves the scale factor and S/SP/SS and BN/BZ state. — ✓
+- **Positional & control (13.5.1–13.5.8).** `'…'`/`nH` (output only), `T`/`TL`/`TR`/`X`
+  (skipped output positions blank-filled, never erased), `/`, `:`, `S`/`SP`/`SS` sign control,
+  `kP` scale factor, `BN`/`BZ` blank control. — ✓ (scale-factor rules: F-output ×10ᵏ, E/D mantissa
+  ×10ᵏ with exponent −k, suspended for G in F-form, input ÷ unless the field has an exponent).
+- **Numeric editing (13.5.9).** input ignores leading blanks, `+` optional, all-blank ⇒ 0, a
+  `.` in the field overrides `d`; output right-justified, overflow ⇒ all asterisks, no negative
+  signed zero. `Iw`/`Iw.m` (`m=0` of zero ⇒ blanks); F (no leading zeros but the optional `0`
+  before `.`); E/D (`[±][0].x…xd` with a **required** exponent sign; `Ew.dEe` exact exponent
+  width); G (F- or E-form by magnitude); complex = two descriptors. — ✓ (these are exactly the
+  edge cases driven to byte-match gfortran this session: `Iw.0`-of-zero, F leading-zero,
+  single-round E/D, G-scale, `Ew.dEe`).
+- **L / A editing (13.5.10–13.5.11).** `Lw` accepts optional `.`+`T`/`F` (so `.TRUE.`/`.FALSE.`
+  read), outputs `w−1` blanks + `T`/`F`; widthless `A` uses the item's declared length; A-input
+  takes the rightmost `len` (w≥len) or left-justifies + pads (w<len); A-output of a CHARACTER
+  value right-justifies when `w>len` (leading blanks) and takes the leftmost `w` when `w≤len`.
+  — ✓ verified (`A5` of `'HI'` ⇒ `'   HI'`).
+- **List-directed (13.6).** values separated by blanks/comma/slash, `r*c` repeat, `r*` null,
+  end-of-record acts as a blank; complex `(re,im)` and apostrophe strings may span records; a
+  `/` ends input (rest null). Output: integer `Iw`, real/double `0PFw.d` or `1PEw.dEe` by
+  magnitude, logical `T`/`F`, complex `(re,im)`, character without apostrophes, each record led
+  by a blank. — ✓ (processor-dependent widths validated by the gfortran value-token metric).
+
+### §14 Main program, §16 Block data
+
+- **Main program (§14).** an optional `PROGRAM pgm` first statement; exactly one main program;
+  execution starts at its first executable; a main program contains no `BLOCK DATA`/`FUNCTION`/
+  `SUBROUTINE`/`ENTRY`/`RETURN` and cannot be referenced. — ✓ (`PROGRAM` optional and named).
+- **Block data (§16).** `BLOCK DATA [sub]` supplies initial values for **named** common blocks
+  via `DATA`, using only specification statements; only named-common entities may be
+  initialized. — ✓ verified (a `BLOCK DATA` initializes a named block read by the main program).
+  — ▲ the "specify all entities of an initialized block" and "≤1 unnamed block-data" rules are
+  not enforced (lenient).
+
+### §15 Functions and subroutines
+
+- **Procedures (15.1–15.2).** intrinsic functions, statement functions, external functions,
+  subroutines; a function reference is a primary in an expression; a `CALL` references a
+  subroutine. — ✓ — ▲ the standard's **no-recursion** rule (a subprogram must not reference
+  itself directly or indirectly) is not enforced; forterp permits recursion (benign extension).
+- **Statement functions (15.4).** `f(d,…) = e` after the specifications; dummies scoped to the
+  statement; may reference earlier statement functions. — ✓
+- **External functions (15.5).** `[type] FUNCTION f(d,…)`; `CHARACTER*len` / `CHARACTER*(*)`
+  functions; the function name acts as a result variable defined before `RETURN`/`END`. — ✓
+- **Subroutines & CALL (15.6).** `SUBROUTINE s[([d,…])]`, `CALL s[([a,…])]`; an `*` dummy is an
+  alternate-return point. — ✓
+- **ENTRY (15.7).** alternate entry points in a function or subroutine. — ✓
+- **RETURN (15.8).** `RETURN` / `RETURN e` (alternate return — `e` selects the e-th `*`); `END`
+  acts as `RETURN`; the definition-status survivors on return are SAVEd entities, blank common,
+  still-initially-defined entities, and named common shared with a referencing unit. — ✓
+- **Arguments (15.9).** positional association, equal counts, type agreement (except a
+  subroutine name or alternate-return specifier); character dummy length ≤ actual; adjustable
+  and assumed-size dummy arrays; dummy procedures. — ✓
+- **Intrinsic functions (15.10, Table 5).** — ✓ **all 85 standard specific/generic intrinsics
+  are present** (the type-conversion, truncation, nearest-whole/integer, absolute-value,
+  remaindering, sign-transfer, positive-difference, double-product, max/min, length, index,
+  imaginary-part, conjugate, square-root, exponential, logarithm, trigonometric, hyperbolic,
+  and lexical-comparison families) with the Table-5 semantics verified (`INT` toward zero,
+  `NINT` round-half-away, `MOD`/`SIGN`/`DIM`, `ICHAR`/`CHAR` inverse, `INDEX` first occurrence,
+  `LGE`/`LGT`/`LLE`/`LLT` on the ASCII collating sequence). `LEN`'s argument need not be defined
+  (Note 11) — the fix recorded in §8.
+
+### §17 Association and definition
+
+- **Storage sequence (17.1.1).** integer/real/logical = 1 numeric unit; double precision and
+  complex = 2 numeric units; character = one unit per character. — ▲ forterp's storage
+  association is value-slot-based: `COMPLEX` occupies two slots (`ComplexPairRef`), but `DOUBLE
+  PRECISION` occupies one slot, so the *partial-association* cases that overlap a double (or a
+  complex half) with a pair of reals are not bit-faithful (rare; the PDP10 word model is
+  closer). Same caveat as §2.13.
+- **Association (17.1.2–17.1.3).** `COMMON`, `EQUIVALENCE`, `ENTRY`, and argument association;
+  total vs partial association. — ✓ (the association mechanisms themselves work; a contradictory
+  `EQUIVALENCE` is detected).
+- **Definition status (17.2–17.3).** the standard enumerates exactly which events define and
+  undefine entities (assignment, input, `DATA`, `ASSIGN`, `RETURN`/`END`, type-mismatched
+  association, skipped function side effects, input error/EOF, …). — ▲ forterp does not *track*
+  definition status or trap a reference to an undefined entity; it returns whatever the storage
+  holds, faithful to the standard's "no predictable value" latitude (array out-of-bounds and
+  undefined access are auditable via `forterp.debug.oob_census()`).
+
+### §18 Scopes and classes of symbolic names
+
+- **Scope (18.1).** global entities (main program, common blocks, external functions,
+  subroutines, block data) span the executable program; local entities (variable, array,
+  constant, statement function, intrinsic function, dummy procedure) belong to one program unit;
+  statement-function dummies and `DATA` implied-DO variables have narrower scopes. — ✓
+- **Classes & disambiguation (18.2).** with no reserved words, a name's class is fixed by
+  context: a common-block name may double as a local variable/array/statement-function name; an
+  intrinsic name can be overridden by a dummy argument or `EXTERNAL`; a function name is also a
+  result variable in its subprogram. — ✓ forterp resolves these by context (dummy/statement-
+  function/`EXTERNAL`/user-unit checked before the intrinsic library), as exercised throughout
+  the FCVS corpus. — ▲ the static prohibition on one name occupying two local classes is not
+  strictly diagnosed (lenient), and names longer than six characters are accepted with a warning.
