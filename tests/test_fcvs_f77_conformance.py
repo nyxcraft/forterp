@@ -65,13 +65,13 @@ def test_every_routine_runs_all_its_declared_tests():
 
 
 def test_inspection_tests_are_all_golden_validated():
-    # A require-INSPECTION sub-test prints a value the program can't self-judge (PASS/FAIL), so
-    # its ONLY validation is the gfortran golden. If such a routine drifts onto the divergent
-    # punch-list, those inspection results become unverified -- guard against that here. (Today
-    # all 13 INSPECT-bearing routines match gfortran exactly.)
-    from test_fcvs_golden import KNOWN_DIVERGENT
+    # A require-INSPECTION sub-test prints a value the program can't self-judge (PASS/FAIL), so its
+    # only validation is the gfortran golden. Every INSPECT-bearing routine must therefore be
+    # golden-validated (in MATCHING) OR a documented KNOWN_GF_DIFF (its eyeball-only output differs
+    # for a recorded reason). One that is neither has silently-unverified inspection output.
+    from test_fcvs_golden import KNOWN_GF_DIFF, MATCHING
 
     insp = [n[:-4] for n in R["inspect_routines"]]  # strip ".FOR"
     assert len(insp) == 13
-    unverified = sorted(n for n in insp if n in KNOWN_DIVERGENT)
-    assert not unverified, f"INSPECT routines whose output is NOT golden-validated: {unverified}"
+    unverified = sorted(n for n in insp if n not in MATCHING and n not in KNOWN_GF_DIFF)
+    assert not unverified, f"INSPECT routines neither golden-validated nor documented: {unverified}"

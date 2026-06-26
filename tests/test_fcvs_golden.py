@@ -1,20 +1,33 @@
 """Differential validation of forterp's formatted output against gfortran goldens.
 
-tests/fcvs_golden/<NAME>.out holds gfortran's stdout for each FCVS-77 routine gfortran runs
-to completion (regenerate with `python tests/fcvs_golden/regenerate.py` -- needs gfortran).
-This validates forterp's formatted output -- crucially the print-and-eyeball routines that
-carry no self-check -- WITHOUT gfortran at test time.
+`tests/fcvs_golden/<NAME>.out` holds gfortran's stdout (FORTRAN-77 / `-std=legacy`) for each
+FCVS routine gfortran compiles and runs to completion, fed the routine's own card deck on stdin
+where it has one (regenerate with `python tests/fcvs_golden/regenerate.py` -- needs gfortran).
+This is a SECOND, independent oracle layered on top of forterp's own self-check
+(test_fcvs_f66_conformance / test_fcvs_f77_conformance): it validates the formatted output
+byte-for-byte -- crucially the print-and-eyeball routines that carry no PASS/FAIL self-check.
 
-forterp runs under carriage_control=False (file output), so -- like gfortran writing to a file
--- it emits raw records with the ASA control character kept as data in column 1, rather than
-interpreting it as a printer (forterp's default). Both sides are then raw, so the compare just
-drops that one control column and trailing whitespace and matches line-for-line, blank lines
-and page breaks INCLUDED (no normalisation that could mask a spurious blank-line / break diff).
+forterp runs the WHOLE corpus under FORTRAN-77 here -- F77 is valid against all of FCVS, and was
+verified to produce output identical to F66 on every F66-valid routine (so the dialect choice
+changes no result). The F66 subset is additionally exercised under F66 by test_fcvs_f66_conformance.
+forterp runs under carriage_control=False (file output), so, like gfortran writing to a file, it
+emits raw records with the ASA control character kept as data in column 1; the compare drops that
+one control column and trailing whitespace and matches line-for-line, blank lines / page breaks
+INCLUDED. gfortran likewise ran the whole corpus under one permissive mode (-std=legacy).
 
-KNOWN_DIVERGENT is the output-conformance punch-list: routines whose output does not yet match
-gfortran (early termination on an unsupported feature, or a value/format bug). The tests assert
-(a) every other golden matches exactly and (b) the punch-list has no stale entries -- so fixing
-a routine forces removing its name here, keeping the list honest.
+Each routine is validated by exactly one metric (see _CHECKERS): a byte-match against the golden
+(the default, the vast majority), a value-token compare for processor-dependent list-directed
+output, or its own self-check where gfortran is an unreliable oracle. The remainder -- where
+forterp's output legitimately or knowingly differs from gfortran -- is enumerated and annotated:
+
+  * GFORTRAN_UNRELIABLE -- gfortran is WRONG (or refuses to run sanely); forterp is correct.
+    Validated by its self-check instead of the golden.
+  * KNOWN_GF_DIFF -- forterp's formatted output differs from gfortran for a documented reason
+    that is NOT a self-check failure (a print-and-eyeball FORMAT-edge, or a completeness gap):
+    forterp reports no wrong PASS/FAIL, but its bytes are not gfortran's. The tests pin this set,
+    so a fix (it starts matching) or a new, unexplained divergence both surface.
+  * GF_CANNOT_RUN -- gfortran itself crashes at runtime even with the deck, so there is no golden;
+    these are covered by forterp's self-check alone.
 """
 
 import glob
@@ -32,23 +45,8 @@ from forterp.source import expand_includes, scan_file
 GOLD = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fcvs_golden")
 CORPUS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fcvs")
 
-# The forterp-bug output punch-list -- now EMPTY: every FCVS-77 routine gfortran completes either
-# matches forterp's output exactly (129/131) or is a documented gfortran-unreliable divergence
-# (FM257/FM406, below). Keep the set so a future regression has a home: a routine whose output
-# breaks vs gfortran goes here with a note, and test_expected_outputs_match_gfortran flags it.
-#
-# Cleared along the way: the COMPLEX cluster (FM503/700/722/809/811/813/815/817/820/828-834/908)
-# via a two-word storage-associated COMPLEX scalar (ComplexPairRef); FM715 (CHARACTER functions)
-# via the CHARACTER*len FUNCTION header + ret_type-typed result var + a CHARACTER PARAMETER staying
-# a str; FM509 (CHARACTER sequence association) via a char-stream view of a CHARACTER array dummy
-# over a substring actual (CharSeqView); FM909 via a COMPLEX internal WRITE expanding to two reals,
-# the Gw.dEe trailing-blank count, and nX advancing (not blanking); FM915/FM905/FM907/FM910 earlier.
-KNOWN_DIVERGENT = set()
-
-# Output differs from the gfortran golden NOT because of a forterp bug, but because gfortran is an
-# unreliable oracle for that routine -- forterp's output is correct (or more correct). These are
-# validated by the self-check inspection metric (_self_check_ok / _CHECKERS below) instead of a
-# byte-match: each is a self-checking FCVS routine, so its own PASS tally is the true signal.
+# gfortran is an UNRELIABLE oracle for these -- forterp's output is correct (or more correct), so
+# they are validated by the self-check inspection metric (_self_check_ok), not a byte-match.
 GFORTRAN_UNRELIABLE = {
     "FM406": "gfortran computes -0.0 where the test wants 0.0 and so FAILs its OWN test 3; "
     "forterp produces 0.0 and PASSES. Matching would mean reproducing gfortran's -0.0 quirk.",
@@ -56,35 +54,61 @@ GFORTRAN_UNRELIABLE = {
     "the header. forterp prints the PAUSE message to the terminal and runs every test (all PASS).",
 }
 
+# forterp's formatted output is NOT byte-equal to gfortran's, for a documented reason that is NOT
+# a self-check failure: forterp reports no wrong PASS/FAIL (the F77/F66 conformance baselines stay
+# clean), but its bytes differ. All are eyeball-only FORMAT-edge cases or completeness gaps -- the
+# honest "ours is different and here is why it's not a wrong answer." A real forterp limitation
+# worth a future fix, not a divergence we claim is correct.
+KNOWN_GF_DIFF = {
+    "FM010": "F66 blanks-in-token audit (3.1.6): forterp STOPs after test 100, running 1 of the "
+    "3 tests gfortran runs -- tests 101/102 are not reached. No false PASS; a completeness gap.",
+    "FM906": "LSTDI2 list-directed-input audit: forterp raises an InputConversionError on a field "
+    "of the card deck and ends early. A list-directed-input gap; no wrong PASS/FAIL reported.",
+    "FM111": "IOFMTS print-and-eyeball FORMAT audit: forterp's COMPUTED rows differ on some "
+    "edit-descriptor edges (FORMAT reversion over a long io-list). Eyeball-only; no self-check.",
+    "FM404": "AFMTS print-and-eyeball A/Hollerith-FORMAT audit: forterp's repeated A/H output "
+    "stops short of gfortran's on some repeat-count fields. Eyeball-only; no self-check.",
+    "FM901": "AFMTF print-and-eyeball A-FORMAT-of-CHARACTER audit: forterp wraps a CHARACTER value "
+    "onto the next record where gfortran keeps it inline. Eyeball-only; the tests are INSPECT.",
+    "FM903": "IOFMTF print-and-eyeball FORMAT audit: forterp fills a trailing numeric field (0/+0) "
+    "that gfortran leaves blank (an edit-descriptor / io-list-exhaustion edge). Eyeball-only.",
+}
+
+# gfortran itself crashes at runtime on these (even fed the card deck), so there is NO golden to
+# diff against -- they rely on forterp's self-check alone (the conformance baselines run them).
+GF_CANNOT_RUN = {
+    "FM110": "gfortran aborts at runtime (backtrace, no usable stdout) even with the card deck.",
+    "FM403": "gfortran aborts at runtime (backtrace, no usable stdout) even with the card deck.",
+    "FM900": "gfortran aborts at runtime (backtrace, no usable stdout) even with the card deck.",
+}
+
 
 def _norm(text):
-    # Both sides now emit RAW records (forterp under carriage_control=False, like gfortran's
-    # file output): the ASA control column is data in column 1. Drop that one control column
-    # and trailing whitespace, then compare line-for-line -- blank lines and form-feeds INCLUDED
-    # (the old normaliser dropped them, which masked spurious blank-line / page-break diffs).
+    # Both sides emit RAW records (forterp under carriage_control=False, like gfortran's file
+    # output): the ASA control column is data in column 1. Drop that one control column and
+    # trailing whitespace, then compare line-for-line -- blank lines and form-feeds INCLUDED.
     return [(ln[1:] if ln else ln).rstrip() for ln in text.splitlines()]
 
 
 def _forterp_output(name):
+    # The whole corpus runs under F77 -- F77 is valid against all of FCVS (verified output-identical
+    # to F66 on every F66-valid routine). gfortran matched it with one permissive -std=legacy run.
+    dialect = forterp.F77
     path = os.path.join(CORPUS, f"{name}.FOR")
-    stmts = expand_includes(scan_file(path, dialect=forterp.F77).statements, os.path.dirname(path))
-    units = parse_units(stmts, on_error=lambda s, m: None, dialect=forterp.F77)
+    stmts = expand_includes(scan_file(path, dialect=dialect).statements, os.path.dirname(path))
+    units = parse_units(stmts, on_error=lambda s, m: None, dialect=dialect)
     buf = []
     main = next((u.name for u in units if u.kind == "program"), None)
     try:
-        # Use the SAME engine configuration as the conformance harness (fcvs_runner): the full
-        # F77 dialect flags and the routine's own embedded card deck. Running F77 routines with
-        # only character_type (not zero_trip_do / blank_null) and no input deck gave some
-        # routines wrong output, diverging from gfortran for harness reasons, not real ones.
         eng = Engine(
             {u.name: u for u in units},
             emit=buf.append,
             readline=lambda: "",
             printer=buf.append,
             target=forterp.NATIVE,
-            character_type=True,
-            zero_trip_do=forterp.F77.zero_trip_do,
-            blank_null=forterp.F77.blank_null,
+            character_type=dialect.character_type,
+            zero_trip_do=dialect.zero_trip_do,
+            blank_null=dialect.blank_null,
             carriage_control=False,  # file output (raw ASA column), to compare with gfortran
         )
         install_runtime(eng)
@@ -136,12 +160,11 @@ def _value_match(name):
     return True
 
 
-# Inspection metric for a routine whose gfortran golden is an unreliable oracle (GFORTRAN_UNRELIABLE
-# below): rather than byte-match gfortran, validate forterp by the routine's OWN self-check. It
-# passes iff it reports at least one PASS and ZERO FAILs -- across both the per-test result lines
-# ("nnn  PASS/FAIL") and any "nnn TESTS FAILED" summary. (Applied only to the curated set below,
-# each verified to run its tests; FCVS routines are self-checking by design, so a clean PASS tally
-# is a true pass/fail signal even where gfortran's transcript is wrong or truncated.)
+# Inspection metric for a GFORTRAN_UNRELIABLE routine: rather than byte-match gfortran, validate
+# forterp by the routine's OWN self-check -- it passes iff it reports at least one PASS and ZERO
+# FAILs, across both the per-test result lines ("nnn  PASS/FAIL") and any "nnn TESTS FAILED"
+# summary. FCVS routines are self-checking by design, so a clean PASS tally is a true signal even
+# where gfortran's transcript is wrong or truncated.
 _TEST_RESULT = re.compile(r"^\s*\d+\s+(PASS|FAIL)\b")
 _TESTS_FAILED = re.compile(r"(\d+)\s+TESTS?\s+FAILED")
 
@@ -153,11 +176,10 @@ def _self_check_ok(name):
     return "PASS" in results and "FAIL" not in results and not any(summary_fails)
 
 
-# Per-routine output checkers. Exact (byte-for-byte, see _norm) is the default and stays that
-# way for almost every routine -- no masking. A routine whose output is genuinely
-# processor-dependent (list-directed WRITE, whose field widths / real precision the standard does
-# NOT fix) opts into a tailored value comparison; one whose gfortran golden is unreliable opts
-# into the self-check inspection metric instead.
+# Per-routine validation metric. Byte-for-byte against the golden is the default (no masking) for
+# the vast majority; a routine whose output is genuinely processor-dependent (list-directed WRITE,
+# whose field widths / real precision the standard does NOT fix) opts into a value-token compare;
+# a GFORTRAN_UNRELIABLE routine opts into the self-check inspection metric.
 _CHECKERS = {
     "FM905": _value_match,
     "FM907": _value_match,
@@ -166,53 +188,58 @@ _CHECKERS = {
 }
 
 
+def _byte_matches(name):
+    with open(os.path.join(GOLD, f"{name}.out")) as f:
+        return _norm(_forterp_output(name)) == _norm(f.read())
+
+
 def _matches(name):
     check = _CHECKERS.get(name)
-    if check is not None:
-        return check(name)
-    with open(os.path.join(GOLD, f"{name}.out")) as f:
-        gold = _norm(f.read())
-    return _norm(_forterp_output(name)) == gold
+    return check(name) if check is not None else _byte_matches(name)
 
 
 GOLDENS = sorted(os.path.basename(p)[:-4] for p in glob.glob(os.path.join(GOLD, "FM*.out")))
-MATCHING = {n for n in GOLDENS if _matches(n)}
+MATCHING = {n for n in GOLDENS if n not in KNOWN_GF_DIFF and _matches(n)}
 
 
 def test_goldens_present():
-    # gfortran completes 131 of the 140 routines on empty input (9 need FCVS control cards).
-    assert len(GOLDENS) == 131
+    # gfortran compiles and runs 189 of the 192-routine corpus (the 3 GF_CANNOT_RUN have no golden).
+    assert len(GOLDENS) == 189
+    assert not (set(GF_CANNOT_RUN) & set(GOLDENS))  # the crashers really have no golden
 
 
-def test_every_routine_is_validated():
-    # Every routine gfortran completes is validated by SOME metric: byte-for-byte against the
-    # golden (the default), value tokens for processor-dependent list-directed output (FM905/907),
-    # or its own self-check where gfortran is an unreliable oracle (GFORTRAN_UNRELIABLE). Nothing
-    # is silently unchecked -- a routine that stops being validated must be on the bug punch-list.
-    unvalidated = sorted(n for n in GOLDENS if n not in KNOWN_DIVERGENT and n not in MATCHING)
-    assert not unvalidated, f"no longer validated vs gfortran: {unvalidated}"
+def test_every_runnable_routine_is_validated():
+    # Every routine with a golden is validated by SOME metric -- byte-match, value-token, or
+    # self-check -- EXCEPT the enumerated, annotated KNOWN_GF_DIFF. Nothing is silently unchecked:
+    # a routine that stops being validated and is not a documented difference fails here.
+    unvalidated = sorted(n for n in GOLDENS if n not in KNOWN_GF_DIFF and n not in MATCHING)
+    assert not unvalidated, f"no longer validated vs gfortran (not in KNOWN_GF_DIFF): {unvalidated}"
 
 
-def test_punchlist_has_no_stale_entries():
-    # A routine that now matches must be removed from KNOWN_DIVERGENT -- keeps it honest.
-    fixed = sorted(n for n in KNOWN_DIVERGENT if n in MATCHING)
-    assert not fixed, f"these now match gfortran -- drop from KNOWN_DIVERGENT: {fixed}"
+def test_known_gf_diff_really_differ():
+    # Keep the documented-difference list honest: each KNOWN_GF_DIFF routine HAS a golden and its
+    # bytes really differ from it. If one starts byte-matching (a fix landed), this flags it so the
+    # entry -- and its annotation -- is removed, ratcheting the list down.
+    assert set(KNOWN_GF_DIFF) <= set(GOLDENS), "a KNOWN_GF_DIFF routine has no golden"
+    spurious = sorted(n for n in KNOWN_GF_DIFF if _byte_matches(n))
+    assert not spurious, f"these now match gfortran -- drop from KNOWN_GF_DIFF: {spurious}"
 
 
 def test_gfortran_unreliable_routines_pass_self_check_but_not_the_golden():
     # The gfortran-unreliable routines are validated by their self-check, NOT the golden. Assert
-    # both halves of that classification hold: each PASSES its self-check, AND its raw output still
-    # differs from gfortran's golden -- so the alternate metric is warranted, not masking a real
-    # match. If one starts byte-matching (e.g. goldens regenerated with a fixed gfortran), retire
-    # it from GFORTRAN_UNRELIABLE so it is validated the normal way.
+    # both halves: each PASSES its self-check, AND its raw output still differs from the golden --
+    # so the alternate metric is warranted, not masking a real match. If one starts byte-matching
+    # (goldens regenerated with a fixed gfortran), retire it from GFORTRAN_UNRELIABLE.
     for name in sorted(GFORTRAN_UNRELIABLE):
         assert _self_check_ok(name), f"{name}: self-check no longer passes"
-        with open(os.path.join(GOLD, f"{name}.out")) as f:
-            byte_matches = _norm(_forterp_output(name)) == _norm(f.read())
-        assert not byte_matches, f"{name} byte-matches gfortran now -- retire it from the set"
+        assert not _byte_matches(name), f"{name} byte-matches gfortran now -- retire from the set"
 
 
-def test_whole_corpus_is_validated():
-    # Floor on validated coverage. Now every routine gfortran completes is validated (129 by the
-    # golden incl. the two value-token routines, plus FM257/FM406 by self-check) -- the full 131.
-    assert len(MATCHING) == len(GOLDENS) == 131
+def test_whole_corpus_is_accounted_for():
+    # Every one of the 192 routines is in exactly one bucket: validated against the golden, a
+    # documented forterp difference, or a gfortran-cannot-run (no golden) -- none unaccounted.
+    corpus = {os.path.basename(p)[:-4] for p in glob.glob(os.path.join(CORPUS, "FM*.FOR"))}
+    assert len(corpus) == 192
+    accounted = MATCHING | set(KNOWN_GF_DIFF) | set(GF_CANNOT_RUN)
+    assert corpus == accounted, f"unaccounted routines: {sorted(corpus - accounted)}"
+    assert len(MATCHING) == 183  # 179 byte + FM905/907 value-token + FM257/406 self-check
