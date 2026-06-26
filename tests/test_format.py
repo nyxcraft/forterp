@@ -186,6 +186,16 @@ def test_read_slash_advances_to_the_next_record():
     assert [v[1] for v in vals] == [1.0, 2.0, 3.0, 4.0]  # 4.0 from record 4, record 3 skipped
 
 
+def test_read_field_does_not_cross_a_record_boundary():
+    # A field / X edit stays within its record: columns past the record end read as blanks, and
+    # only '/' advances. Regression: a trailing X (or a field) overrunning a short record pushed
+    # the cursor PAST the '\n', so the next '/' skipped a whole record (FM908: an A8 came up
+    # blank). Here the 1X after B5 overruns the 6-char records; A4 must still read the next record.
+    text = "\n".join(["12 34 ", "WORD  "])  # 6-col records
+    vals = read_values(parse_format("(I2,1X,I2,1X,/,A4)"), text, character_type=True)
+    assert [v[1] for v in vals] == [12, 34, "WORD"]  # the overrunning 1X did not eat the '\n'
+
+
 def test_read_widthd_fields_by_column():
     # F66 7.2.3.6: a WIDTH'D numeric field is read by COLUMN width, so packed digits
     # split by field width ...

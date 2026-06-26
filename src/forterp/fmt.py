@@ -575,38 +575,50 @@ def read_values(
     pos = 0
     scale = 0  # current P scale factor (F66 7.2.3.5)
     bz = blank_zero  # current blank-interpretation mode; BN/BZ flip it (13.5.7)
+
+    # `line` may be several newline-joined records (an internal CHARACTER-ARRAY file). A field or
+    # X edit stays WITHIN the current record -- columns past its end read as blanks (the record is
+    # blank-extended), and only '/' moves to the next record. So track this record's [start, end)
+    # and clamp every column move to `rec_end`; a single-record `line` (the file-read path, which
+    # pre-splits the format on '/') has no '\n', so rec_end is len(line) and nothing clamps.
+    def _rec_end(p):
+        nl = line.find("\n", p)
+        return len(line) if nl < 0 else nl
+
+    rec_start, rec_end = 0, _rec_end(0)
     for it in items:
         k = it.kind
         # pop one width hint per value-producing field, keeping lockstep with the io-list
         aw = next(a_widths, None) if (a_widths is not None and k in _VALUE_KINDS) else None
         if k in ("A", "R"):
-            if pos < len(line) and line[pos] == "\t":  # legacy tab field-separator
+            if pos < rec_end and line[pos] == "\t":  # legacy tab field-separator
                 pos += 1
             # widthless A on input: under the F77 CHARACTER model the field is the list item's
             # declared length (supplied by the caller as aw; defaults to one char when unknown);
             # the Hollerith model (F66/FORTRAN-10) fills a whole word.
             w = it.a or ((aw or 1) if character_type and k == "A" else target.chars_per_word)
-            field = line[pos : pos + w].ljust(w)
+            end = min(pos + w, rec_end)
+            field = line[pos:end].ljust(w)
             # F77 CHARACTER: the field is a str (the caller fits it to the var's declared
             # length). Otherwise it is Hollerith packed into a word (the F66/FORTRAN-10 model).
             vals.append((k, field if character_type else target.pack(field)))
-            pos += w
+            pos = end
         elif k == "G":
-            chunk, pos, tok = _grab(it, line, pos, free_form)
+            chunk, pos, tok = _grab(it, line, pos, free_form, rec_end)
             if tok:  # widthless [DEC] G in free-form mode: integer token (V5/ADVENT)
                 vals.append(("I", _to_int(chunk, 10)))
             else:  # Gw.d reads as for F (7.2.3.6.2)
                 vals.append(("F", _read_real(chunk, it.b if it.a is not None else None, scale, bz)))
         elif k in ("I", "O"):
-            chunk, pos, tok = _grab(it, line, pos, free_form)
+            chunk, pos, tok = _grab(it, line, pos, free_form, rec_end)
             if not tok:  # column field: blanks are zeros (BZ) or ignored (BN), per `bz`
                 chunk = _blank_fill(chunk, bz)
             vals.append((k, _to_int(chunk, 8 if k == "O" else 10)))
         elif k in ("F", "E", "D"):
-            chunk, pos, _tok = _grab(it, line, pos, free_form)
+            chunk, pos, _tok = _grab(it, line, pos, free_form, rec_end)
             vals.append(("F", _read_real(chunk, it.b if it.a is not None else None, scale, bz)))
         elif k == "L":
-            chunk, pos, _tok = _grab(it, line, pos, free_form)
+            chunk, pos, _tok = _grab(it, line, pos, free_form, rec_end)
             # X3.9-1978 13.5.10 / F66 7.2.3.7: optional leading blanks, then an OPTIONAL decimal
             # point, then T or F (any trailing chars ignored) -- so ".TRUE." reads as true.
             c = chunk.lstrip()
@@ -617,21 +629,20 @@ def read_values(
             scale = it.a or 0
         elif k == "lit":  # nH / '...' field: input chars replace the literal
             w = len(it.a)
-            it.a = line[pos : pos + w].ljust(w)
-            pos += w
-        elif k == "/":  # record separator: skip to the start of the next record (next '\n').
-            # Multi-record `line` is newline-joined records (an internal CHARACTER-ARRAY file);
-            # the file-read path pre-splits the format on '/' so it never passes one in here.
-            nl = line.find("\n", pos)
-            pos = nl + 1 if nl != -1 else len(line)
+            end = min(pos + w, rec_end)
+            it.a = line[pos:end].ljust(w)
+            pos = end
+        elif k == "/":  # record separator: advance to the start of the next record (V5 13.6)
+            pos = rec_end + 1 if rec_end < len(line) else len(line)
+            rec_start, rec_end = pos, _rec_end(pos)
         elif k == "X":
-            pos += it.a or 1
-        elif k == "T":  # tab to 1-based column
-            pos = max(0, (it.a or 1) - 1)
-        elif k == "TL":  # tab left (relative)
-            pos = max(0, pos - (it.a or 1))
+            pos = min(pos + (it.a or 1), rec_end)
+        elif k == "T":  # tab to 1-based column WITHIN the current record
+            pos = min(rec_start + max(0, (it.a or 1) - 1), rec_end)
+        elif k == "TL":  # tab left (relative), not before the record start
+            pos = max(rec_start, pos - (it.a or 1))
         elif k == "TR":  # tab right (relative)
-            pos += it.a or 1
+            pos = min(pos + (it.a or 1), rec_end)
         elif k == "BN":  # blanks in numeric fields ignored from here on (13.5.7)
             bz = False
         elif k == "BZ":  # blanks in numeric fields read as zeros from here on
@@ -639,19 +650,21 @@ def read_values(
     return vals
 
 
-def _grab(it, line, pos, free_form):
+def _grab(it, line, pos, free_form, rec_end):
     """Extract one field's raw text -> (chunk, newpos, is_token). A widthless descriptor
     in free-form mode reads the next whitespace/comma/tab token (is_token=True); any
     width'd field, or any field in F66 column mode, is a column slice (is_token=False) of
-    the field width -- the V5 default width when the descriptor is widthless."""
+    the field width -- the V5 default width when the descriptor is widthless. A field never
+    reads past `rec_end` (the current record's boundary in newline-joined multi-record text);
+    columns beyond it are blank (the record is blank-extended), and only '/' crosses a record."""
     if it.a is None and free_form:
         tok, pos = _next_token(line, pos)
         return tok, pos, True
     if it.a is not None:  # explicit width: a record shorter than the field is blank-
         w = it.a  # extended (and blanks are zeros), F66 7.2.3 -- as the char fields ljust
-        return line[pos : pos + w].ljust(w), pos + w, False
+        return line[pos : min(pos + w, rec_end)].ljust(w), min(pos + w, rec_end), False
     w = _DEFAULTS[it.kind][0]  # widthless [DEC] descriptor: read only the columns present
-    return line[pos : pos + w], pos + w, False
+    return line[pos : min(pos + w, rec_end)], min(pos + w, rec_end), False
 
 
 def _next_token(line, pos):
