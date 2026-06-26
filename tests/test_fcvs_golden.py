@@ -125,6 +125,36 @@ def _forterp_output(name):
     return "".join(buf)
 
 
+def _forterp_run_status(name):
+    """Run `name` to completion WITHOUT swallowing, returning the failing exception's class name
+    (or 'completed'). _forterp_output deliberately swallows for the byte-compare; this is how we
+    detect a routine that crashes part-way through its tests rather than finishing them."""
+    path = os.path.join(CORPUS, f"{name}.FOR")
+    stmts = expand_includes(scan_file(path, dialect=forterp.F77).statements, os.path.dirname(path))
+    units = parse_units(stmts, on_error=lambda s, m: None, dialect=forterp.F77)
+    main = next((u.name for u in units if u.kind == "program"), None)
+    eng = Engine(
+        {u.name: u for u in units},
+        emit=lambda s: None,
+        readline=lambda: "",
+        printer=lambda s: None,
+        target=forterp.NATIVE,
+        character_type=True,
+        blank_null=True,
+        carriage_control=False,
+    )
+    install_runtime(eng)
+    eng.io[5] = {"lines": _card_deck(path), "pos": 0, "mode": "r", "text": True}
+    eng.max_steps = 50_000_000
+    try:
+        eng.run(Frame(eng.rts[main], {}))
+        return "completed"
+    except StopExecution:
+        return "completed"
+    except Exception as e:  # we want the class name of whatever it was
+        return type(e).__name__
+
+
 def _num(tok):
     """Parse a FORTRAN numeric token -> float, else None. D and E exponents are equivalent."""
     try:
@@ -238,6 +268,20 @@ def test_gfortran_unreliable_routines_pass_self_check_but_not_the_golden():
     for name in sorted(GFORTRAN_UNRELIABLE):
         assert _self_check_ok(name), f"{name}: self-check no longer passes"
         assert not _byte_matches(name), f"{name} byte-matches gfortran now -- retire from the set"
+
+
+def test_gf_cannot_run_routines_are_pinned_as_unvalidated():
+    # Integrity ratchet for the no-oracle routines. FM110/403/900 have NO gfortran golden AND
+    # forterp does not run them to completion either: their hand-packed continuation-card decks
+    # misalign under our card reconstruction, so a formatted numeric READ raises before the tests
+    # finish. Pin that exact state -- a routine emitting only its header used to pass silently
+    # (no summary -> uncounted; no golden -> undiffed; p+e==0 -> completeness skipped). If the
+    # card reconstruction is fixed so one runs clean, this FAILS and forces an honest re-grade:
+    # move it out of GF_CANNOT_RUN and validate it (e.g. by COMPUTED == CORRECT inspection).
+    for name in sorted(GF_CANNOT_RUN):
+        assert _forterp_run_status(name) == "InputConversionError", (
+            f"{name} now runs to completion -- re-grade it; it is no longer unvalidatable"
+        )
 
 
 def test_whole_corpus_is_accounted_for():
