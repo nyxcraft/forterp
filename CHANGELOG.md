@@ -1,62 +1,46 @@
 # Changelog
 
-## 2026-06-26 — FCVS: one corpus, canonical decks, the whole set byte-matches gfortran
+## 2026-06-26 — FCVS: canonical decks, the whole corpus byte-matches gfortran
 
-- **Merged `fcvs77/` into one `tests/fcvs/`** (192 routines). F66 runs the F66-valid subset
-  (`F66_SUBSET`, 52); F77 runs the full corpus. The whole-corpus gfortran differential
-  (`tests/fcvs_golden/`, `test_fcvs_golden.py`) runs forterp over all 192 under F77 and compares
-  byte-for-byte, with each routine pinned to exactly one validation metric.
-- **Canonical NIST `.DAT` input decks.** The card-reader audits were fed a deck *reconstructed*
-  from the `CARD nn` image comments — lossy at the 72-column display boundary (continuation cards
-  merged, exponents clipped), which corrupted the input to *both* forterp and gfortran. Vendored
-  the pristine public-domain decks (`tests/fcvs/*.DAT`, from `gklimowicz/FCVS`; our `.FOR` are
-  byte-identical to that repo); `_card_deck` now reads a sibling `.DAT` first. With correct decks
-  **gfortran runs all 192** (it used to abort on three) and **forterp byte-matches 191 of 192**.
-- **Edit-descriptor fixes** the correct decks exposed (`fmt.py` / `engine.py`):
-  - letterless signed exponent on real input (`0.987+1` = 0.987×10¹, `-.334-4`);
-  - a no-digit-mantissa field reads as zero (a bare `.`, a sign, `+.E00`);
-  - **blanks are insignificant in a FORMAT** except in `'…'`/`nH` literals (`3 I4` → `3I4`,
-    `F5 .2` → `F5.2`, `5 X` → `5X`);
-  - `E`/`D`/`G` output rounds the mantissa **once** (no double-round): `-0.1395624534` in `E13.6`
-    is `-0.139562`, and a round that bumps the mantissa to 1.0 renormalises (`0.9876543` in
-    `D8.1` → `0.1D+01`);
-  - the `nP` scale factor's scope: **no effect on `G` in its F-form range** (only the E-form
-    fallback scales), and it **persists across a reverted format on input** (`read_values` threads
-    the scale/blank state across records) — so `+1P,(F8.1)` keeps the scale on the reverted read.
-  - widthless `A` and multi-record `/` now work on the card-unit read path; A-input into a
-    CHARACTER substring uses the substring window length; an I/O-list implied-DO leaves its
-    control variable at the terminal value; `Iw.0` of zero is an all-blank field.
-- **FM001's by-design FORCE-FAIL is a negative-test pass.** FM001 TEST 002 ("FORCE FAIL CODE TO
-  BE EXECUTED") exercises the suite's own fail-reporting path; the runner reclassifies that one
-  expected failure as a pass, so the corpus' counted-error total is a genuine **0**.
-- **Result:** zero parse-gaps, every routine runs all its declared sub-tests and self-checks
-  clean; `GF_CANNOT_RUN` is empty; the lone `KNOWN_GF_DIFF` is **FM111**, where gfortran is the
-  outlier (it overflows `F2.1` of a value rounding to zero) and forterp matches the routine's own
-  printed CORRECT line. See [docs/FORTRAN77.md §8](docs/FORTRAN77.md).
+- **00:24** — Two-word storage-associated COMPLEX (the FCVS COMPLEX cluster); a field/X edit stays within its record on multi-record input.
+- **00:40** — Cleared FM909 (COMPLEX internal WRITE + Gw.dEe trailing blanks + nX advance), FM715 (CHARACTER functions), FM509 (a substring sequence-associated onto an array dummy).
+- **09:34** — Validate the gfortran-unreliable routines by their own self-check, not exclusion; an output implied-DO snapshots each value at its trip.
+- **10:09** — Merged `fcvs77/` into one `tests/fcvs/` corpus (F66 runs the 52-routine subset, F77 runs all 192); added the full gfortran `-std=legacy` differential over all 192 (`test_fcvs_golden.py`).
+- **11:19** — Cleared FM010 / FM906 / FM903 / FM404 / FM901 / FM111 (keyword-prefixed assignment vs GO TO/CALL; list-directed D-exponent + COMPLEX `(re,im)`; `Iw.0` of zero is all-blank; card-unit widthless-A + multi-record `/`; A-input into a substring uses the window length; I/O-list implied-DO leaves its control var at the terminal value + E-of-zero).
+- **12:22** — Documented each GF_CANNOT_RUN routine's exact cause; FM001's by-design FORCE-FAIL ("FORCE FAIL CODE TO BE EXECUTED") is now counted as a negative-test pass, so the corpus' counted-error total is a genuine 0.
+- **13:06** — Real input accepts FORTRAN's letterless signed exponent (`0.987+1` = 0.987×10¹) and reads a no-digit-mantissa field (`.`, `+.E00`) as zero.
+- **13:58** — Vendored the canonical NIST `.DAT` input decks (`tests/fcvs/*.DAT`, from `gklimowicz/FCVS`; our `.FOR` are byte-identical), and `_card_deck` reads a sibling `.DAT` first — replacing the lossy `CARD nn` reconstruction. Fixed what the correct decks exposed: blanks are insignificant in a FORMAT (`3 I4` → `3I4`, `F5 .2` → `F5.2`) and E/D output renormalises when a round bumps the mantissa to 1.0. gfortran now runs all 192.
+- **14:05** — A scale factor has no effect on `G` in its F-form range (clears FM900); E/D rounds the mantissa once (no double-round) and the `nP` scale persists across a reverted format on input (clears FM110). The whole corpus byte-matches gfortran **191 of 192**; the lone `KNOWN_GF_DIFF` is FM111, where gfortran is the outlier (it overflows `F2.1` of a value rounding to zero) and forterp matches the routine's own printed CORRECT line.
+- **14:28** — Docs: recorded the conformance drive across the guides + CHANGELOG; see [docs/FORTRAN77.md §8](docs/FORTRAN77.md).
 
-## 2026-06-24 — FORTRAN 77 support + FCVS-77 conformance (the `f77` branch)
+## 2026-06-25 — FCVS-77 conformance punch-list (per-routine to byte-match)
 
-- **F77 dialect** (`forterp.F77`, `forterp.f77`; `character_type`/`block_if`/`save_stmt`/
-  `intrinsic_stmt`/`list_directed_io`/`eqv_operators`/`slash_dim_bound` knobs). Front-end:
-  block IF / DO WHILE / SAVE / INTRINSIC, generic intrinsics, IMPLICIT CHARACTER\*len,
-  optional DO-label comma, LOGICAL/COMPLEX PARAMETER constants, widthless A, list-directed
-  I/O and `.EQV./.NEQV.` (split out of the DEC bundles), keyword I/O control lists
-  (`READ(UNIT=u,FMT=f)`), OPEN positional-unit + keyword specs, blank COMMON `//`,
-  `CHARACTER*(param)`, F77 array-bound `:` (vs DEC `/`), assumed-size `A(...,*)`, and
-  blanks within a dotted operator.
-- **CHARACTER** (Phase 2/3): decls, blank-pad/truncate assign, `//`, comparison,
-  LEN/CHAR/ICHAR/INDEX/LGE..LLT, substrings (incl. as DATA targets and internal-file units),
-  correct CHARACTER DATA init, A-format I/O, internal files, INQUIRE (now incl. the
-  ACCESS/FORM/SEQUENTIAL/DIRECT/FORMATTED/UNFORMATTED connection specifiers).
-- **Sequential files**: an unconnected unit auto-connects as an in-memory scratch file
-  (write → REWIND → read); F77 formatted files store rendered text records so `/`, `X`, and
-  read-side FORMAT reversion round-trip.
-- **FCVS-77 conformance**: restored the 140 F77/CHARACTER audit routines (`tests/fcvs77/`,
-  gfortran-verified pristine) — all 140 parse and run (0 parse-gaps), 1550 self-check
-  sub-tests pass / 104 fail across 19 routines (the value/semantic punch-list). Fixed the
-  runner's masked-failure bug (it ignored the FM2xx+ "TESTS FAILED" summary verb). Added
-  gfortran golden outputs (`tests/fcvs77_golden/` + `test_fcvs77_golden.py`) to validate the
-  print-and-eyeball routines' output with no gfortran at test time.
+- **14:05** — F77 input niceties: blanks before a numeric exponent (`1545 E7` → `1545E7`), zero-trip DO + the F77 post-loop index value, L-format accepts an optional leading point, widthless A uses the io-list item's length (output + input).
+- **15:30** — Four FCVS one-offs (intrinsic-as-actual-arg, statement-function result type, INQUIRE EXIST); direct-access formatted I/O — multi-record writes + CLOSE/reopen persistence.
+- **16:17** — DO fixes: a zero-trip inner DO sharing a terminal label with an enclosing DO; convert DO parameters to the DO variable's type before the trip count.
+- **16:50** — Edit-descriptor conformance: widthless-A input declared length, E/F (neg-zero, leading-zero drop, Ew.dEe), and FM912 — Iw.m, SP/SS, TL/TR, the `:` terminator, and substring I/O targets.
+- **18:00** — Advance to a new line before a terminal READ/ACCEPT; width'd numeric input defaults to BLANK=NULL on FORTRAN-10/F77.
+- **19:13** — Real list-directed input (X3.9-1978 13.6) — clears FM923; model the ENDFILE record so BACKSPACE doesn't clobber data — clears FM411.
+- **20:01** — COMMON declarations for one block concatenate — clears FM302 (F77 FCVS errors to 0).
+- **20:15** — Golden harness hardening: enforce FCVS's own completeness accounting (no early termination), guard that every require-INSPECTION routine stays golden-validated, align the golden harness with the conformance harness (FM256).
+- **21:21** — `carriage_control` option (file vs printer output) + a tighter golden compare.
+- **21:46** — Per-routine matches: DATA PARAMETER repeat + CHARACTER PARAMETER value (FM500), a source label preserved on END IF (FM255/260), assigned-FORMAT label in `WRITE(u,intvar)` (FM252), statement functions — zero args + dummy shadowing (FM311).
+- **22:35** — WRITE to a CHARACTER-array internal file (records = elements); F editing drops the optional leading zero to fit a narrow field (FM101/103/108).
+- **23:25** — FORTRAN-shaped list-directed output (T/F logicals, CHARACTER text, concatenation); defer the first FOROTS advance-before record's leading newline; GO TO a labeled END IF.
+- **23:50** — Unformatted COMPLEX I/O + CHARACTER-array internal READ + slash on input; split the correct gfortran-oracle divergences out of the bug punch-list.
+
+## 2026-06-24 — FORTRAN 77 support (the `f77` branch)
+
+- **15:20** — F77 dialect (`forterp.F77`/`f77`; the `character_type`/`block_if`/`save_stmt`/`intrinsic_stmt`/`list_directed_io`/`eqv_operators`/`slash_dim_bound` knobs) + block IF / DO WHILE / SAVE / INTRINSIC and generic intrinsics.
+- **15:42** — CHARACTER scalars: decls, blank-pad/truncate assign, `//`, comparison, LEN; the CHAR/ICHAR/INDEX/LGE..LLT intrinsics; and substrings `S(i:j)` (read + lvalue).
+- **16:06** — CHARACTER I/O: A-format, internal files (READ/WRITE to a CHARACTER variable), and INQUIRE (by FILE / by UNIT).
+- **16:36** — Restored the 140 F77/CHARACTER FCVS routines (`tests/fcvs77/`, gfortran-verified pristine) + the conformance baseline.
+- **16:43** — F77 front-end fill-ins: IMPLICIT CHARACTER\*len, optional DO-label comma, LOGICAL/COMPLEX PARAMETER, widthless A, list-directed I/O, keyword I/O control lists (`READ(UNIT=u,FMT=f)`), OPEN positional + keyword specs, `.EQV./.NEQV.`, blank COMMON `//`, `CHARACTER*(param)`, F77 array-bound `:`, and blanks within a dotted operator.
+- **19:15** — Assumed-size declarators `A(...,*)` — the F77 FCVS corpus parses with 0 gaps.
+- **19:28** — Sequential files: an unconnected unit auto-connects as an in-memory scratch; F77 formatted-text files round-trip `/`, `X`, and read-side FORMAT reversion → F77 FCVS to 0 errors.
+- **20:13** — Fixed the runner's masked-failure bug (it ignored the FM2xx+ "TESTS FAILED" summary verb — 111 failures were hidden).
+- **20:17** — Added gfortran golden outputs + the differential output validation (no gfortran needed at test time).
+- **20:28** — INQUIRE connection specifiers (ACCESS/FORM/SEQUENTIAL/DIRECT/FORMATTED/UNFORMATTED).
 
 ## 2026-06-24 — the monitor rename, override docs, and PyPI release wiring
 
