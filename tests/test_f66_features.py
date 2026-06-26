@@ -332,6 +332,27 @@ def test_endfile_then_backspace_does_not_clobber_a_record():
     assert eng.commons["O"][0] == 5
 
 
+def test_multi_statement_common_concatenates_and_associates_positionally():
+    # FM302 / F66 7.2.1.2: successive COMMON statements for the same block APPEND (they don't
+    # restart at offset 0). The main fills blank COMMON across three statements; the subroutine
+    # views the same storage under different names/shape (renaming) -- association is positional.
+    src = (
+        "        PROGRAM T\n        IMPLICIT INTEGER (A-Z)\n        COMMON /O/ N\n"
+        "        COMMON IA\n        COMMON IB, IC\n        COMMON ID\n"
+        "        IA=10\n        IB=20\n        IC=30\n        ID=40\n"
+        "        CALL SUB\n"
+        "        N = IA*1 + IB*2 + IC*3 + ID*4\n"  # SUB doubled each via a 4-array view
+        "        END\n"
+        "        SUBROUTINE SUB\n        IMPLICIT INTEGER (A-Z)\n"
+        "        COMMON K(4)\n"  # the 4 blank-COMMON words seen as one array
+        "        DO 1 I=1,4\n    1   K(I) = K(I) * 2\n"
+        "        END\n"
+    )
+    eng = run(src)
+    # after SUB: IA=20, IB=40, IC=60, ID=80 -> 20 + 80 + 180 + 320 = 600
+    assert eng.commons["O"][0] == 600
+
+
 # ---- default-device I/O, PUNCH, REREAD -------------------------------------
 def test_punch_and_default_device_write():
     eng = run(

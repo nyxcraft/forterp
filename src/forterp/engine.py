@@ -610,24 +610,32 @@ class Engine:
         # dimensions may come from a separate DIMENSION/type statement rather than
         # the COMMON statement itself (F66 6.2/7.2.1.1: declaration order is free),
         # so fall back to u.arrays when the COMMON entry carries no inline dims.
+        # A block's storage is the concatenation of EVERY COMMON declaration for it in a unit
+        # (F66 7.2.1.2 / X3.9-1978 8.3): successive COMMON statements -- and successive // and
+        # /name/ segments within one statement -- for the same block APPEND, they do not restart
+        # at offset 0. So the running offset is tracked per block, not reset per entry.
         for u in self.units.values():
+            off_by_block = {}
             for block, members in u.commons:
-                off = 0
+                off = off_by_block.get(block, 0)
                 for name, dims in members:
                     d = dims or u.arrays.get(name)
                     off += array_size(d) if d else 1
+                off_by_block[block] = off
                 sizes[block] = max(sizes.get(block, 0), off)
         for block, n in sizes.items():
             self.commons[block] = self._alloc_words(n)
 
         for name, u in self.units.items():
             rt = UnitRT(u)
+            off_by_block = {}
             for block, members in u.commons:
-                off = 0
+                off = off_by_block.get(block, 0)
                 for mname, dims in members:
                     d = dims or u.arrays.get(mname)
                     rt.common_map[mname] = (block, off, d)
                     off += array_size(d) if d else 1
+                off_by_block[block] = off
             self._layout_equivalence(name, u, rt)  # EQUIVALENCE storage aliasing (V5 6.6)
             self.rts[name] = rt
         # ENTRY points (V5 15.7): map each entry name to (owning unit, pc, params)

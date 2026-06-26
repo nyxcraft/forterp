@@ -63,8 +63,17 @@ writes an endfile MARKER (X3.9-1978 12.10.4.2) rather than truncating, so a foll
 backs over that marker -- not over a real data record -- and ENDFILE+BACKSPACE+WRITE rebuilds
 the file to the expected 142 records (a READ reaching the marker still hits END=).
 
-The one remaining cluster is FM302 (8, COMMON/EQUIVALENCE storage association) -- the value
-model's documented weak spot.
+FM302 (COMMON/EQUIVALENCE storage association, 8) then cleared, taking the corpus to zero
+self-check failures. The bug was localized, not the value model's width limitation (FM302's
+COMMON is all INTEGER/REAL/LOGICAL): a block's storage is the concatenation of every COMMON
+declaration for it in a unit (8.3), but the layout reset the offset to 0 per COMMON
+statement/segment, so a block declared across several statements (blank COMMON here spans five)
+overlapped at offset 0. The running offset is now tracked per block, so the multi-statement
+declarations append -- and positional association across units (renaming, viewing blank COMMON
+as one array) lines up.
+
+With that, all 97 self-checking F77 FCVS routines report zero errors; the 43 print-and-eyeball
+routines are validated separately against gfortran goldens (test_fcvs77_golden.py).
 
 Landed since the restore: IMPLICIT CHARACTER*<len> (the audit-harness preamble), the
 optional comma after a DO label, LOGICAL/COMPLEX PARAMETER constants, the widthless A
@@ -103,12 +112,12 @@ def test_f77_conformance_baseline():
     # the fix (a gain) or investigate (a regression).
     assert R["n_run"] == 140
     assert R["n_gap"] == 0
-    assert R["total_pass"] == 1661
-    assert R["total_err"] == 8
+    assert R["total_pass"] == 1669
+    assert R["total_err"] == 0  # the entire self-checking F77 FCVS corpus passes
     assert len(R["nosummary"]) == 42
 
 
 def test_self_check_failures_do_not_grow():
     # The known self-check failures (value/semantic conformance, not parse/control-flow).
     # A ratchet: fixing a bug should LOWER this -- update it down, never silently up.
-    assert R["total_err"] <= 8
+    assert R["total_err"] <= 0
