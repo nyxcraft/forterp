@@ -660,3 +660,44 @@ is the full language; forterp does not implement the separate "subset FORTRAN" l
   function/`EXTERNAL`/user-unit checked before the intrinsic library), as exercised throughout
   the FCVS corpus. — ▲ the static prohibition on one name occupying two local classes is not
   strictly diagnosed (lenient), and names longer than six characters are accepted with a warning.
+
+### Appendices A–D
+
+- **Appendix A (F66→F77 conflicts).** the 24 incompatibilities with ANSI X3.9-1966 are exactly
+  the deltas forterp's dialect axis encodes (F77 vs F66/FORTRAN10): no Hollerith constants under
+  F77, all-blank line is a comment, no transfer into a `DO` range, no negative-zero output, no
+  unnecessary leading zeros (I/F), a required exponent sign, the 30 added intrinsic names, ≤1
+  unnamed block data. The output-format items were the edits driven to byte-match gfortran this
+  session; the 30 new intrinsics are all present.
+- **Appendix B (section notes).** non-normative clarifications, all consistent with forterp's
+  verified behavior (`DO J=J1,J2` with `J1>J2` runs zero times; negative zero ≡ positive zero;
+  column-major ordering; label blanks/leading-zeros insignificant; record-count and
+  external-vs-intrinsic resolution rules).
+- **Appendix C (Hollerith).** F77 deletes the Hollerith type in favor of `CHARACTER`; forterp
+  keeps Hollerith on the **F66/FORTRAN10** dialects (the packed-word value model, per the
+  recommended C1–C7 rules) and uses `CHARACTER` under **F77** — the dialect axis separates them.
+- **Appendix D (subset overview).** the standard defines a *full* and a *subset* level; **forterp
+  implements the full language**, so every subset-omitted feature (double precision, complex,
+  `PARAMETER`, `ENTRY`, `BLOCK DATA`, list-directed I/O, substrings, concatenation, character
+  functions, `LEN`/`CHAR`/`INDEX`, partial association, lower bounds, …) is present.
+
+### Review summary
+
+This map was produced by reading the **entire ANSI X3.9-1978 standard** (all 18 sections +
+Appendices A–D) and checking forterp against each rule. Findings:
+
+- **Conformance is strong.** Every section's core semantics are implemented and verified —
+  expression evaluation, control flow (incl. the F77 zero-trip `DO`), the full statement set,
+  the complete FORMAT edit-descriptor family, the entire I/O model, and **all 85 Table-5
+  intrinsic functions** with their specified semantics.
+- **Two bugs were found and fixed during the review:** `LEN` of an undefined `CHARACTER`
+  variable (§8/§15.10 — must be the declared length), and the `IOSTAT=` specifier never being
+  assigned on `READ`/`WRITE` (§12.7 — must be 0 / positive / negative). Both have regression
+  tests.
+- **The documented `▲` divergences are deliberate and benign** — the pluggable value model
+  (NATIVE `REAL`≡`DOUBLE PRECISION` precision and `DOUBLE PRECISION` as one value slot; the
+  PDP10 target is faithful), non-fatal arithmetic, untrapped out-of-bounds / undefined access,
+  and an "accept-more" leniency toward several static-semantic restrictions the standard places
+  on *programs* (statement order, recursion, rank ≤ 7, name length ≤ 6). None can mis-run a
+  conforming program; they are the same faithfulness-over-strictness choices documented in
+  [§8](#8-conformance--fcvs-77).

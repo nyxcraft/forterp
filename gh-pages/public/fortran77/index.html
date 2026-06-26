@@ -71,6 +71,8 @@
 <li><a class="section-nav__link section-nav__link--l3" href="#15-functions-and-subroutines">§15 Functions and subroutines</a></li>
 <li><a class="section-nav__link section-nav__link--l3" href="#17-association-and-definition">§17 Association and definition</a></li>
 <li><a class="section-nav__link section-nav__link--l3" href="#18-scopes-and-classes-of-symbolic-names">§18 Scopes and classes of symbolic names</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#appendices-ad">Appendices A–D</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#review-summary">Review summary</a></li>
 </ul>
         </nav>
       </aside>
@@ -755,6 +757,46 @@ result variable in its subprogram. — ✓ forterp resolves these by context (du
 function/<code>EXTERNAL</code>/user-unit checked before the intrinsic library), as exercised throughout
 the FCVS corpus. — ▲ the static prohibition on one name occupying two local classes is not
 strictly diagnosed (lenient), and names longer than six characters are accepted with a warning.</li>
+</ul>
+<h3 id="appendices-ad">Appendices A–D</h3>
+<ul>
+<li><strong>Appendix A (F66→F77 conflicts).</strong> the 24 incompatibilities with ANSI X3.9-1966 are exactly
+the deltas forterp's dialect axis encodes (F77 vs F66/FORTRAN10): no Hollerith constants under
+F77, all-blank line is a comment, no transfer into a <code>DO</code> range, no negative-zero output, no
+unnecessary leading zeros (I/F), a required exponent sign, the 30 added intrinsic names, ≤1
+unnamed block data. The output-format items were the edits driven to byte-match gfortran this
+session; the 30 new intrinsics are all present.</li>
+<li><strong>Appendix B (section notes).</strong> non-normative clarifications, all consistent with forterp's
+verified behavior (<code>DO J=J1,J2</code> with <code>J1&gt;J2</code> runs zero times; negative zero ≡ positive zero;
+column-major ordering; label blanks/leading-zeros insignificant; record-count and
+external-vs-intrinsic resolution rules).</li>
+<li><strong>Appendix C (Hollerith).</strong> F77 deletes the Hollerith type in favor of <code>CHARACTER</code>; forterp
+keeps Hollerith on the <strong>F66/FORTRAN10</strong> dialects (the packed-word value model, per the
+recommended C1–C7 rules) and uses <code>CHARACTER</code> under <strong>F77</strong> — the dialect axis separates them.</li>
+<li><strong>Appendix D (subset overview).</strong> the standard defines a <em>full</em> and a <em>subset</em> level; <strong>forterp
+implements the full language</strong>, so every subset-omitted feature (double precision, complex,
+<code>PARAMETER</code>, <code>ENTRY</code>, <code>BLOCK DATA</code>, list-directed I/O, substrings, concatenation, character
+functions, <code>LEN</code>/<code>CHAR</code>/<code>INDEX</code>, partial association, lower bounds, …) is present.</li>
+</ul>
+<h3 id="review-summary">Review summary</h3>
+<p>This map was produced by reading the <strong>entire ANSI X3.9-1978 standard</strong> (all 18 sections +
+Appendices A–D) and checking forterp against each rule. Findings:</p>
+<ul>
+<li><strong>Conformance is strong.</strong> Every section's core semantics are implemented and verified —
+expression evaluation, control flow (incl. the F77 zero-trip <code>DO</code>), the full statement set,
+the complete FORMAT edit-descriptor family, the entire I/O model, and <strong>all 85 Table-5
+intrinsic functions</strong> with their specified semantics.</li>
+<li><strong>Two bugs were found and fixed during the review:</strong> <code>LEN</code> of an undefined <code>CHARACTER</code>
+variable (§8/§15.10 — must be the declared length), and the <code>IOSTAT=</code> specifier never being
+assigned on <code>READ</code>/<code>WRITE</code> (§12.7 — must be 0 / positive / negative). Both have regression
+tests.</li>
+<li><strong>The documented <code>▲</code> divergences are deliberate and benign</strong> — the pluggable value model
+(NATIVE <code>REAL</code>≡<code>DOUBLE PRECISION</code> precision and <code>DOUBLE PRECISION</code> as one value slot; the
+PDP10 target is faithful), non-fatal arithmetic, untrapped out-of-bounds / undefined access,
+and an &quot;accept-more&quot; leniency toward several static-semantic restrictions the standard places
+on <em>programs</em> (statement order, recursion, rank ≤ 7, name length ≤ 6). None can mis-run a
+conforming program; they are the same faithfulness-over-strictness choices documented in
+<a href="#8-conformance--fcvs-77">§8</a>.</li>
 </ul>
 
         </div>
