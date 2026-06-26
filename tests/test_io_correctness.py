@@ -143,3 +143,30 @@ def test_formatted_read_from_text_unit_widthless_a_and_slash_multirecord():
     deck = {"lines": ["abcdef", "WXYZ", "AAAABBBB"], "pos": 0, "mode": "r", "text": True}
     eng = run(src, setup=lambda e: e.io.__setitem__(5, deck), dialect=forterp.F77)
     assert printed(eng).strip() == "a bc def WXYZ AAAA BBBB"
+
+
+def test_a_input_into_a_character_substring_uses_the_window_length():
+    # A formatted READ into a CHARACTER substring NAME(lo:hi) is governed by the SUBSTRING
+    # length, not the variable's declared length (X3.9-1978 13.5.11): a widthless A reads that
+    # many columns, and an explicit A field WIDER than the window supplies its RIGHTMOST chars.
+    # Regression: FM901 (AFMTF) -- forterp read 1 column per widthless A and kept the LEFTMOST
+    # chars of a too-wide field, so the reconstructed strings were scrambled.
+    src = (
+        "      PROGRAM T\n"
+        "      CHARACTER B43VK*43\n"
+        "      COMMON /O/ OUT\n"
+        "      CHARACTER OUT*20\n"
+        "      READ(5,7) B43VK, B43VK(4:8), B43VK(17:20)\n"
+        "    7 FORMAT(A43,A7,A2)\n"
+        "      OUT = B43VK(1:20)\n"
+        "      END\n"
+    )
+    deck = {
+        "lines": ["TO XXXXX NOT TO XXXX-  THAT IS THE QUESTIONXXBE ORBE"],
+        "pos": 0,
+        "mode": "r",
+        "text": True,
+    }
+    eng = run(src, setup=lambda e: e.io.__setitem__(5, deck), dialect=forterp.F77)
+    # A7 field "XXBE OR" -> rightmost 5 "BE OR" into (4:8); A2 "BE" -> "BE  " into (17:20).
+    assert eng.commons["O"] == ["TO BE OR NOT TO BE  "]

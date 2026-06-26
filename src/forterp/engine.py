@@ -3102,6 +3102,8 @@ class Engine:
                     out.extend(self._item_refs_typed(sub, frame))
                 i += step
             return out
+        if isinstance(it, A.Substring):  # NAME(lo:hi) -- a window of a CHARACTER variable
+            return [(self.arg_ref(it, frame), "CHARACTER")]
         if isinstance(it, (A.Var, A.Ref)):
             ty = self.type_of(unit, it.name)
         elif self._is_logical_expr(it):  # .TRUE. / A.GT.B / L1.AND.L2 -> LOGICAL, so it prints T/F
@@ -3138,6 +3140,15 @@ class Engine:
             elif isinstance(it, A.Var) and it.name in unit.arrays:
                 w = width(it.name)
                 out.extend(w * array_size(unit.arrays[it.name]))
+            elif isinstance(it, A.Substring):  # widthless A reads the substring window's length
+                lo = int(self.eval(it.lo, frame)) if it.lo is not None else 1
+                base = getattr(it.base, "name", None)
+                hi = (
+                    int(self.eval(it.hi, frame))
+                    if it.hi is not None
+                    else (self.char_length(unit, base) if base else lo)
+                )
+                out.append(max(hi - lo + 1, 0))
             elif isinstance(it, (A.Var, A.Ref)):
                 out.extend(width(it.name))
             else:
@@ -3202,9 +3213,13 @@ class Engine:
                 if ty == "COMPLEX" and not isinstance(v, complex):
                     v = complex(float(v), float(next(vals, 0.0)))
                 elif ty == "CHARACTER" and isinstance(v, str):
-                    # F77 A input (X3.9-1978 13.5.11): a field wider than the variable supplies
-                    # its rightmost chars; a narrower field is left-justified, blank-filled.
-                    n = self.char_length(frame.rt.unit, name) if name else len(v)
+                    # F77 A input (X3.9-1978 13.5.11): a field wider than the target supplies
+                    # its rightmost chars; a narrower field is left-justified, blank-filled. The
+                    # target length is the substring window (hi-lo+1), else the declared length.
+                    if isinstance(ref, SubstringRef):
+                        n = max(ref.hi - ref.lo + 1, 0)
+                    else:
+                        n = self.char_length(frame.rt.unit, name) if name else len(v)
                     v = (v[-n:] if len(v) > n else v.ljust(n)) if n else v
                 ref.write(v)
 

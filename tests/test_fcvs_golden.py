@@ -62,8 +62,6 @@ GFORTRAN_UNRELIABLE = {
 KNOWN_GF_DIFF = {
     "FM111": "IOFMTS print-and-eyeball FORMAT audit: forterp's COMPUTED rows differ on some "
     "edit-descriptor edges (FORMAT reversion over a long io-list). Eyeball-only; no self-check.",
-    "FM901": "AFMTF print-and-eyeball A-FORMAT-of-CHARACTER audit: forterp wraps a CHARACTER value "
-    "onto the next record where gfortran keeps it inline. Eyeball-only; the tests are INSPECT.",
 }
 
 # gfortran itself crashes at runtime on these (even fed the card deck), so there is NO golden to
@@ -234,4 +232,4 @@ def test_whole_corpus_is_accounted_for():
     assert len(corpus) == 192
     accounted = MATCHING | set(KNOWN_GF_DIFF) | set(GF_CANNOT_RUN)
     assert corpus == accounted, f"unaccounted routines: {sorted(corpus - accounted)}"
-    assert len(MATCHING) == 187  # 183 byte + FM905/907 value-token + FM257/406 self-check
+    assert len(MATCHING) == 188  # 184 byte + FM905/907 value-token + FM257/406 self-check
