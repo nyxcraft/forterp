@@ -189,3 +189,31 @@ def test_io_list_implied_do_leaves_control_var_at_terminal_value():
 
     eng = run(src, setup=fresh)
     assert [out(eng, 1), out(eng, 2)] == [6, 5.0]
+
+
+def test_iostat_specifier_is_defined_per_f77_12_7():
+    # X3.9-1978 12.7: a READ/WRITE with IOSTAT= defines that variable -- 0 on success, a
+    # POSITIVE value on an error, a NEGATIVE value at end-of-file. Regression: forterp parsed
+    # IOSTAT= but never assigned it (only INQUIRE used it), so the common IF(IOS.LT.0) EOF /
+    # IF(IOS.GT.0) error idiom silently saw a stale 0. Now assigned in the I/O guard.
+    src = (
+        "      PROGRAM T\n      COMMON /OUT/ V(3)\n      REAL V\n"
+        "      OPEN(UNIT=1, STATUS='SCRATCH', FORM='FORMATTED')\n"
+        "      WRITE(1,*) 11\n      REWIND 1\n"
+        "      READ(1,*,IOSTAT=I1) N1\n"  # success -> 0
+        "      READ(1,*,IOSTAT=I2) N2\n"  # EOF -> negative
+        "      V(1)=I1\n      V(2)=I2\n      V(3)=N1\n      END\n"
+    )
+    eng = run(src, dialect=forterp.F77)
+    i1, i2, n1 = (out(eng, i) for i in (1, 2, 3))
+    assert i1 == 0 and i2 < 0 and n1 == 11
+
+    # a numeric conversion error -> positive IOSTAT, and ERR= takes the branch
+    src = (
+        "      PROGRAM T\n      COMMON /OUT/ V(2)\n      REAL V\n      CHARACTER*5 S\n"
+        "      S='ABCDE'\n"
+        "      READ(S,'(I5)',IOSTAT=IOS,ERR=90) N\n      V(2)=0\n      GO TO 99\n"
+        "   90 V(2)=1\n   99 V(1)=IOS\n      END\n"
+    )
+    eng = run(src, dialect=forterp.F77)
+    assert out(eng, 1) > 0 and out(eng, 2) == 1

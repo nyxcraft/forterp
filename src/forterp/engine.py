@@ -1580,18 +1580,37 @@ class Engine:
     def _io_guard(self, s, do_fn, frame):
         """Run an I/O statement, routing a numeric input-conversion error (V5) to the
         READ's ERR= label if it has one, else letting it halt the program. Returns the
-        statement's own control signal (e.g. a Goto from END=) when no error occurs."""
+        statement's own control signal (e.g. a Goto from END=) when no error occurs.
+        Defines the IOSTAT= variable per X3.9-1978 12.7 (0 ok / positive error / negative EOF)."""
         from forterp.fmt import InputConversionError
 
+        self.last_io_error = IO_OK  # fresh per statement; do_fn sets EOF/error as needed
         try:
-            return do_fn(s, frame)
+            ctrl = do_fn(s, frame)
         except InputConversionError:
             self.last_io_error = IO_ILLEGAL_CHAR
-            specs = getattr(s, "specs", None)
-            err = specs.get("ERR") if specs else None
+            self._set_iostat(s, frame)
+            err = (getattr(s, "specs", None) or {}).get("ERR")
             if err is not None:
                 return Goto(err)
             raise
+        self._set_iostat(s, frame)
+        return ctrl
+
+    def _set_iostat(self, s, frame):
+        """Define an IOSTAT= variable from last_io_error (X3.9-1978 12.7): zero on success, a
+        processor-dependent POSITIVE value on an error, a NEGATIVE value at end-of-file."""
+        specs = getattr(s, "specs", None)
+        tgt = specs.get("IOSTAT") if specs else None
+        if tgt is None:
+            return
+        if self.last_io_error == IO_OK:
+            ios = 0
+        elif self.last_io_error == IO_EOF:
+            ios = -1  # EOF must be negative (the IF(IOS.LT.0) idiom)
+        else:
+            ios = self.last_io_error[0] or 1  # error: the positive ERRSNS status code
+        self.arg_ref(tgt, frame).write(ios)
 
     def _assign_substring(self, s, frame):
         """Assign to a CHARACTER substring target ``S(lo:hi) = expr``: splice the RHS (fitted to

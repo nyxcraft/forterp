@@ -512,3 +512,49 @@ is the full language; forterp does not implement the separate "subset FORTRAN" l
 - **Character assignment (10.4).** `v` and `e` may differ in length — `e` is blank-padded
   (`v` longer) or right-truncated (`v` shorter); assigning a substring leaves the rest
   unchanged. — ✓ (`A*2='ABCD'`→`'AB'`, `B*5='XY'`→`'XY   '`).
+
+### §11 Control statements
+
+- **GO TO (11.1–11.3).** unconditional, computed `GO TO (s,…)[,]i` (out-of-range `i` falls
+  through as `CONTINUE`), and assigned `GO TO i[,(s,…)]`. — ✓ (computed fall-through verified).
+- **Arithmetic IF (11.4).** `IF (e) s1,s2,s3` branches on `e<0`/`=0`/`>0` (`e` integer/real/
+  double). — ✓
+- **Logical IF (11.5).** `IF (e) st`. — ✓
+- **Block IF (11.6–11.9).** `IF(e) THEN` / `ELSE IF(e) THEN` / `ELSE` / `END IF`, IF-level
+  matching, no transfer into a block. — ✓ (covered by `test_f77.py`).
+- **DO (11.10).** `DO s[,]i = e1,e2[,e3]`; the DO-variable may be integer, real, or double;
+  **iteration count `MAX(INT((m2−m1+m3)/m3),0)` — a zero-trip loop when the count is ≤0** (the
+  signature F77 change from F66's one-trip minimum); after the loop the DO-variable keeps its
+  last value. — ✓ verified: zero-trip `DO K=5,1` runs 0× and leaves K=5; `DO I=1,10` leaves
+  I=11; `DO I=1,10,3` runs 4× and leaves I=13. (`zero_trip_do` is on under F77; F66/FORTRAN10
+  keep the one-trip rule.)
+- **CONTINUE / STOP / PAUSE / END (11.11–11.14).** `STOP [n]` / `PAUSE [n]` take ≤5 digits or a
+  character constant; `END` acts as `RETURN` in a subprogram and terminates in a main program.
+  — ✓
+
+### §12 Input/output statements
+
+- **The nine statements (§12).** `READ`, `WRITE`, `PRINT`, `OPEN`, `CLOSE`, `INQUIRE`,
+  `BACKSPACE`, `ENDFILE`, `REWIND`. — ✓
+- **Units & files (12.2–12.5).** external units (a non-negative integer or `*`) and internal
+  files (a character variable/array/element/substring); sequential and direct access;
+  `[UNIT=]u`, `[FMT=]f`, `REC=rn`. An internal file is sequential-formatted only (no `*`, no
+  `REC`). — ✓
+- **Control list (12.8).** exactly one unit, at most one of `FMT`/`REC`/`IOSTAT`/`ERR`/`END`;
+  array names expand to all elements (column-major); implied-DO lists; `READ(u) N,A(N)` reads
+  `N` first. — ✓
+- **`IOSTAT=` / `ERR=` / `END=` (12.6–12.7).** after the statement, `IOSTAT` is defined **0 on
+  success, positive on an error, negative at end-of-file**; `ERR=s` / `END=s` branch to `s`; a
+  read that meets EOF (or error) with none of these specifiers terminates the program. — ✓
+  **fixed in this review**: `IOSTAT=` was previously parsed but not assigned on READ/WRITE, so
+  the `IF(IOS.LT.0)`/`IF(IOS.GT.0)` idioms saw a stale 0; it is now defined per 12.7.
+- **OPEN / CLOSE (12.10.1–2).** `OPEN` specifiers `UNIT`/`FILE`/`STATUS`(OLD/NEW/SCRATCH/
+  UNKNOWN)/`ACCESS`(SEQUENTIAL/DIRECT)/`FORM`(FORMATTED/UNFORMATTED)/`RECL`/`BLANK`(NULL/ZERO)/
+  `IOSTAT`/`ERR`; `CLOSE` `STATUS`(KEEP/DELETE). — ✓
+- **INQUIRE (12.10.3).** by file or by unit: `EXIST`/`OPENED`/`NUMBER`/`NAMED`/`NAME`/`ACCESS`/
+  `SEQUENTIAL`/`DIRECT`/`FORM`/`FORMATTED`/`UNFORMATTED`/`RECL`/`NEXTREC`/`BLANK`. — ✓
+- **File positioning (12.10.4).** `BACKSPACE` / `ENDFILE` / `REWIND` (sequential units). — ✓
+- **Carriage control on printing (12.9.5.2.3).** leading `blank`/`0`/`1`/`+` ⇒ one line / two
+  lines / new page / no advance; the control character is not printed. — ✓ on the printer path
+  (`carriage_control`); ▲ under the FORTRAN-10 *terminal* model consecutive single spaces are
+  not doubled (a documented device-model nuance).

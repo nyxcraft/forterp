@@ -64,6 +64,8 @@
 <li><a class="section-nav__link section-nav__link--l3" href="#6-expressions">§6 Expressions</a></li>
 <li><a class="section-nav__link section-nav__link--l3" href="#7-statement-classification-8-specification-statements">§7 Statement classification, §8 Specification statements</a></li>
 <li><a class="section-nav__link section-nav__link--l3" href="#9-data-10-assignment">§9 DATA, §10 Assignment</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#11-control-statements">§11 Control statements</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#12-input-output-statements">§12 Input/output statements</a></li>
 </ul>
         </nav>
       </aside>
@@ -602,6 +604,52 @@ for an assigned <code>GO TO</code> or a run-time format identifier; <code>s</cod
 <li><strong>Character assignment (10.4).</strong> <code>v</code> and <code>e</code> may differ in length — <code>e</code> is blank-padded
 (<code>v</code> longer) or right-truncated (<code>v</code> shorter); assigning a substring leaves the rest
 unchanged. — ✓ (<code>A*2='ABCD'</code>→<code>'AB'</code>, <code>B*5='XY'</code>→<code>'XY   '</code>).</li>
+</ul>
+<h3 id="11-control-statements">§11 Control statements</h3>
+<ul>
+<li><strong>GO TO (11.1–11.3).</strong> unconditional, computed <code>GO TO (s,…)[,]i</code> (out-of-range <code>i</code> falls
+through as <code>CONTINUE</code>), and assigned <code>GO TO i[,(s,…)]</code>. — ✓ (computed fall-through verified).</li>
+<li><strong>Arithmetic IF (11.4).</strong> <code>IF (e) s1,s2,s3</code> branches on <code>e&lt;0</code>/<code>=0</code>/<code>&gt;0</code> (<code>e</code> integer/real/
+double). — ✓</li>
+<li><strong>Logical IF (11.5).</strong> <code>IF (e) st</code>. — ✓</li>
+<li><strong>Block IF (11.6–11.9).</strong> <code>IF(e) THEN</code> / <code>ELSE IF(e) THEN</code> / <code>ELSE</code> / <code>END IF</code>, IF-level
+matching, no transfer into a block. — ✓ (covered by <code>test_f77.py</code>).</li>
+<li><strong>DO (11.10).</strong> <code>DO s[,]i = e1,e2[,e3]</code>; the DO-variable may be integer, real, or double;
+<strong>iteration count <code>MAX(INT((m2−m1+m3)/m3),0)</code> — a zero-trip loop when the count is ≤0</strong> (the
+signature F77 change from F66's one-trip minimum); after the loop the DO-variable keeps its
+last value. — ✓ verified: zero-trip <code>DO K=5,1</code> runs 0× and leaves K=5; <code>DO I=1,10</code> leaves
+I=11; <code>DO I=1,10,3</code> runs 4× and leaves I=13. (<code>zero_trip_do</code> is on under F77; F66/FORTRAN10
+keep the one-trip rule.)</li>
+<li><strong>CONTINUE / STOP / PAUSE / END (11.11–11.14).</strong> <code>STOP [n]</code> / <code>PAUSE [n]</code> take ≤5 digits or a
+character constant; <code>END</code> acts as <code>RETURN</code> in a subprogram and terminates in a main program.
+— ✓</li>
+</ul>
+<h3 id="12-input-output-statements">§12 Input/output statements</h3>
+<ul>
+<li><strong>The nine statements (§12).</strong> <code>READ</code>, <code>WRITE</code>, <code>PRINT</code>, <code>OPEN</code>, <code>CLOSE</code>, <code>INQUIRE</code>,
+<code>BACKSPACE</code>, <code>ENDFILE</code>, <code>REWIND</code>. — ✓</li>
+<li><strong>Units &amp; files (12.2–12.5).</strong> external units (a non-negative integer or <code>*</code>) and internal
+files (a character variable/array/element/substring); sequential and direct access;
+<code>[UNIT=]u</code>, <code>[FMT=]f</code>, <code>REC=rn</code>. An internal file is sequential-formatted only (no <code>*</code>, no
+<code>REC</code>). — ✓</li>
+<li><strong>Control list (12.8).</strong> exactly one unit, at most one of <code>FMT</code>/<code>REC</code>/<code>IOSTAT</code>/<code>ERR</code>/<code>END</code>;
+array names expand to all elements (column-major); implied-DO lists; <code>READ(u) N,A(N)</code> reads
+<code>N</code> first. — ✓</li>
+<li><strong><code>IOSTAT=</code> / <code>ERR=</code> / <code>END=</code> (12.6–12.7).</strong> after the statement, <code>IOSTAT</code> is defined <strong>0 on
+success, positive on an error, negative at end-of-file</strong>; <code>ERR=s</code> / <code>END=s</code> branch to <code>s</code>; a
+read that meets EOF (or error) with none of these specifiers terminates the program. — ✓
+<strong>fixed in this review</strong>: <code>IOSTAT=</code> was previously parsed but not assigned on READ/WRITE, so
+the <code>IF(IOS.LT.0)</code>/<code>IF(IOS.GT.0)</code> idioms saw a stale 0; it is now defined per 12.7.</li>
+<li><strong>OPEN / CLOSE (12.10.1–2).</strong> <code>OPEN</code> specifiers <code>UNIT</code>/<code>FILE</code>/<code>STATUS</code>(OLD/NEW/SCRATCH/
+UNKNOWN)/<code>ACCESS</code>(SEQUENTIAL/DIRECT)/<code>FORM</code>(FORMATTED/UNFORMATTED)/<code>RECL</code>/<code>BLANK</code>(NULL/ZERO)/
+<code>IOSTAT</code>/<code>ERR</code>; <code>CLOSE</code> <code>STATUS</code>(KEEP/DELETE). — ✓</li>
+<li><strong>INQUIRE (12.10.3).</strong> by file or by unit: <code>EXIST</code>/<code>OPENED</code>/<code>NUMBER</code>/<code>NAMED</code>/<code>NAME</code>/<code>ACCESS</code>/
+<code>SEQUENTIAL</code>/<code>DIRECT</code>/<code>FORM</code>/<code>FORMATTED</code>/<code>UNFORMATTED</code>/<code>RECL</code>/<code>NEXTREC</code>/<code>BLANK</code>. — ✓</li>
+<li><strong>File positioning (12.10.4).</strong> <code>BACKSPACE</code> / <code>ENDFILE</code> / <code>REWIND</code> (sequential units). — ✓</li>
+<li><strong>Carriage control on printing (12.9.5.2.3).</strong> leading <code>blank</code>/<code>0</code>/<code>1</code>/<code>+</code> ⇒ one line / two
+lines / new page / no advance; the control character is not printed. — ✓ on the printer path
+(<code>carriage_control</code>); ▲ under the FORTRAN-10 <em>terminal</em> model consecutive single spaces are
+not doubled (a documented device-model nuance).</li>
 </ul>
 
         </div>
