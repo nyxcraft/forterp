@@ -49,6 +49,27 @@ def test_backspace_then_write_replaces_the_record():
     assert json.load(open(os.path.join(root, "X.DAT"))) == [[10], [20], [99]]
 
 
+def test_unformatted_complex_round_trips_through_the_file_store():
+    # A COMPLEX value written to an unformatted file must survive CLOSE + re-OPEN + READ.
+    # Regression: the portable (JSON) record store could not serialize a Python complex
+    # (TypeError: Object of type complex is not JSON serializable) -- now tagged as [re, im].
+    src = (
+        "      PROGRAM T\n      COMPLEX Z\n      COMMON /O/ ZR, ZI\n"
+        "      OPEN(UNIT=1, ACCESS='SEQOUT', FILE='Z.DAT')\n"
+        "      WRITE(1) (3.5, -2.25)\n      CLOSE(1)\n"
+        "      OPEN(UNIT=1, ACCESS='SEQIN', FILE='Z.DAT')\n"
+        "      READ(1) Z\n      CLOSE(1)\n      ZR = REAL(Z)\n      ZI = AIMAG(Z)\n      END\n"
+    )
+    root = tempfile.mkdtemp()
+    eng = forterp.fortran10.build_engine(  # portable JSON backend (forots binary path is separate)
+        forterp.fortran10.parse_text(src)[0], root=root, forots=False
+    )
+    eng.run_program("T")
+    assert eng.commons["O"] == [3.5, -2.25]
+    # the on-disk record persisted the complex as a tagged [re, im] pair
+    assert json.load(open(os.path.join(root, "Z.DAT"))) == [[{"__complex__": [3.5, -2.25]}]]
+
+
 def test_decode_of_a_malformed_field_raises_a_conversion_error():
     # DECODE (internal formatted READ) routes a bad numeric field through the same
     # conversion error as a real READ -- a clean error, not a crash.

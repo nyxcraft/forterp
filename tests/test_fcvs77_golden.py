@@ -57,7 +57,8 @@ KNOWN_DIVERGENT = {
     # text, char-after-char concatenation) and validated by the per-test _value_match checker.
     "FM908",
     "FM909",
-    "FM910",
+    # FM910 fixed -- unformatted COMPLEX round-trips through the JSON record store, and the
+    # multi-record CHARACTER-ARRAY internal READ advances records on '/'.
 }
 
 
@@ -179,4 +180,4 @@ def test_punchlist_has_no_stale_entries():
 
 def test_most_of_the_corpus_matches():
     # Floor on validated output coverage (ratchets up as the punch-list shrinks).
-    assert len(MATCHING) >= 109
+    assert len(MATCHING) >= 110

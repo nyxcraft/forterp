@@ -619,6 +619,11 @@ def read_values(
             w = len(it.a)
             it.a = line[pos : pos + w].ljust(w)
             pos += w
+        elif k == "/":  # record separator: skip to the start of the next record (next '\n').
+            # Multi-record `line` is newline-joined records (an internal CHARACTER-ARRAY file);
+            # the file-read path pre-splits the format on '/' so it never passes one in here.
+            nl = line.find("\n", pos)
+            pos = nl + 1 if nl != -1 else len(line)
         elif k == "X":
             pos += it.a or 1
         elif k == "T":  # tab to 1-based column

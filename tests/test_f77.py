@@ -721,6 +721,20 @@ def test_internal_file_character_array_write():
     assert eng.commons["O"][0] == "   42   99"
 
 
+def test_internal_file_character_array_read():
+    # The inverse of the array WRITE above (X3.9-1978 12.2.2): a CHARACTER ARRAY internal file
+    # READ takes each element as a record, and a '/'-reverting FORMAT advances element to element.
+    # Regression: the READ path used to str() the array view object (a Python repr) instead of
+    # reading its elements, raising an InputConversionError.
+    src = (
+        "      PROGRAM T\n      COMMON /O/ N(8)\n      CHARACTER*10 BUF(3)\n"
+        "      BUF(1)='11 22'\n      BUF(2)='33'\n      BUF(3)='44'\n"
+        "      READ(UNIT=BUF,FMT=90) N(1),N(2),N(3)\n   90 FORMAT(I2,1X,I2,/,I2,/,I2)\n      END\n"
+    )
+    eng = forterp.run_source(src, dialect=forterp.F77, target=forterp.NATIVE)
+    assert eng.commons["O"][:3] == [11, 22, 33]  # 11,22 from BUF(1); 33 from BUF(2) after '/'
+
+
 def test_internal_write_mixed_a_and_i():
     body = (
         "      CHARACTER R*12, W*5\n      INTEGER K\n"

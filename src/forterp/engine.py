@@ -66,6 +66,20 @@ IO_ILLEGAL_CHAR = (38, 311)  # illegal character in formatted input
 ENDFILE_MARK = ("__ENDFILE__",)
 
 
+def _json_default(o):
+    """json.dump hook: a COMPLEX word (unformatted I/O of a COMPLEX value) is not JSON-native,
+    so persist it as a tagged [re, im] pair that _json_object_hook restores on read-back."""
+    if isinstance(o, complex):
+        return {"__complex__": [o.real, o.imag]}
+    raise TypeError(f"cannot serialize {type(o).__name__} to the JSON record store")
+
+
+def _json_object_hook(d):
+    """json.loads hook: restore a tagged complex pair (see _json_default) to a Python complex."""
+    c = d.get("__complex__")
+    return complex(c[0], c[1]) if c is not None else d
+
+
 # ----------------------------------------------------------------- references
 #: counts faithful out-of-bounds cell accesses (FORTRAN-10 had no array bounds
 #: checking; OOB touched adjacent memory). Per-process; tools snapshot the delta.
@@ -2287,7 +2301,15 @@ class Engine:
 
         items = self._parsed(self._fmt_spec(s.fmt, frame))
         if s.mode == "READ":
-            text = str(self.eval(s.unit, frame))
+            if isinstance(s.unit, A.Var) and s.unit.name in frame.rt.unit.arrays:
+                # internal file = CHARACTER ARRAY: each element is a record (the inverse of the
+                # array WRITE below). Join them with '\n' so a reverting / '/'-split FORMAT
+                # advances element to element, instead of str()-ing the array view object.
+                view = self.arrayview(frame, s.unit.name)
+                size = array_size(frame.rt.unit.arrays[s.unit.name])
+                text = "\n".join(str(view.loc(i).read()) for i in range(size))
+            else:
+                text = str(self.eval(s.unit, frame))
             aw = iter(self._a_field_widths(s.items, frame)) if self.character_type else None
             reads = read_values(
                 items,
@@ -2728,7 +2750,7 @@ class Engine:
                         fh.write(self._binio().encode_binary_file(data))
                 else:
                     with open(path, "w") as fh:
-                        json.dump(data, fh)
+                        json.dump(data, fh, default=_json_default)
             return None
         # device control: REWIND / BACKSPACE / ENDFILE / SKIP RECORD / SKIP FILE
         st = self.io.get(unit)
@@ -2775,7 +2797,8 @@ class Engine:
                 raise OSError(f"{path}: not a valid FOROTS binary file ({e})") from e
             return {"recs": recs, "pos": 0, "mode": "r", "path": path, "dec": True}
         try:  # our portable form / legacy saves: a JSON record list
-            return {"recs": json.loads(raw or b"[]"), "pos": 0, "mode": "r", "path": path}
+            recs = json.loads(raw or b"[]", object_hook=_json_object_hook)
+            return {"recs": recs, "pos": 0, "mode": "r", "path": path}
         except ValueError:  # not JSON -> a formatted text data file
             return {
                 "lines": raw.decode(errors="replace").splitlines(),

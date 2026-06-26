@@ -42,6 +42,11 @@ _ERRS = re.compile(r"(\d+)\s+(?:ERRORS?\s+ENCOUNTERED|TESTS?\s+FAILED)")
 # and the declared total ("THIS PROGRAM HAS nnn TESTS"). Used to assert no early termination:
 # a routine that crashed after printing a few passes would otherwise read as "0 failures".
 _EXEC = re.compile(r"(\d+)\s+OF\s+(\d+)\s+TESTS?\s+EXECUTED")
+# Routines that, by their own design, execute fewer than their declared tests -- a conditional
+# block the routine itself gates, NOT an early-termination crash. Maps the routine to the number
+# it is EXPECTED to execute. Each is validated against the gfortran golden, which shows the same
+# partial count. FM910: tests 2-6 run only "IF DIRECT ACCESS" is supported; gfortran runs 5 of 6.
+_EXPECTED_PARTIAL = {"FM910.FOR": 5}
 _DELETED = re.compile(r"(\d+)\s+TESTS?\s+(?:WERE\s+)?DELETED")
 _INSPECT = re.compile(r"(\d+)\s+TESTS?\s+REQUIRE\s+INSPECTION")
 _DECLARED = re.compile(r"THIS PROGRAM HAS\s+(\d+)\s+TESTS")
@@ -150,7 +155,8 @@ def run_corpus(corpus_dir=CORPUS_DIR, target=PDP10, dialect=FORTRAN10, character
             inspect_routines.append(name)
         if meta["executed_of"] is not None:
             n_checked += 1
-            if meta["executed"] != meta["executed_of"]:
+            expected = _EXPECTED_PARTIAL.get(name, meta["executed_of"])  # design-gated partials
+            if meta["executed"] != expected:
                 incomplete.append(f"{name}: ran {meta['executed']} of {meta['executed_of']}")
         elif meta["declared"] is not None and (p + e) > 0:
             n_checked += 1

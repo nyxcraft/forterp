@@ -176,6 +176,16 @@ def test_advance_before_defers_the_first_records_advance():
 
 
 # ---- input parsing (ACCEPT/READ side) --------------------------------------
+def test_read_slash_advances_to_the_next_record():
+    # A '/' in an input FORMAT skips to the start of the next record. When `line` is several
+    # newline-joined records (a multi-record internal CHARACTER-ARRAY file), '/' must jump past
+    # the next '\n'; '//' skips a whole record. Regression: '/' used to be a no-op on input, so
+    # the cursor walked straight through the '\n' as if it were data.
+    text = "\n".join(["1.0  2.0  ", "3.0       ", "skipme    ", "4.0       "])
+    vals = read_values(parse_format("(F4.1,1X,F4.1,/,F4.1,//,F4.1)"), text)
+    assert [v[1] for v in vals] == [1.0, 2.0, 3.0, 4.0]  # 4.0 from record 4, record 3 skipped
+
+
 def test_read_widthd_fields_by_column():
     # F66 7.2.3.6: a WIDTH'D numeric field is read by COLUMN width, so packed digits
     # split by field width ...
