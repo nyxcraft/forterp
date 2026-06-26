@@ -458,6 +458,9 @@ is the full language; forterp does not implement the separate "subset FORTRAN" l
 - **Relational (6.3).** `.LT. .LE. .EQ. .NE. .GT. .GE.`; compare two arithmetic or two
   character operands (never mixed); a complex operand only with `.EQ.`/`.NE.`; the shorter
   character operand is blank-padded on the right; `.EQ.`/`.NE.` are collating-independent. — ✓
+  — ▲ a *prohibited* ordering comparison on a complex operand (e.g. `C1 .LT. C2`) is not
+  diagnosed; forterp evaluates it with no guaranteed result (a nonconforming program; "no
+  predictable value" latitude).
 - **Logical (6.4).** `.NOT. .AND. .OR. .EQV. .NEQV.`, precedence `.NOT.` > `.AND.` > `.OR.` >
   `.EQV./.NEQV.`, left-associative within a level. — ✓ verified.
 - **Operator-class precedence (6.5).** arithmetic > character > relational > logical. — ✓
@@ -697,6 +700,13 @@ Appendices A–D) and checking forterp against each rule. Findings:
   variable (§8/§15.10 — must be the declared length), and the `IOSTAT=` specifier never being
   assigned on `READ`/`WRITE` (§12.7 — must be 0 / positive / negative). Both have regression
   tests.
+- **A follow-up audit (`tests/test_f77_audit.py`) locks in the subtle rules.** A second,
+  skeptical pass re-probed every claim against the live interpreter and added dedicated
+  regression tests for the ANSI rules that previously had only incidental (FCVS) coverage:
+  `**` right-associativity and `-A**2`, the real-base/integer-exponent rule, the four-tier
+  operator-class precedence, real/double `DO` control variables, column-major storage via
+  `EQUIVALENCE`, `Iw.0`-of-zero blanking, and the permitted-recursion extension. No new bugs
+  were found; the only new observation is the undiagnosed complex-ordering case noted in §6.3.
 - **The documented `▲` divergences are deliberate and benign** — the pluggable value model
   (NATIVE `REAL`≡`DOUBLE PRECISION` precision and `DOUBLE PRECISION` as one value slot; the
   PDP10 target is faithful), non-fatal arithmetic, untrapped out-of-bounds / undefined access,

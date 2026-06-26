@@ -557,7 +557,10 @@ eagerly.</li>
 value. — ✓</li>
 <li><strong>Relational (6.3).</strong> <code>.LT. .LE. .EQ. .NE. .GT. .GE.</code>; compare two arithmetic or two
 character operands (never mixed); a complex operand only with <code>.EQ.</code>/<code>.NE.</code>; the shorter
-character operand is blank-padded on the right; <code>.EQ.</code>/<code>.NE.</code> are collating-independent. — ✓</li>
+character operand is blank-padded on the right; <code>.EQ.</code>/<code>.NE.</code> are collating-independent. — ✓
+— ▲ a <em>prohibited</em> ordering comparison on a complex operand (e.g. <code>C1 .LT. C2</code>) is not
+diagnosed; forterp evaluates it with no guaranteed result (a nonconforming program; &quot;no
+predictable value&quot; latitude).</li>
 <li><strong>Logical (6.4).</strong> <code>.NOT. .AND. .OR. .EQV. .NEQV.</code>, precedence <code>.NOT.</code> &gt; <code>.AND.</code> &gt; <code>.OR.</code> &gt;
 <code>.EQV./.NEQV.</code>, left-associative within a level. — ✓ verified.</li>
 <li><strong>Operator-class precedence (6.5).</strong> arithmetic &gt; character &gt; relational &gt; logical. — ✓</li>
@@ -794,6 +797,13 @@ intrinsic functions</strong> with their specified semantics.</li>
 variable (§8/§15.10 — must be the declared length), and the <code>IOSTAT=</code> specifier never being
 assigned on <code>READ</code>/<code>WRITE</code> (§12.7 — must be 0 / positive / negative). Both have regression
 tests.</li>
+<li><strong>A follow-up audit (<code>tests/test_f77_audit.py</code>) locks in the subtle rules.</strong> A second,
+skeptical pass re-probed every claim against the live interpreter and added dedicated
+regression tests for the ANSI rules that previously had only incidental (FCVS) coverage:
+<code>**</code> right-associativity and <code>-A**2</code>, the real-base/integer-exponent rule, the four-tier
+operator-class precedence, real/double <code>DO</code> control variables, column-major storage via
+<code>EQUIVALENCE</code>, <code>Iw.0</code>-of-zero blanking, and the permitted-recursion extension. No new bugs
+were found; the only new observation is the undiagnosed complex-ordering case noted in §6.3.</li>
 <li><strong>The documented <code>▲</code> divergences are deliberate and benign</strong> — the pluggable value model
 (NATIVE <code>REAL</code>≡<code>DOUBLE PRECISION</code> precision and <code>DOUBLE PRECISION</code> as one value slot; the
 PDP10 target is faithful), non-fatal arithmetic, untrapped out-of-bounds / undefined access,
