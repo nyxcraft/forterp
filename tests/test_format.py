@@ -244,6 +244,19 @@ def test_read_widthd_fields_by_column():
     assert read_values(parse_format("(I5)"), "42") == [("I", 42000)]
 
 
+def test_read_real_letterless_signed_exponent():
+    # FORTRAN real input lets the exponent letter be DROPPED before a SIGNED exponent
+    # (X3.9-1978 13.5.9.2.2): '0.987+1' is 0.987x10**1, '-.334-4' is -.334x10**-4. The E/D form
+    # still works, and a trailing sign with no exponent digits means x10**0. Regression for FM900
+    # (FMTRWF), which feeds exactly these letterless forms.
+    assert read_values(parse_format("(E8.1)"), "+0.987+1") == [("F", approx(9.87))]
+    assert read_values(parse_format("(E10.3)"), "-0.2345+02") == [("F", approx(-23.45))]
+    assert read_values(parse_format("(E7.3)"), "-.334-4") == [("F", approx(-3.34e-5))]
+    assert read_values(parse_format("(E9.2)"), "0.123E+01") == [("F", approx(1.23))]
+    assert read_values(parse_format("(E6.2)"), "-.96+1") == [("F", approx(-9.6))]
+    assert read_values(parse_format("(E5.2)"), "-.97+") == [("F", approx(-0.97))]  # x10**0
+
+
 def test_read_widthless_descriptors_are_free_form():
     # With the FORTRAN-10 free-form input extension (free_form=True), a WIDTHLESS
     # descriptor ([DEC]; F66 requires a width) reads one free-form, space/comma/TAB-

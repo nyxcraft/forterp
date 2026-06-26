@@ -67,20 +67,24 @@ KNOWN_GF_DIFF = {
     "Eyeball-only; gfortran is the outlier here, but there is no PASS/FAIL self-check to lean on.",
 }
 
-# gfortran itself crashes at runtime on these (even fed the card deck), so there is NO golden to
-# diff against -- they rely on forterp's self-check alone (the conformance baselines run them).
-# All three die the same way: a formatted numeric READ of a DELIBERATELY DEGENERATE field (a bare
-# '.', a sign or exponent letter with no digits, an all-blank field) -- exactly the optional
-# components X3.9-1978 13.5.9 requires a processor to accept. forterp reads them leniently (the
-# F66/V5 rules the tests check: optional sign/leading-zero, blanks-as-zeros) and PASSes; gfortran's
-# strict runtime rejects them with "Bad value during {integer,floating point} read" and aborts.
+# OPEN GAP -- these three are validated by NEITHER oracle today, and that is not yet resolved.
+# gfortran aborts at runtime ("Bad value during {integer,floating point} read") on their card
+# decks, so there is no golden to diff against. But forterp ALSO does not run them to completion:
+# it raises InputConversionError on the same hostile, column-packed numeric fields. Each routine's
+# deck is hand-packed to exact field widths with degenerate forms (a bare '.', a letterless or
+# empty exponent, fields abutting with no separator); when the FORMAT's field widths do not line up
+# with the data, a field grabs characters from its neighbour ('89.9997.', '-.97+ -') and the read
+# fails. So calling these "pass" would be FALSE -- they run only as far as their header (FM110,
+# FM900) or part-way (FM403). The letterless-exponent input form (0.987+1) is now supported and
+# advances FM900 past its first cards, but the field-width-alignment problem remains UNSOLVED.
+# They stay enumerated here (excluded from MATCHING) as a known, honestly-flagged gap, not a win.
 GF_CANNOT_RUN = {
-    "FM110": "IOFMT: READ at FM110.FOR:205 (4(I5),4(F3.1),... over cards 1-2) hits a bare '.' / "
-    "blank in an I field -> gfortran 'Bad value during integer read', Error termination.",
-    "FM403": "FMTRW: READ at FM403.FOR:445 (E8.1..E14.7, 'LEADING PLUS SIGN/ZERO OPTIONAL' card "
-    "10) hits a sign/exponent-only field -> gfortran 'Bad value during floating point read'.",
-    "FM900": "FMTRWF: READ at FM900.FOR:445 (D9.2 group over cards 13-14) hits a degenerate D "
-    "field -> gfortran 'Bad value during floating point read', Error termination -- no stdout.",
+    "FM110": "IOFMT: gfortran aborts ('Bad value during integer read', FM110.FOR:205); forterp "
+    "also raises InputConversionError (a '.' in an I field), emitting only its header. UNVALID.",
+    "FM403": "FMTRW: gfortran aborts ('Bad value during floating point read', FM403.FOR:445); "
+    "forterp also raises part-way (a field grabs a neighbour's digit -> '89.9997.'). UNVALIDATED.",
+    "FM900": "FMTRWF: gfortran aborts ('Bad value during floating point read'); forterp now reads "
+    "the letterless exponents but still raises later on a misaligned field ('-.97+'). UNVALIDATED.",
 }
 
 

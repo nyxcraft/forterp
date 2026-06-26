@@ -729,6 +729,7 @@ def _read_real(field, d, scale, blank_zero=True):
     s = _blank_fill(field, blank_zero).replace("D", "E").replace("d", "e")
     if not s or s in ("+", "-"):  # all-blank field -> zero (blanks-as-zero)
         return 0.0
+    s = _exp_letter(s)  # FORTRAN's letterless exponent form: 0.987+1 -> 0.987e+1
     try:
         v = float(s)
     except ValueError:
@@ -740,6 +741,20 @@ def _read_real(field, d, scale, blank_zero=True):
     if scale and not _has_exponent(field):  # external = internal * 10**scale
         v /= 10.0**scale
     return v
+
+
+def _exp_letter(s):
+    """Insert the implied exponent letter for FORTRAN's letterless real-input form, where a
+    SIGNED exponent may follow the mantissa with no E/D (X3.9-1978 13.5.9.2.2): '0.987+1' is
+    0.987x10**1, '-.334-4' is -.334x10**-4. A leading mantissa sign, or a +/- already preceded
+    by e/E, is left alone. A trailing sign with no exponent digits ('-.97+') means x10**0."""
+    out = []
+    for i, c in enumerate(s):
+        if c in "+-" and i > 0 and s[i - 1] not in "eE":
+            out.append("e")
+        out.append(c)
+    r = "".join(out)
+    return r[:-2] if r[-2:] in ("e+", "e-") else r  # empty exponent -> x10**0
 
 
 def _has_exponent(field):
