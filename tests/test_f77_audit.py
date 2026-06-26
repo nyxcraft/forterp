@@ -119,15 +119,49 @@ def test_iw_zero_of_a_zero_value_is_all_blanks():
     ]
 
 
-# ---- documented ▲ divergence: recursion is permitted (3.6 / 15.2 forbid it) ----------------
+# ---- §4.8.1: a character constant must be a nonempty string -------------------------------
 
 
-def test_recursion_is_permitted_a_documented_extension():
-    # The standard forbids a procedure being referenced again before its prior RETURN/END
-    # (3.6, 15.2). forterp permits direct recursion -- a benign extension; pin the behavior.
-    out = _o(
-        "      N(1)=IFAC(5)\n      END\n"
-        "      INTEGER FUNCTION IFAC(K)\n"
-        "      IF(K.LE.1)THEN\n      IFAC=1\n      ELSE\n      IFAC=K*IFAC(K-1)\n      END IF\n"
+def test_empty_character_constant_is_rejected():
+    # §4.8.1: "an apostrophe followed by a NONEMPTY string of characters followed by an
+    # apostrophe." A zero-length string is meaningless (and a Fortran-90 feature, not F77), so
+    # forterp rejects '' on every dialect rather than carry a useless empty token.
+    import pytest
+
+    for dialect in (forterp.F77, forterp.FORTRAN10):
+        with pytest.raises(forterp.ParseError) as exc:
+            forterp.run_source(
+                "      PROGRAM T\n      CHARACTER*4 C\n      C=''\n      END\n",
+                dialect=dialect,
+                target=forterp.NATIVE,
+            )
+        assert "empty character constant" in str(exc.value)
+
+
+def test_doubled_apostrophe_is_an_embedded_apostrophe_not_empty():
+    # The rejection keys on the RESOLVED value, so a doubled apostrophe (an embedded ') is fine:
+    # 'O''CLOCK' is the 7-character string O'CLOCK, not an empty constant.
+    eng = forterp.run_source(
+        "      PROGRAM T\n      COMMON /O/ C\n      CHARACTER*8 C\n      C='O''CLOCK'\n      END\n",
+        dialect=forterp.F77,
+        target=forterp.NATIVE,
     )
-    assert out[0] == 120
+    assert eng.commons["O"][0] == "O'CLOCK "
+
+
+# ---- §15.5.2: recursion is rejected by default (was silently wrong; see test_recursion.py) ---
+
+
+def test_recursion_is_rejected_by_default():
+    # §15.5.2: "A subprogram must not reference itself, either directly or indirectly." forterp's
+    # static local storage cannot represent recursion, so a re-entry is a hard error rather than
+    # the silent wrong answer it used to give. The `recursion` dialect knob permits it correctly
+    # -- exercised in tests/test_recursion.py.
+    import pytest
+
+    with pytest.raises(forterp.engine.IllegalRecursion):
+        _o(
+            "      N(1)=IFAC(5)\n      END\n"
+            "      INTEGER FUNCTION IFAC(K)\n"
+            "      IF(K.LE.1)THEN\n      IFAC=1\n      ELSE\n      IFAC=K*IFAC(K-1)\n      END IF\n"
+        )

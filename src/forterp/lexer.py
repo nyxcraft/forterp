@@ -154,6 +154,16 @@ def tokenize(s: str, dialect=F66) -> list[Token]:
             if not dialect.apostrophe_string:  # F66 5.1.1.6: strings are Hollerith nH only
                 raise LexError("apostrophe string literal is a FORTRAN-10 extension", i)
             val, i2 = _read_string(s, i)
+            if not val:  # F77 4.8.1: a character constant is a NONEMPTY string of characters.
+                # A zero-length string is meaningless in both the CHARACTER and Hollerith models
+                # (and is a Fortran-90 feature, not F77) -- reject it rather than carry a useless
+                # empty token. `''` resolving non-empty (an embedded apostrophe, e.g. 'O''CLOCK')
+                # is unaffected -- this fires only on the genuinely empty constant.
+                raise LexError(
+                    "empty character constant -- a nonempty string is required (F77 4.8.1)",
+                    i,
+                    "ECC",
+                )
             toks.append(Token("STR", val, i))
             i = i2
             continue

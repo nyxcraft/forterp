@@ -350,8 +350,7 @@ is the full language; forterp does not implement the separate "subset FORTRAN" l
   meaning. A program must not use processor-added intrinsics; a name in `EXTERNAL` overrides
   any like-named processor intrinsic. — ✓ forterp's F77 is the full language; the DEC
   extensions live on the separate `FORTRAN10` dialect, off under `F77`.
-- **Symbolic name (2.2).** 1–6 letters/digits, first a letter. — ▲ forterp accepts longer
-  names with a warning (`%`/`LID`), a common, harmless extension.
+- **Symbolic name (2.2).** 1–6 letters/digits, first a letter. — ✓
 - **Statement label (2.2).** 1–5 digits, at least one nonzero. — ✓
 - **No reserved words (2.2).** keyword vs name is by context. — ✓
 - **Program structure (2.4).** one main program + any number of subprograms/external
@@ -382,21 +381,24 @@ is the full language; forterp does not implement the separate "subset FORTRAN" l
 - **Fixed source form (3.2).** 72-column lines; comment = `C`/`*` in col 1 or all-blank;
   initial line has blank/`0` in col 6; a continuation line has a non-blank, non-`0` col 6 and
   blank cols 1–5; ≤19 continuation lines; statement text in cols 7–72; `END` only on an
-  initial line. — ✓ source is read as cols 7–72. — ▲ forterp also honors the DEC column-1
-  markers `! $ / D` (and `c`), a superset of F77's `C`/`*`; the ≤19-continuation limit is not
-  enforced. Both are benign (an "accept-more" latitude). The trailing-`!` inline comment is
-  **off** under F77.
+  initial line. — ✓
 - **Statement labels (3.4).** 1–5 digits, ≥1 nonzero, cols 1–5, unique per program unit,
   leading zeros/blanks insignificant; only labeled executable and `FORMAT` statements are
   referenceable. — ✓
 - **Statement order (3.5).** `PROGRAM`/`FUNCTION`/`SUBROUTINE`/`BLOCK DATA` first;
   `IMPLICIT` before other specs (except `PARAMETER`); specifications before
-  `DATA`/statement-functions/executables; statement functions before executables; `END` last.
-  — ▲ forterp does **not** enforce this ordering (it accepts, e.g., `DATA` before a
-  type-statement); lenient, never mis-runs a conforming program.
+  `DATA`/statement-functions/executables; statement functions before executables; `FORMAT`/
+  `DATA`/`ENTRY` may float past the spec section; `END` last. — ✓ **enforced under F77**: a
+  specification statement appearing after an executable statement is a hard error (`?FTNORD`,
+  the `strict_stmt_order` knob; verified against the corpus — no conforming routine trips it).
+  The finer sub-rules — `IMPLICIT` before the other specifications, and the `PARAMETER`
+  type-ordering — are not yet diagnosed.
 - **Execution & recursion (3.6).** execution starts at the main program's first executable;
   a procedure "must not be referenced a second time without the prior execution of a `RETURN`
-  or `END`" — i.e. **no recursion**. — ▲ forterp permits recursion (a benign extension).
+  or `END`" — i.e. **no recursion**. — ✓ **enforced**: re-entry of a still-active unit (direct
+  or indirect) raises `IllegalRecursion` on every dialect, rather than silently corrupting the
+  static locals. The `recursion` dialect knob opts in to permitting it *correctly* (per-call
+  local storage); see [§15](#15-functions-and-subroutines).
 
 ### §4 Data types and constants
 
@@ -414,9 +416,12 @@ is the full language; forterp does not implement the separate "subset FORTRAN" l
 - **Complex constant (4.6.1).** `(re, im)` where each part is an optionally-signed real or
   integer constant; two numeric storage units (real then imaginary). — ✓
 - **Logical (4.7).** `.TRUE.` / `.FALSE.` only. — ✓
-- **Character constant (4.8.1).** `'…'`, blanks significant, `''` is one embedded apostrophe;
-  length must be > 0. — ▲ forterp also accepts the empty constant `''` (length 0); benign,
-  a conforming program never writes one.
+- **Character constant (4.8.1).** an apostrophe, a **nonempty** string of characters, an
+  apostrophe; blanks significant; a doubled `''` denotes one embedded apostrophe. — ✓ the
+  nonempty requirement is **enforced on every dialect**: the empty constant `''` is a hard
+  error (`?FTNECC`), since a zero-length string is meaningless in both the CHARACTER and
+  Hollerith models (and is a Fortran-90 feature, not F77). The check keys on the resolved
+  value, so an embedded apostrophe (`'O''CLOCK'` → `O'CLOCK`) is unaffected.
 
 ### §5 Arrays and substrings
 
@@ -603,8 +608,11 @@ is the full language; forterp does not implement the separate "subset FORTRAN" l
 
 - **Procedures (15.1–15.2).** intrinsic functions, statement functions, external functions,
   subroutines; a function reference is a primary in an expression; a `CALL` references a
-  subroutine. — ✓ — ▲ the standard's **no-recursion** rule (a subprogram must not reference
-  itself directly or indirectly) is not enforced; forterp permits recursion (benign extension).
+  subroutine. — ✓ the standard's **no-recursion** rule (§15.5.2 — a subprogram must not
+  reference itself directly or indirectly) is enforced: a re-entry raises `IllegalRecursion`
+  rather than silently corrupting forterp's static local storage. Set the `recursion` dialect
+  knob (`allow_recursion` on the engine) to permit recursion *and* make it correct — each
+  activation gets its own snapshot of the unit's locals (COMMON stays shared).
 - **Statement functions (15.4).** `f(d,…) = e` after the specifications; dummies scoped to the
   statement; may reference earlier statement functions. — ✓
 - **External functions (15.5).** `[type] FUNCTION f(d,…)`; `CHARACTER*len` / `CHARACTER*(*)`
@@ -705,12 +713,12 @@ Appendices A–D) and checking forterp against each rule. Findings:
   regression tests for the ANSI rules that previously had only incidental (FCVS) coverage:
   `**` right-associativity and `-A**2`, the real-base/integer-exponent rule, the four-tier
   operator-class precedence, real/double `DO` control variables, column-major storage via
-  `EQUIVALENCE`, `Iw.0`-of-zero blanking, and the permitted-recursion extension. No new bugs
-  were found; the only new observation is the undiagnosed complex-ordering case noted in §6.3.
+  `EQUIVALENCE`, and `Iw.0`-of-zero blanking. No new bugs were found; the only new observation
+  is the undiagnosed complex-ordering case noted in §6.3.
 - **The documented `▲` divergences are deliberate and benign** — the pluggable value model
   (NATIVE `REAL`≡`DOUBLE PRECISION` precision and `DOUBLE PRECISION` as one value slot; the
-  PDP10 target is faithful), non-fatal arithmetic, untrapped out-of-bounds / undefined access,
-  and an "accept-more" leniency toward several static-semantic restrictions the standard places
-  on *programs* (statement order, recursion, rank ≤ 7, name length ≤ 6). None can mis-run a
-  conforming program; they are the same faithfulness-over-strictness choices documented in
-  [§8](#8-conformance--fcvs-77).
+  PDP10 target is faithful), non-fatal arithmetic, and untrapped out-of-bounds / undefined
+  access. None can mis-run a conforming program; they are the same faithfulness-over-strictness
+  choices documented in [§8](#8-conformance--fcvs-77). (Two restrictions the standard places on
+  *programs* are now actively enforced under F77 — statement order §3.5 and no-recursion §15.5.2
+  — rather than left lenient.)

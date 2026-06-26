@@ -26,6 +26,8 @@ SEVERITY = {
     "NNF": "?",  # no statement number on FORMAT
     "UMP": "?",  # unmatched parentheses
     "LID": "%",  # identifier more than six characters (warning)
+    "ORD": "?",  # statement out of order (F77 §3.5; strict dialects only)
+    "ECC": "?",  # empty character constant (F77 §4.8.1 requires a nonempty string)
 }
 
 # canonical App-F message text for the parameterless mnemonics

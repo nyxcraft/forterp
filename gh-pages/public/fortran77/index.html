@@ -450,8 +450,7 @@ standard interpretation and may add extensions that don't change a conforming pr
 meaning. A program must not use processor-added intrinsics; a name in <code>EXTERNAL</code> overrides
 any like-named processor intrinsic. — ✓ forterp's F77 is the full language; the DEC
 extensions live on the separate <code>FORTRAN10</code> dialect, off under <code>F77</code>.</li>
-<li><strong>Symbolic name (2.2).</strong> 1–6 letters/digits, first a letter. — ▲ forterp accepts longer
-names with a warning (<code>%</code>/<code>LID</code>), a common, harmless extension.</li>
+<li><strong>Symbolic name (2.2).</strong> 1–6 letters/digits, first a letter. — ✓</li>
 <li><strong>Statement label (2.2).</strong> 1–5 digits, at least one nonzero. — ✓</li>
 <li><strong>No reserved words (2.2).</strong> keyword vs name is by context. — ✓</li>
 <li><strong>Program structure (2.4).</strong> one main program + any number of subprograms/external
@@ -482,21 +481,24 @@ blank below both, digits and letters not interleaved; <code>LGE/LGT/LLE/LLT</cod
 <li><strong>Fixed source form (3.2).</strong> 72-column lines; comment = <code>C</code>/<code>*</code> in col 1 or all-blank;
 initial line has blank/<code>0</code> in col 6; a continuation line has a non-blank, non-<code>0</code> col 6 and
 blank cols 1–5; ≤19 continuation lines; statement text in cols 7–72; <code>END</code> only on an
-initial line. — ✓ source is read as cols 7–72. — ▲ forterp also honors the DEC column-1
-markers <code>! $ / D</code> (and <code>c</code>), a superset of F77's <code>C</code>/<code>*</code>; the ≤19-continuation limit is not
-enforced. Both are benign (an &quot;accept-more&quot; latitude). The trailing-<code>!</code> inline comment is
-<strong>off</strong> under F77.</li>
+initial line. — ✓</li>
 <li><strong>Statement labels (3.4).</strong> 1–5 digits, ≥1 nonzero, cols 1–5, unique per program unit,
 leading zeros/blanks insignificant; only labeled executable and <code>FORMAT</code> statements are
 referenceable. — ✓</li>
 <li><strong>Statement order (3.5).</strong> <code>PROGRAM</code>/<code>FUNCTION</code>/<code>SUBROUTINE</code>/<code>BLOCK DATA</code> first;
 <code>IMPLICIT</code> before other specs (except <code>PARAMETER</code>); specifications before
-<code>DATA</code>/statement-functions/executables; statement functions before executables; <code>END</code> last.
-— ▲ forterp does <strong>not</strong> enforce this ordering (it accepts, e.g., <code>DATA</code> before a
-type-statement); lenient, never mis-runs a conforming program.</li>
+<code>DATA</code>/statement-functions/executables; statement functions before executables; <code>FORMAT</code>/
+<code>DATA</code>/<code>ENTRY</code> may float past the spec section; <code>END</code> last. — ✓ <strong>enforced under F77</strong>: a
+specification statement appearing after an executable statement is a hard error (<code>?FTNORD</code>,
+the <code>strict_stmt_order</code> knob; verified against the corpus — no conforming routine trips it).
+The finer sub-rules — <code>IMPLICIT</code> before the other specifications, and the <code>PARAMETER</code>
+type-ordering — are not yet diagnosed.</li>
 <li><strong>Execution &amp; recursion (3.6).</strong> execution starts at the main program's first executable;
 a procedure &quot;must not be referenced a second time without the prior execution of a <code>RETURN</code>
-or <code>END</code>&quot; — i.e. <strong>no recursion</strong>. — ▲ forterp permits recursion (a benign extension).</li>
+or <code>END</code>&quot; — i.e. <strong>no recursion</strong>. — ✓ <strong>enforced</strong>: re-entry of a still-active unit (direct
+or indirect) raises <code>IllegalRecursion</code> on every dialect, rather than silently corrupting the
+static locals. The <code>recursion</code> dialect knob opts in to permitting it <em>correctly</em> (per-call
+local storage); see <a href="#15-functions-and-subroutines">§15</a>.</li>
 </ul>
 <h3 id="4-data-types-and-constants">§4 Data types and constants</h3>
 <ul>
@@ -514,9 +516,12 @@ greater (a pluggable-value-model choice).</li>
 <li><strong>Complex constant (4.6.1).</strong> <code>(re, im)</code> where each part is an optionally-signed real or
 integer constant; two numeric storage units (real then imaginary). — ✓</li>
 <li><strong>Logical (4.7).</strong> <code>.TRUE.</code> / <code>.FALSE.</code> only. — ✓</li>
-<li><strong>Character constant (4.8.1).</strong> <code>'…'</code>, blanks significant, <code>''</code> is one embedded apostrophe;
-length must be &gt; 0. — ▲ forterp also accepts the empty constant <code>''</code> (length 0); benign,
-a conforming program never writes one.</li>
+<li><strong>Character constant (4.8.1).</strong> an apostrophe, a <strong>nonempty</strong> string of characters, an
+apostrophe; blanks significant; a doubled <code>''</code> denotes one embedded apostrophe. — ✓ the
+nonempty requirement is <strong>enforced on every dialect</strong>: the empty constant <code>''</code> is a hard
+error (<code>?FTNECC</code>), since a zero-length string is meaningless in both the CHARACTER and
+Hollerith models (and is a Fortran-90 feature, not F77). The check keys on the resolved
+value, so an embedded apostrophe (<code>'O''CLOCK'</code> → <code>O'CLOCK</code>) is unaffected.</li>
 </ul>
 <h3 id="5-arrays-and-substrings">§5 Arrays and substrings</h3>
 <ul>
@@ -702,8 +707,11 @@ execution starts at its first executable; a main program contains no <code>BLOCK
 <ul>
 <li><strong>Procedures (15.1–15.2).</strong> intrinsic functions, statement functions, external functions,
 subroutines; a function reference is a primary in an expression; a <code>CALL</code> references a
-subroutine. — ✓ — ▲ the standard's <strong>no-recursion</strong> rule (a subprogram must not reference
-itself directly or indirectly) is not enforced; forterp permits recursion (benign extension).</li>
+subroutine. — ✓ the standard's <strong>no-recursion</strong> rule (§15.5.2 — a subprogram must not
+reference itself directly or indirectly) is enforced: a re-entry raises <code>IllegalRecursion</code>
+rather than silently corrupting forterp's static local storage. Set the <code>recursion</code> dialect
+knob (<code>allow_recursion</code> on the engine) to permit recursion <em>and</em> make it correct — each
+activation gets its own snapshot of the unit's locals (COMMON stays shared).</li>
 <li><strong>Statement functions (15.4).</strong> <code>f(d,…) = e</code> after the specifications; dummies scoped to the
 statement; may reference earlier statement functions. — ✓</li>
 <li><strong>External functions (15.5).</strong> <code>[type] FUNCTION f(d,…)</code>; <code>CHARACTER*len</code> / <code>CHARACTER*(*)</code>
@@ -802,15 +810,15 @@ skeptical pass re-probed every claim against the live interpreter and added dedi
 regression tests for the ANSI rules that previously had only incidental (FCVS) coverage:
 <code>**</code> right-associativity and <code>-A**2</code>, the real-base/integer-exponent rule, the four-tier
 operator-class precedence, real/double <code>DO</code> control variables, column-major storage via
-<code>EQUIVALENCE</code>, <code>Iw.0</code>-of-zero blanking, and the permitted-recursion extension. No new bugs
-were found; the only new observation is the undiagnosed complex-ordering case noted in §6.3.</li>
+<code>EQUIVALENCE</code>, and <code>Iw.0</code>-of-zero blanking. No new bugs were found; the only new observation
+is the undiagnosed complex-ordering case noted in §6.3.</li>
 <li><strong>The documented <code>▲</code> divergences are deliberate and benign</strong> — the pluggable value model
 (NATIVE <code>REAL</code>≡<code>DOUBLE PRECISION</code> precision and <code>DOUBLE PRECISION</code> as one value slot; the
-PDP10 target is faithful), non-fatal arithmetic, untrapped out-of-bounds / undefined access,
-and an &quot;accept-more&quot; leniency toward several static-semantic restrictions the standard places
-on <em>programs</em> (statement order, recursion, rank ≤ 7, name length ≤ 6). None can mis-run a
-conforming program; they are the same faithfulness-over-strictness choices documented in
-<a href="#8-conformance--fcvs-77">§8</a>.</li>
+PDP10 target is faithful), non-fatal arithmetic, and untrapped out-of-bounds / undefined
+access. None can mis-run a conforming program; they are the same faithfulness-over-strictness
+choices documented in <a href="#8-conformance--fcvs-77">§8</a>. (Two restrictions the standard places on
+<em>programs</em> are now actively enforced under F77 — statement order §3.5 and no-recursion §15.5.2
+— rather than left lenient.)</li>
 </ul>
 
         </div>

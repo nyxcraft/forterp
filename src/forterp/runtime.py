@@ -56,6 +56,7 @@ def engine_kwargs(dialect):
         "character_type": dialect.character_type,
         "zero_trip_do": dialect.zero_trip_do,
         "blank_null": dialect.blank_null,
+        "allow_recursion": dialect.recursion,
     }
 
 

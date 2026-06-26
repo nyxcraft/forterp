@@ -98,6 +98,14 @@ class OobError(Exception):
     """Raised on an out-of-bounds cell access when OOB_CHECK == 'raise'."""
 
 
+class IllegalRecursion(RuntimeError):
+    """A subprogram referenced itself, directly or indirectly, while a prior activation was
+    still in progress. ANSI X3.9-1978 §15.5.2 prohibits this ("A subprogram must not reference
+    itself, either directly or indirectly"); forterp's static local storage cannot represent it
+    correctly, so it is rejected rather than silently corrupted. Enable `allow_recursion` (the
+    `recursion` dialect knob) to permit it with per-activation local storage instead."""
+
+
 def _oob_context(idx, store_len, op):
     """Best-effort (routine, array, subscripts) for an OOB, via the eval stack."""
     import inspect
@@ -462,6 +470,7 @@ class Engine:
         forots=False,
         tty_width=80,
         tty_autowrap=True,
+        allow_recursion=False,
     ):
         from forterp.forlib import Fortran10RNG
 
@@ -498,6 +507,13 @@ class Engine:
         #    word -- so CHARACTER vars/concatenation/comparison work. Off for F66/FORTRAN-10,
         #    which keep the Hollerith packed-int model. (CHARACTER under FORTRAN-10 is future.)
         self.character_type = character_type
+        # allow_recursion: §15.5.2 prohibits a subprogram referencing itself. By default forterp
+        # detects re-entry of a still-active unit and raises IllegalRecursion (its static local
+        # storage would otherwise silently corrupt). When True, recursion is permitted and made
+        # correct by snapshotting/restoring the active unit's locals around the nested call
+        # (see _enter_unit/_leave_unit). `_active` is the set of currently-running routines.
+        self.allow_recursion = allow_recursion
+        self._active = set()
         self.units = units
         self.commons = {}  # block -> list (flat store)
         self.rts = {}  # unit name -> UnitRT
@@ -1448,6 +1464,38 @@ class Engine:
         return {p: actuals[i] for i, p in enumerate(params) if i < len(actuals)}
 
     # ---- calls
+    def _enter_unit(self, crt):
+        """Recursion guard, called as a unit `crt` is about to run. If `crt` is already active
+        this is a recursive re-entry (§15.5.2): raise IllegalRecursion unless `allow_recursion`,
+        in which case snapshot the active activation's static locals so the nested call gets its
+        own working storage. Returns the snapshot to hand back to `_leave_unit` (None if this is
+        the outermost activation). COMMON is intentionally untouched -- it is shared, not local."""
+        if crt in self._active:
+            if not self.allow_recursion:
+                raise IllegalRecursion(
+                    f"subprogram {crt.unit.name!r} references itself (recursion; F77 15.5.2). "
+                    f"Enable the `recursion` dialect knob to allow it."
+                )
+            return (
+                dict(crt.local_scalars),
+                {k: list(v) for k, v in crt.local_arrays.items()},
+            )
+        self._active.add(crt)
+        return None
+
+    def _leave_unit(self, crt, snap):
+        """Companion to `_enter_unit`. On the outermost activation (`snap` is None) just mark the
+        unit inactive; on a recursive activation, restore the caller's saved locals in place (so
+        any held reference to the dicts stays valid)."""
+        if snap is None:
+            self._active.discard(crt)
+            return
+        scalars, arrays = snap
+        crt.local_scalars.clear()
+        crt.local_scalars.update(scalars)
+        crt.local_arrays.clear()
+        crt.local_arrays.update({k: list(v) for k, v in arrays.items()})
+
     def _entry_frame(self, name, arg_nodes, frame):
         """Build a frame entering `name`'s owning unit at the ENTRY's pc, bound to
         the ENTRY's own dummy args (V5 15.7). Returns (frame, owner_rt, alt_labels)."""
@@ -1471,8 +1519,12 @@ class Engine:
 
     def _call_entry_func(self, name, arg_nodes, frame):
         f, crt, _ = self._entry_frame(name, arg_nodes, frame)
-        self.run(f)
-        return crt.local_scalars.get(name, 0)  # value returned via the entry name
+        snap = self._enter_unit(crt)
+        try:
+            self.run(f)
+            return crt.local_scalars.get(name, 0)  # value returned via the entry name
+        finally:
+            self._leave_unit(crt, snap)
 
     def call_sub(self, name, arg_nodes, frame):
         proc = frame.args.get(name)
@@ -1483,10 +1535,14 @@ class Engine:
             return None
         if name in self.entries:  # CALL of an ENTRY point (V5 15.7)
             f, crt, alt_labels = self._entry_frame(name, arg_nodes, frame)
-            alt = self.run(f)
-            if alt and 1 <= alt <= len(alt_labels):
-                return Goto(alt_labels[alt - 1])
-            return None
+            snap = self._enter_unit(crt)
+            try:
+                alt = self.run(f)
+                if alt and 1 <= alt <= len(alt_labels):
+                    return Goto(alt_labels[alt - 1])
+                return None
+            finally:
+                self._leave_unit(crt, snap)
         callee = self.units.get(name)
         if callee is None:
             raise RuntimeError(f"undefined subroutine {name!r}")
@@ -1506,17 +1562,25 @@ class Engine:
             for i, p in enumerate(params)
             if p != "*" and i < len(actuals) and actuals[i] is not None
         }
-        alt = self.run(Frame(crt, binding))  # RETURN e -> e, else None
-        if alt and 1 <= alt <= len(alt_labels):
-            return Goto(alt_labels[alt - 1])  # jump in the CALLER
-        return None
+        snap = self._enter_unit(crt)
+        try:
+            alt = self.run(Frame(crt, binding))  # RETURN e -> e, else None
+            if alt and 1 <= alt <= len(alt_labels):
+                return Goto(alt_labels[alt - 1])  # jump in the CALLER
+            return None
+        finally:
+            self._leave_unit(crt, snap)
 
     def call_function(self, name, arg_nodes, frame):
         actuals = [self.arg_ref(a, frame) for a in arg_nodes]
         crt = self.rts[name]
-        f = Frame(crt, self.bind_args(crt, actuals))
-        self.run(f)
-        return crt.local_scalars.get(name, 0)
+        snap = self._enter_unit(crt)
+        try:
+            f = Frame(crt, self.bind_args(crt, actuals))
+            self.run(f)
+            return crt.local_scalars.get(name, 0)  # read BEFORE _leave_unit restores
+        finally:
+            self._leave_unit(crt, snap)
 
     # ---- statement execution; returns None | Goto | Ret | Stop
     def exec_stmt(self, s, frame):

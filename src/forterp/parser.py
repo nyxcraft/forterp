@@ -1734,8 +1734,39 @@ def _data_is_assignment(toks):
     return False
 
 
+# Specification-statement keywords for the F77 §3.5 order check. FORMAT, DATA, and ENTRY are
+# deliberately excluded -- the standard lets them float past the specification section.
+_SPEC_KW = {"IMPLICIT", "DIMENSION", "COMMON", "PARAMETER", "EQUIVALENCE", "EXTERNAL"}
+
+
+def _is_spec_statement(kw, toks, dialect):
+    """True if a `kw`-led statement is a specification statement for the §3.5 ordering rule.
+    Mirrors `_route`'s own statement/assignment guards so an assignment to a variable named
+    SAVE/INTRINSIC, or a FUNCTION header, is not misread as a specification statement."""
+    if kw is None:
+        return False
+    if kw in TYPE_KW:
+        return not _is_header(toks)
+    if kw == "CHARACTER":
+        return dialect.character_type and not _is_header(toks)
+    if kw == "SAVE":  # statement form, not `SAVE = ...` / `SAVE(I) = ...`
+        return len(toks) == 1 or toks[1].value not in ("=", "(")
+    if kw == "INTRINSIC":  # statement form, not `INTRINSIC = ...`
+        return len(toks) > 1 and toks[1].kind == "ID"
+    return kw in _SPEC_KW
+
+
 def _route(unit, st, toks, on_warn=None, dialect=F66):
     kw = toks[0].value if toks[0].kind == "ID" else None
+    # F77 §3.5: every specification statement must precede all executable statements. Once an
+    # executable has been routed (unit.code is non-empty), a later specification statement is a
+    # hard error -- but only under a strict dialect; F66 and FORTRAN-10 accept it (lenient).
+    if dialect.strict_stmt_order and unit.code and _is_spec_statement(kw, toks, dialect):
+        raise ParseError(
+            "STATEMENT OUT OF ORDER -- a specification statement must precede all "
+            "executable statements (F77 3.5)",
+            "ORD",
+        )
     p = StatementParser(toks, dialect)
     p.namelists = unit.namelists  # so ACCEPT/TYPE/READ <namelist> dispatches right
     p.arrays = unit.arrays  # declared so far (F66 requires specs before executables)

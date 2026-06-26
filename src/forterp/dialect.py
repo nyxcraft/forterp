@@ -64,6 +64,19 @@ class Dialect:
     # the FORTRAN-10 V5 / F77 default. ANSI X3.9-1966 (7.2.3.6) instead reads them as zeros, so
     # F66 keeps blank_null=False; BN/BZ descriptors and OPEN BLANK= override at run time.
 
+    # ---- strictness knobs (the only ones that REJECT rather than ACCEPT more) ----------------
+    # These enforce an ANSI program constraint as a hard error. They are OFF for the lenient
+    # real-compiler dialects (F66, FORTRAN-10 -- which accept the nonconforming form silently),
+    # and ON only where the dialect is meant to model the standard strictly (F77).
+    strict_stmt_order: bool = False  # F77 §3.5: a specification statement must precede all DATA,
+    # statement-function, and executable statements -- a spec after an executable is rejected.
+
+    # recursion: §15.5.2 prohibits a subprogram referencing itself. OFF on every standard dialect
+    # (a re-entry is rejected -- forterp's static locals cannot represent it, and the period
+    # compilers did not support it either); turn ON to permit recursion with correct per-call
+    # local storage. A capability gate, not a strictness one -- usable with any dialect.
+    recursion: bool = False
+
 
 F66 = Dialect()  # ANSI X3.9-1966 -- the default dialect
 FORTRAN10 = Dialect(  # DEC FORTRAN-10 V5 superset: every extension on
@@ -115,6 +128,7 @@ F77 = Dialect(
     eqv_operators=True,  # F77 §6.6 has .EQV./.NEQV.
     zero_trip_do=True,  # F77 §11.10 zero-trip DO loops
     blank_null=True,  # F77 §13.5.7: a width'd numeric field's blanks default to NULL (ignored)
+    strict_stmt_order=True,  # F77 §3.5: specs must precede executables (hard error; FCVS-clean)
 )
 
 # CLI / front-end name -> dialect, so every caller resolves the same names in one place.
