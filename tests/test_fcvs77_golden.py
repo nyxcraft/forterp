@@ -31,19 +31,18 @@ from forterp.source import expand_includes, scan_file
 GOLD = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fcvs77_golden")
 CORPUS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fcvs77")
 
-# Output does not yet match gfortran because of a forterp BUG -- the punch-list. Shrinks as bugs
-# are fixed. What remains is FM509: CHARACTER sequence association of an array-element substring
-# onto a CHARACTER ARRAY dummy (CALL SN512(C1N001(1)(3:10), ...)), which needs char-addressable
-# storage to re-partition the character stream across element boundaries.
+# The forterp-bug output punch-list -- now EMPTY: every FCVS-77 routine gfortran completes either
+# matches forterp's output exactly (129/131) or is a documented gfortran-unreliable divergence
+# (FM257/FM406, below). Keep the set so a future regression has a home: a routine whose output
+# breaks vs gfortran goes here with a note, and test_expected_outputs_match_gfortran flags it.
 #
-# Cleared: the COMPLEX cluster (FM503/700/722/809/811/813/815/817/820/828-834/908) via a two-word
-# storage-associated COMPLEX scalar (ComplexPairRef); FM715 (CHARACTER functions) via the
-# CHARACTER*len FUNCTION header + ret_type-typed result var + a CHARACTER PARAMETER staying a str;
-# FM909 via a COMPLEX internal-file WRITE expanding to two reals, the Gw.dEe F-form trailing-blank
-# count, and nX advancing (not blanking) the output cursor; and FM915/FM905/FM907/FM910 earlier.
-KNOWN_DIVERGENT = {
-    "FM509",
-}
+# Cleared along the way: the COMPLEX cluster (FM503/700/722/809/811/813/815/817/820/828-834/908)
+# via a two-word storage-associated COMPLEX scalar (ComplexPairRef); FM715 (CHARACTER functions)
+# via the CHARACTER*len FUNCTION header + ret_type-typed result var + a CHARACTER PARAMETER staying
+# a str; FM509 (CHARACTER sequence association) via a char-stream view of a CHARACTER array dummy
+# over a substring actual (CharSeqView); FM909 via a COMPLEX internal WRITE expanding to two reals,
+# the Gw.dEe trailing-blank count, and nX advancing (not blanking); FM915/FM905/FM907/FM910 earlier.
+KNOWN_DIVERGENT = set()
 
 # Output differs from the gfortran golden NOT because of a forterp bug, but because gfortran is an
 # unreliable oracle for that routine -- forterp's output is correct (or more correct). These are
@@ -188,4 +187,4 @@ def test_gfortran_unreliable_routines_still_diverge():
 
 def test_most_of_the_corpus_matches():
     # Floor on validated output coverage (ratchets up as the punch-list shrinks).
-    assert len(MATCHING) >= 128
+    assert len(MATCHING) >= 129

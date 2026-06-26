@@ -901,3 +901,18 @@ def test_character_parameter_stays_a_string_under_f77():
     )
     eng = forterp.run_source(src, dialect=forterp.F77, target=forterp.NATIVE)
     assert eng.commons["O"][0] == "PQRST"
+
+
+def test_character_substring_actual_to_array_dummy_seq_association():
+    # An array-element substring passed to a CHARACTER ARRAY dummy: the dummy's elements tile the
+    # actual's character stream, SPANNING the underlying array cells (X3.9-1978 17.x). Regression
+    # for FM509 (CALL SN512). The *2 dummy over SRC(1)(3:5): D(1)='CD', D(2)='EF' spans SRC(1)'s
+    # 'E' and SRC(2)'s 'F'.
+    src = (
+        "      PROGRAM T\n      COMMON /O/ A, B\n      CHARACTER A*2, B*2, SRC(2)*5\n"
+        "      SRC(1)='ABCDE'\n      SRC(2)='FGHIJ'\n      CALL S(SRC(1)(3:5))\n      END\n"
+        "      SUBROUTINE S(D)\n      COMMON /O/ A, B\n      CHARACTER A*2, B*2, D(3)*2\n"
+        "      A=D(1)\n      B=D(2)\n      RETURN\n      END\n"
+    )
+    eng = forterp.run_source(src, dialect=forterp.F77, target=forterp.NATIVE)
+    assert eng.commons["O"][:2] == ["CD", "EF"]

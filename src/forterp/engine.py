@@ -283,6 +283,57 @@ class ArrayView:
         return CellRef(self.store, self.base + i)
 
 
+class CharSeqElemRef:
+    """One element of a CHARACTER array dummy that is sequence-associated with a CHARACTER actual
+    (a substring or array element): a `width`-char window into the actual's character storage,
+    read/written as a contiguous stream that SPANS the underlying array cells (each `cell_len`
+    chars). `start` is the window's char offset measured from cell `cell0`."""
+
+    __slots__ = ("store", "cell0", "start", "cell_len", "width")
+
+    def __init__(self, store, cell0, start, cell_len, width):
+        self.store, self.cell0, self.start = store, cell0, start
+        self.cell_len, self.width = cell_len, width
+
+    def _cell(self, off):  # (cell index, char position) of stream offset `off`
+        return self.cell0 + off // self.cell_len, off % self.cell_len
+
+    def read(self):
+        out = []
+        for k in range(self.width):
+            c, p = self._cell(self.start + k)
+            s = oob_read(self.store, c)
+            s = s.ljust(self.cell_len) if isinstance(s, str) else " " * self.cell_len
+            out.append(s[p])
+        return "".join(out)
+
+    def write(self, v):
+        v = str(v)[: self.width].ljust(self.width)
+        for k, ch in enumerate(v):
+            c, p = self._cell(self.start + k)
+            s = oob_read(self.store, c)
+            s = s.ljust(self.cell_len) if isinstance(s, str) else " " * self.cell_len
+            oob_write(self.store, c, s[:p] + ch + s[p + 1 :])
+
+
+class CharSeqView:
+    """A CHARACTER array dummy sequence-associated with a CHARACTER actual that is a substring or
+    array element (X3.9-1978 17.x): the dummy's `elem_len`-char elements tile the actual's
+    character storage as one contiguous stream. loc(i) is element i's window in that stream,
+    spanning the underlying array cells as needed."""
+
+    __slots__ = ("store", "cell0", "char0", "cell_len", "elem_len")
+
+    def __init__(self, store, cell0, char0, cell_len, elem_len):
+        self.store, self.cell0, self.char0 = store, cell0, char0
+        self.cell_len, self.elem_len = cell_len, elem_len
+
+    def loc(self, i):
+        return CharSeqElemRef(
+            self.store, self.cell0, self.char0 + i * self.elem_len, self.cell_len, self.elem_len
+        )
+
+
 def linidx(subs, dims):
     """Column-major linear index from subscripts and (lo,hi) dimension list."""
     idx, mult = 0, 1
@@ -1023,6 +1074,12 @@ class Engine:
             # is X(I+1), ... Re-view the cell's storage at its offset as the array base.
             if isinstance(a, CellRef):
                 return ArrayView(a.store, a.idx)
+            # A CHARACTER substring / array-element actual bound to a CHARACTER array dummy:
+            # the dummy's char-length'd elements tile the actual's character stream (17.x).
+            if isinstance(a, SubstringRef) and isinstance(a.base, CellRef):
+                return CharSeqView(
+                    a.base.store, a.base.idx, a.lo - 1, a.n, self.char_length(unit, name)
+                )
             return a
         return self._static_array(rt, unit, name)[0]
 
@@ -1135,6 +1192,8 @@ class Engine:
         if name in unit.arrays:
             dims = self._dims(name, frame)
             subs = [self.eval(a, frame) for a in node.args]
+            if type(frame.args.get(name)) is SubstringRef:  # CHARACTER seq-association: char window
+                return self.arrayview(frame, name).loc(linidx(subs, dims)).read()
             store, base = self._array_base(frame, name)  # read directly, no CellRef/ArrayView
             return oob_read(store, base + linidx(subs, dims))
         proc = frame.args.get(name)
@@ -1567,8 +1626,11 @@ class Engine:
         else:
             dims = self._dims(tgt.name, frame)
             subs = [self.eval(a, frame) for a in tgt.args]
-            store, base = self._array_base(frame, tgt.name)
-            oob_write(store, base + linidx(subs, dims), val)
+            if type(frame.args.get(tgt.name)) is SubstringRef:  # CHARACTER seq-association window
+                self.arrayview(frame, tgt.name).loc(linidx(subs, dims)).write(val)
+            else:
+                store, base = self._array_base(frame, tgt.name)
+                oob_write(store, base + linidx(subs, dims), val)
 
     def exec_do(self, s, frame):
         start = self.eval(s.start, frame)
