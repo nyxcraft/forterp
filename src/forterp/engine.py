@@ -1872,6 +1872,7 @@ class Engine:
     def do_type(self, s, frame):
         from forterp.fmt import apply_carriage, apply_carriage_advance, render
 
+        was_pending = self._forots_pending  # advance owed by a previous TYPE (else defer this one)
         self._forots_pending = False  # default; the forots formatted branch refines it below
         nml = self._nml_name(s.fmt, frame)
         if nml is not None:  # TYPE/PRINT of a NAMELIST group
@@ -1885,7 +1886,10 @@ class Engine:
         items = self._parsed(spec)
         text, suppress = render(items, self._cx_expand(values), self.tgt)  # complex -> 2 reals
         if self.forots:
-            self.emit(apply_carriage_advance(text))  # advance-before: no trailing newline
+            # advance-before, deferred: emit the record's leading advance only if one is already
+            # pending. With nothing pending (program start, or after a read / raw OUTSTR left the
+            # cursor at the line start) native FOROTS does not advance, so neither do we.
+            self.emit(apply_carriage_advance(text, suppress_first_advance=not was_pending))
             # advance-before-print leaves no trailing newline, so a following terminal READ must
             # advance to finish the line -- unless the record suppressed it ($). FOROTS does this.
             self._forots_pending = not suppress
@@ -2157,7 +2161,9 @@ class Engine:
         if self.forots and sink is self.emit:
             from forterp.fmt import apply_carriage_advance
 
-            sink(apply_carriage_advance(text))
+            was_pending = self._forots_pending  # defer this record's advance if none is pending
+            sink(apply_carriage_advance(text, suppress_first_advance=not was_pending))
+            self._forots_pending = not suppress  # no trailing newline -> a later READ finishes it
             return
         if self.carriage_control:  # printer model: interpret the ASA control column (col 1)
             text = apply_carriage(text)  # else file model: keep the control char as raw data

@@ -484,7 +484,7 @@ def apply_carriage(text):
     return "\n".join(_carriage_one(rec) for rec in text.split("\n"))
 
 
-def apply_carriage_advance(text):
+def apply_carriage_advance(text, suppress_first_advance=False):
     """FORTRAN-10 / FOROTS *advance-before-print* carriage control for terminal output.
 
     Where apply_carriage (above) is newline-AFTER -- each record terminated by the
@@ -493,28 +493,41 @@ def apply_carriage_advance(text):
     motion emitted before the record's text, and the record is NOT newline-terminated.
     The cursor is therefore left at the end of the text, so a following direct write
     (e.g. an OUTSTR) continues the same line, and the NEXT record's leading advance is
-    what ends this one. Verified byte-for-byte against the original on TOPS-10/SIMH:
-    ' AAA'/ ; STROUT('BBB') ; ' CCC' ; STROUT('DDD')  ->  a leading blank, then "AAA",
-    "BBB", a blank, then "CCCDDD" (CCC and DDD merged onto one line).
+    what ends this one.
+
+    That advance is genuinely DEFERRED: a record's leading motion is the flush of the
+    *previous* record's pending advance, so when nothing is pending -- the program's very
+    first terminal record, or the first after a read / raw OUTSTR left the cursor at the
+    line start -- there is no advance to emit and the text begins right at the cursor. Pass
+    suppress_first_advance=True for that case to drop the first record's leading motion
+    (native FOROTS does not emit it; emitting it eagerly adds one spurious blank line).
+    Verified byte-for-byte against the original on TOPS-10/SIMH:
+    ' AAA'/ ; STROUT('BBB') ; ' CCC' ; STROUT('DDD')  (as the first output)  ->  "AAA",
+    "BBB", a blank, then "CCCDDD" (CCC and DDD merged onto one line) with NO leading blank.
 
     Controls: ' ' advance 1, '0' advance 2, '1' form-feed, '+' no advance (continue at the
     cursor / overprint), empty record (a bare '/') advance 1. No trailing newline is added."""
     out = []
+    first = True
     for rec in text.split("\n"):
         if not rec:
-            out.append("\n")  # empty record (e.g. a trailing '/') -> one advance
-            continue
-        c = rec[0]
-        if c == "+":
-            out.append(rec[1:])  # no advance: continue at the cursor (terminal overprint)
-        elif c == "0":
-            out.append("\n\n" + rec[1:])  # double space
-        elif c == "1":
-            out.append("\f" + rec[1:])  # form feed
-        elif c == " ":
-            out.append("\n" + rec[1:])  # single space
+            adv, body = "\n", ""  # empty record (e.g. a trailing '/') -> one advance
         else:
-            out.append("\n" + rec)  # no recognized control char -> default single advance
+            c = rec[0]
+            if c == "+":
+                adv, body = "", rec[1:]  # no advance: continue at the cursor (overprint)
+            elif c == "0":
+                adv, body = "\n\n", rec[1:]  # double space
+            elif c == "1":
+                adv, body = "\f", rec[1:]  # form feed
+            elif c == " ":
+                adv, body = "\n", rec[1:]  # single space
+            else:
+                adv, body = "\n", rec  # no recognized control char -> default single advance
+        if first and suppress_first_advance:
+            adv = ""  # first record with nothing pending: its advance is deferred (not emitted)
+        out.append(adv + body)
+        first = False
     return "".join(out)
 
 

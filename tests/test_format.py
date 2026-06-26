@@ -157,6 +157,24 @@ def test_carriage_control_translations():
     assert apply_carriage("XYZ") == "XYZ"  # non-control char kept, advance
 
 
+def test_advance_before_defers_the_first_records_advance():
+    # FOROTS advance-before-print: the leading motion is the flush of the PREVIOUS record's
+    # pending advance. Normally (suppress_first_advance=False) every record gets its advance.
+    from forterp.fmt import apply_carriage_advance
+
+    assert apply_carriage_advance(" B") == "\nB"  # eager: a leading advance
+    assert apply_carriage_advance(" B\n C") == "\nB\nC"  # one advance per record
+    # When nothing is pending (program start, or after a read / raw OUTSTR), native does NOT
+    # emit the first record's advance -- the text begins right at the cursor. Only the FIRST
+    # record's advance is dropped; later records in the same write keep theirs.
+    assert apply_carriage_advance(" B", suppress_first_advance=True) == "B"
+    assert apply_carriage_advance(" B\n C", suppress_first_advance=True) == "B\nC"
+    # FORMAT(1X,/////) is six records; deferring the first advance loses exactly one blank line.
+    five = "\n".join([" "] + [""] * 5)
+    assert apply_carriage_advance(five) == "\n\n\n\n\n\n"  # eager: 6 advances
+    assert apply_carriage_advance(five, suppress_first_advance=True) == "\n\n\n\n\n"  # 5
+
+
 # ---- input parsing (ACCEPT/READ side) --------------------------------------
 def test_read_widthd_fields_by_column():
     # F66 7.2.3.6: a WIDTH'D numeric field is read by COLUMN width, so packed digits

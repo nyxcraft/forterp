@@ -26,6 +26,19 @@ def test_outstr_and_outchr_write_to_the_terminal():
     assert "".join(out) == "HIA"  # OUTSTR text, then OUTCHR 65 -> 'A'
 
 
+def test_first_formatted_record_after_outchr_does_not_advance():
+    # FOROTS advance-before-print defers a record's leading advance until something is pending.
+    # A raw OUTCHR leaves nothing pending, so the FIRST formatted TYPE after it must NOT emit a
+    # leading newline -- the text continues on the OUTCHR's line. (Native TOPS-10: OUTCHR('A')
+    # then TYPE ' B' -> "AB", not "A\nB". Emitting it eagerly added one spurious blank line.)
+    out = []
+    forterp.fortran10.run_source(
+        '      CALL OUTCHR("101)\n      TYPE 1\n    1 FORMAT(2H B)\n      END\n',
+        emit=out.append,
+    )
+    assert "".join(out) == "AB"
+
+
 def test_a_program_defined_routine_still_wins():
     # the program's own OUTSTR shadows the library one (never shadow a defined unit)
     src = (
