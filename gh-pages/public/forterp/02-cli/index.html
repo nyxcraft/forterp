@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Command-line tools | forterp</title>
   <meta name="description" content="">
-  <link rel="stylesheet" href="../../assets/site.css?v=818768fa">
+  <link rel="stylesheet" href="../../assets/site.css?v=170293ae">
 </head>
 <body class="site-doc">
   <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -31,13 +31,28 @@
 
     <main id="main-content" class="docs-layout" tabindex="-1">
       <aside class="docs-sidebar">
-        <p class="docs-sidebar__eyebrow">On this page</p>
-        <nav class="section-nav" aria-label="On this page">
-<ul class="section-nav__list">
+        <p class="docs-sidebar__eyebrow"><a class="chapter-nav__home" href="../index.html">The forterp manual</a></p>
+        <nav class="section-nav" aria-label="Manual contents">
+<ul class="chapter-nav">
+<li><a class="chapter-nav__link" href="../01-getting-started/index.html">Getting started</a></li>
+<li><a class="chapter-nav__link is-active" href="index.html">Command-line tools</a><ul class="section-nav__list">
 <li><a class="section-nav__link section-nav__link--l2" href="#running-a-program">Running a program</a></li>
 <li><a class="section-nav__link section-nav__link--l3" href="#linking-several-files">Linking several files</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#options">Options</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#exit-codes">Exit codes</a></li>
+</ul></li>
+<li><a class="chapter-nav__link" href="../03-interactive/index.html">The interactive processor</a></li>
+<li><a class="chapter-nav__link" href="../04-running-embedding/index.html">Running &amp; embedding</a></li>
+<li><a class="chapter-nav__link" href="../05-targets-dialects/index.html">Targets &amp; dialects</a></li>
+<li><a class="chapter-nav__link" href="../06-host-routines/index.html">Host routines</a></li>
+<li><a class="chapter-nav__link" href="../07-instrumentation-errors/index.html">Instrumentation &amp; errors</a></li>
+<li><a class="chapter-nav__link" href="../08-architecture/index.html">Architecture</a></li>
+<li><a class="chapter-nav__link" href="../09-memory-model/index.html">The memory model</a></li>
+<li><a class="chapter-nav__link" href="../10-control-io/index.html">Control flow &amp; I/O</a></li>
+<li><a class="chapter-nav__link" href="../11-seams-intrinsics/index.html">Seams &amp; intrinsics</a></li>
+<li><a class="chapter-nav__link" href="../12-internals-reference/index.html">Internals reference</a></li>
+<li><a class="chapter-nav__link" href="../13-testing/index.html">Testing</a></li>
+<li><a class="chapter-nav__link" href="../14-maintaining/index.html">Maintainer recipes</a></li>
 </ul>
         </nav>
       </aside>
@@ -205,65 +220,9 @@ made executable: <code>#!/usr/bin/env -S pyfortran10 -x</code>.</p>
 
     <footer class="site-footer">
       <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
-      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by <span class="nowrap">Nicholas J. Kisseberth</span>.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
     </footer>
   </div>
 
-  <script>
-  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
-  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
-  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
-  (function () {
-    var prose = document.querySelector('.prose');
-    if (!prose) return;
-    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
-
-    var kids = Array.prototype.slice.call(prose.childNodes);
-    var groups = [], preface = [], cur = null;
-    kids.forEach(function (n) {
-      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
-      else if (cur) { cur.nodes.push(n); }
-      else { preface.push(n); }
-    });
-    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
-    groups[0].nodes = preface.concat(groups[0].nodes);
-
-    prose.innerHTML = '';
-    prose.classList.add('js-sections');
-    var anchorToSection = {};
-    var sections = groups.map(function (g) {
-      var s = document.createElement('section');
-      s.className = 'doc-section';
-      g.nodes.forEach(function (n) { s.appendChild(n); });
-      prose.appendChild(s);
-      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
-      if (g.id) anchorToSection[g.id] = s;
-      return s;
-    });
-
-    function activate(anchor, scroll) {
-      var target = anchorToSection[anchor] || sections[0];
-      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
-      navLinks.forEach(function (a) {
-        var id = decodeURIComponent(a.getAttribute('href').slice(1));
-        a.classList.toggle('is-active', anchorToSection[id] === target);
-      });
-      if (scroll) {
-        var el = (anchor && document.getElementById(anchor)) || target;
-        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
-      }
-    }
-    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
-
-    document.addEventListener('click', function (e) {
-      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
-      if (!a) return;
-      var id = decodeURIComponent(a.getAttribute('href').slice(1));
-      if (anchorToSection[id]) activate(id, true);
-    });
-    window.addEventListener('hashchange', function () { fromHash(true); });
-    fromHash(false);
-  })();
-  </script>
 </body>
 </html>

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>7. Statements at a glance | forterp</title>
   <meta name="description" content="">
-  <link rel="stylesheet" href="../../assets/site.css?v=818768fa">
+  <link rel="stylesheet" href="../../assets/site.css?v=170293ae">
 </head>
 <body class="site-doc">
   <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -31,12 +31,36 @@
 
     <main id="main-content" class="docs-layout" tabindex="-1">
       <aside class="docs-sidebar">
-        <p class="docs-sidebar__eyebrow">On this page</p>
-        <nav class="section-nav" aria-label="On this page">
-<ul class="section-nav__list">
+        <p class="docs-sidebar__eyebrow"><a class="chapter-nav__home" href="../index.html">FORTRAN 77 reference</a></p>
+        <nav class="section-nav" aria-label="Manual contents">
+<ul class="chapter-nav">
+<li><a class="chapter-nav__link" href="../01-overview/index.html">1. Overview &amp; program structure</a></li>
+<li><a class="chapter-nav__link" href="../02-language-elements/index.html">2. Language elements &amp; concepts</a></li>
+<li><a class="chapter-nav__link" href="../03-source-form/index.html">3. Source form</a></li>
+<li><a class="chapter-nav__link" href="../04-data-types/index.html">4. Data types &amp; constants</a></li>
+<li><a class="chapter-nav__link" href="../05-arrays-substrings/index.html">5. Arrays &amp; substrings</a></li>
+<li><a class="chapter-nav__link" href="../06-expressions/index.html">6. Expressions &amp; operators</a></li>
+<li><a class="chapter-nav__link is-active" href="index.html">7. Statements at a glance</a><ul class="section-nav__list">
 <li><a class="section-nav__link section-nav__link--l2" href="#nonexecutable-statements">Nonexecutable statements</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#executable-statements">Executable statements</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#the-order-once-more">The order, once more</a></li>
+</ul></li>
+<li><a class="chapter-nav__link" href="../08-specification/index.html">8. Specification statements</a></li>
+<li><a class="chapter-nav__link" href="../09-data/index.html">9. The `DATA` statement</a></li>
+<li><a class="chapter-nav__link" href="../10-assignment/index.html">10. Assignment</a></li>
+<li><a class="chapter-nav__link" href="../11-control/index.html">11. Control statements</a></li>
+<li><a class="chapter-nav__link" href="../12-io/index.html">12. Input / output</a></li>
+<li><a class="chapter-nav__link" href="../13-format/index.html">13. `FORMAT` &amp; edit descriptors</a></li>
+<li><a class="chapter-nav__link" href="../14-main-program/index.html">14. Main program</a></li>
+<li><a class="chapter-nav__link" href="../15-procedures/index.html">15. Functions &amp; subroutines</a></li>
+<li><a class="chapter-nav__link" href="../16-block-data/index.html">16. Block data</a></li>
+<li><a class="chapter-nav__link" href="../17-association/index.html">17. Storage association &amp; definition</a></li>
+<li><a class="chapter-nav__link" href="../18-scopes/index.html">18. Scopes &amp; symbolic names</a></li>
+<li><a class="chapter-nav__link" href="../A-intrinsics/index.html">Appendix A — Intrinsic function reference</a></li>
+<li><a class="chapter-nav__link" href="../B-edit-descriptors/index.html">Appendix B — Edit-descriptor quick reference</a></li>
+<li><a class="chapter-nav__link" href="../C-precedence-ascii/index.html">Appendix C — Operator precedence &amp; the collating sequence</a></li>
+<li><a class="chapter-nav__link" href="../D-forterp-extensions/index.html">Appendix D — forterp extensions &amp; strict gates</a></li>
+<li><a class="chapter-nav__link" href="../E-differences-f66/index.html">Appendix E. Differences from FORTRAN 66</a></li>
 </ul>
         </nav>
       </aside>
@@ -180,65 +204,9 @@ before executables) is enforced under the <code>F77</code> dialect; see <a href=
 
     <footer class="site-footer">
       <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
-      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by <span class="nowrap">Nicholas J. Kisseberth</span>.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
     </footer>
   </div>
 
-  <script>
-  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
-  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
-  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
-  (function () {
-    var prose = document.querySelector('.prose');
-    if (!prose) return;
-    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
-
-    var kids = Array.prototype.slice.call(prose.childNodes);
-    var groups = [], preface = [], cur = null;
-    kids.forEach(function (n) {
-      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
-      else if (cur) { cur.nodes.push(n); }
-      else { preface.push(n); }
-    });
-    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
-    groups[0].nodes = preface.concat(groups[0].nodes);
-
-    prose.innerHTML = '';
-    prose.classList.add('js-sections');
-    var anchorToSection = {};
-    var sections = groups.map(function (g) {
-      var s = document.createElement('section');
-      s.className = 'doc-section';
-      g.nodes.forEach(function (n) { s.appendChild(n); });
-      prose.appendChild(s);
-      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
-      if (g.id) anchorToSection[g.id] = s;
-      return s;
-    });
-
-    function activate(anchor, scroll) {
-      var target = anchorToSection[anchor] || sections[0];
-      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
-      navLinks.forEach(function (a) {
-        var id = decodeURIComponent(a.getAttribute('href').slice(1));
-        a.classList.toggle('is-active', anchorToSection[id] === target);
-      });
-      if (scroll) {
-        var el = (anchor && document.getElementById(anchor)) || target;
-        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
-      }
-    }
-    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
-
-    document.addEventListener('click', function (e) {
-      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
-      if (!a) return;
-      var id = decodeURIComponent(a.getAttribute('href').slice(1));
-      if (anchorToSection[id]) activate(id, true);
-    });
-    window.addEventListener('hashchange', function () { fromHash(true); });
-    fromHash(false);
-  })();
-  </script>
 </body>
 </html>

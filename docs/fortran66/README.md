@@ -35,19 +35,23 @@ to *select and run* a dialect, see the [Python API guide](../forterp/04-running-
 ## Contents
 
 **Preliminaries**
+
 1. [Purpose & scope](01-purpose-scope.md)
 2. [Basic terminology](02-terminology.md)
 
 **Writing a program**
+
 3. [Program form](03-program-form.md)
 4. [Data types](04-data-types.md)
 5. [Data & procedure identification](05-identification.md)
 
 **Computing**
+
 6. [Expressions](06-expressions.md)
 7. [Statements](07-statements.md)
 
 **Program units**
+
 8. [Procedures & subprograms](08-procedures.md)
 9. [Programs](09-programs.md)
 10. [Intra- & inter-program relationships](10-relationships.md)

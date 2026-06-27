@@ -1,7 +1,7 @@
 {
   "site_name": "forterp",
   "site_tagline": "A FORTRAN 66/77 & DEC FORTRAN-10 interpreter, in Python.",
-  "site_description": "Written in pure Python, with two pluggable axes: the front-end dialect — strict ANSI FORTRAN 66 by default, full ANSI FORTRAN 77, or the DEC FORTRAN-10 superset — and the machine value model — a 64-bit default, a faithful 36-bit PDP-10, or a little-endian LP64. Conformance is checked against the FCVS corpus; the PDP-10 model against the DEC FORTRAN-10 V5 manual and real 1970s code, the LP64 model against gfortran.",
+  "site_description": "Written in pure Python, with two pluggable axes: the front-end dialect — ANSI FORTRAN 77 by default, ANSI FORTRAN 66, or DEC FORTRAN-10 — and the machine value model — a native-Python 64-bit default, a little-endian LP64, or a faithful 36-bit PDP-10. Language conformance is checked against the FCVS (FORTRAN Compiler Validation System, 1978) corpus.",
   "github_href": "https://github.com/nyxcraft/forterp",
   "copyright": "Nicholas J. Kisseberth",
   "status": "beta",

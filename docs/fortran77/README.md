@@ -24,32 +24,38 @@ to *select and run* the F77 dialect, see the [Python API guide](../forterp/04-ru
 ## Contents
 
 **The basics**
+
 1. [Overview & program structure](01-overview.md)
 2. [Language elements & concepts](02-language-elements.md)
 3. [Source form](03-source-form.md)
 4. [Data types & constants](04-data-types.md)
 
 **Building blocks**
+
 5. [Arrays & substrings](05-arrays-substrings.md)
 6. [Expressions & operators](06-expressions.md)
 7. [Statements at a glance](07-statements.md)
 8. [Specification statements](08-specification.md)
 
 **Giving values & doing work**
+
 9. [The `DATA` statement](09-data.md)
 10. [Assignment](10-assignment.md)
 11. [Control statements](11-control.md)
 
 **Input & output**
+
 12. [Input / output](12-io.md)
 13. [`FORMAT` & edit descriptors](13-format.md)
 
 **Program units**
+
 14. [Main program](14-main-program.md)
 15. [Functions & subroutines](15-procedures.md)
 16. [Block data](16-block-data.md)
 
 **The formal model**
+
 17. [Storage association & definition](17-association.md)
 18. [Scopes & symbolic names](18-scopes.md)
 

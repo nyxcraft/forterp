@@ -24,11 +24,13 @@ cross-type **type punning** (`word_memory`).
 ## Contents
 
 **Guide**
+
 1. [Getting started](01-getting-started.md) — what forterp is, the public surface, a quick run
 2. [Command-line tools](02-cli.md) — running programs, linking files, options, exit codes
 3. [The interactive processor](03-interactive.md) — `RUN`/`LOAD`, the debugger/profiler, `IMMEDIATE`
 
 **The Python API**
+
 4. [Running & embedding](04-running-embedding.md) — `run_source`/`parse_source`, the prebuilt
    interpreters and the `Interpreter` class, the I/O hooks
 5. [Targets & dialects](05-targets-dialects.md) — the two axes, the F77 knobs, faithful type punning
@@ -37,6 +39,7 @@ cross-type **type punning** (`word_memory`).
 7. [Instrumentation & errors](07-instrumentation-errors.md) — the OOB census, the error types
 
 **Internals**
+
 8. [Architecture](08-architecture.md) — the one decision everything follows from; the pipeline
 9. [The memory model](09-memory-model.md) — COMMON/EQUIVALENCE, static locals, the word-addressable
    punning model

@@ -216,6 +216,23 @@ def build_toc(entries: list[dict[str, object]]) -> str:
     return '<ul class="section-nav__list">\n' + "\n".join(items) + "\n</ul>"
 
 
+def build_chapter_nav(pages, current, output_path, output_dir, section_nav_html):
+    """Left-rail nav for a multi-file manual: every chapter as an L1 link, with the
+    current chapter's in-page sections (the H2/H3 `section_nav_html`) nested as L2."""
+    items = []
+    for p in pages:
+        if p.get("is_landing"):
+            continue  # the landing is the rail's header link, not a chapter row
+        active = p is current
+        href = relative_href(output_path, output_dir / p["output"])
+        cls = "chapter-nav__link" + (" is-active" if active else "")
+        sub = section_nav_html if (active and section_nav_html) else ""
+        items.append(
+            f'<li><a class="{cls}" href="{escape(href)}">{escape(str(p["title"]))}</a>{sub}</li>'
+        )
+    return '<ul class="chapter-nav">\n' + "\n".join(items) + "\n</ul>"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Build the forterp docs site.")
     parser.add_argument("--output", default=str(OUTPUT_DIR), help="Build output directory")
@@ -241,9 +258,11 @@ def main() -> int:
                 "title": entry["title"],
                 "summary": entry["summary"],
                 "source": entry["source"],
-                "template": entry.get("template", "doc"),  # "doc" (section viewer) or "page"
+                "template": entry.get("template", "doc"),  # "doc" (chapter rail) or "page"
                 "output": str(Path(entry["slug"]) / "index.html"),
                 "featured": bool(entry.get("featured", False)),
+                "manual": entry["slug"] if entry.get("chapters") else None,
+                "is_landing": True,
             }
         )
         # A multi-file manual: an entry may name a `chapters` directory whose other *.md files are
@@ -265,11 +284,20 @@ def main() -> int:
                         "template": entry.get("template", "doc"),
                         "output": str(Path(entry["slug"]) / stem / "index.html"),
                         "featured": False,
+                        "manual": entry["slug"],
+                        "is_landing": False,
                     }
                 )
 
     for page in docs_pages:
         page["href"] = page["output"].replace(os.sep, "/")
+
+    # Group the pages of each multi-file manual (in order: landing, then its chapters) so each
+    # page can render a full left-rail chapter TOC for its manual.
+    manuals: dict[str, list[dict]] = {}
+    for page in docs_pages:
+        if page.get("manual"):
+            manuals.setdefault(page["manual"], []).append(page)
 
     # Path-aware link map: repo-relative source path -> built output (unique per file, so two
     # different README.md files don't collide). The render loop resolves each `.md` link relative
@@ -315,16 +343,27 @@ def main() -> int:
     # Author / coding-attribution lines (site.json "attribution"), shown verbatim in the footer
     # on every page and, on the home page, above the fold in the hero. Each line on its own line.
     attribution_lines = config.get("attribution") or []
+
+    def _attr_html(line):
+        # escape, then keep the author's full name (the configured "copyright") from
+        # breaking mid-name across a line wrap by wrapping it in a nowrap span.
+        html = escape(line)
+        name = config.get("copyright")
+        if name:
+            esc = escape(name)
+            html = html.replace(esc, f'<span class="nowrap">{esc}</span>')
+        return html
+
     attribution = (
         '<p class="site-footer__attr">'
-        + "<br>".join(escape(line) for line in attribution_lines)
+        + "<br>".join(_attr_html(line) for line in attribution_lines)
         + "</p>"
         if attribution_lines
         else ""
     )
     attribution_hero = (
         '<div class="hero__attr">'
-        + "".join(f"<p>{escape(line)}</p>" for line in attribution_lines)
+        + "".join(f"<p>{_attr_html(line)}</p>" for line in attribution_lines)
         + "</div>"
         if attribution_lines
         else ""
@@ -379,6 +418,21 @@ def main() -> int:
         )
         content_html = rewrite_img_src(content_html, output_path, output_dir)
         toc_html = build_toc(rendered["toc"])  # type: ignore[arg-type]
+        # Left rail: a multi-file manual gets the full chapter TOC (current chapter's sections
+        # nested); a standalone doc page keeps the plain "On this page" section list.
+        if page.get("manual"):
+            mpages = manuals[page["manual"]]
+            landing = mpages[0]
+            landing_href = relative_href(output_path, output_dir / landing["output"])
+            home_cls = "chapter-nav__home" + (" is-active" if page is landing else "")
+            sidebar_eyebrow = (
+                f'<a class="{home_cls}" href="{escape(landing_href)}">'
+                f"{escape(str(landing['title']))}</a>"
+            )
+            sidebar_nav = build_chapter_nav(mpages, page, output_path, output_dir, toc_html)
+        else:
+            sidebar_eyebrow = "On this page"
+            sidebar_nav = toc_html
         asset_href = relative_href(output_path, output_dir / "assets" / "site.css")
         logo_href = relative_href(output_path, output_dir / HEADER_LOGO)
         home_href = relative_href(output_path, output_dir / "index.html")
@@ -410,6 +464,8 @@ def main() -> int:
                 "docs_href": escape(docs_href),
                 "reference_href": escape(reference_href),
                 "toc": toc_html,
+                "sidebar_nav": sidebar_nav,
+                "sidebar_eyebrow": sidebar_eyebrow,
                 "source_title": escape(str(rendered["title"] or "")),
                 "content": content_html,
                 "year": year,

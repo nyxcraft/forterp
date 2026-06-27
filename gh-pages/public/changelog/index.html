@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Changelog | forterp</title>
   <meta name="description" content="Dated history of the standalone interpreter, in order: the target/dialect axes, the CLI and monitor, the conformance work, and the review sweep.">
-  <link rel="stylesheet" href="../assets/site.css?v=818768fa">
+  <link rel="stylesheet" href="../assets/site.css?v=170293ae">
 </head>
 <body class="site-doc">
   <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -32,11 +32,9 @@
     <main id="main-content" class="docs-layout" tabindex="-1">
       <aside class="docs-sidebar">
         <p class="docs-sidebar__eyebrow">On this page</p>
-        <nav class="section-nav" aria-label="On this page">
+        <nav class="section-nav" aria-label="Manual contents">
 <ul class="section-nav__list">
-<li><a class="section-nav__link section-nav__link--l2" href="#2026-06-27-the-forterp-manual-an-engine-refactor-review-fixes-and-a-fortran-77-command">2026-06-27 — the forterp manual, an engine refactor, review fixes, and a FORTRAN 77 command</a></li>
-<li><a class="section-nav__link section-nav__link--l2" href="#2026-06-27-faithful-type-punning-the-value-model-targets-and-three-language-features">2026-06-27 — faithful type punning, the value-model targets, and three language features</a></li>
-<li><a class="section-nav__link section-nav__link--l2" href="#2026-06-27-the-fortran-66-reference-manual-and-a-cross-dialect-bridge">2026-06-27 — the FORTRAN 66 reference manual, and a cross-dialect bridge</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#2026-06-27-type-punning-value-model-targets-fortran-77-by-default-the-docs-site">2026-06-27 — type punning &amp; value-model targets, FORTRAN 77 by default, the docs site</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#2026-06-26-fcvs-the-whole-conformance-corpus-now-matches-gfortran">2026-06-26 — FCVS: the whole conformance corpus now matches gfortran</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#2026-06-25-driving-the-fortran-77-conformance-suite-to-a-clean-pass">2026-06-25 — driving the FORTRAN 77 conformance suite to a clean pass</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#2026-06-24-fortran-77-support-the-f77-branch">2026-06-24 — FORTRAN 77 support (the `f77` branch)</a></li>
@@ -61,33 +59,18 @@
           <p class="docs-article__source">Changelog</p>
         </header>
         <div class="prose">
-<h2 id="2026-06-27-the-forterp-manual-an-engine-refactor-review-fixes-and-a-fortran-77-command">2026-06-27 — the forterp manual, an engine refactor, review fixes, and a FORTRAN 77 command</h2>
+<h2 id="2026-06-27-type-punning-value-model-targets-fortran-77-by-default-the-docs-site">2026-06-27 — type punning &amp; value-model targets, FORTRAN 77 by default, the docs site</h2>
 <ul>
-<li><strong>20:30</strong> — Reorganized the <code>API</code>/<code>CLI</code>/<code>DESIGN</code> references into a chaptered <strong><code>docs/forterp/</code> manual</strong> (14 chapters — getting started, the command-line tools and interactive processor, running &amp; embedding, the target/dialect axes, host routines, the architecture, the memory model, control &amp; I/O, seams &amp; intrinsics, internals, testing, maintaining), published to the site; retired the three monolithic docs.</li>
-<li><strong>21:00</strong> — <strong>Refactored <code>engine.py</code></strong>: extracted <code>refs.py</code> (the storage Ref/View classes + the unchecked out-of-bounds machinery) and <code>intrinsics.py</code> (the intrinsic-function library + the <code>trunc_div</code>/<code>fort_mod</code> arithmetic primitives) as dependency-leaf modules — 3,831 → 3,277 lines, with the <code>forterp.engine.*</code> surface preserved by re-export. No behavior or performance change.</li>
-<li><strong>21:20</strong> — <strong>Cross value-model perf analysis</strong>: the faithful targets cost nothing measurable on arithmetic; <code>word_memory</code> punning costs ~1.5–2.1× <em>only</em> on storage-associated (<code>COMMON</code>/<code>EQUIVALENCE</code>) access, and is off by default — VAX dearest (middle-endian floats), LP64LE cheapest (native <code>struct</code>), PDP10 between.</li>
-<li><strong>21:40</strong> — Acted on an <strong>external review</strong>: (1) <code>word_memory</code> overruns now follow the faithful unchecked-pointer rule (read → 0, write dropped) instead of raising <code>IndexError</code>; (2) a recursive procedure's local <code>EQUIVALENCE</code> storage is snapshotted per activation, not shared across calls; (3) a genuine <code>OPEN</code> failure (a directory, an unreadable file) reports <code>IOSTAT=</code>/<code>ERR=</code> instead of silently connecting an empty unit — a merely <em>missing</em> file still connects empty; (4) cleared the stale &quot;F77 is a subset&quot; comments and the <code>--word-memory</code>/<code>--std</code> help text. (The dialect-capability-flag finding is deferred.)</li>
-<li><strong>21:50</strong> — A <strong><code>pyf77</code></strong> console command — run a source file as ANSI FORTRAN 77 (<code>pyf77 prog.for</code>), alongside <code>pyf66</code> and <code>pyfortran10</code>; <code>forterp --std f77</code> is the general-driver equivalent.</li>
-<li><strong>22:30</strong> — <strong><code>DOUBLE COMPLEX</code> storage now spans the standard four units</strong> in <code>COMMON</code>/<code>EQUIVALENCE</code> in the default typed-cell mode too (it was two), so a member after one lands at the right offset and a <code>DOUBLE</code> overlaid on it reads the real part — the two-doubles layout (<code>DoubleComplexPairRef</code>), matching the <code>word_memory</code> codec on both NATIVE and PDP10 (external review #3, the last deferred-then-done item).</li>
-<li><strong>23:15</strong> — <strong>Split the overloaded <code>dec_intrinsics</code> flag into three tiers</strong> (external review #5, part A): <code>f77_intrinsics</code> (the ANSI F77 intrinsic additions — on for F77 and FORTRAN10), <code>dec_library</code> (the DEC-only intrinsics <code>LSH</code>/<code>ROT</code>/degree-trig/<code>DOUBLE COMPLEX</code> helpers + the <code>RAN</code>/<code>DATE</code> subprograms + the DEC terminal CR-LF wrap — FORTRAN10 only), and <code>uuo_library</code> (the TOPS-10 monitor UUOs <code>OUTSTR</code>/<code>SLEEP</code>/… — FORTRAN10 only). So <strong>strict F77 no longer accepts <code>CALL SLEEP</code> or <code>LSH</code></strong> while keeping its standard generic intrinsics. (Part B — F66 accepting <code>OPEN</code>/keyword-I/O — was assessed as a benign superset that gfortran and the standard both allow, so it is left as-is, not gated.)</li>
-<li><strong>23:45</strong> — Fixed a dialect-independent parser bug found while assessing #5: the I/O statement keywords (<code>OPEN</code>/<code>READ</code>/<code>WRITE</code>/<code>CLOSE</code>/…) couldn't be used as <strong>array names</strong> — <code>OPEN(3) = 7.0</code> was misparsed as the <code>OPEN</code> statement and rejected. Keywords aren't reserved (gfortran accepts this on every <code>-std</code>), so the statement dispatcher now checks for a top-level <code>=</code> first — the same guard <code>GO TO</code>/<code>CALL</code> already used. Now byte-matches gfortran on all three dialects.</li>
-</ul>
-<h2 id="2026-06-27-faithful-type-punning-the-value-model-targets-and-three-language-features">2026-06-27 — faithful type punning, the value-model targets, and three language features</h2>
-<ul>
-<li><strong>12:10</strong> — <code>DOUBLE PRECISION</code> now occupies <strong>two</strong> storage units in <code>COMMON</code>/<code>EQUIVALENCE</code>, matching the standard's storage-unit count (it was one) — so a member after a <code>DOUBLE</code> no longer lands at the wrong word. On the PDP10 target a double is stored as its two genuine KL10 machine words.</li>
-<li><strong>13:30</strong> — Ran a punning probe on a real PDP-10 (SIMH KS10, DEC FORTRAN-10) to ground the float codec against hardware. It confirmed the single/double encodings bit-for-bit <strong>and</strong> caught a real bug: a negative <code>DOUBLE</code>'s low word must clear its sign bit (the KL10 doesn't carry a sign there) — fixed in the FOROTS binary codec.</li>
-<li><strong>15:00</strong> — <strong>Faithful cross-type punning</strong> (<code>--word-memory</code> / <code>word_memory=True</code>, PDP10): <code>COMMON</code>/<code>EQUIVALENCE</code> storage becomes word-addressable, so reading the same storage as a different type reinterprets the bits the way the real machine does — a <code>REAL</code> read as <code>INTEGER</code> yields the genuine machine word, a <code>DOUBLE</code>'s two words read as integers are the real doubleword, and so on. Works across scalars, arrays (single- and multi-word elements), I/O, and argument passing; off by default. Validated against the real KL10.</li>
-<li><strong>17:20</strong> — A new <strong><code>LP64LE</code></strong> target (<code>--target lp64le</code>): a 64-bit little-endian IEEE machine matching gfortran on x86_64; with <code>--word-memory</code> its punning byte-matches gfortran. The engine's storage path is now codec-driven, so adding a target is adding a codec.</li>
-<li><strong>18:00</strong> — A <strong>best-effort VAX</strong> punning codec (little-endian integers, middle-endian <code>F_floating</code>/<code>D_floating</code>) — implemented from the published format, <strong>unvalidated</strong> (no VAX oracle yet; a probe deck is staged for when one exists).</li>
-<li><strong>18:40</strong> — The <strong><code>Z</code> (hexadecimal) edit descriptor</strong> (a Fortran-90/gfortran extension), on output and input; matches gfortran's hex bit-for-bit.</li>
-<li><strong>19:30</strong> — The <strong><code>DOUBLE COMPLEX</code></strong> (<code>COMPLEX*16</code>) data type — two doubles, with <code>DREAL</code>/<code>DIMAG</code>/<code>DCONJG</code> and the <code>CD…</code> math — across arithmetic, storage, punning, and I/O.</li>
-<li><strong>20:10</strong> — The <strong><code>RECURSIVE</code> keyword</strong> — a per-procedure recursion opt-in (like gfortran's <code>RECURSIVE</code>/<code>-frecursive</code>); the runtime already gave each recursive activation its own locals, so this is purely the front-end opt-in. Plus a study confirming forterp's gates (rank cap, recursion, statement order, bounds-check) mirror gfortran's <code>--std</code>/<code>-fdec</code>/<code>-frecursive</code>/<code>-fcheck</code> gating.</li>
-</ul>
-<h2 id="2026-06-27-the-fortran-66-reference-manual-and-a-cross-dialect-bridge">2026-06-27 — the FORTRAN 66 reference manual, and a cross-dialect bridge</h2>
-<ul>
-<li><strong>09:30</strong> — Wrote the <strong>FORTRAN 66 reference manual</strong> (<code>docs/fortran66/</code>): 14 chapters and appendices mapped one-to-one onto the X3.9-1966 standard's sections, in the same example-driven style as the FORTRAN 77 manual, with a <em>forterp notes</em> box per chapter. Every example was run live on the F66 dialect.</li>
-<li><strong>10:30</strong> — Published both manuals as individual web pages (the site builder auto-discovers each chapter), and <strong>retired</strong> the single-file <code>FORTRAN66.md</code> / <code>FORTRAN77.md</code> into the chaptered manuals.</li>
-<li><strong>11:15</strong> — Added FORTRAN 77 <strong>Appendix E — Differences from FORTRAN 66</strong> (grounded in X3.9-1978's own conflicts list), the bridge between the two manuals.</li>
+<li><strong>00:00</strong> — Published the <strong>FORTRAN 66 reference manual</strong> (and F77 Appendix E, the differences from F66); <code>DOUBLE PRECISION</code> now occupies its two genuine storage units in <code>COMMON</code>/<code>EQUIVALENCE</code>.</li>
+<li><strong>08:19</strong> — <strong>Faithful type punning</strong> (<code>word_memory</code>, off by default): <code>COMMON</code>/<code>EQUIVALENCE</code> stored as raw machine words/bytes so cross-type aliasing is bit-faithful — validated against a real PDP-10, which also caught a <code>forbin</code> negative-double bug.</li>
+<li><strong>09:11</strong> — <strong>Pluggable value-model targets</strong>: added <strong>LP64LE</strong> (64-bit little-endian IEEE) and a provisional <strong>VAX</strong> alongside NATIVE and PDP10; storage is now codec-driven.</li>
+<li><strong>10:26</strong> — <strong>Language features</strong>: the <code>Z</code> hexadecimal edit descriptor, the <code>DOUBLE COMPLEX</code> (<code>COMPLEX*16</code>) type, and the F90 <code>RECURSIVE</code> keyword (per-procedure recursion opt-in).</li>
+<li><strong>11:13</strong> — Reorganized the API/CLI/DESIGN notes into a chaptered <strong>forterp manual</strong>.</li>
+<li><strong>12:30</strong> — <strong>Engine refactor</strong>: extracted <code>refs.py</code> and <code>intrinsics.py</code> leaf modules out of <code>engine.py</code> (no behavior or performance change).</li>
+<li><strong>13:17</strong> — <strong>External-review fixes</strong> (faithful out-of-bounds under <code>word_memory</code>; per-activation recursive local <code>EQUIVALENCE</code>; genuine <code>OPEN</code> failures report <code>IOSTAT=</code>/<code>ERR=</code>; I/O keywords usable as array names; <code>DOUBLE COMPLEX</code> sized to four units) and a new <strong><code>pyf77</code></strong> command.</li>
+<li><strong>13:49</strong> — <strong>Dialect cleanup</strong>: split the overloaded <code>dec_intrinsics</code> flag into <code>f77_intrinsics</code> / <code>dec_library</code> / <code>uuo_library</code>, so strict F77 no longer accepts <code>CALL SLEEP</code> or <code>LSH</code>.</li>
+<li><strong>14:46</strong> — <strong>FORTRAN 77 is now the default dialect</strong> (<code>run_source</code> / <code>parse_source</code> / the <code>forterp</code> CLI); F66 is the strict base, FORTRAN10 the DEC superset.</li>
+<li><strong>16:07</strong> — <strong>Docs site refocused &amp; recolored</strong>: the faded sage-green of the X3.9-1978 cover, a FORTRAN-77-led home page, and a two-level chapter TOC in each manual's left rail.</li>
 </ul>
 <h2 id="2026-06-26-fcvs-the-whole-conformance-corpus-now-matches-gfortran">2026-06-26 — FCVS: the whole conformance corpus now matches gfortran</h2>
 <ul>
@@ -228,65 +211,9 @@
 
     <footer class="site-footer">
       <p>© 2026 Nicholas J. Kisseberth · <a href="../index.html">forterp</a> is <a href="../license/index.html">MIT-licensed</a>.</p>
-      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by <span class="nowrap">Nicholas J. Kisseberth</span>.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
     </footer>
   </div>
 
-  <script>
-  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
-  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
-  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
-  (function () {
-    var prose = document.querySelector('.prose');
-    if (!prose) return;
-    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
-
-    var kids = Array.prototype.slice.call(prose.childNodes);
-    var groups = [], preface = [], cur = null;
-    kids.forEach(function (n) {
-      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
-      else if (cur) { cur.nodes.push(n); }
-      else { preface.push(n); }
-    });
-    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
-    groups[0].nodes = preface.concat(groups[0].nodes);
-
-    prose.innerHTML = '';
-    prose.classList.add('js-sections');
-    var anchorToSection = {};
-    var sections = groups.map(function (g) {
-      var s = document.createElement('section');
-      s.className = 'doc-section';
-      g.nodes.forEach(function (n) { s.appendChild(n); });
-      prose.appendChild(s);
-      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
-      if (g.id) anchorToSection[g.id] = s;
-      return s;
-    });
-
-    function activate(anchor, scroll) {
-      var target = anchorToSection[anchor] || sections[0];
-      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
-      navLinks.forEach(function (a) {
-        var id = decodeURIComponent(a.getAttribute('href').slice(1));
-        a.classList.toggle('is-active', anchorToSection[id] === target);
-      });
-      if (scroll) {
-        var el = (anchor && document.getElementById(anchor)) || target;
-        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
-      }
-    }
-    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
-
-    document.addEventListener('click', function (e) {
-      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
-      if (!a) return;
-      var id = decodeURIComponent(a.getAttribute('href').slice(1));
-      if (anchorToSection[id]) activate(id, true);
-    });
-    window.addEventListener('hashchange', function () { fromHash(true); });
-    fromHash(false);
-  })();
-  </script>
 </body>
 </html>

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>FORTRAN 66 reference | forterp</title>
   <meta name="description" content="A complete, example-driven reference manual for the FORTRAN 66 language (USA Standard X3.9-1966) plus the DEC FORTRAN-10 extensions, organized on the standard: program form, data types, expressions, statements, procedures, and the intrinsic library, with a forterp notes box per chapter. The strict-subset dialect (forterp.F66).">
-  <link rel="stylesheet" href="../assets/site.css?v=818768fa">
+  <link rel="stylesheet" href="../assets/site.css?v=170293ae">
 </head>
 <body class="site-doc">
   <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -31,11 +31,22 @@
 
     <main id="main-content" class="docs-layout" tabindex="-1">
       <aside class="docs-sidebar">
-        <p class="docs-sidebar__eyebrow">On this page</p>
-        <nav class="section-nav" aria-label="On this page">
-<ul class="section-nav__list">
-<li><a class="section-nav__link section-nav__link--l2" href="#how-to-read-this-manual">How to read this manual</a></li>
-<li><a class="section-nav__link section-nav__link--l2" href="#contents">Contents</a></li>
+        <p class="docs-sidebar__eyebrow"><a class="chapter-nav__home is-active" href="index.html">FORTRAN 66 reference</a></p>
+        <nav class="section-nav" aria-label="Manual contents">
+<ul class="chapter-nav">
+<li><a class="chapter-nav__link" href="01-purpose-scope/index.html">1. Purpose &amp; scope</a></li>
+<li><a class="chapter-nav__link" href="02-terminology/index.html">2. Basic terminology</a></li>
+<li><a class="chapter-nav__link" href="03-program-form/index.html">3. Program form</a></li>
+<li><a class="chapter-nav__link" href="04-data-types/index.html">4. Data types</a></li>
+<li><a class="chapter-nav__link" href="05-identification/index.html">5. Data &amp; procedure identification</a></li>
+<li><a class="chapter-nav__link" href="06-expressions/index.html">6. Expressions</a></li>
+<li><a class="chapter-nav__link" href="07-statements/index.html">7. Statements</a></li>
+<li><a class="chapter-nav__link" href="08-procedures/index.html">8. Procedures &amp; subprograms</a></li>
+<li><a class="chapter-nav__link" href="09-programs/index.html">9. Programs</a></li>
+<li><a class="chapter-nav__link" href="10-relationships/index.html">10. Intra- &amp; inter-program relationships</a></li>
+<li><a class="chapter-nav__link" href="A-intrinsics/index.html">Appendix A. Intrinsic &amp; basic external function reference</a></li>
+<li><a class="chapter-nav__link" href="B-character-set/index.html">Appendix B. The FORTRAN character set &amp; collating sequence</a></li>
+<li><a class="chapter-nav__link" href="C-forterp-extensions/index.html">Appendix C. DEC FORTRAN-10 extensions &amp; forterp divergences</a></li>
 </ul>
         </nav>
       </aside>
@@ -84,17 +95,23 @@ forterp keeps for faithfulness to real FORTRAN-10 V5 (collected in
 <li><a href="01-purpose-scope/index.html">Purpose &amp; scope</a></li>
 <li><a href="02-terminology/index.html">Basic terminology</a></li>
 </ol>
-<p><strong>Writing a program</strong>
-3. <a href="03-program-form/index.html">Program form</a>
-4. <a href="04-data-types/index.html">Data types</a>
-5. <a href="05-identification/index.html">Data &amp; procedure identification</a></p>
-<p><strong>Computing</strong>
-6. <a href="06-expressions/index.html">Expressions</a>
-7. <a href="07-statements/index.html">Statements</a></p>
-<p><strong>Program units</strong>
-8. <a href="08-procedures/index.html">Procedures &amp; subprograms</a>
-9. <a href="09-programs/index.html">Programs</a>
-10. <a href="10-relationships/index.html">Intra- &amp; inter-program relationships</a></p>
+<p><strong>Writing a program</strong></p>
+<ol start="3">
+<li><a href="03-program-form/index.html">Program form</a></li>
+<li><a href="04-data-types/index.html">Data types</a></li>
+<li><a href="05-identification/index.html">Data &amp; procedure identification</a></li>
+</ol>
+<p><strong>Computing</strong></p>
+<ol start="6">
+<li><a href="06-expressions/index.html">Expressions</a></li>
+<li><a href="07-statements/index.html">Statements</a></li>
+</ol>
+<p><strong>Program units</strong></p>
+<ol start="8">
+<li><a href="08-procedures/index.html">Procedures &amp; subprograms</a></li>
+<li><a href="09-programs/index.html">Programs</a></li>
+<li><a href="10-relationships/index.html">Intra- &amp; inter-program relationships</a></li>
+</ol>
 <p><strong>Appendices</strong></p>
 <ul>
 <li>A. <a href="A-intrinsics/index.html">Intrinsic &amp; basic external function reference</a></li>
@@ -108,65 +125,9 @@ forterp keeps for faithfulness to real FORTRAN-10 V5 (collected in
 
     <footer class="site-footer">
       <p>© 2026 Nicholas J. Kisseberth · <a href="../index.html">forterp</a> is <a href="../license/index.html">MIT-licensed</a>.</p>
-      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by <span class="nowrap">Nicholas J. Kisseberth</span>.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
     </footer>
   </div>
 
-  <script>
-  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
-  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
-  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
-  (function () {
-    var prose = document.querySelector('.prose');
-    if (!prose) return;
-    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
-
-    var kids = Array.prototype.slice.call(prose.childNodes);
-    var groups = [], preface = [], cur = null;
-    kids.forEach(function (n) {
-      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
-      else if (cur) { cur.nodes.push(n); }
-      else { preface.push(n); }
-    });
-    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
-    groups[0].nodes = preface.concat(groups[0].nodes);
-
-    prose.innerHTML = '';
-    prose.classList.add('js-sections');
-    var anchorToSection = {};
-    var sections = groups.map(function (g) {
-      var s = document.createElement('section');
-      s.className = 'doc-section';
-      g.nodes.forEach(function (n) { s.appendChild(n); });
-      prose.appendChild(s);
-      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
-      if (g.id) anchorToSection[g.id] = s;
-      return s;
-    });
-
-    function activate(anchor, scroll) {
-      var target = anchorToSection[anchor] || sections[0];
-      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
-      navLinks.forEach(function (a) {
-        var id = decodeURIComponent(a.getAttribute('href').slice(1));
-        a.classList.toggle('is-active', anchorToSection[id] === target);
-      });
-      if (scroll) {
-        var el = (anchor && document.getElementById(anchor)) || target;
-        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
-      }
-    }
-    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
-
-    document.addEventListener('click', function (e) {
-      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
-      if (!a) return;
-      var id = decodeURIComponent(a.getAttribute('href').slice(1));
-      if (anchorToSection[id]) activate(id, true);
-    });
-    window.addEventListener('hashchange', function () { fromHash(true); });
-    fromHash(false);
-  })();
-  </script>
 </body>
 </html>

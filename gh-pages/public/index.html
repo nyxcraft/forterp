@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>forterp | FORTRAN 66/77 · DEC FORTRAN-10 interpreter</title>
-  <meta name="description" content="Written in pure Python, with two pluggable axes: the front-end dialect — strict ANSI FORTRAN 66 by default, full ANSI FORTRAN 77, or the DEC FORTRAN-10 superset — and the machine value model — a 64-bit default, a faithful 36-bit PDP-10, or a little-endian LP64. Conformance is checked against the FCVS corpus; the PDP-10 model against the DEC FORTRAN-10 V5 manual and real 1970s code, the LP64 model against gfortran.">
-  <link rel="stylesheet" href="assets/site.css?v=818768fa">
+  <meta name="description" content="Written in pure Python, with two pluggable axes: the front-end dialect — ANSI FORTRAN 77 by default, ANSI FORTRAN 66, or DEC FORTRAN-10 — and the machine value model — a native-Python 64-bit default, a little-endian LP64, or a faithful 36-bit PDP-10. Language conformance is checked against the FCVS (FORTRAN Compiler Validation System, 1978) corpus.">
+  <link rel="stylesheet" href="assets/site.css?v=170293ae">
 </head>
 <body class="site-home">
   <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -24,21 +24,21 @@
     <main id="main-content" tabindex="-1">
       <section class="hero">
         <div class="hero__copy">
-          <h1>A FORTRAN interpreter<span class="hero__sub">Full ANSI&nbsp;FORTRAN&nbsp;77 by default — with strict FORTRAN&nbsp;66 and the DEC&nbsp;FORTRAN&#8209;10 superset</span></h1>
-          <div class="hero__attr"><p>Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.</p><p>Code Synthesized via Anthropic Claude Code / Opus 4.8.</p><p>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p></div>
-          <p class="hero__lede">Written in pure Python, with two pluggable axes: the front-end dialect — strict ANSI FORTRAN 66 by default, full ANSI FORTRAN 77, or the DEC FORTRAN-10 superset — and the machine value model — a 64-bit default, a faithful 36-bit PDP-10, or a little-endian LP64. Conformance is checked against the FCVS corpus; the PDP-10 model against the DEC FORTRAN-10 V5 manual and real 1970s code, the LP64 model against gfortran.</p>
+          <h1>A FORTRAN interpreter<span class="hero__sub">Runs ANSI&nbsp;FORTRAN&nbsp;77, ANSI&nbsp;FORTRAN&nbsp;66 and DEC&nbsp;FORTRAN&#8209;10&nbsp;V5</span></h1>
+          <div class="hero__attr"><p>Software Architecture, Design &amp; Engineering by <span class="nowrap">Nicholas J. Kisseberth</span>.</p><p>Code Synthesized via Anthropic Claude Code / Opus 4.8.</p><p>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p></div>
+          <p class="hero__lede">Written in pure Python, with two pluggable axes: the front-end dialect — ANSI FORTRAN 77 by default, ANSI FORTRAN 66, or DEC FORTRAN-10 — and the machine value model — a native-Python 64-bit default, a little-endian LP64, or a faithful 36-bit PDP-10. Language conformance is checked against the FCVS (FORTRAN Compiler Validation System, 1978) corpus.</p>
           <div class="hero__actions">
             <a class="button button--primary" href="fortran77/index.html">Get started</a>
             <a class="button" href="fortran77/01-overview/index.html">How it works</a>
           </div>
         </div>
-        <div class="hero__visual" role="img" aria-label="The forterp pipeline, top to bottom: source, read by a fixed-form column scanner into a statement stream; a hand-written lexer and recursive-descent parser that build an AST, set by the dialect (F66, F77, or FORTRAN10); a tree-walking interpreter engine with pass-by-reference argument cells, set by the target (NATIVE 64-bit, PDP-10 36-bit, LP64LE, or the provisional VAX); then the running program.">
+        <div class="hero__visual" role="img" aria-label="The forterp pipeline, top to bottom: source, read by a fixed-form column scanner into a statement stream; a hand-written lexer and recursive-descent parser that build an AST, set by the dialect (F77, F66, or FORTRAN10); a tree-walking interpreter engine with pass-by-reference argument cells, set by the target (NATIVE 64-bit, LP64LE, PDP-10 36-bit, or the provisional VAX); then the running program.">
           <div class="flow">
-            <div class="flow__node"><span>Source .FOR</span><strong>fixed-form · tab-format · INCLUDE</strong><small class="flow__tech">fixed-form column scanner → statement stream</small></div>
+            <div class="flow__node"><span>Source .FOR</span><strong>fixed-form · columns 1–72 · INCLUDE</strong><small class="flow__tech">fixed-column card scanner (not free-form) → statement stream</small></div>
             <div class="flow__arrow" aria-hidden="true">↓</div>
-            <div class="flow__node"><span>Lexer · Parser</span><strong>set by the <em>dialect</em> — F66 · F77 · FORTRAN10</strong><small class="flow__tech">hand-written lexer · recursive-descent parser → AST</small></div>
+            <div class="flow__node"><span>Lexer · Parser</span><strong>set by the <em>dialect</em> — F77 · F66 · FORTRAN10</strong><small class="flow__tech">hand-written lexer · recursive-descent parser → AST</small></div>
             <div class="flow__arrow" aria-hidden="true">↓</div>
-            <div class="flow__node flow__node--hub"><span>Engine</span><strong>set by the <em>target</em> — NATIVE · PDP-10 · LP64LE · VAX*</strong><small class="flow__tech">tree-walking interpreter · pass-by-reference cells</small></div>
+            <div class="flow__node flow__node--hub"><span>Engine</span><strong>set by the <em>target</em> — NATIVE · LP64LE · PDP-10 · VAX*</strong><small class="flow__tech">tree-walking interpreter · pass-by-reference cells</small></div>
             <div class="flow__arrow" aria-hidden="true">↓</div>
             <div class="flow__node"><span>Running program</span><strong>COMMON · FORMAT · FOROTS binary I/O</strong><small class="flow__tech">static storage · column-major arrays · FORMAT engine</small></div>
           </div>
@@ -48,11 +48,11 @@
       <section class="feature-strip" aria-label="Core ideas">
         <article>
           <h2>Three dialects, one core</h2>
-          <p>A plain <code>import forterp</code> is full ANSI FORTRAN 77 — the <code>CHARACTER</code> type, block <code>IF</code>, list-directed I/O, <code>OPEN</code>/<code>CLOSE</code>/<code>INQUIRE</code>. <code>F66</code> is the strict subset: it <em>rejects</em> non-F66 constructs, not merely runs standard ones. <code>FORTRAN10</code> is the DEC superset: octal, Hollerith, <code>IMPLICIT</code>, apostrophe strings, random-access I/O, the DEC library. Dozens of gated knobs draw the lines.</p>
+          <p>By default forterp is an ANSI FORTRAN 77 interpreter — the <code>CHARACTER</code> type, block <code>IF</code>, list-directed I/O, <code>OPEN</code>/<code>CLOSE</code>/<code>INQUIRE</code>. Or run it as ANSI FORTRAN 66 (<code>F66</code>), or DEC FORTRAN-10 (<code>FORTRAN10</code>) — which adds octal, Hollerith, <code>IMPLICIT</code>, apostrophe strings, random-access I/O, and the DEC library. Dozens of gated knobs tune the dialect.</p>
         </article>
         <article>
           <h2>Pluggable machine target</h2>
-          <p>The value model is a <code>Target</code>: word width and overflow, the logical-truth convention, the character codec. <code>NATIVE</code> (64-bit, ASCII) is the portable default; <code>PDP10</code> is the 36-bit, 5×7-bit packed-ASCII, <code>.TRUE.</code>=−1 DEC machine, validated bit-for-bit; <code>LP64LE</code> is a 64-bit little-endian IEEE machine matching gfortran; <code>VAX</code>* is a provisional middle-endian guess. With <code>word_memory</code>, cross-type punning is bit-faithful on every validated target. <small>*VAX is implemented from the published format but unvalidated — no oracle yet.</small></p>
+          <p>The value model is a <code>Target</code>: word width and overflow, the logical-truth convention, the character codec. <code>NATIVE</code> (64-bit, ASCII) is the portable default; <code>LP64LE</code> is a 64-bit little-endian IEEE machine; <code>PDP10</code> is the 36-bit, 5×7-bit packed-ASCII, <code>.TRUE.</code>=−1 DEC machine, validated bit-for-bit; <code>VAX</code>* is a provisional middle-endian model. With <code>word_memory</code>, cross-type punning is bit-faithful on every validated target. <small>*VAX is implemented from the published format but unvalidated.</small></p>
         </article>
         <article>
           <h2>Validated against real code</h2>
@@ -87,7 +87,7 @@
 
     <footer class="site-footer">
       <p>© 2026 Nicholas J. Kisseberth · <a href="index.html">forterp</a> is <a href="license/index.html">MIT-licensed</a>.</p>
-      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by <span class="nowrap">Nicholas J. Kisseberth</span>.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
     </footer>
   </div>
 </body>
