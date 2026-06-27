@@ -310,3 +310,44 @@ def test_lp64_negative_integer_wraps_signed_32():
     b = L.alloc(4)
     L.write(b, 0, "INTEGER", -2)
     assert L.read(b, 0, "INTEGER") == -2
+
+
+# ---- LP64LE through the engine: faithful punning on the 64-bit IEEE target (P2 step 2) ----------
+
+
+def _run_lp64(src, out_type, off=0):
+    from forterp.target import LP64LE
+
+    eng = forterp.run_source(src, dialect=forterp.F77, target=LP64LE, word_memory=True)
+    return eng.wmem.read(eng.commons["O"], off, out_type)
+
+
+def test_lp64_engine_real_punned_as_integer_matches_gfortran():
+    src = (
+        "      PROGRAM T\n      COMMON /O/ N\n      INTEGER N\n"
+        "      REAL X\n      INTEGER K\n      EQUIVALENCE (X,K)\n"
+        "      X=3.14\n      N=K\n      END\n"
+    )
+    assert _run_lp64(src, "INTEGER") == 0x4048F5C3  # gfortran x86_64
+
+
+def test_lp64_engine_double_arithmetic_round_trips():
+    src = (
+        "      PROGRAM T\n      COMMON /O/ OUT\n      DOUBLE PRECISION OUT,X\n"
+        "      X=2.5D0\n      OUT=X*2.0D0\n      END\n"
+    )
+    assert _run_lp64(src, "DOUBLE PRECISION") == 5.0
+
+
+def test_lp64_engine_block_layout_is_byte_accurate():
+    # REAL X, INTEGER K, INTEGER OUT -> 12 bytes; K at byte 4, OUT at byte 8
+    from forterp.target import LP64LE
+
+    src = (
+        "      PROGRAM T\n      COMMON /O/ X, K, M\n      REAL X\n      INTEGER K, M\n"
+        "      X=1.0\n      K=99\n      M=K\n      END\n"
+    )
+    eng = forterp.run_source(src, dialect=forterp.F77, target=LP64LE, word_memory=True)
+    assert len(eng.commons["O"]) == 12
+    assert eng.wmem.read(eng.commons["O"], 4, "INTEGER") == 99  # K at byte 4
+    assert eng.wmem.read(eng.commons["O"], 8, "INTEGER") == 99  # M = K, at byte 8

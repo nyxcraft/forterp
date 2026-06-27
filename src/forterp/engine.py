@@ -581,17 +581,21 @@ class Engine:
         # model: an out-of-bounds access traverses the COMMON/EQUIVALENCE storage sequence (the
         # deliberate over-/under-indexing tricks land in the neighbor), 0 only past the whole store.
         self.bounds_check = bounds_check
-        # word_memory: route storage-associated (COMMON/EQUIVALENCE) access through the
+        # word_memory: route storage-associated (COMMON/EQUIVALENCE) access through the target's
         # word-addressable typed codec (wordmem) so cross-type punning is bit-faithful -- a REAL
-        # read as INTEGER yields the genuine machine word, etc. Only meaningful on a packed target
-        # (PDP10); NATIVE keeps typed cells. EXPERIMENTAL / partial: SCALARS only so far (arrays and
-        # I/O still use the typed path), so default off until the migration is complete.
-        self.word_memory = word_memory and self.tgt.packed_double
+        # read as INTEGER yields the genuine machine word, etc. Available on any target with a
+        # `mem_model` (PDP10: 36-bit KL10 words; LP64LE: little-endian IEEE bytes); NATIVE has none,
+        # keeping typed cells. Off by default (it changes the COMMON/EQUIVALENCE storage to raw
+        # words/bytes and costs ~2x per access). The codec's addressable unit (word vs byte)
+        # is opaque here -- the engine only uses wmem.alloc()/units()/read()/write().
+        self.word_memory = word_memory and self.tgt.mem_model is not None
         self.wmem = None
         if self.word_memory:
-            from forterp.wordmem import Pdp10WordMemory
+            from forterp.wordmem import Lp64LeByteMemory, Pdp10WordMemory
 
-            self.wmem = Pdp10WordMemory(self.tgt)
+            self.wmem = {"pdp10": Pdp10WordMemory, "lp64le": Lp64LeByteMemory}[self.tgt.mem_model](
+                self.tgt
+            )
         self.units = units
         self.commons = {}  # block -> list (flat store)
         self.rts = {}  # unit name -> UnitRT
@@ -816,7 +820,7 @@ class Engine:
                 off_by_block[block] = off
                 sizes[block] = max(sizes.get(block, 0), off)
         for block, n in sizes.items():
-            self.commons[block] = self._alloc_words(n)
+            self.commons[block] = self.wmem.alloc(n) if self.word_memory else self._alloc_words(n)
 
         for name, u in self.units.items():
             rt = UnitRT(u)
@@ -965,7 +969,9 @@ class Engine:
                 size = max(off[m] - mn + size_of(m) for m in members)
                 key = f"$EQV.{uname}.{eq_block}"
                 eq_block += 1
-                self.commons[key] = self._alloc_words(size)
+                self.commons[key] = (
+                    self.wmem.alloc(size) if self.word_memory else self._alloc_words(size)
+                )
                 for m in members:
                     rt.common_map[m] = (key, off[m] - mn, u.arrays.get(m))
 
@@ -986,15 +992,17 @@ class Engine:
         return 2 if self.type_of(unit, name) in ("COMPLEX", "DOUBLE PRECISION") else 1
 
     def _member_words(self, unit, name, d):
-        """Words a COMMON/EQUIVALENCE member occupies, used to lay out block offsets. Scalars defer
-        to `_scalar_words` (COMPLEX/DOUBLE span two). Arrays are the element count, times the
-        element's word count UNDER word_memory (so a DOUBLE/COMPLEX array reserves its genuine
-        two-word elements and following members stay word-accurate); one cell per element otherwise
-        (the legacy single-cell model -- arrays are typed cells when word_memory is off)."""
+        """Addressable units a COMMON/EQUIVALENCE member occupies, used to lay out block offsets.
+        UNDER word_memory the size is the codec's `units(type)` (PDP10: words -- COMPLEX/DOUBLE span
+        two; LP64: bytes -- 4 for REAL/INTEGER, 8 for DOUBLE), times the element count for an array,
+        so members stay storage-accurate in the codec's addressing. OFF word_memory it is the legacy
+        typed-cell sizing (one cell per element/scalar, except COMPLEX/DOUBLE scalars span two)."""
+        if self.word_memory:
+            u = self.wmem.units(self.type_of(unit, name))
+            return u if d is None else array_size(d) * u
         if d is None:
             return self._scalar_words(unit, name)
-        n = array_size(d)
-        return n * self.wmem.units(self.type_of(unit, name)) if self.word_memory else n
+        return array_size(d)
 
     def type_of(self, unit, name):
         if name in unit.types:

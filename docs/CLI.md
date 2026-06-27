@@ -48,12 +48,12 @@ forterp main.for lib.for      # main.for's PROGRAM calls SUBROUTINEs defined in 
 | Option | Meaning |
 |--------|---------|
 | `--std f66\|fortran10` | language dialect (**`forterp` only**; default `f66`). `pyf66`/`pyfortran10` are pinned. |
-| `--target native\|pdp10\|vax` | machine value model (default `native`). `pdp10` = the faithful 36-bit DEC machine; `vax` is provisional. |
+| `--target native\|pdp10\|lp64le\|vax` | machine value model (default `native`). `pdp10` = the faithful 36-bit DEC machine; `lp64le` = a 64-bit little-endian IEEE machine (matches gfortran on x86_64 — useful with `--word-memory`); `vax` is provisional. |
 | `--program NAME` | which `PROGRAM`/`SUBROUTINE` unit to run as the main (default: the first). |
 | `--check` | parse and list every diagnostic **without running** — a compile-check. `pyf66 --check prog.for` is a strict-ANSI-F66 conformance linter. |
 | `--recover-shifted-cols` | recover statement text reindented past column 72 (off by default — a faithful FORTRAN-10 compiler drops cols 73+); for a deck nudged a column or two right. |
 | `--no-wrap` | disable the FORTRAN-10 terminal free-CR-LF wrap at column 80 (TOPS-10 `.TONFC`); no effect under strict F66, which never wraps. |
-| `--word-memory` | store `COMMON`/`EQUIVALENCE` in word-addressable memory so cross-type punning is bit-faithful (a `REAL` read as `INTEGER` yields the genuine machine word). `pdp10` target only; off by default (typed cells). Costs ~2× on `COMMON` access — see the [FORTRAN 66 manual, Appendix C](fortran66/C-forterp-extensions.md). |
+| `--word-memory` | store `COMMON`/`EQUIVALENCE` in word-addressable memory so cross-type punning is bit-faithful (a `REAL` read as `INTEGER` yields the genuine machine word). Needs a faithful target — `pdp10` (KL10 words) or `lp64le` (IEEE bytes, matches gfortran); off by default (typed cells). Costs ~2× on `COMMON` access — see the [FORTRAN 66 manual, Appendix C](fortran66/C-forterp-extensions.md). |
 | `-c CMD` | run the FORTRAN program passed as a string (instead of a file). |
 | `-` (as a file) | read the program from **stdin**. |
 | `-x` | skip the source's first line (e.g. a `#!` shebang), so a `.for` file can be a runnable script. |

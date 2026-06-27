@@ -115,8 +115,8 @@ made executable: <code>#!/usr/bin/env -S pyfortran10 -x</code>.</p>
 <td>language dialect (<strong><code>forterp</code> only</strong>; default <code>f66</code>). <code>pyf66</code>/<code>pyfortran10</code> are pinned.</td>
 </tr>
 <tr>
-<td><code>--target native|pdp10|vax</code></td>
-<td>machine value model (default <code>native</code>). <code>pdp10</code> = the faithful 36-bit DEC machine; <code>vax</code> is provisional.</td>
+<td><code>--target native|pdp10|lp64le|vax</code></td>
+<td>machine value model (default <code>native</code>). <code>pdp10</code> = the faithful 36-bit DEC machine; <code>lp64le</code> = a 64-bit little-endian IEEE machine (matches gfortran on x86_64 — useful with <code>--word-memory</code>); <code>vax</code> is provisional.</td>
 </tr>
 <tr>
 <td><code>--program NAME</code></td>
@@ -136,7 +136,7 @@ made executable: <code>#!/usr/bin/env -S pyfortran10 -x</code>.</p>
 </tr>
 <tr>
 <td><code>--word-memory</code></td>
-<td>store <code>COMMON</code>/<code>EQUIVALENCE</code> in word-addressable memory so cross-type punning is bit-faithful (a <code>REAL</code> read as <code>INTEGER</code> yields the genuine machine word). <code>pdp10</code> target only; off by default (typed cells). Costs ~2× on <code>COMMON</code> access — see the <a href="../reference/C-forterp-extensions/index.html">FORTRAN 66 manual, Appendix C</a>.</td>
+<td>store <code>COMMON</code>/<code>EQUIVALENCE</code> in word-addressable memory so cross-type punning is bit-faithful (a <code>REAL</code> read as <code>INTEGER</code> yields the genuine machine word). Needs a faithful target — <code>pdp10</code> (KL10 words) or <code>lp64le</code> (IEEE bytes, matches gfortran); off by default (typed cells). Costs ~2× on <code>COMMON</code> access — see the <a href="../reference/C-forterp-extensions/index.html">FORTRAN 66 manual, Appendix C</a>.</td>
 </tr>
 <tr>
 <td><code>-c CMD</code></td>

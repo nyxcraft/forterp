@@ -45,7 +45,7 @@ from forterp.dialect import F66, F77, FORTRAN10, Dialect
 from forterp.interpreter import Interpreter, f66, f77, fortran10
 from forterp.parser import ParseError
 from forterp.source import SourceOptions
-from forterp.target import NATIVE, PDP10, VAX, Target
+from forterp.target import LP64LE, NATIVE, PDP10, VAX, Target
 from forterp.uuolib import UnmodeledMonitorTable
 
 # The one place the version is written. pyproject.toml reads it via
@@ -73,6 +73,7 @@ __all__ = [
     "NATIVE",
     "PDP10",
     "VAX",
+    "LP64LE",
     "Target",
     # commonly-needed types
     "ParseError",

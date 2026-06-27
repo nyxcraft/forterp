@@ -25,6 +25,7 @@ class Target:
         truth=None,
         ieee_math=False,
         packed_double=False,
+        mem_model=None,
     ):
         self.word_bits = word_bits
         self.chars_per_word = chars_per_word
@@ -44,6 +45,10 @@ class Target:
         # those words reads the real machine words -- faithful to FORTRAN-10. False (NATIVE/VAX):
         # the value lives in the first cell with a zero shadow in the second (count-accurate only).
         self.packed_double = packed_double
+        # mem_model: which word-addressable codec `word_memory` uses for faithful storage punning
+        # (None = no faithful codec; the engine falls back to typed cells). "pdp10" = 36-bit KL10
+        # words (forbin); "lp64le" = little-endian LP64/IEEE bytes (struct). See forterp.wordmem.
+        self.mem_model = mem_model
         self.mask = (1 << word_bits) - 1
         self.sign = 1 << (word_bits - 1)
         self.modulus = 1 << word_bits  # 2^word_bits: the two's-complement wrap modulus
@@ -132,7 +137,7 @@ class Target:
         return "".join(out)
 
 
-PDP10 = Target(packed_double=True)  # faithful DEC PDP-10: 36-bit, 5x7-bit ASCII, .TRUE.=-1
+PDP10 = Target(packed_double=True, mem_model="pdp10")  # faithful DEC PDP-10: 36-bit, packed ASCII
 
 # The portable host-native target and the default: a clean 64-bit machine for running
 # standard FORTRAN-66 without PDP-10 quirks -- 64-bit two's-complement integers, 8-bit
@@ -165,5 +170,22 @@ VAX = Target(
     truth="low_bit",
 )
 
+# The modern 64-bit IEEE machine -- the little-endian LP64 data model gfortran targets on
+# x86_64/ARM64: default
+# INTEGER and REAL are 32-bit, DOUBLE PRECISION 64-bit, 8-bit ASCII packed 4-per-word little-endian,
+# .TRUE.=1 with boolean logical operators. Its reason to exist is the `lp64le` memory codec: with
+# word_memory on, COMMON/EQUIVALENCE punning is byte-faithful and matches gfortran bit-for-bit
+# (see forterp.wordmem.Lp64LeByteMemory). "le" = little-endian; a big-endian 64-bit target is TBD.
+LP64LE = Target(
+    word_bits=32,
+    chars_per_word=4,
+    bits_per_char=8,
+    logical_true=1,
+    bitwise_logic=False,
+    little_endian=True,
+    ieee_math=True,
+    mem_model="lp64le",
+)
+
 # CLI / front-end name -> value model, so every caller resolves the same names in one place.
-TARGETS = {"native": NATIVE, "pdp10": PDP10, "vax": VAX}
+TARGETS = {"native": NATIVE, "pdp10": PDP10, "vax": VAX, "lp64le": LP64LE}
