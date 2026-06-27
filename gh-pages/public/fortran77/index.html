@@ -238,7 +238,7 @@ it. (This is the one structured construct deliberately kept off the F77 axis.)</
 </tr>
 <tr>
 <td><code>SAVE [a, b, …]</code></td>
-<td>accepted; a no-op here — locals are already statically allocated</td>
+<td>accepted and honored; use it where you need a local retained across calls (non-<code>SAVE</code> retention is unspecified — see §10 §17)</td>
 </tr>
 <tr>
 <td><code>INTRINSIC name, …</code></td>
@@ -447,9 +447,12 @@ standardized subset:</p>
 <p>A condensed, section-by-section restatement of the <strong>ANSI X3.9-1978</strong> (&quot;FORTRAN 77 Full
 Language&quot;) standard, keyed to its section numbers, with forterp's status against each rule.
 Built by reading the standard text in full (the source PDF lives in the project notes, not
-the repo). Status legend: <strong>✓</strong> forterp conforms · <strong>▲</strong> intentional/​documented divergence
-or extension · <strong>✗</strong> known gap (see <a href="#8-conformance--fcvs-77">§8</a> and the test suite). This
-is the full language; forterp does not implement the separate &quot;subset FORTRAN&quot; level.</p>
+the repo). Status legend: <strong>✓</strong> forterp conforms (or a deliberate, conformant choice — an
+enforced rule, a permitted extension, or processor-determined latitude) · <strong>▲</strong> a documented
+divergence that <em>can</em> change a conforming program's result · <strong>✗</strong> known gap (see
+<a href="#8-conformance--fcvs-77">§8</a> and the test suite). Non-breaking extensions are collected in
+<a href="#11-non-breaking-extensions">§11</a>. This is the full language; forterp does not implement the
+separate &quot;subset FORTRAN&quot; level.</p>
 <h3 id="1-conformance">§1 Conformance</h3>
 <ul>
 <li><strong>Conformance (1.4).</strong> &quot;must&quot; is a requirement, &quot;must not&quot; a prohibition (1.5). A
@@ -547,20 +550,21 @@ three-dimension limit is left lenient — an accept-more for the base dialect.)<
 (verified by <code>EQUIVALENCE</code>-flattening).</li>
 <li><strong>Subscripts (5.4).</strong> one integer subscript expression per dimension; the value must lie
 within the declared bounds (a <em>program</em> requirement — a processor need not detect a
-violation). — ▲ by default forterp does not trap an out-of-bounds subscript; it reproduces
-the FORTRAN-10 unchecked-storage model <strong>faithfully</strong>: an out-of-bounds access traverses the
-<code>COMMON</code>/<code>EQUIVALENCE</code> storage sequence, so the deliberate over-/under-indexing tricks land in
-the neighbouring variable (read and write, both ends), reading 0 only past the whole store.
-The standard explicitly permits this non-detection. — ✓ an opt-in <strong><code>bounds_check</code></strong> knob
+violation). — ✓ by default forterp does not trap an out-of-bounds subscript; it reproduces
+the FORTRAN-10 unchecked-storage model <strong>faithfully</strong> (a committed extension, see
+<a href="#11-non-breaking-extensions">§11</a>): an out-of-bounds access traverses the <code>COMMON</code>/
+<code>EQUIVALENCE</code> storage sequence, so the deliberate over-/under-indexing tricks land in the
+neighbouring variable (read and write, both ends), reading 0 only past the whole store. The
+standard explicitly permits this non-detection. — ✓ an opt-in <strong><code>bounds_check</code></strong> knob
 (engine <code>bounds_check=True</code>) turns any subscript outside its declared <code>[lo,hi]</code> into a hard
 error (<code>OobError</code>, the gfortran <code>-fcheck=bounds</code> analog — it catches the neighbour-reaching
 case too); the store-level census <code>forterp.debug.oob_census()</code> remains available.</li>
 <li><strong>Substring (5.7).</strong> <code>v(e1:e2)</code> / <code>a(s…)(e1:e2)</code>, <code>1 ≤ e1 ≤ e2 ≤ len</code>, omitted <code>e1</code>⇒1,
-<code>e2</code>⇒len, <code>v(:)</code>≡<code>v</code>, length <code>e2−e1+1</code>. — ✓ for in-range use. — ▲ by default an out-of-range
-window is clamped/blank-padded rather than trapped (e.g. <code>S(1:9)</code> of a <code>CHARACTER*4</code> yields the
-4 characters padded to 9); lenient. — ✓ the <strong><code>bounds_check</code></strong> knob covers substrings too:
-with it on, an <code>e1&lt;1</code> / <code>e2&gt;len</code> / <code>e1&gt;e2</code> window is a hard error (<code>OobError</code>), the same gate
-as the array-subscript check (§5.4) — forterp's <code>-fcheck=bounds</code> analog spans both.</li>
+<code>e2</code>⇒len, <code>v(:)</code>≡<code>v</code>, length <code>e2−e1+1</code>. — ✓ for in-range use. — by default an out-of-range
+window (<code>e1&lt;1</code> / <code>e2&gt;len</code> / <code>e1&gt;e2</code>) is <strong>not trapped</strong>; since the standard makes it undefined,
+what forterp returns is <strong>unspecified and may change</strong> — don't rely on it. — ✓ the
+<strong><code>bounds_check</code></strong> knob makes it a hard error (<code>OobError</code>), the same gate as the array-subscript
+check (§5.4) — forterp's <code>-fcheck=bounds</code> analog spans both array subscripts and substrings.</li>
 </ul>
 <h3 id="6-expressions">§6 Expressions</h3>
 <ul>
@@ -612,8 +616,8 @@ supported. — ✓</li>
 <li><strong>DIMENSION / COMMON / EQUIVALENCE (8.1–8.3).</strong> array declarators in <code>DIMENSION</code>/type/
 <code>COMMON</code>; <code>EQUIVALENCE</code> shares storage with no type conversion; named and blank (<code>//</code>)
 common; repeated common names continue the list; <code>EQUIVALENCE</code> may extend a common block
-only forward. — ✓ (forterp detects contradictory <code>EQUIVALENCE</code>). — ▲ §8.3.1 (&quot;all entities in a
-character common block must be character&quot;) is <strong>not</strong> enforced — a mixed char/numeric COMMON
+only forward. — ✓ (forterp detects contradictory <code>EQUIVALENCE</code>). — ✓ §8.3.1 (&quot;all entities in a
+character common block must be character&quot;) is <strong>not</strong> enforced (a permitted accept-more) — a mixed char/numeric COMMON
 block is accepted (harmless: the values are stored and read back correctly, and gfortran accepts
 it in every mode incl. <code>-std=f95</code>). — ✓ §8.2.3 (&quot;a character entity may be equivalenced only
 with character entities&quot;) <strong>is</strong> enforced: a char⟷numeric <code>EQUIVALENCE</code> is a hard error on every
@@ -788,8 +792,8 @@ and lexical-comparison families) with the Table-5 semantics verified (<code>INT<
 <li><strong>Block data (§16).</strong> <code>BLOCK DATA [sub]</code> supplies initial values for <strong>named</strong> common blocks
 via <code>DATA</code>, using only specification statements; only named-common entities may be
 initialized. — ✓ verified (a <code>BLOCK DATA</code> initializes a named block read by the main program).
-The two §16.2 restrictions split: — ▲ &quot;specify all entities of an initialized block&quot; is <strong>not</strong>
-enforced (accept-more): a block data declaring only a <em>prefix</em> of the block initializes those
+The two §16.2 restrictions split: — ✓ &quot;specify all entities of an initialized block&quot; is <strong>not</strong>
+enforced (a permitted accept-more): a block data declaring only a <em>prefix</em> of the block initializes those
 entities correctly and leaves the rest uninitialized — harmless, and gfortran only warns. — ✓
 &quot;<strong>at most one unnamed block data</strong>&quot; <strong>is</strong> enforced: a second unnamed <code>BLOCK DATA</code> is a hard
 error (<code>?FTNBDU</code>, all dialects), because the two would otherwise collide in the unit table and
@@ -807,10 +811,12 @@ total vs partial association. — ✓ (the association mechanisms themselves wor
 <code>EQUIVALENCE</code> is detected).</li>
 <li><strong>Definition status (17.2–17.3).</strong> the standard enumerates exactly which events define and
 undefine entities (assignment, input, <code>DATA</code>, <code>ASSIGN</code>, <code>RETURN</code>/<code>END</code>, type-mismatched
-association, skipped function side effects, input error/EOF, …). — ▲ forterp does not <em>track</em>
-definition status or trap a reference to an undefined entity; it returns whatever the storage
-holds, faithful to the standard's &quot;no predictable value&quot; latitude (array out-of-bounds and
-undefined access are auditable via <code>forterp.debug.oob_census()</code>).</li>
+association, skipped function side effects, input error/EOF, …); §17.1 — an undefined entity
+&quot;does not have a predictable value.&quot; — ✓ forterp does not <em>track</em> definition status or trap a
+reference to an undefined entity. Since the standard makes such a reference undefined, <strong>what
+forterp returns is unspecified and not contractual</strong> — it may change. A conforming program
+defines before it reads, so this never affects it. (Out-of-bounds / undefined access is
+auditable via <code>forterp.debug.oob_census()</code>.)</li>
 </ul>
 <h3 id="18-scopes-and-classes-of-symbolic-names">§18 Scopes and classes of symbolic names</h3>
 <ul>
@@ -823,8 +829,12 @@ context: a common-block name may double as a local variable/array/statement-func
 intrinsic name can be overridden by a dummy argument or <code>EXTERNAL</code>; a function name is also a
 result variable in its subprogram. — ✓ forterp resolves these by context (dummy/statement-
 function/<code>EXTERNAL</code>/user-unit checked before the intrinsic library), as exercised throughout
-the FCVS corpus. — ▲ the static prohibition on one name occupying two local classes is not
-strictly diagnosed (lenient), and names longer than six characters are accepted with a warning.</li>
+the FCVS corpus. — ✓ the general static prohibition on one name occupying two local classes is
+not comprehensively diagnosed (a permitted accept-more: it needs full symbol-class tracking, and
+a conforming program never triggers it; forterp resolves by context). — ✓ but its one common, practical instance —
+<strong>assigning to a <code>PARAMETER</code> constant</strong> (constant + variable) — is now a hard error rather than
+a silently-dropped assignment (gfortran rejects it likewise). Names longer than six characters
+are accepted (truncated to six), per §2.2.</li>
 </ul>
 <h3 id="appendices-ad">Appendices A–D</h3>
 <ul>
@@ -850,28 +860,49 @@ functions, <code>LEN</code>/<code>CHAR</code>/<code>INDEX</code>, partial associ
 <p>This map was produced by reading the <strong>entire ANSI X3.9-1978 standard</strong> (all 18 sections +
 Appendices A–D) and checking forterp against each rule. Findings:</p>
 <ul>
-<li><strong>Conformance is strong.</strong> Every section's core semantics are implemented and verified —
+<li>
+<p><strong>Conformance is strong.</strong> Every section's core semantics are implemented and verified —
 expression evaluation, control flow (incl. the F77 zero-trip <code>DO</code>), the full statement set,
 the complete FORMAT edit-descriptor family, the entire I/O model, and <strong>all 85 Table-5
-intrinsic functions</strong> with their specified semantics.</li>
-<li><strong>Two bugs were found and fixed during the review:</strong> <code>LEN</code> of an undefined <code>CHARACTER</code>
+intrinsic functions</strong> with their specified semantics.</p>
+</li>
+<li>
+<p><strong>Two bugs were found and fixed during the review:</strong> <code>LEN</code> of an undefined <code>CHARACTER</code>
 variable (§8/§15.10 — must be the declared length), and the <code>IOSTAT=</code> specifier never being
 assigned on <code>READ</code>/<code>WRITE</code> (§12.7 — must be 0 / positive / negative). Both have regression
-tests.</li>
-<li><strong>A follow-up audit (<code>tests/test_f77_audit.py</code>) locks in the subtle rules.</strong> A second,
+tests.</p>
+</li>
+<li>
+<p><strong>A follow-up audit (<code>tests/test_f77_audit.py</code>) locks in the subtle rules.</strong> A second,
 skeptical pass re-probed every claim against the live interpreter and added dedicated
 regression tests for the ANSI rules that previously had only incidental (FCVS) coverage:
 <code>**</code> right-associativity and <code>-A**2</code>, the real-base/integer-exponent rule, the four-tier
 operator-class precedence, real/double <code>DO</code> control variables, column-major storage via
-<code>EQUIVALENCE</code>, and <code>Iw.0</code>-of-zero blanking. No new bugs were found; the only new observation
-is the undiagnosed complex-ordering case noted in §6.3.</li>
-<li><strong>The documented <code>▲</code> divergences are deliberate and benign</strong> — the pluggable value model
-(NATIVE <code>REAL</code>≡<code>DOUBLE PRECISION</code> precision and <code>DOUBLE PRECISION</code> as one value slot; the
-PDP10 target is faithful), non-fatal arithmetic, and untrapped out-of-bounds / undefined
-access. None can mis-run a conforming program; they are the same faithfulness-over-strictness
-choices documented in <a href="#8-conformance--fcvs-77">§8</a>. (Two restrictions the standard places on
-<em>programs</em> are now actively enforced under F77 — statement order §3.5 and no-recursion §15.5.2
-— rather than left lenient.)</li>
+<code>EQUIVALENCE</code>, and <code>Iw.0</code>-of-zero blanking. No new bugs were found.</p>
+</li>
+<li>
+<p><strong>A full marker-by-marker re-audit classified every documented divergence</strong>, applying one test:
+<em>can it change the result of a conforming program?</em> The <strong>only</strong> genuine <code>▲</code> (yes) is the
+<strong>pluggable value model</strong> — NATIVE <code>REAL</code>≡<code>DOUBLE PRECISION</code> precision and <code>DOUBLE PRECISION</code> as
+one value slot (the PDP10 target is faithful); it affects a conforming program via storage
+association/precision. <strong>Everything else (no) resolved to one of three conformant outcomes:</strong></p>
+<ul>
+<li><strong>enforced</strong> as a hard error (the standard says <em>must not</em> and forterp would otherwise be
+silently wrong): no-recursion (§15.5.2, all dialects + an opt-in to do it correctly), empty
+<code>''</code> (§4.8.1), array rank ≤ 7 (§5.1, + <code>unlimited_rank</code>), char⟷numeric <code>EQUIVALENCE</code> (§8.2.3),
+complex ordering comparison (§6.3.3), &gt;1 unnamed <code>BLOCK DATA</code> (§16.2), assignment to a
+<code>PARAMETER</code> (§8.6), and statement order (§3.5, F77 dialect);</li>
+<li>a <strong>committed non-breaking extension</strong> (documented in <a href="#11-non-breaking-extensions">§11</a>):
+non-fatal arithmetic (target-aware IEEE/FOROTS), unchecked array access (the storage-sequence
+tricks), <code>DOUBLE</code>⊗<code>COMPLEX</code>, mixed <code>COMMON</code>, longer names; or</li>
+<li><strong>unspecified undefined-behavior latitude</strong> a conforming program never observes (uninitialized
+reads / definition status, out-of-range substring) — left unpinned so we may change it.</li>
+</ul>
+<p>None of these can mis-run a conforming program. An opt-in <strong><code>bounds_check</code></strong> turns the unchecked
+array/substring latitude into hard errors (the gfortran <code>-fcheck=bounds</code> analog), and the
+per-dialect carriage-control default (F77 = terminal, F66/FORTRAN-10 = line printer) follows the
+§12.9.5.2.3 processor-determined-device latitude.</p>
+</li>
 </ul>
 <hr />
 <h2 id="11-non-breaking-extensions">11. Non-breaking extensions</h2>
@@ -890,10 +921,10 @@ real power do not trap — they yield a value (IEEE <code>Inf</code>/<code>NaN</
 PDP10). The op is prohibited, so any result conforms.</li>
 <li><strong>Unchecked array access (§5.4).</strong> An out-of-bounds subscript traverses the <code>COMMON</code>/
 <code>EQUIVALENCE</code> storage sequence — the deliberate over-/under-indexing idioms reach the
-neighbouring variable (read <em>and</em> write) — instead of trapping; it reads 0 only past the whole
-store.</li>
-<li><strong>Out-of-range substring (§5.7).</strong> A window outside <code>1 ≤ e1 ≤ e2 ≤ len</code> is clamped/blank-padded
-rather than trapped.</li>
+neighbouring variable (read <em>and</em> write) — instead of trapping. This is a <em>committed</em> extension
+(the faithful unchecked-storage model real DEC code relies on); <code>bounds_check</code> is its strict
+opposite. (An out-of-range <em>substring</em>, by contrast, is left <strong>unspecified</strong> — see §5.7 — not a
+committed extension.)</li>
 <li><strong><code>DOUBLE PRECISION</code> ⊗ <code>COMPLEX</code> arithmetic (§6.1.4).</strong> The Table-2/3 &quot;Prohibited&quot; combination is
 promoted to the double-complex result (identical to gfortran in every mode).</li>
 <li><strong>Mixed <code>COMMON</code> (§8.3.1).</strong> A common block may hold both character and numeric entities; each is

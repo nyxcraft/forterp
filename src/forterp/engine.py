@@ -1757,6 +1757,21 @@ class Engine:
         ref.write((cur[: lo - 1] + rhs + cur[hi:])[:n].ljust(n))
 
     def do_assign(self, s, frame):
+        # §8.6 / §18.1.2: a PARAMETER name is a named constant, not a variable -- assigning to it
+        # puts the name in two local classes (constant + variable). Reject it rather than silently
+        # dropping the assignment (the old behavior); gfortran errors the same way ("named constant
+        # in variable definition context"). (At execution time unit.consts holds only PARAMETERs --
+        # DATA implied-DO loop variables are transient and already popped.)
+        tname = (
+            s.target.base.name
+            if isinstance(s.target, A.Substring)
+            else getattr(s.target, "name", None)
+        )
+        if tname is not None and tname in frame.rt.unit.consts:
+            raise RuntimeError(
+                f"assignment to the named constant {tname!r}: a PARAMETER constant cannot be "
+                f"redefined (F77 8.6)"
+            )
         # The CHARACTER target forms (substring lvalue, fit-to-length scalar) exist only under
         # the F77 character_type dialect; gate them so F66/FORTRAN-10 skip the per-assign checks.
         if self.character_type and isinstance(s.target, A.Substring):

@@ -341,6 +341,16 @@ def test_parameter_complex_constant():
     assert _out(src)[0] == 4.0
 
 
+def test_assignment_to_a_parameter_constant_is_rejected():
+    # §8.6 / §18.1.2: a PARAMETER name is a named constant, not a variable -- assigning to it puts
+    # the name in two local classes. It is a hard error (it used to be silently dropped); gfortran
+    # rejects it the same way ("named constant in variable definition context").
+    import pytest
+
+    with pytest.raises(RuntimeError, match="named constant"):
+        _out(_prog("      PARAMETER (K=5)\n      K=10\n      N(1)=K\n"))
+
+
 def test_character_array_elements():
     body = "      CHARACTER R*2, W(3)*2\n      W(2)='CD'\n      R=W(2)\n"
     assert _out(_cprog(body))[0] == "CD"
