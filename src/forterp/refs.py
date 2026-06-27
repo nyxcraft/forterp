@@ -199,6 +199,51 @@ class DecDoublePairRef:
         oob_write(self.store, self.idx + 1, lo)
 
 
+class DoubleComplexPairRef:
+    """A DOUBLE COMPLEX scalar in word-addressable storage (COMMON / EQUIVALENCE), occupying the
+    standard FOUR storage units: the real DOUBLE in cells (idx, idx+1) and the imaginary DOUBLE in
+    (idx+2, idx+3), each laid out exactly as a lone DOUBLE PRECISION is on this target. On a
+    packed-double target (PDP10) each half is its two genuine KL10 machine words (forbin codec);
+    otherwise each half is one host float in the leading cell with a zero shadow in the trailing
+    one -- so a REAL/DOUBLE overlay onto cell idx reads the real part and onto cell idx+2 the
+    imaginary part, the DOUBLE analogue of how ComplexPairRef splits a single COMPLEX."""
+
+    __slots__ = ("store", "idx", "packed")
+
+    def __init__(self, store, idx, packed):
+        self.store, self.idx, self.packed = store, idx, packed
+
+    def read(self):
+        i = self.idx
+        if self.packed:
+            re = dec10_pair_to_double(
+                int(oob_read(self.store, i)), int(oob_read(self.store, i + 1))
+            )
+            im = dec10_pair_to_double(
+                int(oob_read(self.store, i + 2)), int(oob_read(self.store, i + 3))
+            )
+        else:
+            re = float(oob_read(self.store, i))
+            im = float(oob_read(self.store, i + 2))
+        return complex(re, im)
+
+    def write(self, v):
+        v = v if isinstance(v, complex) else complex(float(v), 0.0)
+        i = self.idx
+        if self.packed:
+            hi, lo = double_to_dec10_pair(v.real)
+            oob_write(self.store, i, hi)
+            oob_write(self.store, i + 1, lo)
+            hi, lo = double_to_dec10_pair(v.imag)
+            oob_write(self.store, i + 2, hi)
+            oob_write(self.store, i + 3, lo)
+        else:
+            oob_write(self.store, i, v.real)
+            oob_write(self.store, i + 1, 0)
+            oob_write(self.store, i + 2, v.imag)
+            oob_write(self.store, i + 3, 0)
+
+
 class DictRef:
     """Reference to a named local scalar (lazily defaulting to 0)."""
 

@@ -5,6 +5,8 @@ intrinsics, type conversion on assignment, DATA, and I/O are exercised here.
 
 from conftest import out, run
 
+import forterp
+
 RHEAD = "        PROGRAM T\n        COMMON /OUT/ V(40)\n        REAL V\n"
 END = "        END\n"
 
@@ -140,3 +142,25 @@ def test_complex_equality_comparison_still_works():
         "      X=(1.,0.)\n      Y=(2.,0.)\n      L=X.NE.Y\n      END\n"
     )
     assert forterp.run_source(src, dialect=forterp.F77, target=forterp.NATIVE).commons["O"][0]
+
+
+def test_double_complex_storage_spans_four_units():
+    """A storage-associated DOUBLE COMPLEX occupies the standard FOUR storage units (two doubles),
+    not two: a following COMMON member lands at offset 4 (was 2), the full value round-trips, and a
+    DOUBLE PRECISION scalar EQUIVALENCEd onto it reads its real part (external review #3)."""
+    src = (
+        "      PROGRAM T\n"
+        "      COMMON /OUT/ V(40)\n      REAL V\n"
+        "      COMPLEX*16 Z\n      DOUBLE PRECISION DR\n"
+        "      COMMON /C/ Z, N\n      EQUIVALENCE (Z, DR)\n"
+        "      Z = (3.5D0, -2.25D0)\n      N = 99\n"
+        "      V(1) = DREAL(Z)\n      V(2) = DIMAG(Z)\n      V(3) = N\n      V(4) = DR\n"
+        "      END\n"
+    )
+    for target in (forterp.NATIVE, forterp.PDP10):
+        eng = run(src, dialect=forterp.FORTRAN10, target=target)
+        assert out(eng, 1) == 3.5  # real part round-trips through 4-cell storage
+        assert out(eng, 2) == -2.25  # imag part round-trips (cells 2-3)
+        assert out(eng, 3) == 99  # N lands after Z's four cells, not at offset 2
+        assert out(eng, 4) == 3.5  # DOUBLE scalar overlaid on Z reads its real part
+        assert len(eng.commons["C"]) == 5  # Z (4) + N (1)

@@ -40,6 +40,7 @@ from forterp.refs import (
     ComplexPairRef,
     DecDoublePairRef,
     DictRef,
+    DoubleComplexPairRef,
     IllegalRecursion,
     OobError,
     ProcRef,
@@ -153,6 +154,7 @@ class UnitRT:
         self.common_map = {}  # name -> (block, offset, dims|None)
         self.complex_scalars = set()  # storage-associated COMPLEX scalars (2 words, ComplexPairRef)
         self.double_word_scalars = set()  # storage-assoc DOUBLE scalars on a packed-double target
+        self.double_complex_scalars = set()  # storage-assoc DOUBLE COMPLEX scalars (4 cells)
         self.local_scalars = {}  # static
         self.local_arrays = {}  # name -> store(list)
         self.do_terms = set()  # labels that terminate some DO
@@ -527,7 +529,13 @@ class Engine:
             rt.complex_scalars = {
                 nm
                 for nm in rt.common_map
-                if nm not in u.arrays and self.type_of(u, nm) in COMPLEX_TYPES
+                if nm not in u.arrays and self.type_of(u, nm) == "COMPLEX"
+            }
+            # DOUBLE COMPLEX scalars are two DOUBLEs -> four cells (DoubleComplexPairRef).
+            rt.double_complex_scalars = {
+                nm
+                for nm in rt.common_map
+                if nm not in u.arrays and self.type_of(u, nm) == "DOUBLE COMPLEX"
             }
             # On a packed-double target (PDP10) a storage-associated DOUBLE is held as its two
             # machine words (hi, lo) via DecDoublePairRef; the fast paths consult this set.
@@ -676,10 +684,15 @@ class Engine:
         first cell and the second is a permanent zero shadow, so an overlay onto the second word
         reads 0. Faithful two-word DOUBLE splitting is a PDP10-target concern, deferred.
 
+        DOUBLE COMPLEX is two DOUBLEs (real, imag), so it spans FOUR cells (see
+        DoubleComplexPairRef) -- the standard four storage units, matching the word_memory codec.
+
         (Arrays size by element count -- a COMPLEX/DOUBLE array stays one cell per element for now,
         since the FCVS cluster only ever EQUIVALENCEs such *scalars*.)"""
         t = self.type_of(unit, name)
-        return 2 if t in ("COMPLEX", "DOUBLE PRECISION", "DOUBLE COMPLEX") else 1
+        if t == "DOUBLE COMPLEX":
+            return 4
+        return 2 if t in ("COMPLEX", "DOUBLE PRECISION") else 1
 
     def _member_words(self, unit, name, d):
         """Addressable units a COMMON/EQUIVALENCE member occupies, used to lay out block offsets.
@@ -938,10 +951,14 @@ class Engine:
                 return WordRef(self.wmem, store, off, self.type_of(unit, name))
             # A storage-associated COMPLEX scalar spans two word-cells (real, imag) so a REAL
             # EQUIVALENCEd onto the same words reads each part; see ComplexPairRef.
-            if self.type_of(unit, name) in COMPLEX_TYPES:
+            t = self.type_of(unit, name)
+            if t == "COMPLEX":
                 return ComplexPairRef(store, off)
+            # A DOUBLE COMPLEX is two DOUBLEs -> four cells (real pair, then imag pair).
+            if t == "DOUBLE COMPLEX":
+                return DoubleComplexPairRef(store, off, self.tgt.packed_double)
             # On a packed-double target a storage-associated DOUBLE is held as two machine words.
-            if self.tgt.packed_double and self.type_of(unit, name) == "DOUBLE PRECISION":
+            if self.tgt.packed_double and t == "DOUBLE PRECISION":
                 return DecDoublePairRef(store, off)
             return CellRef(store, off)
         return DictRef(rt.local_scalars, name)
@@ -1073,6 +1090,8 @@ class Engine:
             if name in frame.rt.complex_scalars:  # 2-word COMPLEX: re, im -> one complex
                 off = slot[1]
                 return complex(float(oob_read(store, off)), float(oob_read(store, off + 1)))
+            if name in frame.rt.double_complex_scalars:  # 4-cell DOUBLE COMPLEX (two doubles)
+                return DoubleComplexPairRef(store, slot[1], self.tgt.packed_double).read()
             if name in frame.rt.double_word_scalars:  # 2-word DOUBLE: reassemble from hi, lo
                 return DecDoublePairRef(store, slot[1]).read()
             return store[slot[1]]
@@ -1648,7 +1667,11 @@ class Engine:
                 if slot is not None:
                     if self.word_memory and slot[2] is None:  # faithful punning: encode by type
                         wmem_write(self.wmem, self.commons[slot[0]], slot[1], ttype, val)
-                    elif ttype in COMPLEX_TYPES:  # 2-word COMPLEX: split into re, im cells
+                    elif ttype == "DOUBLE COMPLEX":  # 4-cell DOUBLE COMPLEX (two doubles)
+                        DoubleComplexPairRef(
+                            self.commons[slot[0]], slot[1], self.tgt.packed_double
+                        ).write(val)
+                    elif ttype == "COMPLEX":  # 2-word COMPLEX: split into re, im cells
                         ComplexPairRef(self.commons[slot[0]], slot[1]).write(val)
                     elif name in frame.rt.double_word_scalars:  # 2-word DOUBLE: split hi, lo
                         DecDoublePairRef(self.commons[slot[0]], slot[1]).write(val)
