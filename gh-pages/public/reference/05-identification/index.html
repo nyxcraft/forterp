@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>5. Data &amp; procedure identification | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">5. Data &amp; procedure identification</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#constants">Constants</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#variables-and-arrays">Variables and arrays</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#array-elements-and-subscripts">Array elements and subscripts</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#procedures">Procedures</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#type-rules">Type rules</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#dummy-arguments">Dummy arguments</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>5. Data &amp; procedure identification</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">5. Data &amp; procedure identification</p>
+        </header>
+        <div class="prose">
+<p>Everything a program works on is identified by a <strong>name</strong> or written as a <strong>constant</strong> <em>(§5)</em>. This
+chapter is the catalogue of those identifiers: the kinds of constant, variables, arrays and their
+subscripts, and how a name acquires a data type. Two verbs recur throughout the standard:</p>
+<ul>
+<li>to <strong>reference</strong> a datum is to make its current value available — you reference a variable by
+using it in an expression;</li>
+<li>to <strong>define</strong> a datum is to give it a value — assignment defines a variable. A datum with no
+value yet is <em>undefined</em>, and using an undefined value is not allowed <em>(§10)</em>.</li>
+</ul>
+<h2 id="constants">Constants</h2>
+<p>A <strong>constant</strong> is a datum that is always defined and can never be redefined <em>(§5.1.1)</em>. Each data
+type has its own written form (introduced in <a href="../04-data-types/index.html">Chapter 4</a>):</p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Example constants</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>integer</td>
+<td><code>0</code>, <code>42</code>, <code>-7</code></td>
+<td>a digit string, optionally signed <em>(§5.1.1.1)</em></td>
+</tr>
+<tr>
+<td>real</td>
+<td><code>3.14</code>, <code>.5</code>, <code>6.022E23</code></td>
+<td>decimal point and/or <code>E</code> exponent <em>(§5.1.1.2)</em></td>
+</tr>
+<tr>
+<td>double precision</td>
+<td><code>1.5D0</code>, <code>3.0D-2</code></td>
+<td><code>D</code> exponent instead of <code>E</code> <em>(§5.1.1.3)</em></td>
+</tr>
+<tr>
+<td>complex</td>
+<td><code>(1.0,2.0)</code></td>
+<td>a parenthesized pair of reals <em>(§5.1.1.4)</em></td>
+</tr>
+<tr>
+<td>logical</td>
+<td><code>.TRUE.</code>, <code>.FALSE.</code></td>
+<td>the two truth values <em>(§5.1.1.5)</em></td>
+</tr>
+<tr>
+<td>Hollerith</td>
+<td><code>4HABCD</code></td>
+<td>count, <code>H</code>, then exactly that many characters <em>(§5.1.1.6)</em></td>
+</tr>
+</tbody>
+</table>
+<p>A real constant is written as an integer part, a decimal point, and a fractional part — <strong>either</strong>
+part may be empty, but <strong>not both</strong> <em>(§5.1.1.2)</em>: <code>3.</code>, <code>.5</code>, and <code>3.14</code> are all valid; a bare <code>.</code>
+is not. A Hollerith constant may appear <strong>only</strong> in the argument list of a <code>CALL</code> statement and in
+a <code>DATA</code> initialization statement <em>(§5.1.1.6)</em>.</p>
+<h2 id="variables-and-arrays">Variables and arrays</h2>
+<p>A <strong>variable</strong> is a datum identified by a symbolic name; it may be referenced and defined
+<em>(§5.1.2)</em>. An <strong>array</strong> is an ordered set of data of <strong>one, two, or three dimensions</strong>, identified
+by an array name <em>(§5.1.3)</em>; the array is declared by an array declarator (<code>DIMENSION</code>, or a type
+or <code>COMMON</code> statement — <a href="../07-statements/index.html">Chapter 7</a>).</p>
+<h3 id="array-elements-and-subscripts">Array elements and subscripts</h3>
+<p>A single <strong>array element</strong> is identified by following the array name with a parenthesized
+<strong>subscript</strong> <em>(§5.1.3.1, §5.1.3.2)</em>. The number of subscript expressions must match the array's
+declared dimensionality, and array storage is <strong>column-major</strong> — the first subscript varies fastest
+(the <em>array element successor function</em>, §7.2.1.1.1).</p>
+<p>Crucially, FORTRAN 66 restricts a <strong>subscript expression</strong> to one of just seven simple forms
+<em>(§5.1.3.3)</em>, where <em>c</em> and <em>k</em> are integer constants and <em>v</em> is an integer variable:</p>
+<pre><code class="language-text">      c*v+k        c*v-k        c*v        v+k        v-k        v        k
+</code></pre>
+<pre><code class="language-fortran">      DIMENSION A(20)
+      I = 2
+      A(2*I+1) = 9.0
+C     -&gt; subscript 2*I+1 = 5, a legal &quot;c*v+k&quot; form
+</code></pre>
+<p>A subscript like <code>A(I+J)</code> (two variables) or <code>A(I*I)</code> (a variable times a variable) is <strong>not</strong>
+permitted in FORTRAN 66 — you must compute the index into an integer variable first and subscript
+with that:</p>
+<pre><code class="language-fortran">      M = I + J
+      A(M) = 9.0
+</code></pre>
+<h2 id="procedures">Procedures</h2>
+<p>A <strong>procedure</strong> is identified by a symbolic name <em>(§5.1.4)</em> and is one of: a <em>statement function</em>,
+an <em>intrinsic function</em>, a <em>basic external function</em>, an <em>external function</em>, or an <em>external
+subroutine</em> (all in <a href="../08-procedures/index.html">Chapter 8</a>). A <strong>function</strong> supplies a result to be used at
+the point of reference; a <strong>subroutine</strong> does not — it is invoked by <code>CALL</code> and acts through its
+arguments and side effects.</p>
+<p>A <strong>function reference</strong> is the function name followed by an actual argument list in parentheses
+<em>(§5.2)</em>: <code>SQRT(X)</code>, <code>MAX0(I,J,K)</code>.</p>
+<h2 id="type-rules">Type rules</h2>
+<p>The data type of a name is fixed within a program unit <em>(§5.3)</em>:</p>
+<ul>
+<li>a <strong>constant</strong>'s type is implicit in how it is written;</li>
+<li>a <strong>subroutine</strong> or <strong>common block</strong> name has no data type;</li>
+<li>a <strong>variable, array, or statement-function</strong> name takes its type from an explicit type-statement
+if present; otherwise by the <strong>implicit rule</strong> — initial letter <code>I, J, K, L, M, N</code> → integer, any
+other letter → real;</li>
+<li>an <strong>intrinsic</strong> or <strong>basic external</strong> function has the type given in Tables 3 and 4
+(<a href="../A-intrinsics/index.html">Appendix A</a>);</li>
+<li>an <strong>external function</strong>'s type is set in its own subprogram (implicitly by name, or explicitly
+on the <code>FUNCTION</code> statement).</li>
+</ul>
+<h2 id="dummy-arguments">Dummy arguments</h2>
+<p>A <strong>dummy argument</strong> of an external procedure identifies a variable, array, subroutine, or external
+function <em>(§5.4)</em>. When the procedure is referenced, each dummy is associated with the corresponding
+actual argument; a value of the same type must be available through that association. Argument
+association is detailed in Chapters <a href="../08-procedures/index.html">8</a> and <a href="../10-relationships/index.html">10</a>.</p>
+<blockquote>
+<p><strong>forterp notes.</strong></p>
+<ul>
+<li>forterp <strong>enforces the restricted subscript forms</strong> under <code>F66</code>: a subscript outside the seven
+shapes of §5.1.3.3 (plus their obvious commutations, e.g. <code>I*2</code> and <code>2+I</code>) is a hard error
+(<code>?FTNNRC … F66 array subscript must be of the form …</code>). The <code>FORTRAN10</code> and <code>F77</code> dialects lift
+this and allow a general integer expression as a subscript.</li>
+<li>forterp allows arrays of up to <strong>seven</strong> dimensions on every dialect; the X3.9-1966 limit of
+<strong>three</strong> is not enforced, as accepting more cannot break a conforming program. (The cap of
+seven <em>is</em> enforced — see the <a href="../../fortran77/05-arrays-substrings/index.html">F77 manual</a>.)</li>
+</ul>
+</blockquote>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

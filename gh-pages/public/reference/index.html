@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Language reference (FORTRAN 66) | forterp</title>
-  <meta name="description" content="The base dialect forterp implements: standard FORTRAN-66 plus the DEC FORTRAN-10 extensions, written for users of the interpreter — with the deliberate divergences spelled out.">
+  <title>FORTRAN 66 reference | forterp</title>
+  <meta name="description" content="A complete, example-driven reference manual for the FORTRAN 66 language (USA Standard X3.9-1966) plus the DEC FORTRAN-10 extensions — forterp&#x27;s default dialect — organized on the standard: program form, data types, expressions, statements, procedures, and the intrinsic library, with a forterp notes box per chapter.">
   <link rel="stylesheet" href="../assets/site.css?v=de204dc9">
 </head>
 <body class="site-doc">
@@ -26,7 +26,7 @@
       <span class="breadcrumbs__sep" aria-hidden="true">›</span>
       <a href="../docs/index.html">Docs</a>
       <span class="breadcrumbs__sep" aria-hidden="true">›</span>
-      <span aria-current="page">Language reference (FORTRAN 66)</span>
+      <span aria-current="page">FORTRAN 66 reference</span>
     </nav>
 
     <main id="main-content" class="docs-layout" tabindex="-1">
@@ -34,23 +34,8 @@
         <p class="docs-sidebar__eyebrow">On this page</p>
         <nav class="section-nav" aria-label="On this page">
 <ul class="section-nav__list">
-<li><a class="section-nav__link section-nav__link--l2" href="#1-source-form">1. Source form</a></li>
-<li><a class="section-nav__link section-nav__link--l2" href="#2-data-types-and-constants">2. Data types and constants</a></li>
-<li><a class="section-nav__link section-nav__link--l2" href="#3-names-types-and-the-type-rules">3. Names, types, and the type rules</a></li>
-<li><a class="section-nav__link section-nav__link--l2" href="#4-expressions">4. Expressions</a></li>
-<li><a class="section-nav__link section-nav__link--l2" href="#5-statements">5. Statements</a></li>
-<li><a class="section-nav__link section-nav__link--l3" href="#assignment">Assignment</a></li>
-<li><a class="section-nav__link section-nav__link--l3" href="#control-flow">Control flow</a></li>
-<li><a class="section-nav__link section-nav__link--l3" href="#specification-statements">Specification statements</a></li>
-<li><a class="section-nav__link section-nav__link--l3" href="#subprograms">Subprograms</a></li>
-<li><a class="section-nav__link section-nav__link--l2" href="#6-input-output">6. Input / output</a></li>
-<li><a class="section-nav__link section-nav__link--l3" href="#sequential">Sequential</a></li>
-<li><a class="section-nav__link section-nav__link--l3" href="#format-edit-descriptors">FORMAT edit descriptors</a></li>
-<li><a class="section-nav__link section-nav__link--l2" href="#7-intrinsic-functions-selection">7. Intrinsic functions (selection)</a></li>
-<li><a class="section-nav__link section-nav__link--l2" href="#8-where-dec-fortran-10-diverges-from-ansi-x3-9-1966">8. Where DEC FORTRAN-10 diverges from ANSI X3.9-1966</a></li>
-<li><a class="section-nav__link section-nav__link--l3" href="#front-end-dialect-divergences">Front-end dialect divergences</a></li>
-<li><a class="section-nav__link section-nav__link--l3" href="#target-value-model-divergences">Target (value-model) divergences</a></li>
-<li><a class="section-nav__link section-nav__link--l3" href="#implementation-divergences-the-interpreter-as-built">Implementation divergences (the interpreter as built)</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#how-to-read-this-manual">How to read this manual</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#contents">Contents</a></li>
 </ul>
         </nav>
       </aside>
@@ -58,456 +43,65 @@
       <article class="docs-article">
         <header class="docs-article__header">
           <p class="eyebrow">Documentation</p>
-          <h1>Language reference (FORTRAN 66)</h1>
-          <p class="docs-article__summary">The base dialect forterp implements: standard FORTRAN-66 plus the DEC FORTRAN-10 extensions, written for users of the interpreter — with the deliberate divergences spelled out.</p>
-          <p class="docs-article__source">FORTRAN-66 / DEC FORTRAN-10 language reference</p>
+          <h1>FORTRAN 66 reference</h1>
+          <p class="docs-article__summary">A complete, example-driven reference manual for the FORTRAN 66 language (USA Standard X3.9-1966) plus the DEC FORTRAN-10 extensions — forterp&#x27;s default dialect — organized on the standard: program form, data types, expressions, statements, procedures, and the intrinsic library, with a forterp notes box per chapter.</p>
+          <p class="docs-article__source">The FORTRAN 66 reference manual</p>
         </header>
         <div class="prose">
-<p>A working reference for the dialect <code>forterp</code> implements: <strong>ANSI X3.9-1966</strong> (&quot;FORTRAN
-66&quot;) as the base language, plus the <strong>DEC FORTRAN-10</strong> extensions that the interpreter
-reproduces. The authoritative base document is the ANSI X3.9-1966 standard; this file
-summarizes it as implemented and calls out where the DEC dialect diverges or extends.</p>
+<p>A complete, example-driven reference for the <strong>FORTRAN 66</strong> language — USA Standard X3.9-1966, the
+original standard FORTRAN — together with the <strong>DEC FORTRAN-10</strong> extensions that real PDP-10 code
+relied on. This is forterp's <strong>default</strong> dialect: it is what you get when you run a program without
+naming a dialect, and it is the language most 1960s–70s decks were written in.</p>
+<p>This manual is written for people who want to <em>read and write</em> FORTRAN 66 — to bring a vintage deck
+back to life, to understand what a classic program does, or to write new code in the old style.
+Every feature is shown with a small, runnable example and its result.</p>
+<p>It is self-contained: you do not need to know any other FORTRAN to use it. It runs on
+<a href="../docs/index.html"><code>forterp</code></a>; each chapter ends with a <strong>forterp notes</strong> box describing anything
+specific to how forterp implements that part of the language (and which knobs change it). For how
+to <em>select and run</em> a dialect, see the <a href="../api/index.html">Python API guide</a> and <a href="../cli/index.html">CLI.md</a>.</p>
 <blockquote>
-<p>Notation: items marked <strong>[DEC]</strong> are FORTRAN-10 extensions, not part of ANSI X3.9-1966.
-The default dialect is <code>forterp.F66</code> (ANSI); select <code>forterp.FORTRAN10</code> to turn these extensions
-on.</p>
+<p><strong>FORTRAN 66 or FORTRAN 77?</strong> F66 is the older, smaller language. If you are writing new code
+and want the <code>CHARACTER</code> type, the block <code>IF … THEN … ELSE … END IF</code>, list-directed I/O, and
+<code>OPEN</code>/<code>CLOSE</code>, you want the <a href="../fortran77/index.html">FORTRAN 77 reference manual</a> instead. Use
+<em>this</em> manual for code that predates F77, or that uses the DEC FORTRAN-10 extensions.</p>
 </blockquote>
-<hr />
-<h2 id="1-source-form">1. Source form</h2>
-<p>Fixed-form, card-image, 72 columns significant:</p>
-<table>
-<thead>
-<tr>
-<th style="text-align:right">Columns</th>
-<th>Use</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align:right">1</td>
-<td><code>C</code> or <code>*</code> in column 1 → comment line. <strong>[DEC]</strong> <code>!</code> anywhere begins a trailing comment.</td>
-</tr>
-<tr>
-<td style="text-align:right">1–5</td>
-<td>Statement label (1–99999), unsigned, blanks ignored.</td>
-</tr>
-<tr>
-<td style="text-align:right">6</td>
-<td>Continuation: any non-blank, non-zero character → this line continues the previous statement.</td>
-</tr>
-<tr>
-<td style="text-align:right">7–72</td>
-<td>Statement body.</td>
-</tr>
-<tr>
-<td style="text-align:right">73–80</td>
-<td>Ignored (card sequence field).</td>
-</tr>
-</tbody>
-</table>
+<h2 id="how-to-read-this-manual">How to read this manual</h2>
 <ul>
-<li>Blanks are not significant except inside Hollerith/character constants — <code>GO TO</code>,
-<code>GOTO</code>, and <code>G O T O</code> are the same.</li>
-<li>A statement may have up to 19 continuation lines (ANSI minimum; the interpreter does
-not impose the cap).</li>
-<li><strong>[DEC] Tab format</strong>: a leading TAB skips to column 7 (column 8 if the first character
-after the tab is a digit 1–9, which is then treated as a continuation indicator). This
-is how most DEC-10 source was actually keyed.</li>
+<li>Chapters follow the <strong>structure of the X3.9-1966 standard</strong> section for section, but you can read
+them in any order — they cross-reference each other.</li>
+<li>Code is shown in <strong>fixed source form</strong> (the classic punched-card column layout explained in
+<a href="03-program-form/index.html">Chapter 3</a>). FORTRAN 66 has <strong>no inline comment character</strong> (the <code>!</code> of
+later FORTRANs is a FORTRAN-10 extension), so annotations and expected results are shown on
+<code>C</code> comment lines, conventionally written <code>C     -&gt; ...</code>.</li>
+<li>A box marked <strong>forterp notes</strong> flags behavior particular to forterp — an enforced rule, a
+supported extension, or a tunable default — including the handful of <strong>deliberate divergences</strong>
+forterp keeps for faithfulness to real FORTRAN-10 V5 (collected in
+<a href="C-forterp-extensions/index.html">Appendix C</a>).</li>
+<li>Section numbers in parentheses, e.g. <em>(§6.1)</em>, point at the standard for authority.</li>
 </ul>
-<hr />
-<h2 id="2-data-types-and-constants">2. Data types and constants</h2>
-<table>
-<thead>
-<tr>
-<th>Type</th>
-<th>Storage (PDP-10)</th>
-<th>Constant forms</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>INTEGER</code></td>
-<td>one 36-bit word</td>
-<td><code>123</code>, <code>-7</code></td>
-</tr>
-<tr>
-<td><code>REAL</code></td>
-<td>one 36-bit word</td>
-<td><code>1.0</code>, <code>3.14</code>, <code>1.5E-3</code>, <code>.5</code></td>
-</tr>
-<tr>
-<td><code>DOUBLE PRECISION</code></td>
-<td>two words</td>
-<td><code>1.0D0</code>, <code>3.14159265358979D0</code></td>
-</tr>
-<tr>
-<td><code>COMPLEX</code></td>
-<td>two words (real, imag)</td>
-<td><code>(1.0, -2.0)</code></td>
-</tr>
-<tr>
-<td><code>LOGICAL</code></td>
-<td>one word</td>
-<td><code>.TRUE.</code>, <code>.FALSE.</code></td>
-</tr>
-<tr>
-<td>Hollerith</td>
-<td>packed, 5 chars/word</td>
-<td><code>5HHELLO</code>, <code>4HABCD</code></td>
-</tr>
-</tbody>
-</table>
-<p><strong>[DEC] Octal constants</strong>: <code>&quot;777</code>, or <code>O&quot;777</code> / <code>&quot;777</code> in data contexts — a literal in
-base 8, stored as a 36-bit value. Used heavily for bit masks. (ANSI X3.9-1966 has <em>no</em>
-octal constant; its only octal use is the <code>STOP</code>/<code>PAUSE</code> code, §7.1.2.7.)</p>
-<p><strong>[DEC] Apostrophe string literal</strong>: <code>'HELLO'</code>. ANSI X3.9-1966 has no quoted-string
-constant — its sole character literal is the Hollerith form <code>nH...</code> (§5.1.1.6). Under
-<code>FORTRAN10</code>, <code>forterp</code> accepts <code>'...'</code> as a Hollerith-equivalent literal (in <code>DATA</code>,
-expressions, and FORMAT text); <code>F66</code> rejects it.</p>
-<p><strong>The value model is configurable</strong> through <code>forterp.Target</code>. The default, <code>forterp.NATIVE</code>, is
-a portable 64-bit host machine (64-bit two's-complement integers, 8-bit ASCII, <code>.TRUE.</code>=1
-with boolean logicals) for running standard FORTRAN-66. The <strong>36-bit PDP-10 model</strong> —
-integers 36-bit two's-complement (<code>.TRUE.</code> the all-bits value −1, <code>.FALSE.</code> 0), characters
-packed 5 seven-bit ASCII per word, <code>.AND./.OR.</code> bit-wise on the word — is <code>forterp.PDP10</code>,
-selected with <code>Engine(..., target=forterp.PDP10)</code>. The constant forms above (octal, Hollerith)
-are the same in either; only the stored representation differs.</p>
-<hr />
-<h2 id="3-names-types-and-the-type-rules">3. Names, types, and the type rules</h2>
+<h2 id="contents">Contents</h2>
+<p><strong>Preliminaries</strong></p>
+<ol>
+<li><a href="01-purpose-scope/index.html">Purpose &amp; scope</a></li>
+<li><a href="02-terminology/index.html">Basic terminology</a></li>
+</ol>
+<p><strong>Writing a program</strong>
+3. <a href="03-program-form/index.html">Program form</a>
+4. <a href="04-data-types/index.html">Data types</a>
+5. <a href="05-identification/index.html">Data &amp; procedure identification</a></p>
+<p><strong>Computing</strong>
+6. <a href="06-expressions/index.html">Expressions</a>
+7. <a href="07-statements/index.html">Statements</a></p>
+<p><strong>Program units</strong>
+8. <a href="08-procedures/index.html">Procedures &amp; subprograms</a>
+9. <a href="09-programs/index.html">Programs</a>
+10. <a href="10-relationships/index.html">Intra- &amp; inter-program relationships</a></p>
+<p><strong>Appendices</strong></p>
 <ul>
-<li>Symbolic names are 1–6 letters/digits, beginning with a letter (longer names are
-truncated to 6).</li>
-<li><strong>Implicit typing</strong>: a name beginning with <code>I, J, K, L, M, N</code> is <code>INTEGER</code>; any other
-starting letter is <code>REAL</code>, unless declared otherwise.</li>
-<li><strong>[DEC] <code>IMPLICIT</code></strong> overrides the I–N rule by letter range, e.g.
-<code>IMPLICIT INTEGER (A-Z)</code>.</li>
-<li>Explicit type statements: <code>INTEGER</code>, <code>REAL</code>, <code>DOUBLE PRECISION</code>, <code>COMPLEX</code>, <code>LOGICAL</code>,
-with optional array dimensions: <code>REAL A(10), B(3,4)</code>.</li>
+<li>A. <a href="A-intrinsics/index.html">Intrinsic &amp; basic external function reference</a></li>
+<li>B. <a href="B-character-set/index.html">The FORTRAN character set &amp; collating sequence</a></li>
+<li>C. <a href="C-forterp-extensions/index.html">DEC FORTRAN-10 extensions &amp; forterp divergences</a></li>
 </ul>
-<hr />
-<h2 id="4-expressions">4. Expressions</h2>
-<p><strong>Arithmetic operators</strong>, highest precedence first: <code>**</code> (exponentiation,
-right-associative) → <code>*</code> <code>/</code> → unary/binary <code>+</code> <code>-</code>.</p>
-<ul>
-<li>Mixed-mode: integer/real combinations promote to the &quot;higher&quot; type; <code>COMPLEX</code> and
-<code>DOUBLE PRECISION</code> do not mix with each other in standard F66.</li>
-<li>Integer division truncates toward zero.</li>
-<li><code>I ** J</code> with integer operands stays integer.</li>
-</ul>
-<p><strong>Relational operators</strong> (yield <code>LOGICAL</code>): <code>.LT. .LE. .EQ. .NE. .GE. .GT.</code></p>
-<p><strong>Logical operators</strong>, highest first: <code>.NOT.</code> → <code>.AND.</code> → <code>.OR.</code>
-<strong>[DEC]</strong> also <code>.XOR.</code> / <code>.EQV.</code>.</p>
-<hr />
-<h2 id="5-statements">5. Statements</h2>
-<h3 id="assignment">Assignment</h3>
-<pre><code>V = expression
-L = logical-expression
-ASSIGN 100 TO N            ! label-variable assignment, used with assigned GO TO
-</code></pre>
-<h3 id="control-flow">Control flow</h3>
-<pre><code>GO TO 100                          ! unconditional
-GO TO N, (10,20,30)                ! assigned GO TO (N set by ASSIGN)
-GO TO (10,20,30), I                ! computed GO TO (I selects the I-th label)
-IF (e) 10, 20, 30                  ! arithmetic IF: e&lt;0 / e==0 / e&gt;0
-IF (logical-e) statement           ! logical IF
-DO 100 I = 1, N, 2                 ! DO loop
-  ...
-100 CONTINUE
-CONTINUE
-PAUSE / PAUSE n / PAUSE 'msg'
-STOP  / STOP n
-CALL SUB(args)
-RETURN
-END
-</code></pre>
-<blockquote>
-<p><strong>DO-loop semantics (F66, not F77).</strong> The body executes <strong>at least once</strong> even when the
-initial value already exceeds the limit (the &quot;one-trip DO&quot;). On normal exit the index
-variable retains the value it had on the last iteration — it is <em>not</em> reset. <code>forterp</code>
-reproduces this exactly; it is a real behavioral difference from FORTRAN-77.
-A GO TO may also leave a DO's range and later jump back into it (the F66 §7.1.2.8.2
-&quot;extended range&quot;); the loop resumes its iteration when control returns.</p>
-</blockquote>
-<blockquote>
-<p><strong>No block IF.</strong> FORTRAN-66 has no <code>IF ... THEN / ELSE / ENDIF</code>. Branching is done with
-arithmetic IF, logical IF (single statement), and the GO TO family.</p>
-</blockquote>
-<blockquote>
-<p><strong>STOP / PAUSE codes.</strong> In F66 the optional code on <code>STOP n</code> / <code>PAUSE n</code> is an <em>octal</em>
-digit string of one to five digits (§7.1.2.7). <strong>[DEC]</strong> the quoted-message forms
-<code>STOP 'msg'</code> / <code>PAUSE 'msg'</code> are FORTRAN-10 extensions.</p>
-</blockquote>
-<h3 id="specification-statements">Specification statements</h3>
-<pre><code>DIMENSION A(10), B(3,4)
-COMMON /BLK/ X, Y, Z       ! and blank COMMON: COMMON X, Y
-EQUIVALENCE (A(1), B(1,1)) ! storage association
-DATA A,B,C /1.0, 2.0, 3*0.0/   ! compile-time initialization, with repeat counts
-EXTERNAL FUNC              ! pass a subprogram name as an argument
-</code></pre>
-<p>Arrays are column-major and may have up to 3 dimensions (ANSI); the lower bound is 1.
-F66 restricts an array subscript to the forms <code>c*v±k</code>, <code>c*v</code>, <code>v±k</code>, <code>v</code>, or <code>k</code> —
-integer constants <code>c</code>, <code>k</code> and an integer variable <code>v</code> (§5.1.3.3); <strong>[DEC]</strong> <code>FORTRAN10</code>
-accepts any integer expression, but <code>F66</code> enforces these forms.</p>
-<h3 id="subprograms">Subprograms</h3>
-<pre><code>FUNCTION F(X)              ! typed by name / IMPLICIT rules
-      F = ...
-      RETURN
-      END
-
-SUBROUTINE S(A, B)
-      ...
-      END
-
-      DOUBLE PRECISION FUNCTION D(X)   ! explicitly typed function
-
-ENTRY E(args)              ! [DEC] secondary entry point
-</code></pre>
-<p><strong>Statement function</strong> (single-line, defined before the first executable statement):</p>
-<pre><code>AVG(P,Q) = (P + Q) / 2.0
-</code></pre>
-<p>Argument passing is by reference (call-by-address), so a subprogram may modify its actual
-arguments. Arrays may be passed with adjustable dimensions.</p>
-<hr />
-<h2 id="6-input-output">6. Input / output</h2>
-<blockquote>
-<p><strong>Not a sandbox.</strong> <code>OPEN</code>/<code>READ</code>/<code>WRITE</code> access the host filesystem. Relative file
-names resolve under the engine's <code>save_root</code> (default <code>.</code>), but absolute paths and
-<code>..</code> reach outside it — <code>forterp</code> runs a program's I/O against the real filesystem and
-does not contain it. Don't run untrusted source expecting isolation. Default unit
-assignments (V5 Table 10-1): units 3/6 → line printer, unit 5 → terminal input.</p>
-</blockquote>
-<h3 id="sequential">Sequential</h3>
-<pre><code>READ  (u, f) list          ! formatted, unit u, FORMAT label f
-WRITE (u, f) list
-READ  (u) list             ! unformatted (binary record)
-WRITE (u) list
-READ  f, list              ! [DEC] read from the standard input unit (no unit designator)
-PRINT f, list              ! [DEC] write to the standard output unit
-ACCEPT f, list             ! [DEC] read from the terminal
-TYPE   f, list             ! [DEC] write to the terminal
-</code></pre>
-<p>F66's input/output statements (§7.1.3) are <code>READ</code>/<code>WRITE</code> with a unit designator, plus
-the auxiliary <code>BACKSPACE</code>/<code>REWIND</code>/<code>ENDFILE</code>; <code>PRINT</code>, the unit-less <code>READ</code>, <code>ACCEPT</code>,
-and <code>TYPE</code> are FORTRAN-10 extensions.</p>
-<p><strong>Run-time (array) FORMAT.</strong> The format reference <code>f</code> may be a statement label <em>or</em> the
-name of an array holding the format text as Hollerith characters (F66 §7.2.3.10),
-interpreted when the I/O statement executes:</p>
-<pre><code>DIMENSION IFMT(2)
-DATA IFMT /4H(I5),4H    /
-WRITE (6, IFMT) N          ! format taken from IFMT at run time
-</code></pre>
-<p><strong>[DEC] List-directed I/O</strong> uses <code>*</code> in place of a FORMAT label: <code>READ (5,*) A,B,C</code>.
-ANSI X3.9-1966 has no list-directed I/O.</p>
-<p>Control statements: <code>BACKSPACE u</code>, <code>REWIND u</code>, <code>ENDFILE u</code>.
-An I/O statement may carry <code>END=label</code> and <code>ERR=label</code> branches.</p>
-<p><strong>[DEC] Random-access</strong>: <code>READ (u'r) list</code> / <code>WRITE (u'r) list</code> (or the <code>u#r</code> form) reads
-or writes record number <code>r</code> directly; <code>DEFINE FILE</code> declares such a unit and <code>FIND</code>
-positions it. F66 has no random-access I/O, so all of these are rejected under <code>F66</code>.</p>
-<p><strong>[DEC] <code>ENCODE</code> / <code>DECODE</code></strong> convert between an internal character buffer and a value
-list under FORMAT control (the F66-era equivalent of internal-file I/O).</p>
-<h3 id="format-edit-descriptors">FORMAT edit descriptors</h3>
-<pre><code>Iw                  integer
-Fw.d                fixed real
-Ew.d, Dw.d          exponential real / double precision
-Gw.d                general real (selects F or E by magnitude)
-Lw                  logical (T/F)
-Aw                  alphanumeric / Hollerith
-nHxxxx              Hollerith literal text
-nX                  skip n columns
-kP                  scale factor
-/                   record separator (newline)
-n( ... )            group repeat
-'text'              [DEC] quoted literal text (F66 uses nH only)
-Ow                  [DEC] octal integer
-Rw                  [DEC] right-justified alphanumeric (cf. Aw left-justified)
-Tw                  [DEC] tab to column w
-$                   [DEC] suppress trailing newline
-</code></pre>
-<ul>
-<li>A repeat count may precede most descriptors (<code>3I5</code>, <code>2F8.2</code>). If the I/O list is longer
-than the format, control reverts to the last open group.</li>
-<li><strong>Blanks are insignificant</strong> in a FORMAT except inside an <code>nH</code> / <code>'…'</code> literal (§3.2.3):
-<code>3 I4</code> is <code>3I4</code>, <code>F5 .2</code> is <code>F5.2</code>, <code>5 X</code> is <code>5X</code> — the blanks are dropped, the literal
-text keeps its spaces.</li>
-<li><strong>[DEC]</strong> A <em>bare</em> descriptor with no width (<code>I</code>, <code>F</code>, <code>A</code>, …) takes the FORTRAN-10 V5
-default width (<code>I15</code>, <code>F15.7</code>, <code>E15.7</code>, <code>D25.18</code>, <code>G15.7</code>, <code>A5</code>, <code>O15</code>, <code>L15</code>, <code>R5</code>,
-§13.2.6); F66 requires an explicit width on every descriptor.</li>
-<li>On input, the <code>D</code> and <code>E</code> exponent letters are interchangeable (<code>1.5D2</code> == <code>1.5E2</code>), and the
-exponent letter may be <strong>dropped before a signed exponent</strong> (<code>0.987+1</code> == <code>0.987E+1</code>,
-<code>-.334-4</code> == <code>-.334E-4</code>; §13.5.9.2.2). A field with <strong>no mantissa digits</strong> is zero — a bare
-<code>.</code>, a lone sign, or a sign-and-point with an exponent (<code>+.E00</code>) all read as <code>0.0</code>.</li>
-<li>The <code>kP</code> scale factor applies on <strong>input</strong> as well as output: a field with no exponent
-of its own is divided by <code>10**k</code> (§7.2.3.5.1). It <strong>persists</strong> until reset, <em>including across
-the records a <code>/</code>-split or reverted format spans</em> — so the reverted group of <code>+1P,(F8.1)</code>
-keeps the scale. On <strong>output</strong> the scale shifts the decimal point; for <code>G</code> editing it applies
-only when the value falls into the E-form range — while <code>G</code> is in its F-form range the scale
-factor has <strong>no effect</strong> (§13.5.9.2.3).</li>
-<li><code>E</code>/<code>D</code>/<code>G</code> output rounds the mantissa <strong>once</strong> to the displayed precision (a value that
-rounds up out of <code>[0.1,1)</code> renormalises, so <code>0.9876543</code> in <code>D8.1</code> is <code>0.1D+01</code>).</li>
-<li>On input, an <code>nH</code> / <code>'…'</code> field reads its characters <em>from</em> the record and the FORMAT
-itself is updated, so a later WRITE with the same FORMAT echoes them (§7.2.3.8).</li>
-</ul>
-<hr />
-<h2 id="7-intrinsic-functions-selection">7. Intrinsic functions (selection)</h2>
-<p>The complete ANSI X3.9-1966 library — all 31 intrinsic functions (Table 3) and all 24
-basic external functions (Table 4) — is implemented. A representative selection, with
-FORTRAN-10 extensions marked <strong>[DEC]</strong>:</p>
-<table>
-<thead>
-<tr>
-<th>Category</th>
-<th>Functions</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Conversion</td>
-<td><code>INT/IFIX/IDINT</code>, <code>FLOAT</code>, <code>REAL</code>, <code>SNGL</code>, <code>DBLE</code>, <code>CMPLX</code>, <code>AINT</code></td>
-</tr>
-<tr>
-<td>Sign/remainder</td>
-<td><code>MOD/AMOD/DMOD</code>, <code>SIGN/ISIGN/DSIGN</code>, <code>DIM/IDIM</code></td>
-</tr>
-<tr>
-<td>Max/min</td>
-<td><code>MAX0/AMAX0/MAX1/AMAX1/DMAX1</code>, <code>MIN0/AMIN0/MIN1/AMIN1/DMIN1</code></td>
-</tr>
-<tr>
-<td>Absolute</td>
-<td><code>ABS/IABS/DABS/CABS</code></td>
-</tr>
-<tr>
-<td>Exp/log</td>
-<td><code>EXP/DEXP/CEXP</code>, <code>ALOG/DLOG/CLOG</code>, <code>ALOG10/DLOG10</code></td>
-</tr>
-<tr>
-<td>Trig</td>
-<td><code>SIN/DSIN/CSIN</code>, <code>COS/DCOS/CCOS</code>, <code>ATAN/DATAN</code>, <code>ATAN2/DATAN2</code>, <code>TANH</code></td>
-</tr>
-<tr>
-<td>Square root</td>
-<td><code>SQRT/DSQRT/CSQRT</code></td>
-</tr>
-<tr>
-<td>Complex</td>
-<td><code>AIMAG</code>, <code>CONJG</code>, <code>REAL</code>, <code>CMPLX</code></td>
-</tr>
-<tr>
-<td><strong>[DEC]</strong> Extra elementary</td>
-<td><code>TAN/DTAN</code>, <code>ASIN/DASIN</code>, <code>ACOS/DACOS</code>, <code>SINH/DSINH</code>, <code>COSH/DCOSH</code>, <code>TANH/DTANH</code></td>
-</tr>
-<tr>
-<td><strong>[DEC]</strong> Degree-argument</td>
-<td><code>SIND/DSIND</code>, <code>COSD/DCOSD</code>, <code>TAND/DTAND</code>, <code>ASIND</code>, <code>ACOSD</code>, <code>ATAND</code>, <code>ATAN2D</code></td>
-</tr>
-<tr>
-<td><strong>[DEC]</strong> Round/diff/prod</td>
-<td><code>NINT</code>, <code>ANINT</code>, <code>DNINT</code>, <code>IDNINT</code>, <code>DINT</code>, <code>DDIM</code>, <code>DPROD</code>, <code>DFLOAT</code>, <code>DCMPLX</code></td>
-</tr>
-<tr>
-<td><strong>[DEC]</strong> Bit/shift</td>
-<td><code>LSH</code>, <code>ROT</code> (word shift/rotate; the <code>.AND.</code>/<code>.OR.</code>/<code>.NOT.</code>/<code>.XOR.</code>/<code>.EQV.</code> <em>operators</em> are in §4)</td>
-</tr>
-<tr>
-<td><strong>[DEC]</strong> System</td>
-<td><code>RAN</code>/<code>SETRAN</code>, <code>DATE</code>, <code>EXIT</code>, <code>TIM2GO</code> (runtime builtins)</td>
-</tr>
-</tbody>
-</table>
-<p>The full FORTRAN-10 V5 double-precision and degree-argument math library is now provided.
-These <strong>[DEC]</strong> extras (every intrinsic above the 55 standard Table 3/4 functions) are
-available under <code>FORTRAN10</code>; <strong>strict <code>F66</code> exposes only the standard library</strong> — a call to
-<code>DTAN</code>/<code>NINT</code>/<code>TAND</code>/… resolves only as an (undefined) external. To use the DEC library
-under F66 without the rest of the superset, opt in with <code>Dialect(dec_intrinsics=True)</code>.
-Still out of scope: the MIL-STD bit-manipulation <em>functions</em> <code>IAND</code>/<code>IOR</code>/<code>IEOR</code>/<code>ISHFT</code>
-(F77, not V5 — bitwise work uses the <code>.AND.</code>/<code>.OR.</code>/<code>.XOR.</code> operators of §4, or <code>LSH</code>/<code>ROT</code>)
-and OS/timing builtins like <code>SECNDS</code>/<code>RUNTIM</code>.</p>
-<hr />
-<h2 id="8-where-dec-fortran-10-diverges-from-ansi-x3-9-1966">8. Where DEC FORTRAN-10 diverges from ANSI X3.9-1966</h2>
-<h3 id="front-end-dialect-divergences">Front-end dialect divergences</h3>
-<p>The features tagged <strong>[DEC]</strong> above are front-end <strong>dialect</strong> divergences: octal and
-apostrophe literals, <code>!</code> comments and quoted FORMAT text, tab-format source, <code>IMPLICIT</code>,
-<code>ENTRY</code>, the <code>LSH</code> shift intrinsic, the <code>O</code>/<code>R</code>/<code>T</code>/<code>$</code>
-FORMAT descriptors and bare-width descriptors, <code>PRINT</code>/unit-less <code>READ</code>/<code>ACCEPT</code>/<code>TYPE</code>,
-list-directed <code>*</code> I/O, random-access I/O, <code>ENCODE</code>/<code>DECODE</code>, free-form (widthless)
-formatted input; the operators beyond §6.1 — the symbolic relationals (<code>==</code> <code>#</code> <code>&lt;</code> <code>&gt;</code>
-<code>&lt;=</code> <code>&gt;=</code>), the extended logicals (<code>.XOR.</code>/<code>.EQV.</code>/<code>.NEQV.</code>), and <code>^</code> for power (<code>**</code> is
-ANSI); the extra syntax — <code>;</code> multi-statement lines, explicit array lower bounds
-<code>A(lo:hi)</code>, the <code>PARAMETER</code> statement, <code>*n</code> byte-size type specifiers (<code>INTEGER*4</code>), and
-alternate-return CALL args (<code>*n</code>/<code>$n</code>/<code>&amp;n</code>); and the relaxation of three F66 <em>constraints</em> —
-general integer expressions in array subscripts (§5.1.3.3) and <code>DO</code> parameters (§7.1.2.8),
-and <code>COMPLEX</code>↔numeric assignment (Table 1). <strong><code>F66</code> rejects all of these; <code>FORTRAN10</code>
-accepts them</strong> — each gated on its own <code>Dialect</code> flag (see <code>dialect.py</code>). The
-dialect is selected independently of the target and defaults to <code>forterp.F66</code> (ANSI — these
-extensions off); select <code>forterp.FORTRAN10</code> to enable the whole DEC superset.</p>
-<h3 id="target-value-model-divergences">Target (value-model) divergences</h3>
-<p>The 36-bit word size, <code>.TRUE.</code> = −1, and the 5×7-bit character packing are properties of
-the <strong>target</strong>, not the language — they belong to <code>forterp.PDP10</code>. The default target is
-<code>forterp.NATIVE</code>, a portable 64-bit model (<code>.TRUE.</code>=1, boolean logicals). Target and dialect
-are orthogonal: you can run the ANSI dialect on the PDP-10 target, or the DEC dialect on
-NATIVE.</p>
-<h3 id="implementation-divergences-the-interpreter-as-built">Implementation divergences (the interpreter as built)</h3>
-<p>These hold on <em>every</em> target — they are properties of the tree-walking interpreter, not
-of the dialect or the value model:</p>
-<ul>
-<li><strong><code>REAL</code> is the host double.</strong> A <code>REAL</code> datum is a Python float (host double precision);
-there is no distinct single precision. <code>SNGL</code>/<code>DBLE</code> are effectively identity, so a
-program depending on single-precision rounding sees double-precision results.</li>
-<li><strong><code>COMPLEX</code> and <code>DOUBLE PRECISION</code> occupy one storage cell</strong>, stored as a single host
-object rather than the two machine words §2 lists. This is <strong>silently lossy</strong> in two ways.
-(1) Storage association that <em>splits</em> the value — <code>EQUIVALENCE</code>-ing a <code>COMPLEX</code> onto two
-<code>REAL</code>s, or a <code>DOUBLE</code> onto two <code>INTEGER</code>s — keeps the whole value in the first slot and
-leaves the second an unrelated zero: <code>C=(3.,4.)</code> then <code>EQUIVALENCE(C,R(1))</code> gives
-<code>R(1)</code>=3, <code>R(2)</code>=0 — the imaginary half is gone. (2) A <code>COMPLEX</code>/<code>DOUBLE</code> inside a
-<code>COMMON</code> block counts as <strong>one</strong> slot, so the block is one word short per such member and
-<strong>every following member shifts by a word</strong>: <code>COMMON /CB/ D,K</code> lays out as length 2, not
-3, so a different unit overlaying the block reads <code>K</code> at the wrong word. The rule:
-<strong>a <code>COMMON</code> block is word-accurate iff every member is <code>INTEGER</code>, single <code>REAL</code>, or
-<code>LOGICAL</code></strong> — the moment a <code>COMPLEX</code> or <code>DOUBLE PRECISION</code> appears, slot index stops
-tracking machine-word index for that member and everything after it. This follows from
-the deliberate value-slot cell model (the same one that makes integer <code>COMMON</code> <em>exactly</em>
-word-accurate and keeps the runtime target-agnostic); a true two-word layout is
-deferred to the macroterp bridge — where <code>common_layout</code> must report true word offsets
-and flag multi-word members — rather than retrofitted into the cell here.</li>
-<li><strong>Non-fatal arithmetic.</strong> Integer/real divide-by-zero yields <code>0</code> and continues rather
-than trapping; library domain errors (<code>SQRT</code>/<code>LOG</code> of a negative, <code>ASIN</code>/<code>ACOS</code> of
-|arg|&gt;1) print the V5 warning and continue (V5 App. H — &quot;usually reported as warnings
-and the program continues&quot;). The div-by-zero→0 <em>value</em> is a processor-dependent
-stand-in, not a V5-specified result.</li>
-<li><strong>Out-of-bounds array access is non-fatal.</strong> An OOB read yields <code>0</code>; an OOB write is
-dropped (for a local array) — though within a flat <code>COMMON</code> block an out-of-range index
-still lands on a real neighbor word. ANSI leaves this undefined; a real FORTRAN-10 with
-bounds-checking would trap.</li>
-<li><strong>Illegal storage association is rejected, not silently mis-laid.</strong> The runtime leniencies
-above are for ANSI-<em>undefined</em> conditions; by contrast the three <code>EQUIVALENCE</code> shapes ANSI
-flatly <em>prohibits</em> — extending a <code>COMMON</code> block <strong>backward</strong> (10.2.2), associating <strong>two</strong>
-<code>COMMON</code> blocks (10.2.1), and a <strong>contradictory</strong> group (one name forced to two offsets) —
-raise a build-time error rather than picking an arbitrary layout. They are statically
-illegal in F66 itself, so the diagnostic is ungated (both dialects). This contrasts with the
-<em>value-model</em> lossiness above (splitting a <code>COMPLEX</code>/<code>DOUBLE</code>), which is silent because it
-follows from the cell model, not from a malformed program.</li>
-</ul>
-<blockquote>
-<p><strong>Formatted input (F66 §7.2.3.6).</strong> By default (<code>F66</code>) every numeric/logical field is
-read by <em>column</em>: packed digits split by width (<code>(I2,I3)</code> on <code>12345</code> → <code>12, 345</code>),
-leading blanks are insignificant, embedded/trailing blanks count as <strong>zeros</strong> (<code>(I5)</code> on
-<code>4 2␣␣</code> → <code>40200</code>), an <code>Fw.d</code> field with no decimal point gets the implied decimal
-(<code>(F5.2)</code> on <code>12345</code> → <code>123.45</code>), and a <code>kP</code> scale divides an exponent-free field. An
-<strong>all-blank</strong> field is zero (blanks-as-zero), but a field with an <strong>illegal character</strong>
-is a runtime input error: it routes to the READ's <code>ERR=</code> label, or — absent <code>ERR=</code> —
-halts the program, as real FORTRAN-10 does. A record shorter than an <strong>explicit-width</strong>
-field is <strong>blank-extended</strong> to the field width (and trailing blanks are zeros, so <code>(I5)</code>
-on <code>42</code> reads <code>42000</code>, not <code>42</code> — the BZ gotcha). The same rule folds trailing/extension
-blanks into a real field's <strong>exponent</strong>: <code>(E10.3)</code> on <code>1.5E2</code> reads <code>1.5E200000</code> (overflow)
-— so numeric input must be <strong>right-justified</strong>, exactly as on real FORTRAN-10. (This is the
-literal blanks-as-zero behavior; a BN-style &quot;blanks ignored&quot; leniency for interactive input
-is a possible future option, not the default.) <strong>[DEC]</strong> Under <code>FORTRAN10</code>, a
-<em>widthless</em> descriptor (<code>I</code>, <code>G</code>, …) instead reads one free-form, space/comma/<strong>tab</strong>-
-delimited token (reading only the columns present) — the idiom variable-length
-tab-delimited databases (e.g. ADVENT) rely on. For free-form input regardless of dialect,
-list-directed <code>READ(u,*)</code> and NAMELIST are whitespace-delimited by design.</p>
-</blockquote>
-<p>For anything not covered here, the ANSI X3.9-1966 standard is authoritative for the
-base language, and the DECsystem-10 FORTRAN-10 Language Manual (V5) for the extensions.</p>
 
         </div>
       </article>

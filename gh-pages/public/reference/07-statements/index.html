@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>7. Statements | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">7. Statements</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#assignment-statements">Assignment statements</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#arithmetic-assignment-v-e">Arithmetic assignment — `v = e`</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#logical-assignment-v-e">Logical assignment — `v = e`</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#assign-assign-k-to-i">`ASSIGN` — `ASSIGN k TO i`</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#control-statements">Control statements</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#go-to">`GO TO`</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#arithmetic-if-if-e-k1-k2-k3">Arithmetic `IF` — `IF (e) k1,k2,k3`</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#logical-if-if-e-s">Logical `IF` — `IF (e) S`</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#do-do-n-i-m1-m2-m3">`DO` — `DO n i = m1, m2, m3`</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#continue">`CONTINUE`</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#call-and-return">`CALL` and `RETURN`</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#stop-and-pause">`STOP` and `PAUSE`</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#input-output-statements">Input/output statements</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#read-and-write">`READ` and `WRITE`</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#auxiliary-i-o-rewind-backspace-endfile">Auxiliary I/O — `REWIND`, `BACKSPACE`, `ENDFILE`</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#specification-statements">Specification statements</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#dimension-declare-arrays">`DIMENSION` — declare arrays</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#common-shared-storage">`COMMON` — shared storage</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#equivalence-overlay-storage">`EQUIVALENCE` — overlay storage</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#external-pass-a-procedure-as-an-argument">`EXTERNAL` — pass a procedure as an argument</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#type-statements-declare-a-name-s-type">Type-statements — declare a name&#x27;s type</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#the-data-statement-initial-values">The `DATA` statement — initial values</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#the-format-statement-editing-for-formatted-i-o">The `FORMAT` statement — editing for formatted I/O</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#carriage-control-for-printed-output">Carriage control for printed output</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>7. Statements</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">7. Statements</p>
+        </header>
+        <div class="prose">
+<p>This is the largest part of the language: every statement FORTRAN 66 provides <em>(§7)</em>. Statements
+divide into two classes — <strong>executable</strong> statements specify action <em>(§7.1)</em>, <strong>nonexecutable</strong>
+statements describe data, editing, and arrangement <em>(§7.2)</em>. This chapter is organized exactly that
+way; use it as a catalogue.</p>
+<hr />
+<h1 id="7-1-executable-statements">§7.1 Executable statements</h1>
+<p>There are three groups: <strong>assignment</strong>, <strong>control</strong>, and <strong>input/output</strong> <em>(§7.1)</em>.</p>
+<h2 id="assignment-statements">Assignment statements</h2>
+<h3 id="arithmetic-assignment-v-e">Arithmetic assignment — <code>v = e</code></h3>
+<p>Evaluate the arithmetic expression <code>e</code> and store it in variable or array element <code>v</code> (<code>v</code> of any
+type except logical) <em>(§7.1.1.1)</em>. When the types differ, the value is converted per the standard's
+<strong>Table 1</strong> — the important cases are:</p>
+<ul>
+<li>assigning a <strong>real</strong> value to an <strong>integer</strong> <code>v</code> <strong>truncates</strong> toward zero (<code>I = 3.9</code> gives <code>3</code>);</li>
+<li>assigning an <strong>integer</strong> value to a <strong>real</strong> <code>v</code> <strong>floats</strong> it (<code>X = 3</code> gives <code>3.0</code>).</li>
+</ul>
+<pre><code class="language-fortran">      COMMON /O/ N(1)
+      N(1) = 7.9
+C     -&gt; integer N(1) = 7 (real value truncated, Table 1 &quot;Fix&quot;)
+</code></pre>
+<h3 id="logical-assignment-v-e">Logical assignment — <code>v = e</code></h3>
+<p><code>v</code> is a logical variable or array element and <code>e</code> a logical expression <em>(§7.1.1.2)</em>:</p>
+<pre><code class="language-fortran">      LOGICAL BIG
+      BIG = X .GT. 100.0
+</code></pre>
+<h3 id="assign-assign-k-to-i"><code>ASSIGN</code> — <code>ASSIGN k TO i</code></h3>
+<p>Assign the statement label <code>k</code> to the integer variable <code>i</code>, for later use by an assigned <code>GO TO</code>
+<em>(§7.1.1.3)</em>. While <code>i</code> holds a label it must not be used as an ordinary integer.</p>
+<h2 id="control-statements">Control statements</h2>
+<h3 id="go-to"><code>GO TO</code></h3>
+<p>Three forms <em>(§7.1.2.1)</em>:</p>
+<pre><code class="language-fortran">      GO TO 100
+C     -&gt; unconditional: jump to label 100
+
+      GO TO (10,20,30), I
+C     -&gt; computed: jump to the I-th label (I=2 -&gt; label 20)
+
+      ASSIGN 20 TO K
+      GO TO K, (10,20)
+C     -&gt; assigned: jump to the label currently in K (-&gt; label 20)
+</code></pre>
+<h3 id="arithmetic-if-if-e-k1-k2-k3">Arithmetic <code>IF</code> — <code>IF (e) k1,k2,k3</code></h3>
+<p>A three-way branch on the sign of arithmetic expression <code>e</code>: to <code>k1</code> if <code>e&lt;0</code>, <code>k2</code> if <code>e=0</code>, <code>k3</code>
+if <code>e&gt;0</code> <em>(§7.1.2.2)</em>:</p>
+<pre><code class="language-fortran">      COMMON /O/ N(1)
+      J = -5
+      IF (J) 10, 20, 30
+10    N(1) = 1
+C     -&gt; J&lt;0, so control goes to label 10
+</code></pre>
+<h3 id="logical-if-if-e-s">Logical <code>IF</code> — <code>IF (e) S</code></h3>
+<p>If logical expression <code>e</code> is true, execute statement <code>S</code> (any executable statement except a <code>DO</code> or
+another logical <code>IF</code>); if false, <code>S</code> is skipped <em>(§7.1.2.3)</em>:</p>
+<pre><code class="language-fortran">      IF (X .LT. 0.0) X = -X
+C     -&gt; absolute value of X
+</code></pre>
+<h3 id="do-do-n-i-m1-m2-m3"><code>DO</code> — <code>DO n i = m1, m2, m3</code></h3>
+<p>A counting loop <em>(§7.1.2.8)</em>. The <strong>range</strong> is every statement from the one after the <code>DO</code> through
+the <strong>terminal statement</strong> labeled <code>n</code>. The control variable <code>i</code> starts at <code>m1</code>; after the range
+runs, <code>i</code> is incremented by <code>m3</code> (default 1 if omitted) and the range repeats while <code>i</code> does not
+pass <code>m2</code>. <code>m1, m2, m3</code> are integer constants or variables.</p>
+<pre><code class="language-fortran">      COMMON /O/ N(1)
+      K = 0
+      DO 1 I = 1, 5
+1     K = K + I
+      N(1) = K
+C     -&gt; 1+2+3+4+5 = 15
+</code></pre>
+<blockquote>
+<p><strong>The FORTRAN 66 <code>DO</code> is <em>one-trip</em>: the range always executes at least once</strong>, even when
+<code>m1 &gt; m2</code>, because the termination test happens <em>after</em> the range <em>(§7.1.2.8.1)</em>. FORTRAN 77
+later changed this to a zero-trip test. This is a real behavioral difference between the dialects
+— see the <strong>forterp notes</strong> at the end of the chapter.</p>
+</blockquote>
+<h3 id="continue"><code>CONTINUE</code></h3>
+<p>Does nothing; it is most often the terminal statement of a <code>DO</code> <em>(§7.1.2.6)</em>.</p>
+<h3 id="call-and-return"><code>CALL</code> and <code>RETURN</code></h3>
+<p><code>CALL s(a1,...,an)</code> (or <code>CALL s</code>) invokes subroutine <code>s</code>; <code>RETURN</code> returns control from a
+subprogram to its caller <em>(§7.1.2.4, §7.1.2.5)</em>. See <a href="../08-procedures/index.html">Chapter 8</a>.</p>
+<h3 id="stop-and-pause"><code>STOP</code> and <code>PAUSE</code></h3>
+<p><code>STOP</code> (optionally <code>STOP n</code>) terminates the program; <code>PAUSE</code> (optionally <code>PAUSE n</code>) suspends it
+<em>(§7.1.2.7)</em>. The <code>n</code> is an octal digit string of one to five digits.</p>
+<h2 id="input-output-statements">Input/output statements</h2>
+<h3 id="read-and-write"><code>READ</code> and <code>WRITE</code></h3>
+<p>Formatted transfer names a format <code>f</code>; unformatted transfer omits it <em>(§7.1.3.2–§7.1.3.2.5)</em>:</p>
+<pre><code class="language-fortran">      READ  (5, 100) A, B
+      WRITE (6, 100) A, B
+      READ  (5) A, B
+C     -&gt; unformatted (binary) read
+</code></pre>
+<p>The list after the format names the variables and array elements to transfer. A <strong>DO-implied list</strong>
+embeds a loop in the list <em>(§7.1.3.2.1)</em>:</p>
+<pre><code class="language-fortran">      DIMENSION A(3)
+      WRITE (6,100) (A(I), I=1,3)
+C     -&gt; writes A(1), A(2), A(3)
+</code></pre>
+<h3 id="auxiliary-i-o-rewind-backspace-endfile">Auxiliary I/O — <code>REWIND</code>, <code>BACKSPACE</code>, <code>ENDFILE</code></h3>
+<p><code>REWIND u</code> repositions unit <code>u</code> to its start, <code>BACKSPACE u</code> backs up one record, <code>ENDFILE u</code> writes
+an end-of-file mark <em>(§7.1.3.3)</em>.</p>
+<hr />
+<h1 id="7-2-nonexecutable-statements">§7.2 Nonexecutable statements</h1>
+<p>Five kinds: <strong>specification statements</strong>, the <strong><code>DATA</code></strong> statement, the <strong><code>FORMAT</code></strong> statement, and
+the function-defining and subprogram statements (the last two are in
+<a href="../08-procedures/index.html">Chapter 8</a>) <em>(§7.2)</em>.</p>
+<h2 id="specification-statements">Specification statements</h2>
+<h3 id="dimension-declare-arrays"><code>DIMENSION</code> — declare arrays</h3>
+<pre><code class="language-fortran">      DIMENSION A(10), B(2,3), C(4,4,4)
+C     -&gt; arrays of 1, 2, and 3 dimensions
+</code></pre>
+<p>An array declarator gives the array name and the size of each of its (one to three) dimensions
+<em>(§7.2.1.1)</em>. A declarator may also appear in a type or <code>COMMON</code> statement.</p>
+<h3 id="common-shared-storage"><code>COMMON</code> — shared storage</h3>
+<pre><code class="language-fortran">      COMMON /BLK/ X, Y, A(10)
+      COMMON I, J
+C     -&gt; /BLK/ is a named common block; I,J are in blank common
+</code></pre>
+<p><code>COMMON</code> places variables and arrays in a storage block shared between program units <em>(§7.2.1.3)</em>. A
+name between two slashes (<code>/BLK/</code>) names a block; entities before any block name, or with <code>//</code>, go
+in <strong>blank common</strong>. Corresponding positions in a block must match in type across program units
+<em>(§7.2.1.3.1)</em>.</p>
+<h3 id="equivalence-overlay-storage"><code>EQUIVALENCE</code> — overlay storage</h3>
+<pre><code class="language-fortran">      DIMENSION A(2,2), B(4)
+      EQUIVALENCE (A, B)
+C     -&gt; A and B name the same storage; B(1)=A(1,1), B(2)=A(2,1), ...
+</code></pre>
+<p><code>EQUIVALENCE</code> makes two or more entities in the same program unit share storage <em>(§7.2.1.4)</em>. It is
+for storage sharing, not for asserting mathematical equality.</p>
+<h3 id="external-pass-a-procedure-as-an-argument"><code>EXTERNAL</code> — pass a procedure as an argument</h3>
+<pre><code class="language-fortran">      EXTERNAL SIN
+      CALL APPLY(SIN, X)
+C     -&gt; SIN is passed as a procedure argument
+</code></pre>
+<p><code>EXTERNAL</code> declares that a name is an external procedure, so it can be passed as an argument
+<em>(§7.2.1.5)</em>.</p>
+<h3 id="type-statements-declare-a-name-s-type">Type-statements — declare a name's type</h3>
+<pre><code class="language-fortran">      INTEGER COUNT
+      REAL    MASS, FORCE
+      DOUBLE PRECISION D
+      COMPLEX Z
+      LOGICAL FLAG
+</code></pre>
+<p>A type-statement overrides or confirms the implicit typing and may also supply dimension
+information <em>(§7.2.1.6)</em>. The types are <code>INTEGER</code>, <code>REAL</code>, <code>DOUBLE PRECISION</code>, <code>COMPLEX</code>, <code>LOGICAL</code>.</p>
+<h2 id="the-data-statement-initial-values">The <code>DATA</code> statement — initial values</h2>
+<pre><code class="language-fortran">      COMMON /O/ N(4)
+      DIMENSION M(4)
+      DATA M /2*7, 3, 9/
+C     -&gt; M = 7, 7, 3, 9   (2*7 means &quot;the value 7, twice&quot;)
+</code></pre>
+<p><code>DATA</code> gives variables and array elements their initial values <em>(§7.2.2)</em>. Names and constants
+correspond one-to-one; the form <code>j*c</code> repeats the constant <code>c</code> exactly <code>j</code> times. A variable in
+blank common may not be initialized; one in a labeled common block may be initialized only inside a
+<code>BLOCK DATA</code> subprogram (<a href="../08-procedures/index.html">Chapter 8</a>).</p>
+<h2 id="the-format-statement-editing-for-formatted-i-o">The <code>FORMAT</code> statement — editing for formatted I/O</h2>
+<p>A (labeled) <code>FORMAT</code> statement describes how values convert between their internal form and
+characters <em>(§7.2.3)</em>. The common <strong>field descriptors</strong> are:</p>
+<table>
+<thead>
+<tr>
+<th>Descriptor</th>
+<th>Edits</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Iw</code></td>
+<td>integer in a field <code>w</code> wide</td>
+</tr>
+<tr>
+<td><code>Fw.d</code></td>
+<td>real, fixed point, <code>d</code> decimals</td>
+</tr>
+<tr>
+<td><code>Ew.d</code></td>
+<td>real, exponential</td>
+</tr>
+<tr>
+<td><code>Dw.d</code></td>
+<td>double precision</td>
+</tr>
+<tr>
+<td><code>Gw.d</code></td>
+<td>general (chooses F or E)</td>
+</tr>
+<tr>
+<td><code>Lw</code></td>
+<td>logical (<code>T</code>/<code>F</code>)</td>
+</tr>
+<tr>
+<td><code>Aw</code></td>
+<td>Hollerith / character data</td>
+</tr>
+<tr>
+<td><code>nH…</code></td>
+<td>literal text of <code>n</code> characters</td>
+</tr>
+<tr>
+<td><code>nX</code></td>
+<td><code>n</code> blank columns</td>
+</tr>
+</tbody>
+</table>
+<p>A repeat count <code>r</code> before a descriptor (<code>3F6.2</code>) repeats it; a group in parentheses with a count
+(<code>2(I3,F5.1)</code>) repeats the group; the separators are <code>,</code> and <code>/</code> (a <code>/</code> ends a record). A scale
+factor <code>nP</code> shifts the decimal for F/E/G/D conversions.</p>
+<pre><code class="language-fortran">      I = 42
+      X = 3.14
+      WRITE (6,100) I, X
+100   FORMAT (1X, I3, F6.2)
+C     -&gt; &quot; 42  3.14&quot;
+</code></pre>
+<h3 id="carriage-control-for-printed-output">Carriage control for printed output</h3>
+<p>When a formatted record is sent to a printing device, its <strong>first character is not printed</strong> — it
+controls vertical spacing <em>(§7.1.3.4)</em>:</p>
+<table>
+<thead>
+<tr>
+<th>First char</th>
+<th>Effect before printing</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>blank</td>
+<td>advance one line</td>
+</tr>
+<tr>
+<td><code>0</code></td>
+<td>advance two lines (blank line before)</td>
+</tr>
+<tr>
+<td><code>1</code></td>
+<td>advance to the top of the next page</td>
+</tr>
+<tr>
+<td><code>+</code></td>
+<td>no advance (overprint)</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-fortran">      WRITE (6,100)
+100   FORMAT (1H0, 5HHELLO)
+C     -&gt; &quot;0&quot; -&gt; a blank line, then HELLO
+</code></pre>
+<p>This is why example output lines begin with <code>1X</code> or <code>1H </code> — that blank is the carriage control that
+keeps the text on its own line.</p>
+<blockquote>
+<p><strong>forterp notes.</strong></p>
+<ul>
+<li><strong>One-trip <code>DO</code>.</strong> Under <code>F66</code> (and <code>FORTRAN10</code>), a <code>DO</code> loop always executes its range at least
+once, faithfully reproducing X3.9-1966 <em>(§7.1.2.8.1)</em> and real FORTRAN-10. The <code>F77</code> dialect
+uses the zero-trip test instead. If you need zero-trip behavior under F66, the <code>zero_trip_do</code>
+knob flips it; see <a href="../C-forterp-extensions/index.html">Appendix C</a>.</li>
+<li><strong>Carriage control</strong> applies because forterp treats unit 6 as a <strong>line printer</strong> by default, as
+FORTRAN-10 did. Output is collected on <code>engine.out</code> and the first column of each record is
+consumed as the control character. (In the <code>F77</code> dialect, standard output defaults to a terminal
+device with no carriage control — see <a href="../C-forterp-extensions/index.html">Appendix C</a>.)</li>
+<li><strong>Apostrophe text in <code>FORMAT</code></strong> (<code>100 FORMAT(' HELLO')</code>) is a FORTRAN-10 extension and is
+rejected under strict <code>F66</code>; use a Hollerith <code>nH</code> field, as above.</li>
+</ul>
+</blockquote>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

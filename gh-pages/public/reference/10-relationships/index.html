@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>10. Intra- &amp; inter-program relationships | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">10. Intra- &amp; inter-program relationships</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#classes-of-symbolic-name">Classes of symbolic name</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#definition-and-undefinition">Definition and undefinition</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#associations-that-share-a-value">Associations that share a value</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>10. Intra- &amp; inter-program relationships</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">10. Intra- &amp; inter-program relationships</p>
+        </header>
+        <div class="prose">
+<p>This final language chapter is the standard's formal model: how a <strong>symbolic name</strong> is classified,
+what it means for a datum to be <strong>defined</strong>, and the three ways entities come to <strong>share</strong> a value
+or storage <em>(§10)</em>. You rarely need to recite these rules, but they explain <em>why</em> the earlier rules
+are what they are.</p>
+<h2 id="classes-of-symbolic-name">Classes of symbolic name</h2>
+<p>Within a program unit, every symbolic name belongs to exactly one <strong>class</strong> <em>(§10.1)</em>:</p>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>What the name identifies</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>I</td>
+<td>an array (and its elements)</td>
+</tr>
+<tr>
+<td>II</td>
+<td>a variable</td>
+</tr>
+<tr>
+<td>III</td>
+<td>a statement function</td>
+</tr>
+<tr>
+<td>IV</td>
+<td>an intrinsic function</td>
+</tr>
+<tr>
+<td>V</td>
+<td>an external function</td>
+</tr>
+<tr>
+<td>VI</td>
+<td>a subroutine</td>
+</tr>
+<tr>
+<td>VII</td>
+<td>an external procedure that can't be classified as V or VI here</td>
+</tr>
+<tr>
+<td>VIII</td>
+<td>a common block name</td>
+</tr>
+</tbody>
+</table>
+<p>A name's class is fixed by how it is used <em>(§10.1.1)</em>. For example, a name is a <strong>variable</strong>
+(Class II) if it is never immediately followed by <code>(</code>, unless that <code>(</code> is in a <code>FUNCTION</code> heading
+<em>(§10.1.9)</em>; it is a <strong>statement function</strong> (Class III) if it is defined by a statement function and
+every use is followed by <code>(</code> <em>(§10.1.6)</em>; it is an <strong>intrinsic function</strong> (Class IV) if it matches a
+Table 3 name used as a function <em>(§10.1.7)</em>. Once a name is used as an external function, subroutine,
+or block name (Class V, VI, VII, VIII) anywhere in an executable program, no other unit may use that
+name for anything else <em>(§10.1.1)</em>.</p>
+<p>A consequence worth remembering: because a common block name (Class VIII) and an array name
+(Class I) are separate classes, the <em>same</em> identifier may name both a common block and a variable in
+one unit — <code>COMMON /X/ X</code> is legal, the block <code>/X/</code> and the variable <code>X</code> being distinct.</p>
+<h2 id="definition-and-undefinition">Definition and undefinition</h2>
+<p>An entity is <strong>defined</strong> when it has a predictable value and <strong>undefined</strong> otherwise; referencing an
+undefined entity is not allowed <em>(§10.2)</em>. The standard distinguishes <strong>two levels</strong> of definition:</p>
+<ul>
+<li><strong>first-level</strong> definition applies to array elements and to real, double precision, complex, and
+logical variables;</li>
+<li><strong>second-level</strong> definition adds the stricter guarantee needed for <strong>integer</strong> variables that are
+used as <strong>subscripts</strong> or as <strong><code>DO</code> parameters</strong> <em>(§10.2)</em>.</li>
+</ul>
+<p>A variable becomes defined by being assigned, by being read into, or by <code>DATA</code>/<code>BLOCK DATA</code>
+initialization. It can become <em>undefined</em> again — most notably, the control variable of a <code>DO</code>
+becomes undefined when the loop finishes by satisfying its limit <em>(§7.1.2.8.1)</em>. The practical rule
+is simple: <strong>give a variable a value before you use it.</strong></p>
+<h2 id="associations-that-share-a-value">Associations that share a value</h2>
+<p>Three mechanisms make two or more entities refer to the same value or storage; defining one then
+defines (or undefines) all of them <em>(§10.2.2)</em>:</p>
+<ol>
+<li><strong>COMMON association</strong> — entities in corresponding positions of a common block, across program
+units (<a href="../07-statements/index.html">Chapter 7</a>);</li>
+<li><strong>EQUIVALENCE association</strong> — entities listed together in an <code>EQUIVALENCE</code>, within one unit;</li>
+<li><strong>argument substitution</strong> — a dummy argument associated with its actual argument when a procedure
+is referenced (<a href="../08-procedures/index.html">Chapter 8</a>).</li>
+</ol>
+<p>When entities are associated, they should be used at the <strong>same type</strong>: if an entity of one type
+becomes defined, all associated entities of a <em>different</em> type become <strong>undefined</strong> <em>(§10.2.2)</em>.
+Reading an integer through a common slot last written as a real, for instance, is undefined.</p>
+<pre><code class="language-fortran">      DIMENSION A(2,2), B(4)
+      EQUIVALENCE (A, B)
+C     -&gt; A and B share storage; defining B(1) defines A(1,1) (same type, OK)
+</code></pre>
+<blockquote>
+<p><strong>forterp notes.</strong></p>
+<ul>
+<li>forterp does not police every definition rule at runtime — using an <strong>undefined</strong> variable
+generally reads whatever the storage holds rather than raising an error, matching how real
+FORTRAN-10 behaved. The one place forterp is deliberately <em>more</em> defined than the standard is an
+out-of-bounds array read, which yields <code>0</code> rather than undefined behavior — see
+<a href="../C-forterp-extensions/index.html">Appendix C</a>.</li>
+<li><strong>Mixing types through <code>EQUIVALENCE</code> or <code>COMMON</code></strong> (the §10.2.2 &quot;different type → undefined&quot;
+case) is where the value model matters: forterp reinterprets the underlying word, and what you
+get depends on the <a href="../C-forterp-extensions/index.html">target</a> (<code>NATIVE</code> 64-bit vs <code>PDP10</code> 36-bit). Keep
+associated entities to one type for portable results.</li>
+</ul>
+</blockquote>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

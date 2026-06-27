@@ -13,9 +13,10 @@
   "docs": [
     {
       "slug": "reference",
-      "title": "Language reference (FORTRAN 66)",
-      "source": "docs/FORTRAN66.md",
-      "summary": "The base dialect forterp implements: standard FORTRAN-66 plus the DEC FORTRAN-10 extensions, written for users of the interpreter — with the deliberate divergences spelled out.",
+      "title": "FORTRAN 66 reference",
+      "source": "docs/fortran66/README.md",
+      "chapters": "docs/fortran66",
+      "summary": "A complete, example-driven reference manual for the FORTRAN 66 language (USA Standard X3.9-1966) plus the DEC FORTRAN-10 extensions — forterp's default dialect — organized on the standard: program form, data types, expressions, statements, procedures, and the intrinsic library, with a forterp notes box per chapter.",
       "featured": true
     },
     {

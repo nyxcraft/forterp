@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>9. Programs | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">9. Programs</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#what-a-program-is-made-of">What a program is made of</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#how-a-program-runs">How a program runs</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>9. Programs</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">9. Programs</p>
+        </header>
+        <div class="prose">
+<p>This short chapter assembles the pieces from the previous chapters into a whole <strong>executable
+program</strong> and describes the order in which its statements run <em>(§9)</em>.</p>
+<h2 id="what-a-program-is-made-of">What a program is made of</h2>
+<p>An <strong>executable program</strong> is a collection of statements, comment lines, and end lines that
+completely describes a computing procedure <em>(§9.1)</em>. Its anatomy, from the inside out:</p>
+<ul>
+<li>A <strong>program part</strong> is the run of statements containing at least one executable statement (and
+optionally <code>FORMAT</code> and <code>DATA</code> statements), possibly preceded by statement function definitions
+<em>(§9.1.1)</em>.</li>
+<li>A <strong>program body</strong> is the specification statements and/or <code>FORMAT</code> statements, followed by the
+program part, followed by an <strong>end line</strong> <em>(§9.1.2)</em>.</li>
+<li>A <strong>main program</strong> is simply a program body <em>(§9.1.5)</em> — the one unit not headed by <code>FUNCTION</code>,
+<code>SUBROUTINE</code>, or <code>BLOCK DATA</code>.</li>
+<li>A <strong>subprogram</strong> is a <code>SUBROUTINE</code> or <code>FUNCTION</code> unit (a program body with a heading), or a
+<code>BLOCK DATA</code> unit <em>(§9.1.3, §9.1.4)</em>.</li>
+<li>An <strong>executable program</strong> is <strong>one main program plus any number of subprograms</strong> <em>(§9.1.6)</em>.</li>
+</ul>
+<pre><code class="language-fortran">      PROGRAM AREA
+      READ (5,100) R
+100   FORMAT (F10.0)
+      A = PI(R)
+      WRITE (6,200) A
+200   FORMAT (1X, F12.4)
+      STOP
+      END
+C
+      FUNCTION PI(R)
+      PI = 3.14159 * R * R
+      RETURN
+      END
+</code></pre>
+<p>Here the main program <code>AREA</code> and the function subprogram <code>PI</code> together make one executable program.
+Each unit ends with its own <code>END</code> line.</p>
+<h2 id="how-a-program-runs">How a program runs</h2>
+<p>Execution begins with the <strong>first executable statement of the main program</strong> <em>(§9.2)</em>. From there,
+statements run in the order written, <strong>except</strong> when a statement explicitly redirects the flow:</p>
+<ul>
+<li>a <code>GO TO</code>, an arithmetic <code>IF</code>, a <code>RETURN</code>, or a <code>STOP</code>;</li>
+<li>reaching the terminal statement of a <code>DO</code> (which may loop back).</li>
+</ul>
+<p>A subprogram, when referenced, starts at <em>its</em> first executable statement and runs the same way
+until a <code>RETURN</code> sends control back to the caller. Nonexecutable statements (<code>FORMAT</code>, <code>DIMENSION</code>,
+<code>DATA</code>, …) are never &quot;run&quot; — they are in effect throughout, but the flow of control passes around
+them.</p>
+<blockquote>
+<p><strong>forterp notes.</strong> forterp finds the main program structurally — the unit that is not a
+<code>FUNCTION</code>, <code>SUBROUTINE</code>, or <code>BLOCK DATA</code> — so a leading <code>PROGRAM</code> statement is optional. It
+begins execution at that unit's first executable statement, exactly as §9.2 prescribes, and the
+units of a multi-file program are linked first (see <a href="../../cli/index.html">CLI.md</a>).</p>
+</blockquote>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

@@ -1,7 +1,7 @@
 # forterp — design document
 
 How the `forterp` interpreter is built and why it's built that way. This is the architecture
-companion to the user-facing [FORTRAN66.md](FORTRAN66.md); it's for
+companion to the user-facing [FORTRAN 66 reference manual](fortran66/README.md); it's for
 someone modifying the interpreter, not someone writing FORTRAN.
 
 ---

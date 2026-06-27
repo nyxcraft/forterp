@@ -209,7 +209,7 @@ def test_namelist_bad_field_halts():
         run(src, inputs=[" $NL N=xyz $"])
 
 
-# ---- documented non-fatal divergences, pinned (FORTRAN66 §8) -------
+# ---- documented non-fatal divergences, pinned (docs/fortran66 Appendix C) -------
 def test_out_of_bounds_array_access_is_non_fatal():
     # OOB read -> 0; OOB write dropped (local array); never a trap. Pinned so a future
     # bounds-checking refactor is a conscious, test-visible change.

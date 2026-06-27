@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>6. Expressions | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">6. Expressions</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#arithmetic-expressions">Arithmetic expressions</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#exponentiation-binds-right-and-tightest">Exponentiation binds right and tightest</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#mixed-mode-arithmetic">Mixed-mode arithmetic</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#relational-expressions">Relational expressions</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#logical-expressions">Logical expressions</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#evaluation-rules">Evaluation rules</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>6. Expressions</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">6. Expressions</p>
+        </header>
+        <div class="prose">
+<p>An <strong>expression</strong> combines data with operators to produce a value <em>(§6)</em>. FORTRAN 66 has three
+kinds: <strong>arithmetic</strong> (a numeric value), <strong>relational</strong> (a truth value from comparing two numbers),
+and <strong>logical</strong> (a truth value combined with logical operators). This chapter gives their formation
+and evaluation rules.</p>
+<h2 id="arithmetic-expressions">Arithmetic expressions</h2>
+<p>An arithmetic expression produces a value of type integer, real, double precision, or complex
+<em>(§6.1)</em>. The arithmetic operators are:</p>
+<table>
+<thead>
+<tr>
+<th>Operator</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>+</code></td>
+<td>addition (and unary plus)</td>
+</tr>
+<tr>
+<td><code>-</code></td>
+<td>subtraction (and unary minus)</td>
+</tr>
+<tr>
+<td><code>*</code></td>
+<td>multiplication</td>
+</tr>
+<tr>
+<td><code>/</code></td>
+<td>division</td>
+</tr>
+<tr>
+<td><code>**</code></td>
+<td>exponentiation</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-fortran">      X = A + B*C - D/E
+C     -&gt; * and / bind tighter than + and -
+</code></pre>
+<h3 id="exponentiation-binds-right-and-tightest">Exponentiation binds right and tightest</h3>
+<p><code>**</code> has higher precedence than <code>*</code> and <code>/</code>, and a chain of exponentiations groups <strong>right to
+left</strong>:</p>
+<pre><code class="language-fortran">      COMMON /O/ N(1)
+      N(1) = 2**3**2
+C     -&gt; 2**(3**2) = 2**9 = 512, not (2**3)**2 = 64
+</code></pre>
+<p>The standard defines <code>**</code> for only a few operand combinations <em>(§6.1)</em>:</p>
+<ul>
+<li>a primary of <strong>any</strong> type may be raised to an <strong>integer</strong> primary — the result has the base's
+type. This is why <code>(-2.0)**3</code> is the well-defined <code>-8.0</code>;</li>
+<li>a <strong>real or double precision</strong> primary may be raised to a <strong>real or double precision</strong> primary —
+the result is real if both are real, otherwise double precision.</li>
+</ul>
+<p>No other combinations are defined. In particular a <strong>negative</strong> value may not be raised to a real or
+double precision exponent (it would need a complex result), and a zero may not be raised to a zero
+exponent <em>(§6.4)</em>.</p>
+<h3 id="mixed-mode-arithmetic">Mixed-mode arithmetic</h3>
+<p>In strict FORTRAN 66 the operands of an arithmetic operator must generally be of the <strong>same type</strong>;
+the only cross-type combinations the standard admits are a <strong>real</strong> element with a <strong>double
+precision</strong> element (giving double precision) or with a <strong>complex</strong> element (giving complex)
+<em>(§6.1)</em>. Notably, integer and real were <em>not</em> meant to be mixed in one expression.</p>
+<pre><code class="language-fortran">      DOUBLE PRECISION D, R
+      D = 1.0D0
+      R = D + 0.5
+C     -&gt; real 0.5 combined with double precision -&gt; double precision
+</code></pre>
+<h2 id="relational-expressions">Relational expressions</h2>
+<p>A relational expression compares two arithmetic expressions and yields <strong>true</strong> or <strong>false</strong>
+<em>(§6.2)</em>. The relational operators are:</p>
+<table>
+<thead>
+<tr>
+<th>Operator</th>
+<th>Meaning</th>
+<th>Operator</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>.LT.</code></td>
+<td>less than</td>
+<td><code>.GE.</code></td>
+<td>greater than or equal</td>
+</tr>
+<tr>
+<td><code>.LE.</code></td>
+<td>less than or equal</td>
+<td><code>.GT.</code></td>
+<td>greater than</td>
+</tr>
+<tr>
+<td><code>.EQ.</code></td>
+<td>equal</td>
+<td><code>.NE.</code></td>
+<td>not equal</td>
+</tr>
+</tbody>
+</table>
+<p>The standard allows the two operands to be real/double precision, or both integer; a real operand
+compared with a double precision one is handled as if a double precision zero were added to the real
+<em>(§6.2)</em>.</p>
+<pre><code class="language-fortran">      LOGICAL BIG
+      BIG = X .GT. 100.0
+</code></pre>
+<h2 id="logical-expressions">Logical expressions</h2>
+<p>A logical expression is built from logical values and the logical operators <em>(§6.3)</em>:</p>
+<table>
+<thead>
+<tr>
+<th>Operator</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>.NOT.</code></td>
+<td>logical negation</td>
+</tr>
+<tr>
+<td><code>.AND.</code></td>
+<td>logical conjunction</td>
+</tr>
+<tr>
+<td><code>.OR.</code></td>
+<td>logical disjunction</td>
+</tr>
+</tbody>
+</table>
+<p>Their precedence, highest first, is <strong><code>.NOT.</code> then <code>.AND.</code> then <code>.OR.</code></strong>:</p>
+<pre><code class="language-fortran">      COMMON /O/ L(1)
+      LOGICAL L
+      L(1) = .FALSE. .OR. .TRUE. .AND. .FALSE.
+C     -&gt; .FALSE. .OR. (.TRUE. .AND. .FALSE.) = .FALSE.
+</code></pre>
+<p>Relational expressions may appear as operands of logical operators (arithmetic binds tightest, then
+relational, then logical), so <code>A+B .GT. C .AND. FLAG</code> means <code>((A+B) .GT. C) .AND. FLAG</code>.</p>
+<h2 id="evaluation-rules">Evaluation rules</h2>
+<p>A few rules govern <em>how</em> an expression is evaluated <em>(§6.4)</em>:</p>
+<ul>
+<li>Only as much of an expression need be evaluated as is required to establish its value.</li>
+<li>A processor may reorder operations using the associative and commutative laws — <strong>except</strong> that
+the integrity of parentheses is always preserved. So <code>(A+B)+C</code> and <code>A+(B+C)</code> may differ, and you
+use parentheses when order matters.</li>
+<li>The value of an <strong>integer</strong> factor or term is the nearest integer whose magnitude does not exceed
+the true mathematical value — i.e. <strong>division truncates toward zero</strong>. The associative and
+commutative laws do <em>not</em> apply to integer terms containing division, which proceed left to right.</li>
+</ul>
+<pre><code class="language-fortran">      COMMON /O/ N(2)
+      N(1) = 7/2
+C     -&gt; 3 (truncated toward zero, not rounded)
+      N(2) = (-7)/2
+C     -&gt; -3
+</code></pre>
+<blockquote>
+<p><strong>forterp notes.</strong></p>
+<ul>
+<li>forterp <strong>permits mixed integer/real arithmetic and relationals</strong> on every dialect — <code>2.0 + 3</code>
+evaluates to <code>5.0</code>, and <code>2 .LT. 3.0</code> is true — converting to the wider type as later FORTRANs
+do. Strict FORTRAN 66 did not sanction this mixing, but allowing it cannot change the meaning of
+a program that avoids it, so forterp accepts it as a convenience.</li>
+<li>Exponentiation is right-associative (<code>2**3**2</code> is <code>512</code>) and integer division truncates toward
+zero, matching the standard.</li>
+<li>On the default <strong><code>NATIVE</code></strong> target, overflow and operations like <code>0.0/0.0</code> follow host IEEE
+rules (infinities and NaNs); the faithful <strong><code>PDP10</code></strong> target reproduces the FOROTS recovery
+behavior instead. See <a href="../C-forterp-extensions/index.html">Appendix C</a>.</li>
+</ul>
+</blockquote>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

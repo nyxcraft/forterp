@@ -29,7 +29,7 @@
           <p class="hero__lede">Written in pure Python, with two pluggable axes: the front-end dialect — strict ANSI FORTRAN 66 by default, the DEC FORTRAN-10 superset on demand — and the machine value model, a 64-bit default or a 36-bit PDP-10. Conformance is checked against the FCVS corpus; the PDP-10 model, against the DEC FORTRAN-10 V5 manual and real 1970s code.</p>
           <div class="hero__actions">
             <a class="button button--primary" href="reference/index.html">Get started</a>
-            <a class="button" href="fortran77/index.html">How it works</a>
+            <a class="button" href="reference/01-purpose-scope/index.html">How it works</a>
           </div>
         </div>
         <div class="hero__visual" role="img" aria-label="The forterp pipeline, top to bottom: source, read by a fixed-form column scanner into a statement stream; a hand-written lexer and recursive-descent parser that build an AST, set by the dialect (F66 or FORTRAN10); a tree-walking interpreter engine with pass-by-reference argument cells, set by the target (NATIVE 64-bit or PDP-10 36-bit); then the running program.">
@@ -67,8 +67,8 @@
         </div>
         <div class="doc-grid">
 <article class="doc-card">
-  <h3><a href="reference/index.html">Language reference (FORTRAN 66)</a></h3>
-  <p>The base dialect forterp implements: standard FORTRAN-66 plus the DEC FORTRAN-10 extensions, written for users of the interpreter — with the deliberate divergences spelled out.</p>
+  <h3><a href="reference/index.html">FORTRAN 66 reference</a></h3>
+  <p>A complete, example-driven reference manual for the FORTRAN 66 language (USA Standard X3.9-1966) plus the DEC FORTRAN-10 extensions — forterp&#x27;s default dialect — organized on the standard: program form, data types, expressions, statements, procedures, and the intrinsic library, with a forterp notes box per chapter.</p>
   <a class="doc-card__link" href="reference/index.html">Open</a>
 </article>
 <article class="doc-card">

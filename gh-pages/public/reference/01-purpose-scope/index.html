@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>1. Purpose &amp; scope | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">1. Purpose &amp; scope</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#what-conforming-means">What &quot;conforming&quot; means</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#what-the-standard-does-not-fix">What the standard does *not* fix</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#forterp-s-place">forterp&#x27;s place</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>1. Purpose &amp; scope</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">1. Purpose &amp; scope</p>
+        </header>
+        <div class="prose">
+<p>The FORTRAN 66 standard — USA Standard X3.9-1966 — sets out <strong>the form of a FORTRAN program and
+how it is to be interpreted</strong> <em>(§1.1)</em>. Its goal is <em>interchangeability</em>: a program written to the
+standard should mean the same thing on any conforming processor. (A <em>processor</em> is the
+implementation — a compiler, or in our case an interpreter.)</p>
+<h2 id="what-conforming-means">What &quot;conforming&quot; means</h2>
+<p>A processor conforms to the standard provided it <strong>accepts and interprets at least the forms and
+relationships the standard describes</strong> <em>(§1.1)</em>. The wording is deliberately one-sided: the
+standard fixes a <em>floor</em>, not a ceiling. A processor is free to accept additional forms the
+standard does not mention, as long as it does not change the meaning of a program that <em>is</em>
+written to the standard.</p>
+<p>That single sentence is what makes the <strong>DEC FORTRAN-10 extensions</strong> legitimate. Apostrophe-
+delimited character constants, the <code>ENCODE</code>/<code>DECODE</code> statements, extra intrinsics, longer source
+lines — none of these are in X3.9-1966, but offering them does not stop forterp from correctly
+running a program that stays within the standard. They are additions, not contradictions.</p>
+<h2 id="what-the-standard-does-not-fix">What the standard does <em>not</em> fix</h2>
+<p>The standard is careful to leave several things to the processor <em>(§1.2.1)</em>. It does <strong>not</strong>
+prescribe:</p>
+<ul>
+<li>the <strong>mechanism</strong> by which a program is turned into something runnable;</li>
+<li>how a program or its data is <strong>transcribed</strong> to or from a medium (cards, tape, a terminal);</li>
+<li>the <strong>manual operations</strong> needed to set up and run a program;</li>
+<li>what happens when the <strong>rules of interpretation fail</strong> — i.e. the behavior of a program that is
+<em>not</em> standard-conforming;</li>
+<li>the behavior of a program that <strong>exceeds the capacity</strong> of a particular system;</li>
+<li>the <strong>range or precision</strong> of numerical quantities.</li>
+</ul>
+<p>That last point matters in practice: the standard says a <code>REAL</code> datum is &quot;a processor
+approximation to the value of a real number&quot; <em>(§4.2.2)</em> and never says <em>how good</em> an
+approximation. Two conforming processors can give different last digits and both be correct.</p>
+<h2 id="forterp-s-place">forterp's place</h2>
+<p>forterp is a processor for this language, written in Python. FORTRAN 66 (plus the DEC FORTRAN-10
+extensions) is forterp's <strong>default dialect</strong> — it is what you get when you run a program without
+asking for anything else:</p>
+<pre><code class="language-fortran">      PROGRAM HELLO
+      WRITE(6,100)
+100   FORMAT(13H HELLO, WORLD)
+      STOP
+      END
+</code></pre>
+<pre><code class="language-text">$ forterp hello.for
+HELLO, WORLD
+</code></pre>
+<p>The literal text is a <strong>Hollerith</strong> field, <code>13H</code> followed by exactly 13 characters — FORTRAN 66 has
+no apostrophe-delimited strings (those are a FORTRAN-10 extension). The leading blank inside the
+field is <strong>carriage control</strong> for the line printer and is consumed, not printed; both Hollerith and
+carriage control are covered in <a href="../07-statements/index.html">Chapter 7</a>.</p>
+<blockquote>
+<p><strong>forterp notes.</strong> Because the standard fixes only a floor, forterp splits the things it can
+vary along two independent axes, and exposes both:</p>
+<ul>
+<li>the <strong>dialect</strong> (the language the front end accepts) — <code>F66</code> by default, <code>FORTRAN10</code> for the
+DEC superset, <code>F77</code> for the later standard;</li>
+<li>the <strong>target</strong> (the value model — the &quot;range and precision&quot; the standard leaves open) —
+<code>NATIVE</code> by default (the host's 64-bit integers and floats), or <code>PDP10</code> for the faithful 36-bit
+DEC-10 representation.</li>
+</ul>
+<p>Selecting these is covered in the <a href="../../api/index.html">Python API guide</a> and <a href="../../cli/index.html">CLI.md</a>. The few
+places where forterp deliberately interprets a program <em>differently</em> from a strict reading of
+the standard — for faithfulness to how real FORTRAN-10 V5 behaved — are collected in
+<a href="../C-forterp-extensions/index.html">Appendix C</a>; each is also flagged in a <strong>forterp notes</strong> box where it
+arises.</p>
+</blockquote>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

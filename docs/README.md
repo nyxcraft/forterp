@@ -8,9 +8,10 @@
 - **[API.md](API.md)** — the programmer's reference for the `forterp.*` Python API:
   running and parsing, the prebuilt interpreters, the target/dialect axes, embedding the
   engine, the expert namespaces, custom host builtins, and the OOB census.
-- **[FORTRAN66.md](FORTRAN66.md)** — a language reference for the base
-  dialect `forterp` implements (standard FORTRAN-66 plus the DEC FORTRAN-10 extensions),
-  written for users of this interpreter.
+- **[FORTRAN 66 reference manual](fortran66/README.md)** — the complete FORTRAN 66 language
+  (USA Standard X3.9-1966) plus the DEC FORTRAN-10 extensions, example-driven and organized on
+  the standard: program form, data types, expressions, statements, procedures, and the intrinsic
+  library, with a *forterp notes* box per chapter. This is forterp's **default** dialect.
 - **[FORTRAN 77 reference manual](fortran77/README.md)** — the complete FORTRAN 77 language
   (ANSI X3.9-1978), example-driven and organized on the standard: data types, arrays,
   expressions, control flow, I/O and `FORMAT`, procedures, and the intrinsic library, with a

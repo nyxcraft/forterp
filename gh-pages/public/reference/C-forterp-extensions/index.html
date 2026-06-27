@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Appendix C. DEC FORTRAN-10 extensions &amp; forterp divergences | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">Appendix C. DEC FORTRAN-10 extensions &amp; forterp divergences</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#the-two-axes">The two axes</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#dec-fortran-10-extensions-the-fortran10-dialect">DEC FORTRAN-10 extensions (the `FORTRAN10` dialect)</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#forterp-s-deliberate-divergences">forterp&#x27;s deliberate divergences</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#the-value-model-can-affect-results">The value model (can affect results)</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#non-fatal-behavior-in-undefined-areas">Non-fatal behavior in undefined areas</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#formatted-input-by-column-can-affect-results">Formatted input by column (can affect results)</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#one-trip-do">One-trip `DO`</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#the-f66-dialect-knobs">The `F66` dialect knobs</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>Appendix C. DEC FORTRAN-10 extensions &amp; forterp divergences</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">Appendix C. DEC FORTRAN-10 extensions &amp; forterp divergences</p>
+        </header>
+        <div class="prose">
+<p>The standard fixes a <em>floor</em>, not a ceiling (<a href="../01-purpose-scope/index.html">Chapter 1</a>). This appendix
+collects everything forterp does <strong>beyond or differently from</strong> a strict reading of X3.9-1966: the
+DEC FORTRAN-10 extensions you can opt into, and the handful of places forterp deliberately interprets
+a program its own way for faithfulness to real FORTRAN-10 V5.</p>
+<h2 id="the-two-axes">The two axes</h2>
+<p>forterp separates the things X3.9-1966 leaves open into two independent choices:</p>
+<ul>
+<li>the <strong>dialect</strong> — the language the front end accepts. <code>F66</code> (the default) is strict ANSI;
+<code>FORTRAN10</code> adds the DEC superset below; <code>F77</code> is the later standard
+(<a href="../../fortran77/index.html">its own manual</a>).</li>
+<li>the <strong>target</strong> — the value model. <code>NATIVE</code> (the default) uses the host's 64-bit integers and
+floats; <code>PDP10</code> reproduces the genuine 36-bit DEC-10 representation.</li>
+</ul>
+<p>The two are orthogonal — you can run strict <code>F66</code> on the faithful <code>PDP10</code> target, or the DEC dialect
+on <code>NATIVE</code>. Selecting them is covered in the <a href="../../api/index.html">Python API guide</a> and <a href="../../cli/index.html">CLI.md</a>.</p>
+<h2 id="dec-fortran-10-extensions-the-fortran10-dialect">DEC FORTRAN-10 extensions (the <code>FORTRAN10</code> dialect)</h2>
+<p>Strict <code>F66</code> <strong>rejects</strong> all of the following; the <code>FORTRAN10</code> dialect accepts them. They cannot
+change the meaning of a program that stays within the standard, so they are pure additions.</p>
+<p><strong>Literals and source form</strong></p>
+<ul>
+<li>octal constants outside <code>STOP</code>/<code>PAUSE</code>; <strong>apostrophe</strong> string constants <code>'ABCD'</code> (stored packed,
+Hollerith-style — there is still no <code>CHARACTER</code> type; that is <code>F77</code> only);</li>
+<li><code>!</code> end-of-line comments and apostrophe-quoted text inside <code>FORMAT</code>;</li>
+<li>tab-format source; <code>;</code> to put several statements on one line.</li>
+</ul>
+<p><strong>Statements</strong></p>
+<ul>
+<li><code>IMPLICIT</code>, <code>PARAMETER</code>, <code>ENTRY</code>, <code>ENCODE</code>/<code>DECODE</code>;</li>
+<li><code>PRINT</code>, unit-less <code>READ</code>, <code>ACCEPT</code>, <code>TYPE</code>; list-directed <code>*</code> I/O; random-access I/O;</li>
+<li>explicit array lower bounds <code>A(lo:hi)</code>; <code>*n</code> byte-size type specifiers (<code>INTEGER*4</code>);
+alternate-return <code>CALL</code> arguments.</li>
+</ul>
+<p><strong>Operators</strong></p>
+<ul>
+<li>symbolic relationals <code>==</code> <code>#</code> <code>&lt;</code> <code>&gt;</code> <code>&lt;=</code> <code>&gt;=</code>; the extended logicals <code>.XOR.</code> <code>.EQV.</code> <code>.NEQV.</code>;
+<code>^</code> as an alternate power operator (<code>**</code> is the ANSI form);</li>
+<li>extra intrinsics such as the <code>LSH</code> shift, and additional <code>O</code>/<code>R</code>/<code>T</code>/<code>$</code> <code>FORMAT</code> descriptors.</li>
+</ul>
+<p><strong>Relaxed F66 constraints</strong></p>
+<ul>
+<li>general integer expressions as array subscripts (lifting the §5.1.3.3 restriction —
+<a href="../05-identification/index.html">Chapter 5</a>) and as <code>DO</code> parameters;</li>
+<li><code>COMPLEX</code> ↔ numeric assignment (beyond the Table 1 combinations).</li>
+</ul>
+<h2 id="forterp-s-deliberate-divergences">forterp's deliberate divergences</h2>
+<p>These hold on every dialect; they are choices of the interpreter, made to match how FORTRAN-10 V5
+actually behaved. Most are in areas the standard leaves <strong>undefined</strong> — but a few can affect the
+result of an otherwise-conforming program, so they are worth knowing.</p>
+<h3 id="the-value-model-can-affect-results">The value model (can affect results)</h3>
+<ul>
+<li><strong><code>REAL</code> is the host double on <code>NATIVE</code>.</strong> There is no distinct single precision, so a program
+that depends on single-precision <em>rounding</em> sees double-precision results. The <code>PDP10</code> target
+restores the true 36-bit single / two-word double split.</li>
+<li><strong><code>COMPLEX</code> and <code>DOUBLE PRECISION</code> occupy one storage cell.</strong> This is silently lossy if you
+<em>split</em> such a value through storage association — <code>EQUIVALENCE</code>-ing a <code>COMPLEX</code> onto two <code>REAL</code>s
+keeps the whole value in the first slot and leaves the second zero — and it shifts the layout of a
+<code>COMMON</code> block that contains one (the block is a word short per such member). Rule of thumb: a
+<code>COMMON</code> block is word-accurate exactly when every member is <code>INTEGER</code>, single <code>REAL</code>, or
+<code>LOGICAL</code>.</li>
+</ul>
+<h3 id="non-fatal-behavior-in-undefined-areas">Non-fatal behavior in undefined areas</h3>
+<ul>
+<li><strong>Arithmetic.</strong> Integer/real divide-by-zero yields <code>0</code> and continues; library domain errors
+(<code>SQRT</code>/<code>ALOG</code> of a negative) print a warning and continue, as V5 did. On <code>NATIVE</code> these follow
+host IEEE rules (infinities, NaNs); on <code>PDP10</code> they follow FOROTS recovery. The divide-by-zero→<code>0</code>
+value is a stand-in, not a standard-specified result.</li>
+<li><strong>Out-of-bounds arrays.</strong> An out-of-bounds <strong>read</strong> yields <code>0</code>; an out-of-bounds <strong>write</strong> to a
+local array is dropped. (Within a flat <code>COMMON</code> block an out-of-range index still lands on a
+neighbor word.) The standard leaves this undefined.</li>
+<li><strong>Illegal storage association is rejected</strong>, not silently mis-laid: the three <code>EQUIVALENCE</code> shapes
+the standard <em>prohibits</em> (extending a <code>COMMON</code> block backward, tying two <code>COMMON</code> blocks together,
+or a self-contradictory group) raise a build-time error rather than picking an arbitrary layout.</li>
+</ul>
+<h3 id="formatted-input-by-column-can-affect-results">Formatted input by column (can affect results)</h3>
+<p>Under <code>F66</code>, every numeric/logical field is read <strong>by column width</strong>, with blanks counted as zeros.
+The practical consequence: numeric input must be <strong>right-justified</strong>. A record shorter than an
+explicit-width field is blank-extended, and those blanks become trailing zeros — <code>(I5)</code> on <code>42</code>
+reads <code>42000</code>, not <code>42</code>; <code>(E10.3)</code> on <code>1.5E2</code> overflows the exponent. (Under <code>FORTRAN10</code>, a widthless
+descriptor reads one free-form, space/comma/tab-delimited token instead; list-directed <code>READ(u,*)</code>
+is whitespace-delimited on any dialect.)</p>
+<h3 id="one-trip-do">One-trip <code>DO</code></h3>
+<p>The FORTRAN 66 <code>DO</code> is <strong>one-trip</strong> — its range always runs at least once
+(<a href="../07-statements/index.html">Chapter 7</a>) — and forterp reproduces that under <code>F66</code>/<code>FORTRAN10</code>. The <code>F77</code>
+dialect uses the zero-trip test. This genuinely changes results, so it is dialect-selected.</p>
+<h2 id="the-f66-dialect-knobs">The <code>F66</code> dialect knobs</h2>
+<p>Most of the above is bundled into the dialect presets, but individual behaviors can be tuned. The
+knobs most relevant to F66 (set on a <code>Dialect</code>; see the <a href="../../api/index.html">API guide</a> for the full list and
+the F77 knob table):</p>
+<table>
+<thead>
+<tr>
+<th>Knob</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>zero_trip_do</code></td>
+<td>use the F77 zero-trip <code>DO</code> test instead of one-trip</td>
+</tr>
+<tr>
+<td><code>recursion</code></td>
+<td>permit correct recursion (off by default — re-entry is otherwise rejected)</td>
+</tr>
+<tr>
+<td><code>bounds_check</code></td>
+<td>trap out-of-bounds array access instead of the non-fatal read→0 / dropped write</td>
+</tr>
+<tr>
+<td><code>unlimited_rank</code></td>
+<td>lift the array-rank cap (forterp already allows 7 vs the standard's 3)</td>
+</tr>
+<tr>
+<td><code>carriage_control</code></td>
+<td>treat the output unit as a printer (carriage control) vs a terminal</td>
+</tr>
+</tbody>
+</table>
+<p>For anything not covered here, <strong>ANSI X3.9-1966</strong> is authoritative for the base language and the
+<strong>DECsystem-10 FORTRAN-10 Language Manual (V5)</strong> for the extensions.</p>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

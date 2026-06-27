@@ -1,0 +1,612 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Appendix A. Intrinsic &amp; basic external function reference | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">Appendix A. Intrinsic &amp; basic external function reference</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#table-3-intrinsic-functions">Table 3 — intrinsic functions</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#table-4-basic-external-functions">Table 4 — basic external functions</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>Appendix A. Intrinsic &amp; basic external function reference</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">Appendix A. Intrinsic &amp; basic external function reference</p>
+        </header>
+        <div class="prose">
+<p>This is the standard's function library: the <strong>intrinsic functions</strong> of Table 3 <em>(§8.2)</em> and the
+<strong>basic external functions</strong> of Table 4 <em>(§8.3.3)</em>. FORTRAN 66 has no generic dispatch — you choose
+the spelling that matches your data's type (<code>ABS</code> for real, <code>IABS</code> for integer, <code>DABS</code> for double
+precision). All of these are verified present in forterp.</p>
+<h2 id="table-3-intrinsic-functions">Table 3 — intrinsic functions</h2>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Definition</th>
+<th style="text-align:center">Args</th>
+<th>Name</th>
+<th>Arg type</th>
+<th>Result type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Absolute value</td>
+<td>|a|</td>
+<td style="text-align:center">1</td>
+<td><code>ABS</code></td>
+<td>real</td>
+<td>real</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td style="text-align:center">1</td>
+<td><code>IABS</code></td>
+<td>integer</td>
+<td>integer</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td style="text-align:center">1</td>
+<td><code>DABS</code></td>
+<td>double</td>
+<td>double</td>
+</tr>
+<tr>
+<td>Truncation</td>
+<td>sign of <em>a</em> × largest integer ≤ |a|</td>
+<td style="text-align:center">1</td>
+<td><code>AINT</code></td>
+<td>real</td>
+<td>real</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td style="text-align:center">1</td>
+<td><code>INT</code></td>
+<td>real</td>
+<td>integer</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td style="text-align:center">1</td>
+<td><code>IDINT</code></td>
+<td>double</td>
+<td>integer</td>
+</tr>
+<tr>
+<td>Remaindering</td>
+<td>a₁ (mod a₂)</td>
+<td style="text-align:center">2</td>
+<td><code>AMOD</code></td>
+<td>real</td>
+<td>real</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td style="text-align:center">2</td>
+<td><code>MOD</code></td>
+<td>integer</td>
+<td>integer</td>
+</tr>
+<tr>
+<td>Largest value</td>
+<td>max(a₁, a₂, …)</td>
+<td style="text-align:center">≥2</td>
+<td><code>AMAX0</code></td>
+<td>integer</td>
+<td>real</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td style="text-align:center">≥2</td>
+<td><code>AMAX1</code></td>
+<td>real</td>
+<td>real</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td style="text-align:center">≥2</td>
+<td><code>MAX0</code></td>
+<td>integer</td>
+<td>integer</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td style="text-align:center">≥2</td>
+<td><code>MAX1</code></td>
+<td>real</td>
+<td>integer</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td style="text-align:center">≥2</td>
+<td><code>DMAX1</code></td>
+<td>double</td>
+<td>double</td>
+</tr>
+<tr>
+<td>Smallest value</td>
+<td>min(a₁, a₂, …)</td>
+<td style="text-align:center">≥2</td>
+<td><code>AMIN0</code></td>
+<td>integer</td>
+<td>real</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td style="text-align:center">≥2</td>
+<td><code>AMIN1</code></td>
+<td>real</td>
+<td>real</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td style="text-align:center">≥2</td>
+<td><code>MIN0</code></td>
+<td>integer</td>
+<td>integer</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td style="text-align:center">≥2</td>
+<td><code>MIN1</code></td>
+<td>real</td>
+<td>integer</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td style="text-align:center">≥2</td>
+<td><code>DMIN1</code></td>
+<td>double</td>
+<td>double</td>
+</tr>
+<tr>
+<td>Float</td>
+<td>integer → real</td>
+<td style="text-align:center">1</td>
+<td><code>FLOAT</code></td>
+<td>integer</td>
+<td>real</td>
+</tr>
+<tr>
+<td>Fix</td>
+<td>real → integer</td>
+<td style="text-align:center">1</td>
+<td><code>IFIX</code></td>
+<td>real</td>
+<td>integer</td>
+</tr>
+<tr>
+<td>Transfer of sign</td>
+<td>sign of a₂ × |a₁|</td>
+<td style="text-align:center">2</td>
+<td><code>SIGN</code></td>
+<td>real</td>
+<td>real</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td style="text-align:center">2</td>
+<td><code>ISIGN</code></td>
+<td>integer</td>
+<td>integer</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td style="text-align:center">2</td>
+<td><code>DSIGN</code></td>
+<td>double</td>
+<td>double</td>
+</tr>
+<tr>
+<td>Positive difference</td>
+<td>a₁ − min(a₁, a₂)</td>
+<td style="text-align:center">2</td>
+<td><code>DIM</code></td>
+<td>real</td>
+<td>real</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td style="text-align:center">2</td>
+<td><code>IDIM</code></td>
+<td>integer</td>
+<td>integer</td>
+</tr>
+<tr>
+<td>Most significant part of double</td>
+<td></td>
+<td style="text-align:center">1</td>
+<td><code>SNGL</code></td>
+<td>double</td>
+<td>real</td>
+</tr>
+<tr>
+<td>Real part of complex</td>
+<td></td>
+<td style="text-align:center">1</td>
+<td><code>REAL</code></td>
+<td>complex</td>
+<td>real</td>
+</tr>
+<tr>
+<td>Imaginary part of complex</td>
+<td></td>
+<td style="text-align:center">1</td>
+<td><code>AIMAG</code></td>
+<td>complex</td>
+<td>real</td>
+</tr>
+<tr>
+<td>Single → double</td>
+<td></td>
+<td style="text-align:center">1</td>
+<td><code>DBLE</code></td>
+<td>real</td>
+<td>double</td>
+</tr>
+<tr>
+<td>Two reals → complex</td>
+<td>a₁ + a₂√−1</td>
+<td style="text-align:center">2</td>
+<td><code>CMPLX</code></td>
+<td>real</td>
+<td>complex</td>
+</tr>
+<tr>
+<td>Conjugate of complex</td>
+<td></td>
+<td style="text-align:center">1</td>
+<td><code>CONJG</code></td>
+<td>complex</td>
+<td>complex</td>
+</tr>
+</tbody>
+</table>
+<p><code>AMOD</code>, <code>MOD</code>, <code>SIGN</code>, <code>ISIGN</code>, and <code>DSIGN</code> are <strong>not defined</strong> when the second argument is zero
+<em>(§8.2)</em>.</p>
+<h2 id="table-4-basic-external-functions">Table 4 — basic external functions</h2>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Definition</th>
+<th style="text-align:center">Args</th>
+<th>Name</th>
+<th>Arg type</th>
+<th>Result type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Exponential</td>
+<td>eᵃ</td>
+<td style="text-align:center">1</td>
+<td><code>EXP</code></td>
+<td>real</td>
+<td>real</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td style="text-align:center">1</td>
+<td><code>DEXP</code></td>
+<td>double</td>
+<td>double</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td style="text-align:center">1</td>
+<td><code>CEXP</code></td>
+<td>complex</td>
+<td>complex</td>
+</tr>
+<tr>
+<td>Natural logarithm</td>
+<td>logₑ(a)</td>
+<td style="text-align:center">1</td>
+<td><code>ALOG</code></td>
+<td>real</td>
+<td>real</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td style="text-align:center">1</td>
+<td><code>DLOG</code></td>
+<td>double</td>
+<td>double</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td style="text-align:center">1</td>
+<td><code>CLOG</code></td>
+<td>complex</td>
+<td>complex</td>
+</tr>
+<tr>
+<td>Common logarithm</td>
+<td>log₁₀(a)</td>
+<td style="text-align:center">1</td>
+<td><code>ALOG10</code></td>
+<td>real</td>
+<td>real</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td style="text-align:center">1</td>
+<td><code>DLOG10</code></td>
+<td>double</td>
+<td>double</td>
+</tr>
+<tr>
+<td>Sine</td>
+<td>sin(a)</td>
+<td style="text-align:center">1</td>
+<td><code>SIN</code></td>
+<td>real</td>
+<td>real</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td style="text-align:center">1</td>
+<td><code>DSIN</code></td>
+<td>double</td>
+<td>double</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td style="text-align:center">1</td>
+<td><code>CSIN</code></td>
+<td>complex</td>
+<td>complex</td>
+</tr>
+<tr>
+<td>Cosine</td>
+<td>cos(a)</td>
+<td style="text-align:center">1</td>
+<td><code>COS</code></td>
+<td>real</td>
+<td>real</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td style="text-align:center">1</td>
+<td><code>DCOS</code></td>
+<td>double</td>
+<td>double</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td style="text-align:center">1</td>
+<td><code>CCOS</code></td>
+<td>complex</td>
+<td>complex</td>
+</tr>
+<tr>
+<td>Hyperbolic tangent</td>
+<td>tanh(a)</td>
+<td style="text-align:center">1</td>
+<td><code>TANH</code></td>
+<td>real</td>
+<td>real</td>
+</tr>
+<tr>
+<td>Square root</td>
+<td>a^(1/2)</td>
+<td style="text-align:center">1</td>
+<td><code>SQRT</code></td>
+<td>real</td>
+<td>real</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td style="text-align:center">1</td>
+<td><code>DSQRT</code></td>
+<td>double</td>
+<td>double</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td style="text-align:center">1</td>
+<td><code>CSQRT</code></td>
+<td>complex</td>
+<td>complex</td>
+</tr>
+<tr>
+<td>Arctangent</td>
+<td>arctan(a)</td>
+<td style="text-align:center">1</td>
+<td><code>ATAN</code></td>
+<td>real</td>
+<td>real</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td style="text-align:center">1</td>
+<td><code>DATAN</code></td>
+<td>double</td>
+<td>double</td>
+</tr>
+<tr>
+<td></td>
+<td>arctan(a₁/a₂)</td>
+<td style="text-align:center">2</td>
+<td><code>ATAN2</code></td>
+<td>real</td>
+<td>real</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td style="text-align:center">2</td>
+<td><code>DATAN2</code></td>
+<td>double</td>
+<td>double</td>
+</tr>
+<tr>
+<td>Remaindering</td>
+<td>a₁ (mod a₂)</td>
+<td style="text-align:center">2</td>
+<td><code>DMOD</code></td>
+<td>double</td>
+<td>double</td>
+</tr>
+<tr>
+<td>Modulus</td>
+<td>|a|</td>
+<td style="text-align:center">1</td>
+<td><code>CABS</code></td>
+<td>complex</td>
+<td>real</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-fortran">      COMMON /O/ R(3)
+      REAL R
+      R(1) = SQRT(2.0)
+C     -&gt; 1.41421
+      R(2) = ATAN2(1.0, 1.0)
+C     -&gt; 0.78540  (pi/4)
+      R(3) = ABS(SIGN(5.0, -1.0))
+C     -&gt; 5.0  (magnitude of 5, sign of -1, then absolute value)
+</code></pre>
+<blockquote>
+<p><strong>forterp notes.</strong> forterp implements the complete Table 3 and Table 4 libraries on every dialect.
+It also offers many <strong>DEC FORTRAN-10 intrinsics</strong> beyond the standard set (extra type variants and
+service routines); those are listed with the other extensions in
+<a href="../C-forterp-extensions/index.html">Appendix C</a>. Stay within the tables above for portable code. On the
+default <code>NATIVE</code> target the results carry host (64-bit) precision; the <code>PDP10</code> target reproduces
+the DEC-10 library's precision and edge-case behavior.</p>
+</blockquote>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

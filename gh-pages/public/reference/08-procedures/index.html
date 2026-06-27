@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>8. Procedures &amp; subprograms | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">8. Procedures &amp; subprograms</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#statement-functions">Statement functions</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#intrinsic-functions">Intrinsic functions</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#external-functions">External functions</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#basic-external-functions">Basic external functions</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#external-subroutines">External subroutines</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#block-data-subprograms">Block data subprograms</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>8. Procedures &amp; subprograms</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">8. Procedures &amp; subprograms</p>
+        </header>
+        <div class="prose">
+<p>A <strong>procedure</strong> is a reusable piece of computation. FORTRAN 66 has four kinds <em>(§8)</em>: <strong>statement
+functions</strong>, <strong>intrinsic functions</strong>, <strong>external functions</strong>, and <strong>external subroutines</strong>. The
+first three are <em>functions</em> — they return a value into an expression; the last is invoked by <code>CALL</code>.
+External functions and subroutines, plus the <code>BLOCK DATA</code> unit, are written as separate
+<strong>subprograms</strong>.</p>
+<h2 id="statement-functions">Statement functions</h2>
+<p>A <strong>statement function</strong> is a one-line function defined inside the program unit that uses it
+<em>(§8.1)</em>. Its definition looks like an assignment: <code>f(a1,…,an) = e</code>. The arguments are <em>dummy</em>
+names; the expression <code>e</code> may use those dummies, constants, variables, intrinsic functions,
+previously defined statement functions, and external functions.</p>
+<pre><code class="language-fortran">      COMMON /O/ R(1)
+      REAL R
+      SQ(X) = X*X
+      R(1) = SQ(3.0) + SQ(4.0)
+C     -&gt; 9.0 + 16.0 = 25.0
+</code></pre>
+<p>Statement function definitions must come <strong>after</strong> the specification statements and <strong>before</strong> the
+first executable statement <em>(§8.1.1)</em>.</p>
+<h2 id="intrinsic-functions">Intrinsic functions</h2>
+<p>The <strong>intrinsic functions</strong> are built in and listed in the standard's <strong>Table 3</strong> <em>(§8.2)</em> — the
+full table is reproduced in <a href="../A-intrinsics/index.html">Appendix A</a>. They cover absolute value, truncation,
+remaindering, choosing the largest/smallest, type conversion, and the complex-number helpers:</p>
+<pre><code class="language-fortran">      COMMON /O/ R(5)
+      REAL R
+      R(1) = ABS(-3.0)
+C     -&gt; 3.0
+      R(2) = MOD(7, 3)
+C     -&gt; 1   (remainder)
+      R(3) = MAX0(2, 9, 5)
+C     -&gt; 9
+      R(4) = FLOAT(4)
+C     -&gt; 4.0  (integer -&gt; real)
+      R(5) = AINT(3.9)
+C     -&gt; 3.0  (truncate, result still real)
+</code></pre>
+<p>Each intrinsic has a fixed argument type and result type (Table 3); pick the spelling that matches
+your data — <code>ABS</code> for real, <code>IABS</code> for integer, <code>DABS</code> for double precision.</p>
+<h2 id="external-functions">External functions</h2>
+<p>An <strong>external function</strong> is a separate subprogram headed by a <code>FUNCTION</code> statement <em>(§8.3)</em>:</p>
+<pre><code class="language-fortran">      FUNCTION CUBE(X)
+      CUBE = X*X*X
+      RETURN
+      END
+</code></pre>
+<p>Inside the subprogram, the function name (<code>CUBE</code>) is used as a variable; its value at the <code>RETURN</code>
+becomes the function's result <em>(§8.3.1)</em>. A function subprogram must contain at least one <code>RETURN</code>.
+You reference it like any function:</p>
+<pre><code class="language-fortran">      COMMON /O/ R(1)
+      REAL R
+      R(1) = CUBE(2.0)
+C     -&gt; 8.0
+</code></pre>
+<p>The optional type prefix on the <code>FUNCTION</code> statement (<code>INTEGER FUNCTION …</code>, <code>DOUBLE PRECISION FUNCTION …</code>) sets the result type explicitly; otherwise it follows the implicit naming rule.</p>
+<h3 id="basic-external-functions">Basic external functions</h3>
+<p>The standard also requires a set of <strong>basic external functions</strong> — the mathematical library — listed
+in <strong>Table 4</strong> <em>(§8.3.3)</em>: <code>EXP</code>, <code>ALOG</code>, <code>ALOG10</code>, <code>SIN</code>, <code>COS</code>, <code>TANH</code>, <code>SQRT</code>, <code>ATAN</code>, <code>ATAN2</code>,
+and their double precision (<code>D…</code>) and complex (<code>C…</code>) variants. They are referenced exactly like any
+external function:</p>
+<pre><code class="language-fortran">      COMMON /O/ R(2)
+      REAL R
+      R(1) = SQRT(16.0)
+C     -&gt; 4.0
+      R(2) = EXP(0.0)
+C     -&gt; 1.0
+</code></pre>
+<h2 id="external-subroutines">External subroutines</h2>
+<p>An <strong>external subroutine</strong> is a subprogram headed by a <code>SUBROUTINE</code> statement and invoked by <code>CALL</code>
+<em>(§8.4)</em>. Unlike a function, it returns nothing directly; it communicates through its arguments and
+through common:</p>
+<pre><code class="language-fortran">      SUBROUTINE DBL(A, B)
+      B = 2.0*A
+      RETURN
+      END
+</code></pre>
+<pre><code class="language-fortran">      COMMON /O/ R(1)
+      REAL R
+      CALL DBL(5.0, Y)
+      R(1) = Y
+C     -&gt; 10.0
+</code></pre>
+<p>A subroutine must contain at least one <code>RETURN</code>. A Hollerith constant may be passed as an actual
+argument even though it has no type of its own — the one exception to the rule that actual and dummy
+argument types must agree <em>(§8.4.2)</em>.</p>
+<h2 id="block-data-subprograms">Block data subprograms</h2>
+<p>A <strong>block data subprogram</strong> exists solely to give initial values to variables in <strong>labeled common</strong>
+<em>(§8.5)</em>. It begins with <code>BLOCK DATA</code>, contains only <code>DIMENSION</code>, <code>COMMON</code>, <code>EQUIVALENCE</code>, type, and
+<code>DATA</code> statements, and has no executable statements:</p>
+<pre><code class="language-fortran">      BLOCK DATA
+      COMMON /C/ A, B
+      DATA A, B /1.5, 2.5/
+      END
+</code></pre>
+<p>Now <code>A</code> and <code>B</code> in common block <code>/C/</code> start out as <code>1.5</code> and <code>2.5</code> everywhere they appear. This is
+the <em>only</em> way to initialize labeled common <em>(§7.2.2)</em>.</p>
+<blockquote>
+<p><strong>forterp notes.</strong></p>
+<ul>
+<li>forterp supplies the full Table 3 intrinsic set and Table 4 mathematical library, and adds a
+number of <strong>DEC FORTRAN-10 intrinsics</strong> beyond the standard (collected in
+<a href="../C-forterp-extensions/index.html">Appendix C</a>). The standard set is the portable one.</li>
+<li><strong>Recursion is prohibited</strong> by the standard: a procedure subprogram may not be referenced a
+second time before a <code>RETURN</code> from the first has intervened <em>(§10.2.1)</em> — so a subprogram must
+not, directly or indirectly, reference itself. forterp rejects re-entry by default rather than
+give a silently wrong answer; a <code>recursion</code> knob enables correct recursion when you want it. See
+<a href="../C-forterp-extensions/index.html">Appendix C</a>.</li>
+<li>An external function or subroutine may live in a <strong>separate source file</strong>; forterp links the
+units of a program together (see <a href="../../cli/index.html">CLI.md</a>).</li>
+</ul>
+</blockquote>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

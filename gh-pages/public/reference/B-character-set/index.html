@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Appendix B. The FORTRAN character set &amp; collating sequence | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">Appendix B. The FORTRAN character set &amp; collating sequence</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#the-49-character-set">The 49-character set</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#the-collating-sequence">The collating sequence</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>Appendix B. The FORTRAN character set &amp; collating sequence</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">Appendix B. The FORTRAN character set &amp; collating sequence</p>
+        </header>
+        <div class="prose">
+<h2 id="the-49-character-set">The 49-character set</h2>
+<p>A standard FORTRAN 66 program is written entirely in these <strong>49 characters</strong> <em>(§3.1)</em>: the 26
+letters, the 10 digits, the blank, and 12 special characters.</p>
+<pre><code class="language-text">   letters   A B C D E F G H I J K L M N O P Q R S T U V W X Y Z
+   digits    0 1 2 3 4 5 6 7 8 9
+   blank     (space)
+   special   =  +  -  *  /  (  )  ,  .  $
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Character</th>
+<th>Name</th>
+<th>Typical use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>(blank)</td>
+<td>blank</td>
+<td>spacing; significant only inside Hollerith and in column rules</td>
+</tr>
+<tr>
+<td><code>=</code></td>
+<td>equals</td>
+<td>assignment</td>
+</tr>
+<tr>
+<td><code>+</code></td>
+<td>plus</td>
+<td>addition, unary plus</td>
+</tr>
+<tr>
+<td><code>-</code></td>
+<td>minus</td>
+<td>subtraction, unary minus</td>
+</tr>
+<tr>
+<td><code>*</code></td>
+<td>asterisk</td>
+<td>multiplication; <code>**</code> exponentiation; <code>*</code> in column 1 = comment (forterp)</td>
+</tr>
+<tr>
+<td><code>/</code></td>
+<td>slash</td>
+<td>division; record separator in <code>FORMAT</code>; common-block delimiters</td>
+</tr>
+<tr>
+<td><code>(</code> <code>)</code></td>
+<td>parentheses</td>
+<td>grouping, subscripts, argument lists</td>
+</tr>
+<tr>
+<td><code>,</code></td>
+<td>comma</td>
+<td>list separator</td>
+</tr>
+<tr>
+<td><code>.</code></td>
+<td>decimal point</td>
+<td>in real constants; in <code>.EQ.</code>, <code>.AND.</code>, <code>.TRUE.</code>, etc.</td>
+</tr>
+<tr>
+<td><code>$</code></td>
+<td>currency symbol</td>
+<td>reserved by the standard; no standard meaning</td>
+</tr>
+</tbody>
+</table>
+<p>Any other character (lower-case letters, <code>:</code>, <code>;</code>, <code>'</code>, <code>!</code>, <code>#</code>, …) is <strong>not</strong> part of the standard
+FORTRAN character set. Such characters may appear only inside <strong>Hollerith</strong> data, where any
+processor-representable character — blank included — is allowed <em>(§3.1.4.1, §4.2.6)</em>.</p>
+<h2 id="the-collating-sequence">The collating sequence</h2>
+<p>FORTRAN 66 deliberately <strong>does not impose a collating sequence</strong> <em>(§3.1, §3.6)</em>. The order in which
+the standard lists the characters carries no meaning, and the language provides no way to compare
+character (Hollerith) data with relational operators — relational expressions compare <em>numbers</em>
+only (<a href="../06-expressions/index.html">Chapter 6</a>). A program that needs to order characters must do so by its
+own arithmetic on the packed Hollerith values, and the result depends on the processor's internal
+representation.</p>
+<blockquote>
+<p><strong>forterp notes.</strong></p>
+<ul>
+<li>forterp's host character representation is <strong>ASCII</strong>. On the default <code>NATIVE</code> target, Hollerith
+characters are packed into 64-bit words; on the faithful <code>PDP10</code> target they are packed five
+<strong>7-bit ASCII</strong> characters to a 36-bit word, exactly as DEC FORTRAN-10 did. Any program that
+compares or unpacks Hollerith data will therefore see <em>different</em> numeric values on the two
+targets — this is the value-model divergence discussed in
+<a href="../C-forterp-extensions/index.html">Appendix C</a>.</li>
+<li>Because forterp reads ASCII source, lower-case letters and characters like <code>!</code> and <code>'</code> are
+recognized where a dialect allows them (e.g. <code>!</code> comments and <code>'…'</code> strings under <code>FORTRAN10</code>/
+<code>F77</code>), even though they are outside the X3.9-1966 set. Under strict <code>F66</code> they are rejected
+outside Hollerith, as the standard requires.</li>
+<li>A full ASCII table with the operator-precedence summary is in the FORTRAN 77 manual's
+<a href="../../fortran77/C-precedence-ascii/index.html">Appendix C</a>; the precedence rules there
+(arithmetic &gt; relational &gt; logical, with <code>**</code> right-associative) apply unchanged to FORTRAN 66.</li>
+</ul>
+</blockquote>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>4. Data types | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">4. Data types</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#how-a-name-gets-its-type">How a name gets its type</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#the-numeric-types">The numeric types</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#integer">Integer</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#real">Real</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#double-precision">Double precision</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#complex">Complex</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#the-logical-type">The logical type</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#the-hollerith-type">The Hollerith type</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>4. Data types</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">4. Data types</p>
+        </header>
+        <div class="prose">
+<p>FORTRAN 66 defines <strong>six data types</strong> <em>(§4)</em>:</p>
+<p><strong>integer, real, double precision, complex, logical,</strong> and <strong>Hollerith.</strong></p>
+<p>Note what is <em>not</em> on that list: there is <strong>no <code>CHARACTER</code> type</strong>. In FORTRAN 66, text is handled
+as <strong>Hollerith</strong> data — a string of characters carried inside a variable of one of the other types.
+The <code>CHARACTER</code> type arrived with FORTRAN 77; if you want it, use the
+<a href="../../fortran77/index.html">FORTRAN 77 reference manual</a>. This chapter shows how to write a constant of
+each type, and how a name acquires a type.</p>
+<h2 id="how-a-name-gets-its-type">How a name gets its type</h2>
+<p>A symbolic name representing a variable, array, or function has <strong>one</strong> data type throughout a
+program unit <em>(§4.1)</em>. The type is fixed in one of these ways:</p>
+<ol>
+<li>an explicit <strong>type-statement</strong> — <code>REAL</code>, <code>INTEGER</code>, <code>DOUBLE PRECISION</code>, <code>COMPLEX</code>, <code>LOGICAL</code>
+(Chapter <a href="../07-statements/index.html">7</a>);</li>
+<li>otherwise the <strong>implicit default</strong> <em>(§5.3)</em>: a name beginning with <strong><code>I, J, K, L, M, N</code></strong> is
+<strong>integer</strong>; a name beginning with any other letter is <strong>real</strong>.</li>
+</ol>
+<pre><code class="language-fortran">      REAL    MASS
+C     -&gt; explicit: MASS is real despite starting with M
+      I = 3
+C     -&gt; implicit: I is integer (I-N)
+      X = 2.5
+C     -&gt; implicit: X is real
+</code></pre>
+<p>There is <strong>no</strong> way to declare a name to be of Hollerith type <em>(§4.1)</em>. Hollerith data lives
+&quot;under the guise&quot; of one of the other types — most often integer or real — and you simply have to
+know that a given variable is holding characters rather than a number.</p>
+<h2 id="the-numeric-types">The numeric types</h2>
+<h3 id="integer">Integer</h3>
+<p>An integer datum is an <strong>exact</strong> representation of an integer value — positive, negative, or zero
+<em>(§4.2.1)</em>. An integer constant is a string of digits, optionally signed, with no decimal point:</p>
+<pre><code class="language-fortran">      I = 0
+      J = 42
+      K = -7
+</code></pre>
+<h3 id="real">Real</h3>
+<p>A real datum is a <strong>processor approximation</strong> to a real number <em>(§4.2.2)</em>. A real constant has a
+decimal point, and may carry a decimal exponent written with <code>E</code>:</p>
+<pre><code class="language-fortran">      A = 3.14
+      B = -0.5
+      C = 6.022E23
+C     -&gt; 6.022 x 10**23
+</code></pre>
+<h3 id="double-precision">Double precision</h3>
+<p>A double precision datum is an approximation whose precision is <strong>greater than</strong> that of real
+<em>(§4.2.3)</em>. A double precision constant uses a <code>D</code> exponent in place of <code>E</code>:</p>
+<pre><code class="language-fortran">      DOUBLE PRECISION D
+      D = 1.5D0
+      D = 3.141592653589793D0
+</code></pre>
+<h3 id="complex">Complex</h3>
+<p>A complex datum is an <strong>ordered pair of reals</strong> — the real part and the imaginary part <em>(§4.2.4)</em>.
+A complex constant is that pair, parenthesized and comma-separated:</p>
+<pre><code class="language-fortran">      COMPLEX C
+      C = (1.0, 2.0)
+C     -&gt; 1 + 2i; arithmetic follows the usual complex rules:
+C     -&gt; (1.0,2.0) + (3.0,4.0) = (4.0,6.0)
+</code></pre>
+<h2 id="the-logical-type">The logical type</h2>
+<p>A logical datum is one of the two truth values <strong>true</strong> or <strong>false</strong> <em>(§4.2.5)</em>. The constants are
+written <code>.TRUE.</code> and <code>.FALSE.</code>:</p>
+<pre><code class="language-fortran">      LOGICAL FLAG
+      FLAG = .TRUE.
+</code></pre>
+<h2 id="the-hollerith-type">The Hollerith type</h2>
+<p>A Hollerith datum is a <strong>string of characters</strong> <em>(§4.2.6)</em>; any character the processor can
+represent is allowed, and the <strong>blank is significant</strong>. A Hollerith constant is written as a count,
+the letter <code>H</code>, then exactly that many characters:</p>
+<pre><code class="language-fortran">      INTEGER WORD
+      WORD = 4HABCD
+C     -&gt; the four characters A B C D, packed into WORD
+</code></pre>
+<p>Because Hollerith has no type of its own, you store it in a variable of another type (here an
+integer) and treat that variable as a holder of characters. Hollerith is most often seen supplying
+literal text to a <code>FORMAT</code> statement and in <code>DATA</code> statements — see
+<a href="../07-statements/index.html">Chapter 7</a>.</p>
+<blockquote>
+<p><strong>forterp notes.</strong></p>
+<ul>
+<li>
+<p><strong>No <code>CHARACTER</code> type, and no apostrophe strings, under <code>F66</code>.</strong> A character constant written
+with apostrophes (<code>'ABCD'</code>) is a <em>FORTRAN-10 extension</em>; under strict <code>F66</code> it is rejected, and
+you must use Hollerith. The three dialects line up like this:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th><code>F66</code></th>
+<th><code>FORTRAN10</code></th>
+<th><code>F77</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hollerith <code>4HABCD</code></td>
+<td>yes</td>
+<td>yes</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>apostrophe <code>'ABCD'</code></td>
+<td>—</td>
+<td>yes (stored packed, Hollerith-style)</td>
+<td>yes (true <code>CHARACTER</code>)</td>
+</tr>
+<tr>
+<td><code>CHARACTER</code> type</td>
+<td>—</td>
+<td>—</td>
+<td>yes</td>
+</tr>
+</tbody>
+</table>
+</li>
+<li>
+<p><strong>Precision and the value model.</strong> The standard fixes only that double precision is <em>more</em>
+precise than real, never by how much. On forterp's default <strong><code>NATIVE</code></strong> target, <code>REAL</code> and
+<code>DOUBLE PRECISION</code> are both the host's 64-bit float, so double precision is not actually more
+precise; the faithful <strong><code>PDP10</code></strong> target reproduces the genuine 36-bit single / two-word double
+split. This only matters to a program that depends on the precision <em>difference</em> — see
+<a href="../C-forterp-extensions/index.html">Appendix C</a>.</p>
+</li>
+<li>
+<p><strong>How Hollerith is packed</strong> also depends on the target: <code>NATIVE</code> packs characters into a 64-bit
+word, <code>PDP10</code> into a 36-bit word, five 7-bit ASCII characters per word, exactly as DEC-10 did.</p>
+</li>
+</ul>
+</blockquote>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

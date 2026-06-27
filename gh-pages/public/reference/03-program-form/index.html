@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>3. Program form | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">3. Program form</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#the-fortran-character-set">The FORTRAN character set</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#lines-and-columns">Lines and columns</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#statements">Statements</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#statement-labels">Statement labels</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#symbolic-names">Symbolic names</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>3. Program form</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">3. Program form</p>
+        </header>
+        <div class="prose">
+<p>FORTRAN 66 was written for the <strong>punched card</strong>, and its physical form still reflects that: a
+program is a sequence of 72-column lines, and a few specific columns carry special meaning. This
+chapter covers the character set a program is written in <em>(§3.1)</em>, the column layout of a line
+<em>(§3.2)</em>, how lines group into statements <em>(§3.3)</em>, statement labels <em>(§3.4)</em>, and the rules for
+symbolic names <em>(§3.5)</em>.</p>
+<h2 id="the-fortran-character-set">The FORTRAN character set</h2>
+<p>A program is written using just <strong>49 characters</strong> <em>(§3.1)</em>: the 26 letters <code>A–Z</code>, the ten digits
+<code>0–9</code>, the <strong>blank</strong>, and twelve special characters:</p>
+<table>
+<thead>
+<tr>
+<th>Char</th>
+<th>Name</th>
+<th>Char</th>
+<th>Name</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>(blank)</td>
+<td>blank</td>
+<td><code>(</code></td>
+<td>left parenthesis</td>
+</tr>
+<tr>
+<td><code>=</code></td>
+<td>equals</td>
+<td><code>)</code></td>
+<td>right parenthesis</td>
+</tr>
+<tr>
+<td><code>+</code></td>
+<td>plus</td>
+<td><code>,</code></td>
+<td>comma</td>
+</tr>
+<tr>
+<td><code>-</code></td>
+<td>minus</td>
+<td><code>.</code></td>
+<td>decimal point</td>
+</tr>
+<tr>
+<td><code>*</code></td>
+<td>asterisk</td>
+<td><code>$</code></td>
+<td>currency symbol</td>
+</tr>
+<tr>
+<td><code>/</code></td>
+<td>slash</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>Digits are decimal <em>(§3.1.1)</em>, except inside a <code>STOP</code> or <code>PAUSE</code> statement, where a string of
+digits is read as <strong>octal</strong>. The blank character has no meaning except in a few specified places
+(and inside Hollerith data); elsewhere you may use blanks freely to make a program readable
+<em>(§3.1.4.1)</em>. The order in which the characters are listed above does <strong>not</strong> imply a collating
+sequence <em>(§3.1)</em> — for that, see <a href="../B-character-set/index.html">Appendix B</a>.</p>
+<h2 id="lines-and-columns">Lines and columns</h2>
+<p>A <strong>line</strong> is up to 72 characters from the character set <em>(§3.2)</em>. The character positions are
+<strong>columns</strong>, numbered 1 to 72 from the left. Each column range has a job:</p>
+<pre><code class="language-text"> column:  1         2 ... 5   6        7 ....................... 72
+          +---------+---------+-+------------------------------------+
+          | C = comment       | |  the statement text                |
+          | or statement label| |  (continuation mark in column 6)   |
+          +-------------------+-+------------------------------------+
+</code></pre>
+<ul>
+<li><strong>Comment line</strong> — a <code>C</code> in <strong>column 1</strong> marks the whole line as a comment <em>(§3.2.1)</em>. It
+documents the program and is otherwise ignored.</li>
+<li><strong>End line</strong> — a line blank in columns 1–6 with the letters <code>E</code>, <code>N</code>, <code>D</code> in that order in
+columns 7–72 <em>(§3.2.2)</em>. Every program unit must physically end with one.</li>
+<li><strong>Initial line</strong> — the first line of a statement: not a comment or end line, with a <code>0</code> or blank
+in <strong>column 6</strong> <em>(§3.2.3)</em>. Columns 1–5 hold the statement label (or are blank).</li>
+<li><strong>Continuation line</strong> — any character <em>other than</em> <code>0</code> or blank in <strong>column 6</strong> (and not a <code>C</code> in
+column 1) continues the previous statement <em>(§3.2.4)</em>.</li>
+</ul>
+<pre><code class="language-fortran">C     THIS IS A COMMENT LINE
+      X = 1.0 + 2.0 + 3.0 +
+     1    4.0 + 5.0
+C     -&gt; the &quot;1&quot; in column 6 continues the statement; X = 15.0
+</code></pre>
+<h2 id="statements">Statements</h2>
+<p>A <strong>statement</strong> occupies columns 7–72 of an initial line, optionally followed by up to <strong>nineteen
+continuation lines</strong> <em>(§3.3)</em> — so a single statement spans at most twenty lines. The text is read
+by concatenating columns 7–72 of the initial line, then of each continuation line in turn.</p>
+<h2 id="statement-labels">Statement labels</h2>
+<p>A statement may be <strong>labeled</strong> so other statements can refer to it <em>(§3.4)</em>. A label is one to five
+digits placed anywhere in columns 1–5; its numeric value is not significant but must be <strong>greater
+than zero</strong>, and leading zeros do not distinguish labels (<code>010</code> and <code>10</code> are the same label). No
+two statements in a program unit may carry the same label.</p>
+<pre><code class="language-fortran">      GO TO 10
+      X = 1.0
+C     -&gt; skipped
+10    X = 2.0
+C     -&gt; label 10 is the GO TO target; X = 2.0
+</code></pre>
+<h2 id="symbolic-names">Symbolic names</h2>
+<p>A <strong>symbolic name</strong> is one to six <strong>alphanumeric</strong> characters, the first of which must be a
+<strong>letter</strong> <em>(§3.5)</em>: <code>X</code>, <code>A1</code>, <code>MASS</code>, <code>VALUE2</code>. Names identify variables, arrays, functions,
+subroutines, and common blocks; the rules for what a name <em>means</em> in each context are in
+<a href="../05-identification/index.html">Chapter 5</a> and <a href="../10-relationships/index.html">Chapter 10</a>.</p>
+<blockquote>
+<p><strong>forterp notes.</strong></p>
+<ul>
+<li>forterp reads classic fixed-form source: column 1 <code>C</code> comments, the column-6 continuation
+mark, labels in columns 1–5, and <strong>columns past 72 are ignored</strong> (the old &quot;identification
+field&quot; that held card sequence numbers). You can therefore paste real 80-column card images
+and the sequence numbers in columns 73–80 are harmless.</li>
+<li>For input typed at a terminal rather than punched, forterp also accepts free CR/LF lines and
+emulates an 80-column terminal host-side, so you are not forced to pad every line to 72
+columns.</li>
+<li>A name longer than six characters is <strong>silently truncated to six</strong> — the common historical
+behavior — so <code>LONGNAME</code> and <code>LONGNAM</code> denote the same variable. forterp does not warn; keep
+names within six characters to avoid surprise collisions.</li>
+<li>The standard's only comment marker is <code>C</code> in column 1; forterp also accepts <code>*</code> in column 1 as
+a comment in every dialect. The <strong><code>!</code> end-of-line comment is a FORTRAN-10 extension</strong> and is
+<em>rejected</em> under strict <code>F66</code> — there is no inline comment character in standard FORTRAN 66.
+See <a href="../C-forterp-extensions/index.html">Appendix C</a>.</li>
+</ul>
+</blockquote>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>
