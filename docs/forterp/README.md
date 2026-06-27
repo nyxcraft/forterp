@@ -4,16 +4,16 @@
 guide to **the interpreter itself** — how to run it, drive it from Python, extend it, and how it
 works inside. For the **languages** it implements, see the two reference manuals:
 
-- the [FORTRAN 66 reference manual](../fortran66/README.md) — forterp's default dialect (X3.9-1966
-  plus the DEC FORTRAN-10 extensions);
-- the [FORTRAN 77 reference manual](../fortran77/README.md) — the `F77` dialect (X3.9-1978).
+- the [FORTRAN 77 reference manual](../fortran77/README.md) — forterp's default dialect (X3.9-1978);
+- the [FORTRAN 66 reference manual](../fortran66/README.md) — the strict `F66` dialect (X3.9-1966
+  plus the DEC FORTRAN-10 extensions).
 
 ## The two axes
 
 Everything in forterp is pluggable along two orthogonal axes — pick any pairing:
 
-- the **dialect** (the front-end language): `F66` (default, strict ANSI), `FORTRAN10` (the DEC
-  superset), `F77` (the later standard);
+- the **dialect** (the front-end language): `F77` (the default, X3.9-1978), `F66` (strict ANSI
+  X3.9-1966), `FORTRAN10` (the DEC superset);
 - the **target** (the machine value model): `NATIVE` (a portable 64-bit host, the default), `PDP10`
   (faithful 36-bit DEC-10), `LP64LE` (64-bit little-endian IEEE, gfortran-aligned), `VAX`
   (provisional).

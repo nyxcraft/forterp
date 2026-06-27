@@ -1,19 +1,19 @@
 :root {
-  /* "the DEC manual on your desk" — warm cream pages, oxblood/DEC-maroon brand */
-  --bg: #2a1c1a;            /* dark warm surround (the desk) framing the page */
-  --paper: #f3ecdb;         /* the manual page — warm cream */
-  --panel: #efe7d1;         /* hero band */
-  --panel-soft: #e8dec4;    /* feature-strip / table-head band */
-  --ink: #2c2620;           /* body text — warm near-black */
-  --ink-bright: #1d1813;    /* headings — darkest ink */
-  --ink-soft: #6f6453;      /* secondary text — muted brown-grey */
-  --line: #cdbfa1;          /* faint warm paper rule */
-  --accent: #7c2230;        /* DEC maroon — the brand / masthead / accents */
-  --accent-strong: #9a2d3c; /* brighter maroon — links, hover */
-  --gold: #b07a2b;          /* muted brass — focus ring, the author line */
-  --stamp: #d61f1f;         /* the "beta" rubber stamp — bright stamp red, high-contrast */
-  --code: #ebe1c9;          /* code block — an inset warm tan panel */
-  --shadow: 0 18px 50px rgba(30, 16, 16, .35);
+  /* the ANSI FORTRAN 77 (X3.9-1978) cover — faded sage-green, on pale green-cream paper */
+  --bg: #20281c;            /* dark forest surround (the desk) framing the page */
+  --paper: #f1f0e2;         /* the manual page — pale cream with a green cast */
+  --panel: #e9ebd9;         /* hero band — faint celadon */
+  --panel-soft: #e0e4cd;    /* feature-strip / table-head band — deeper celadon */
+  --ink: #272a20;           /* body text — warm green-black */
+  --ink-bright: #191c13;    /* headings — darkest ink */
+  --ink-soft: #66684f;      /* secondary text — muted olive-grey */
+  --line: #c6cdac;          /* faint sage paper rule */
+  --accent: #4f6147;        /* faded sage green — the brand / masthead / accents */
+  --accent-strong: #3d4f36; /* deeper green — links, hover */
+  --gold: #b07a2b;          /* muted brass — focus ring, the author line (complements green) */
+  --stamp: #b23a2a;         /* the "beta" rubber stamp — muted brick red, high-contrast on green */
+  --code: #e6e8d6;          /* code block — an inset pale celadon panel */
+  --shadow: 0 18px 50px rgba(20, 28, 18, .35);
   --content: 76rem;
   --font-body: "Aptos", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   --font-code: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
@@ -85,15 +85,15 @@ pre {
   justify-content: space-between;
   gap: 1rem;
   padding: 1rem clamp(1rem, 3vw, 2rem);
-  background: var(--accent);            /* DEC maroon masthead — the white-on-maroon "digital" look */
-  border-bottom: 1px solid #5a1822;
+  background: var(--accent);            /* sage-green masthead — the white-on-green cover look */
+  border-bottom: 1px solid #36422f;
 }
 
 .site-header--compact {
   position: sticky;
   top: 0;
   z-index: 5;
-  background: rgba(124, 34, 48, .95);
+  background: rgba(79, 97, 71, .95);
   backdrop-filter: blur(10px);
 }
 
@@ -101,14 +101,14 @@ pre {
   display: inline-flex;
   align-items: center;
   gap: .65rem;
-  color: var(--paper);                  /* cream wordmark on the maroon masthead */
+  color: var(--paper);                  /* cream wordmark on the green masthead */
   text-decoration: none;
   font-weight: 800;
 }
 
 .brand:hover {
-  color: var(--paper);                  /* stay cream -- the generic a:hover (maroon) would
-                                           vanish into the maroon masthead */
+  color: var(--paper);                  /* stay cream -- the generic a:hover (green) would
+                                           vanish into the green masthead */
   opacity: .85;                         /* subtle dim as the hover affordance instead */
 }
 
@@ -122,7 +122,7 @@ pre {
 }
 
 /* "beta" status stamp next to the brand, on every page (site.json -> "status") --
-   a tilted, bright-red, inked rubber-stamp look: outlined box, no fill. */
+   a tilted, brick-red, inked rubber-stamp look: outlined box, no fill. */
 .brand__badge {
   display: inline-block;
   margin-left: .6rem;
@@ -149,7 +149,7 @@ pre {
 }
 
 .top-nav a {
-  color: rgba(243, 236, 219, .85);      /* cream nav on the maroon masthead */
+  color: rgba(241, 240, 226, .85);      /* cream nav on the green masthead */
   text-decoration: none;
 }
 
@@ -230,7 +230,7 @@ pre {
   align-items: center;
   min-height: 2.75rem;
   padding: .72rem 1rem;
-  border: 1px solid rgba(124, 34, 48, .4);
+  border: 1px solid rgba(79, 97, 71, .4);
   color: var(--ink-bright);
   text-decoration: none;
   font-weight: 800;
@@ -245,8 +245,8 @@ pre {
 .hero__visual {
   position: relative;
   padding: 1.2rem;
-  border: 1px solid rgba(124, 34, 48, .18);
-  background: rgba(124, 34, 48, .04);
+  border: 1px solid rgba(79, 97, 71, .18);
+  background: rgba(79, 97, 71, .04);
 }
 
 .flow {
@@ -255,8 +255,8 @@ pre {
 }
 
 .flow__node {
-  border: 1px solid rgba(124, 34, 48, .25);
-  background: rgba(124, 34, 48, .06);
+  border: 1px solid rgba(79, 97, 71, .25);
+  background: rgba(79, 97, 71, .06);
   padding: .8rem 1rem;
   text-align: center;
 }
@@ -290,7 +290,7 @@ pre {
 
 .flow__node--hub {
   border-color: var(--accent);
-  background: rgba(124, 34, 48, .12);
+  background: rgba(79, 97, 71, .12);
 }
 
 .flow__arrow {
@@ -311,7 +311,7 @@ pre {
   display: grid;
   place-items: center;
   min-height: 3rem;
-  border: 1px solid rgba(124, 34, 48, .3);
+  border: 1px solid rgba(79, 97, 71, .3);
   color: var(--ink-bright);
   font-weight: 800;
   font-size: .78rem;
@@ -535,7 +535,7 @@ pre {
 
 .prose :not(pre) > code {
   padding: .1rem .25rem;
-  background: rgba(124, 34, 48, .1);
+  background: rgba(79, 97, 71, .1);
   color: var(--accent-strong);
 }
 

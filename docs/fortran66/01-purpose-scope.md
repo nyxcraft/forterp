@@ -38,8 +38,7 @@ approximation. Two conforming processors can give different last digits and both
 ## forterp's place
 
 forterp is a processor for this language, written in Python. FORTRAN 66 (plus the DEC FORTRAN-10
-extensions) is forterp's **default dialect** — it is what you get when you run a program without
-asking for anything else:
+extensions) is forterp's strict base dialect — the default is now FORTRAN 77, so you select F66 explicitly:
 
 ```fortran
       PROGRAM HELLO
@@ -50,7 +49,7 @@ asking for anything else:
 ```
 
 ```text
-$ forterp hello.for
+$ forterp --std f66 hello.for
 HELLO, WORLD
 ```
 
@@ -62,8 +61,8 @@ carriage control are covered in [Chapter 7](07-statements.md).
 > **forterp notes.** Because the standard fixes only a floor, forterp splits the things it can
 > vary along two independent axes, and exposes both:
 >
-> - the **dialect** (the language the front end accepts) — `F66` by default, `FORTRAN10` for the
->   DEC superset, `F77` for the later standard;
+> - the **dialect** (the language the front end accepts) — `F77` by default, `F66` for strict
+>   X3.9-1966, `FORTRAN10` for the DEC superset;
 > - the **target** (the value model — the "range and precision" the standard leaves open) —
 >   `NATIVE` by default (the host's 64-bit integers and floats), or `PDP10` for the faithful 36-bit
 >   DEC-10 representation.

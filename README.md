@@ -9,7 +9,7 @@
 > Code Synthesized via Anthropic Claude Code / Opus 4.8.  
 > Automated Code Review via OpenAI Codex / ChatGPT 5.5.
 
-A **configurable FORTRAN-66 interpreter** in Python: the machine value model and the
+A **configurable FORTRAN 66/77 interpreter** in Python: the machine value model and the
 front-end dialect are both pluggable, so one core runs FORTRAN against whatever
 representation you select.
 
@@ -27,9 +27,9 @@ The PDP-10 target was extracted from an interpreter built to run real 1970s DEC 
 unmodified, so it is exercised against real period code — not just toy snippets — and
 validated against the DEC FORTRAN-10 V5 manual and the **FCVS** conformance corpus.
 
-The other axis is the **front-end dialect**: `F66` (strict ANSI X3.9-1966, the default),
-`FORTRAN10` (the DEC superset), and `F77` (ANSI X3.9-1978 — the `CHARACTER` type, the block
-`IF`, list-directed I/O, `INQUIRE`; see the [FORTRAN 77 reference manual](docs/fortran77/README.md)).
+The other axis is the **front-end dialect**: `F77` (ANSI X3.9-1978 — the `CHARACTER` type, the
+block `IF`, list-directed I/O, `INQUIRE` — the default; see the [FORTRAN 77 reference manual](docs/fortran77/README.md)),
+`F66` (strict ANSI X3.9-1966), and `FORTRAN10` (the DEC superset).
 Target and dialect are orthogonal — any pairing runs.
 
 ## Install
@@ -45,7 +45,7 @@ pip install -e .
 ```python
 import forterp
 
-# The default dialect is strict ANSI F66; FORTRAN10 enables the DEC niceties
+# The default dialect is ANSI FORTRAN 77; here we pick FORTRAN10 for the DEC niceties
 # (here the quoted-string FORMAT -- F66 itself uses Hollerith nH). Note fixed form:
 # the statement label sits in columns 1-5 and the body starts in column 7.
 eng = forterp.run_source('''      PROGRAM HELLO
@@ -79,7 +79,7 @@ Installing puts three commands on your PATH — thin dialect front-ends over the
 pyf66 prog.for              # run as strict ANSI FORTRAN-66 (rejects DEC extensions)
 pyf77 prog.for              # run as ANSI FORTRAN 77 (CHARACTER, block IF, list-directed I/O)
 pyfortran10 prog.for        # run as DEC FORTRAN-10 (the superset: octal, IMPLICIT, '...', …)
-forterp --std fortran10 prog.for   # general driver; --std f66|fortran10|f77 (default: f66)
+forterp --std fortran10 prog.for   # general driver; --std f77|f66|fortran10 (default: f77)
 forterp --std f77 prog.for         # FORTRAN 77: CHARACTER, block IF, list-directed I/O, INQUIRE
 ```
 

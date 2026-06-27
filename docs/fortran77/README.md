@@ -3,7 +3,7 @@
 A complete, example-driven reference for the **FORTRAN 77** language — ANSI X3.9-1978, the full
 language (not the subset level). It is written for people who want to *read and write* FORTRAN 77,
 whether to maintain vintage code or to understand what a classic program does. Every feature is
-shown with a small, runnable example and its result.
+shown with a small, runnable example and its result. It is forterp's **default** dialect.
 
 This manual is self-contained: you do not need to know an earlier FORTRAN to use it. It runs on
 [`forterp`](../../README.md); each chapter ends with a **forterp notes** box describing anything

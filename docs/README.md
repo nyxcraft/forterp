@@ -11,11 +11,11 @@
 - **[FORTRAN 66 reference manual](fortran66/README.md)** — the complete FORTRAN 66 language
   (USA Standard X3.9-1966) plus the DEC FORTRAN-10 extensions, example-driven and organized on
   the standard: program form, data types, expressions, statements, procedures, and the intrinsic
-  library, with a *forterp notes* box per chapter. This is forterp's **default** dialect.
+  library, with a *forterp notes* box per chapter. This is the strict `forterp.F66` dialect (`--std f66`), the base language.
 - **[FORTRAN 77 reference manual](fortran77/README.md)** — the complete FORTRAN 77 language
   (ANSI X3.9-1978), example-driven and organized on the standard: data types, arrays,
   expressions, control flow, I/O and `FORMAT`, procedures, and the intrinsic library, with a
-  *forterp notes* box per chapter. This is the `forterp.F77` dialect (`--std f77`); see
+  *forterp notes* box per chapter. This is forterp's **default** dialect (`forterp.F77`); see
   [the forterp manual](forterp/05-targets-dialects.md#the-two-axes-target-and-dialect) to select it and for the dialect knobs.
 - **[CHANGELOG.md](../CHANGELOG.md)** — dated history of the standalone interpreter.
 

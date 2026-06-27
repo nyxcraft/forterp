@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>FORTRAN 66 reference | forterp</title>
-  <meta name="description" content="A complete, example-driven reference manual for the FORTRAN 66 language (USA Standard X3.9-1966) plus the DEC FORTRAN-10 extensions — forterp&#x27;s default dialect — organized on the standard: program form, data types, expressions, statements, procedures, and the intrinsic library, with a forterp notes box per chapter.">
-  <link rel="stylesheet" href="../assets/site.css?v=de204dc9">
+  <meta name="description" content="A complete, example-driven reference manual for the FORTRAN 66 language (USA Standard X3.9-1966) plus the DEC FORTRAN-10 extensions, organized on the standard: program form, data types, expressions, statements, procedures, and the intrinsic library, with a forterp notes box per chapter. The strict-subset dialect (forterp.F66).">
+  <link rel="stylesheet" href="../assets/site.css?v=818768fa">
 </head>
 <body class="site-doc">
   <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -44,14 +44,13 @@
         <header class="docs-article__header">
           <p class="eyebrow">Documentation</p>
           <h1>FORTRAN 66 reference</h1>
-          <p class="docs-article__summary">A complete, example-driven reference manual for the FORTRAN 66 language (USA Standard X3.9-1966) plus the DEC FORTRAN-10 extensions — forterp&#x27;s default dialect — organized on the standard: program form, data types, expressions, statements, procedures, and the intrinsic library, with a forterp notes box per chapter.</p>
+          <p class="docs-article__summary">A complete, example-driven reference manual for the FORTRAN 66 language (USA Standard X3.9-1966) plus the DEC FORTRAN-10 extensions, organized on the standard: program form, data types, expressions, statements, procedures, and the intrinsic library, with a forterp notes box per chapter. The strict-subset dialect (forterp.F66).</p>
           <p class="docs-article__source">The FORTRAN 66 reference manual</p>
         </header>
         <div class="prose">
 <p>A complete, example-driven reference for the <strong>FORTRAN 66</strong> language — USA Standard X3.9-1966, the
 original standard FORTRAN — together with the <strong>DEC FORTRAN-10</strong> extensions that real PDP-10 code
-relied on. This is forterp's <strong>default</strong> dialect: it is what you get when you run a program without
-naming a dialect, and it is the language most 1960s–70s decks were written in.</p>
+relied on. It is the strict base dialect — the language most 1960s–70s decks were written in; select it with <code>--std f66</code> or <code>dialect=forterp.F66</code> (the default is now FORTRAN 77).</p>
 <p>This manual is written for people who want to <em>read and write</em> FORTRAN 66 — to bring a vintage deck
 back to life, to understand what a classic program does, or to write new code in the old style.
 Every feature is shown with a small, runnable example and its result.</p>

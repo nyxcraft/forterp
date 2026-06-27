@@ -37,7 +37,7 @@ print(eng.commons["OUT"][0])        # 1024
 ```
 
 `run_source(text, program=None, dialect=F66, options=None, include_dir=".", **kwargs)`:
-`program` picks the main unit (default: the first); `dialect` is `F66` (default),
+`program` picks the main unit (default: the first); `dialect` is `F77` (default),
 `FORTRAN10`, or `F77`; `include_dir` is where `INCLUDE` resolves; extra `**kwargs` pass through to the
 `Engine` (see [Embedding](04-running-embedding.md#embedding-and-io)).
 

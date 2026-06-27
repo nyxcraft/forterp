@@ -20,7 +20,7 @@ What each module **owns** (responsibilities age better than line counts):
 | `wordmem.py` | word-addressable typed memory for faithful cross-type punning (`word_memory`): the `Pdp10WordMemory` / `Lp64LeByteMemory` / `VaxByteMemory` per-target codecs (see §3.1) |
 | `diagnostics.py` | V5 Appendix-F message rendering (`?FTNxxx` / `%FTNxxx`) |
 | `target.py` | the `Target` value-model seam (`PDP10` / `NATIVE` / `LP64LE` / `VAX`) |
-| `dialect.py` | the `Dialect` front-end seam (`F66` default / `F77` / `FORTRAN10` superset) |
+| `dialect.py` | the `Dialect` front-end seam (`F77` default / `F66` strict / `FORTRAN10` superset) |
 | `__init__.py` | public API + `install_runtime` / `make_engine` / `parse_source` / `run_source` |
 
 ---

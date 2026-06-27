@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>The forterp manual | forterp</title>
   <meta name="description" content="The guide to the interpreter itself: running it (CLI + the interactive processor), driving it from Python (run_source, the Interpreter class, custom host routines), the target/dialect axes and faithful type punning, and how it works inside (the pipeline, the memory model, the seams, testing). A chaptered manual.">
-  <link rel="stylesheet" href="../assets/site.css?v=de204dc9">
+  <link rel="stylesheet" href="../assets/site.css?v=818768fa">
 </head>
 <body class="site-doc">
   <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -52,15 +52,15 @@
 guide to <strong>the interpreter itself</strong> — how to run it, drive it from Python, extend it, and how it
 works inside. For the <strong>languages</strong> it implements, see the two reference manuals:</p>
 <ul>
-<li>the <a href="../reference/index.html">FORTRAN 66 reference manual</a> — forterp's default dialect (X3.9-1966
-plus the DEC FORTRAN-10 extensions);</li>
-<li>the <a href="../fortran77/index.html">FORTRAN 77 reference manual</a> — the <code>F77</code> dialect (X3.9-1978).</li>
+<li>the <a href="../fortran77/index.html">FORTRAN 77 reference manual</a> — forterp's default dialect (X3.9-1978);</li>
+<li>the <a href="../reference/index.html">FORTRAN 66 reference manual</a> — the strict <code>F66</code> dialect (X3.9-1966
+plus the DEC FORTRAN-10 extensions).</li>
 </ul>
 <h2 id="the-two-axes">The two axes</h2>
 <p>Everything in forterp is pluggable along two orthogonal axes — pick any pairing:</p>
 <ul>
-<li>the <strong>dialect</strong> (the front-end language): <code>F66</code> (default, strict ANSI), <code>FORTRAN10</code> (the DEC
-superset), <code>F77</code> (the later standard);</li>
+<li>the <strong>dialect</strong> (the front-end language): <code>F77</code> (the default, X3.9-1978), <code>F66</code> (strict ANSI
+X3.9-1966), <code>FORTRAN10</code> (the DEC superset);</li>
 <li>the <strong>target</strong> (the machine value model): <code>NATIVE</code> (a portable 64-bit host, the default), <code>PDP10</code>
 (faithful 36-bit DEC-10), <code>LP64LE</code> (64-bit little-endian IEEE, gfortran-aligned), <code>VAX</code>
 (provisional).</li>

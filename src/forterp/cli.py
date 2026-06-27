@@ -4,7 +4,7 @@ Four console entry points (declared in pyproject [project.scripts]):
   pyf66        run a source file as strict ANSI FORTRAN-66 (dialect F66)
   pyf77        run it as ANSI FORTRAN 77 (dialect F77)
   pyfortran10  run it as DEC FORTRAN-10 (dialect FORTRAN10 -- the DEC superset)
-  forterp      general driver; --std selects the dialect (default f66)
+  forterp      general driver; --std selects the dialect (default f77)
 
 Each reads a .FOR file, runs its main program, and wires the program's terminal and
 line-printer output to stdout and READ/ACCEPT to stdin. The dialect-named commands are
@@ -152,9 +152,9 @@ def _run(argv, dialect, prog, *, allow_std, default_target="native"):
         ap.add_argument(
             "--std",
             choices=_DIALECTS,
-            default="f66",
-            help="language dialect (default: f66 = strict ANSI FORTRAN 66; "
-            "f77 = ANSI FORTRAN 77; fortran10 = DEC FORTRAN-10 superset)",
+            default="f77",
+            help="language dialect (default: f77 = ANSI FORTRAN 77; "
+            "f66 = strict ANSI FORTRAN 66; fortran10 = DEC FORTRAN-10 superset)",
         )
     args = ap.parse_args(argv)
     std = (
@@ -326,5 +326,5 @@ def f10_main(argv=None):
 
 
 def main(argv=None):
-    """`forterp`: general driver; `--std f66|fortran10` selects the dialect (default f66)."""
-    return _run(argv, forterp.F66, "forterp", allow_std=True)
+    """`forterp`: general driver; `--std f77|f66|fortran10` selects the dialect (default f77)."""
+    return _run(argv, forterp.F77, "forterp", allow_std=True)

@@ -9,7 +9,7 @@ a program its own way for faithfulness to real FORTRAN-10 V5.
 
 forterp separates the things X3.9-1966 leaves open into two independent choices:
 
-- the **dialect** — the language the front end accepts. `F66` (the default) is strict ANSI;
+- the **dialect** — the language the front end accepts. `F66` is strict ANSI;
   `FORTRAN10` adds the DEC superset below; `F77` is the later standard
   ([its own manual](../fortran77/README.md)).
 - the **target** — the value model. `NATIVE` (the default) uses the host's 64-bit integers and

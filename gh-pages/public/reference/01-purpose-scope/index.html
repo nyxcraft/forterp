@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>1. Purpose &amp; scope | forterp</title>
   <meta name="description" content="">
-  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+  <link rel="stylesheet" href="../../assets/site.css?v=818768fa">
 </head>
 <body class="site-doc">
   <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -80,15 +80,14 @@ approximation to the value of a real number&quot; <em>(§4.2.2)</em> and never s
 approximation. Two conforming processors can give different last digits and both be correct.</p>
 <h2 id="forterp-s-place">forterp's place</h2>
 <p>forterp is a processor for this language, written in Python. FORTRAN 66 (plus the DEC FORTRAN-10
-extensions) is forterp's <strong>default dialect</strong> — it is what you get when you run a program without
-asking for anything else:</p>
+extensions) is forterp's strict base dialect — the default is now FORTRAN 77, so you select F66 explicitly:</p>
 <pre><code class="language-fortran">      PROGRAM HELLO
       WRITE(6,100)
 100   FORMAT(13H HELLO, WORLD)
       STOP
       END
 </code></pre>
-<pre><code class="language-text">$ forterp hello.for
+<pre><code class="language-text">$ forterp --std f66 hello.for
 HELLO, WORLD
 </code></pre>
 <p>The literal text is a <strong>Hollerith</strong> field, <code>13H</code> followed by exactly 13 characters — FORTRAN 66 has
@@ -99,8 +98,8 @@ carriage control are covered in <a href="../07-statements/index.html">Chapter 7<
 <p><strong>forterp notes.</strong> Because the standard fixes only a floor, forterp splits the things it can
 vary along two independent axes, and exposes both:</p>
 <ul>
-<li>the <strong>dialect</strong> (the language the front end accepts) — <code>F66</code> by default, <code>FORTRAN10</code> for the
-DEC superset, <code>F77</code> for the later standard;</li>
+<li>the <strong>dialect</strong> (the language the front end accepts) — <code>F77</code> by default, <code>F66</code> for strict
+X3.9-1966, <code>FORTRAN10</code> for the DEC superset;</li>
 <li>the <strong>target</strong> (the value model — the &quot;range and precision&quot; the standard leaves open) —
 <code>NATIVE</code> by default (the host's 64-bit integers and floats), or <code>PDP10</code> for the faithful 36-bit
 DEC-10 representation.</li>

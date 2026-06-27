@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Getting started | forterp</title>
   <meta name="description" content="">
-  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+  <link rel="stylesheet" href="../../assets/site.css?v=818768fa">
 </head>
 <body class="site-doc">
   <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -106,7 +106,7 @@ eng = forterp.run_source(src, dialect=forterp.FORTRAN10)
 print(eng.commons[&quot;OUT&quot;][0])        # 1024
 </code></pre>
 <p><code>run_source(text, program=None, dialect=F66, options=None, include_dir=&quot;.&quot;, **kwargs)</code>:
-<code>program</code> picks the main unit (default: the first); <code>dialect</code> is <code>F66</code> (default),
+<code>program</code> picks the main unit (default: the first); <code>dialect</code> is <code>F77</code> (default),
 <code>FORTRAN10</code>, or <code>F77</code>; <code>include_dir</code> is where <code>INCLUDE</code> resolves; extra <code>**kwargs</code> pass through to the
 <code>Engine</code> (see <a href="../04-running-embedding/index.html#embedding-and-io">Embedding</a>).</p>
 <p><code>parse_source(text, dialect=F66, on_error=None, options=None, include_dir=&quot;.&quot;)</code> parses

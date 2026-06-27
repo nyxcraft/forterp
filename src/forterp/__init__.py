@@ -1,8 +1,8 @@
 """forterp -- a configurable FORTRAN 66 / 77 / DEC FORTRAN-10 interpreter in Python.
 
 The machine value model (`Target`) and the front-end dialect (`Dialect`) are both
-pluggable. Dialects: F66 (default, strict ANSI X3.9-1966), F77 (the full ANSI
-X3.9-1978 language), and FORTRAN10 (the DEC FORTRAN-10 superset). The default target
+pluggable. Dialects: F77 (the default, full ANSI X3.9-1978), F66 (strict ANSI
+X3.9-1966), and FORTRAN10 (the DEC FORTRAN-10 superset). The default target
 is NATIVE (a portable 64-bit host); PDP10 (36-bit, packed ASCII, .TRUE.=-1) is the
 faithful DEC FORTRAN-10 target, selected with `Engine(..., target=PDP10)`.
 
@@ -21,8 +21,8 @@ Public API (see ``__all__``):
     f66, fortran10              -- prebuilt, ready-to-run interpreters (the easy path:
                                    forterp.fortran10.run_source(src) / .parse_dir(dir) /
                                    .build_engine(units)); Interpreter to roll your own
-    F66, FORTRAN10, Dialect     -- the front-end dialect (F66 is the default; FORTRAN10 the
-                                   DEC superset: octal / tab-format / '!' / free-form input)
+    F77, F66, FORTRAN10, Dialect -- the front-end dialect (F77 is the default; F66 strict ANSI;
+                                   FORTRAN10 the DEC superset: octal / tab-format / '!' / free-form)
     NATIVE, PDP10, VAX, Target  -- the machine value model (NATIVE 64-bit is the default;
                                    PDP10 the 36-bit DEC target; VAX provisional)
     ParseError, SourceOptions   -- the parse error, and source-recovery options (orthogonal
@@ -83,10 +83,10 @@ __all__ = [
 ]
 
 
-def parse_source(text, dialect=F66, on_error=None, options=None, include_dir="."):
+def parse_source(text, dialect=F77, on_error=None, options=None, include_dir="."):
     """Parse FORTRAN source text into a {name: ProgramUnit} dict.
 
-    `dialect` selects the language (F66 default / FORTRAN10 superset). `options` is a
+    `dialect` selects the language (F77 default; F66 strict / FORTRAN10 superset). `options` is a
     `SourceOptions` for source-recovery handling (orthogonal to the dialect; default is
     no recovery). `include_dir` is the base directory INCLUDE targets resolve
     against (default the current directory; the CLI passes the source file's directory).
@@ -111,7 +111,7 @@ def parse_source(text, dialect=F66, on_error=None, options=None, include_dir="."
 
 
 def run_source(
-    text, program=None, dialect=F66, options=None, include_dir=".", setup=None, **kwargs
+    text, program=None, dialect=F77, options=None, include_dir=".", setup=None, **kwargs
 ):
     """Parse + run a FORTRAN source string; return the Engine to inspect its state.
     `program` selects the main PROGRAM (defaults to the first program unit). `options`

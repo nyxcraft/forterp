@@ -8,7 +8,7 @@ retargeted:
 | Seam | Mechanism | Default |
 |------|-----------|---------|
 | **Machine value model** | `Engine(target=…)`, a `Target` object; the engine routes its wrap / pack / truthy / logical sites through `self.tgt` | `NATIVE` (64-bit, 8-bit ASCII, boolean logicals) default; `PDP10` (36-bit, 5×7-bit, `.TRUE.`=−1, bit-wise) for PDP-10 fidelity |
-| **Front-end dialect** | `Dialect` threaded through `scan_file`/`tokenize`/`parse_units` (and `free_form_input` to the engine) | `F66` (default, ANSI) vs `F77` (ANSI X3.9-1978) vs `FORTRAN10` (DEC superset) |
+| **Front-end dialect** | `Dialect` threaded through `scan_file`/`tokenize`/`parse_units` (and `free_form_input` to the engine) | `F77` (default, ANSI X3.9-1978) vs `F66` (strict ANSI X3.9-1966) vs `FORTRAN10` (DEC superset) |
 | **OPEN devices** | `eng.register_device(name, fn)`; the core knows only TTY + ordinary files | empty (games register e.g. `GAM:`) |
 | **Unformatted-I/O codec** | `eng.binio`, installed by `install_runtime`; engine calls `self._binio()` (clear error if absent) | `forterp.forbin` (FOROTS records + DEC-10 float) |
 

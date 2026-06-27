@@ -2,8 +2,7 @@
 
 A complete, example-driven reference for the **FORTRAN 66** language — USA Standard X3.9-1966, the
 original standard FORTRAN — together with the **DEC FORTRAN-10** extensions that real PDP-10 code
-relied on. This is forterp's **default** dialect: it is what you get when you run a program without
-naming a dialect, and it is the language most 1960s–70s decks were written in.
+relied on. It is the strict base dialect — the language most 1960s–70s decks were written in; select it with `--std f66` or `dialect=forterp.F66` (the default is now FORTRAN 77).
 
 This manual is written for people who want to *read and write* FORTRAN 66 — to bring a vintage deck
 back to life, to understand what a classic program does, or to write new code in the old style.
