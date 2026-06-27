@@ -24,6 +24,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 
 import forterp
+import forterp.refs
 from forterp import ast_nodes as A
 
 __all__ = [
@@ -49,17 +50,17 @@ __all__ = [
 # faithfully: an OOB read yields 0, an OOB write is dropped (the 1978 SMAC/ENEMYM overrun
 # behavior). This surface lets a tool *observe* that without changing it -- count OOB
 # accesses, log each site's context, or (for a checker/fuzzer) turn an OOB into a raise.
-# The mode/counters/log live as process-global state on the engine; this is the public
-# façade over it, so callers never reach into forterp.engine internals.
+# The mode/counters/log live as process-global state in forterp.refs (the memory model);
+# this is the public façade over it, so callers never reach into those internals.
 # ---------------------------------------------------------------------------
 
-OobError = forterp.engine.OobError  #: raised on an OOB access while the mode is "raise"
+OobError = forterp.refs.OobError  #: raised on an OOB access while the mode is "raise"
 OOB_MODES = ("off", "log", "raise")  #: off = silent (faithful); log = census; raise = halt
 
 
 def oob_mode():
     """The current OOB-check mode -- one of `OOB_MODES`."""
-    return forterp.engine.OOB_CHECK
+    return forterp.refs.OOB_CHECK
 
 
 def set_oob_mode(mode):
@@ -67,23 +68,23 @@ def set_oob_mode(mode):
     site and continue), or 'raise' (raise `OobError` on the first OOB)."""
     if mode not in OOB_MODES:
         raise ValueError(f"OOB mode must be one of {OOB_MODES}, not {mode!r}")
-    forterp.engine.OOB_CHECK = mode
+    forterp.refs.OOB_CHECK = mode
 
 
 def oob_counts():
     """Cumulative `(reads, writes)` OOB cell accesses since the process started."""
-    return (forterp.engine.OOB_READS, forterp.engine.OOB_WRITES)
+    return (forterp.refs.OOB_READS, forterp.refs.OOB_WRITES)
 
 
 def oob_log():
     """The per-site OOB records captured while the mode was 'log'. Each is a dict
     `{op, routine, array, subs, idx, len}` (best-effort context for that access)."""
-    return list(forterp.engine.OOB_LOG)
+    return list(forterp.refs.OOB_LOG)
 
 
 def clear_oob_log():
     """Discard the accumulated per-site OOB log."""
-    forterp.engine.OOB_LOG.clear()
+    forterp.refs.OOB_LOG.clear()
 
 
 @dataclass
@@ -110,7 +111,7 @@ def oob_census(mode="log"):
             forterp.fortran10.run_source(src)
         print(census.reads, census.writes, census.sites)
     """
-    eng = forterp.engine
+    eng = forterp.refs
     prev, r0, w0, n0 = eng.OOB_CHECK, eng.OOB_READS, eng.OOB_WRITES, len(eng.OOB_LOG)
     set_oob_mode(mode)
     census = OobCensus()
