@@ -60,7 +60,15 @@
 <tbody>
 <tr>
 <td><code>engine.py</code></td>
-<td>tree-walking execution; storage layout in <code>_build</code> (COMMON/EQUIVALENCE/DATA, label + DO-terminal tables, ENTRY); expression eval + control flow; terminal/file/random/NAMELIST/ENCODE-DECODE I/O; the inline intrinsic table; routing the value model through <code>self.tgt</code></td>
+<td>tree-walking execution; storage layout in <code>_build</code> (COMMON/EQUIVALENCE/DATA, label + DO-terminal tables, ENTRY); expression eval + control flow; terminal/file/random/NAMELIST/ENCODE-DECODE I/O; routing the value model through <code>self.tgt</code>. (The storage Ref classes live in <code>refs.py</code>, the intrinsic library in <code>intrinsics.py</code>.)</td>
+</tr>
+<tr>
+<td><code>refs.py</code></td>
+<td>storage references + the faithful unchecked-OOB model: the <code>CellRef</code>/<code>ComplexPairRef</code>/<code>DecDoublePairRef</code>/<code>DoubleComplexPairRef</code>/<code>WordRef</code>/<code>ArrayView</code>/… lvalue handles; <code>oob_read</code>/<code>oob_write</code> and their <code>word_memory</code> counterparts <code>wmem_read</code>/<code>wmem_write</code>; <code>linidx</code>/<code>array_size</code></td>
+</tr>
+<tr>
+<td><code>intrinsics.py</code></td>
+<td>the intrinsic-function library — the <code>INTRINSICS</code> table split into the <code>_F66_INTRINSICS</code> / <code>_F77_INTRINSICS</code> / <code>_DEC_INTRINSICS</code> tiers — plus the <code>trunc_div</code>/<code>fort_mod</code> arithmetic primitives</td>
 </tr>
 <tr>
 <td><code>parser.py</code></td>
@@ -84,11 +92,11 @@
 </tr>
 <tr>
 <td><code>forlib.py</code></td>
-<td><code>STDLIB</code> — the FORTRAN-10 library subroutines (TIME/DATE/EXIT/ERRSNS/RAN/…)</td>
+<td><code>STDLIB</code> — the DEC library subroutines (TIME/DATE/EXIT/ERRSNS/RAN/…); installed when the dialect's <code>dec_library</code> is on (FORTRAN-10)</td>
 </tr>
 <tr>
 <td><code>uuolib.py</code></td>
-<td><code>UUOLIB</code> — the standard TOPS-10 monitor UUOs (OUTSTR/OUTCHR/MSTIME/SLEEP/GETTAB); installed only under the FORTRAN-10 dialect</td>
+<td><code>UUOLIB</code> — the TOPS-10 monitor UUOs (OUTSTR/OUTCHR/MSTIME/SLEEP/GETTAB); installed when the dialect's <code>uuo_library</code> is on (FORTRAN-10) — so strict F77 does <em>not</em> get them</td>
 </tr>
 <tr>
 <td><code>hostlib.py</code></td>
@@ -112,7 +120,7 @@
 </tr>
 <tr>
 <td><code>dialect.py</code></td>
-<td>the <code>Dialect</code> front-end seam (<code>F66</code> default / <code>FORTRAN10</code> superset)</td>
+<td>the <code>Dialect</code> front-end seam (<code>F66</code> default / <code>F77</code> / <code>FORTRAN10</code> superset)</td>
 </tr>
 <tr>
 <td><code>__init__.py</code></td>

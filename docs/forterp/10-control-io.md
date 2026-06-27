@@ -40,4 +40,23 @@ functions (`_call_stmt_func`) are supported.
   to a default device — units 3 and 6 to the line printer (the injected `printer`
   service), unit 5 to terminal/card input (the injected `readline`).
 
+### Recoverable I/O errors — `IOSTAT=` / `ERR=` / `END=`
+
+`_io_guard` wraps every I/O statement and applies the X3.9-1978 §12.7 status rules: an
+`IOSTAT=` variable is set to `0` on success, a *negative* value at end-of-file, and a
+*positive* value on an error. Three failure modes are routed:
+
+- **End-of-file** — a `READ` past the last record takes `END=` if present, else (with
+  `IOSTAT=`) sets it negative and continues, else halts.
+- **Bad input field** — a numeric conversion error takes `ERR=`, else sets `IOSTAT` positive,
+  else halts.
+- **`OPEN` failure** — a genuine OS error (the `FILE=` names a directory, or an unreadable
+  file) takes `ERR=`, else sets `IOSTAT` positive and continues, else halts cleanly. A merely
+  *missing* file is **not** an error: it connects as an empty input unit (a fresh `READ` hits
+  end-of-file), the faithful FORTRAN-10 behavior — so only true OS failures surface, never as
+  a silent `IOSTAT=0` success.
+
+With neither `IOSTAT=` nor `ERR=`, the error propagates as a clean diagnostic (the CLI prints
+`?…`), never a raw traceback.
+
 ---

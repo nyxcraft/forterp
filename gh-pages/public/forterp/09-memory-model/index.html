@@ -34,6 +34,7 @@
         <p class="docs-sidebar__eyebrow">On this page</p>
         <nav class="section-nav" aria-label="On this page">
 <ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l3" href="#storage-units-complex-double-precision-double-complex">Storage units: `COMPLEX`, `DOUBLE PRECISION`, `DOUBLE COMPLEX`</a></li>
 <li><a class="section-nav__link section-nav__link--l3" href="#faithful-type-punning-the-word-addressable-memory-model-wordmem-py">Faithful type punning — the word-addressable memory model (`wordmem.py`)</a></li>
 </ul>
         </nav>
@@ -67,11 +68,29 @@ repeat counts.</li>
 </ul>
 <p>Out-of-bounds access mirrors the real machine rather than guarding defensively: an OOB read
 yields <code>0</code> and an OOB write is dropped — the documented 1978 behavior (e.g. an <code>ENEMYM</code> array
-overrun that read adjacent PDP-10 memory) — rather than raising a clean Python error. A tool
-can <em>observe</em> this without changing it through the public census API in <code>forterp.debug</code>:
+overrun that read adjacent PDP-10 memory) — rather than raising a clean Python error. This
+holds in <strong>both</strong> storage modes: under <code>word_memory</code> (below) an out-of-range access routes
+through <code>wmem_read</code>/<code>wmem_write</code>, which apply the same read-<code>0</code> / drop-write rule and feed the
+same census — so enabling faithful punning never turns an overrun into a raw <code>IndexError</code>. A
+tool can <em>observe</em> this without changing it through the public census API in <code>forterp.debug</code>:
 <code>oob_census()</code> (a context manager yielding the OOB reads/writes and per-site log for the
 block), the standalone <code>set_oob_mode</code> / <code>oob_mode</code> / <code>oob_counts</code> / <code>oob_log</code>, or <code>&quot;raise&quot;</code>
 mode to turn an overrun into an <code>OobError</code> for a checker or fuzzer.</p>
+<h3 id="storage-units-complex-double-precision-double-complex">Storage units: <code>COMPLEX</code>, <code>DOUBLE PRECISION</code>, <code>DOUBLE COMPLEX</code></h3>
+<p>A datum's <em>storage-unit</em> count drives <code>COMMON</code>/<code>EQUIVALENCE</code> offsets, so forterp sizes the
+multi-word scalar types correctly <strong>even in the default typed-cell mode</strong> — a member after one
+lands at the right offset, and an overlay reads each component:</p>
+<ul>
+<li><strong><code>COMPLEX</code></strong> — two cells: real part first, imaginary second (<code>ComplexPairRef</code>), so a <code>REAL</code>
+EQUIVALENCEd onto them reads each part.</li>
+<li><strong><code>DOUBLE PRECISION</code></strong> — two cells. On a packed-double target (<code>PDP10</code>) these are the two
+genuine KL10 machine words (<code>DecDoublePairRef</code>); on <code>NATIVE</code> the value sits in the first cell
+with a permanent zero shadow in the second.</li>
+<li><strong><code>DOUBLE COMPLEX</code></strong> — four cells: a real <code>DOUBLE</code> (cells 0–1) then an imaginary <code>DOUBLE</code>
+(cells 2–3), each following that target's <code>DOUBLE</code> convention (<code>DoubleComplexPairRef</code>).</li>
+</ul>
+<p>These are the typed-cell refs; <code>word_memory</code> (below) re-expresses the same sizes through the
+target codec, so block layout agrees in both modes.</p>
 <h3 id="faithful-type-punning-the-word-addressable-memory-model-wordmem-py">Faithful type punning — the word-addressable memory model (<code>wordmem.py</code>)</h3>
 <p>By default a <code>COMMON</code>/<code>EQUIVALENCE</code> cell holds a <strong>typed Python value</strong> (an <code>int</code> for <code>INTEGER</code>,
 a <code>float</code> for <code>REAL</code>, a <code>complex</code> for <code>COMPLEX</code>). That's fast and clean, but it isn't <em>bit</em>-faithful
@@ -95,11 +114,19 @@ swapped) <code>F</code>/<code>D_floating</code>. Best-effort, <strong>unvalidate
 sizes them in the codec's unit), so block offsets stay accurate; the engine routes the
 storage-associated read/write/array/argument paths through the codec (<code>WordRef</code> / <code>WordArrayView</code>)
 when <code>word_memory</code> is on, and keeps the fast typed-cell path otherwise. It is off by default because
-it changes the observable <code>commons</code> representation (raw words/bytes, not typed values) and costs
-~2× per <code>COMMON</code> access; locals — never aliased — always stay typed and fast. The faithful single/
-double splitting of <code>DOUBLE</code> is a PDP10/LP64/VAX concern; on <code>NATIVE</code> (no <code>mem_model</code>) a <code>DOUBLE</code>
-stays one host float with a zero shadow. This layer is the substrate the planned macroterp bridge's
-word-level memory will build on.</p>
+it changes the observable <code>commons</code> representation (raw words/bytes, not typed values) and has a
+cost — but only on the storage-associated path. The faithful single/double splitting of <code>DOUBLE</code>
+is a PDP10/LP64/VAX concern; on <code>NATIVE</code> (no <code>mem_model</code>) a <code>DOUBLE</code> stays one host float with a
+zero shadow. This layer is the substrate the planned macroterp bridge's word-level memory will
+build on.</p>
+<p><strong>Performance.</strong> A cross value-model benchmark settles what each piece costs. The <em>value model
+itself is free</em>: NATIVE, PDP10, LP64LE, and VAX run arithmetic-heavy kernels within noise of each
+other (per-statement interpreter dispatch dwarfs the 36-bit wrap / single-precision codec). The
+<em>punning codec</em> is the only real cost, and only on <code>COMMON</code>/<code>EQUIVALENCE</code> access: on a
+storage-pathological kernel it runs ~1.5–2.1× the typed-cell baseline — <strong>LP64LE</strong> cheapest
+(~1.5×, native <code>struct</code>), <strong>PDP10</strong> mid (~1.8×, Python-bignum bit-ops via <code>forbin</code>), <strong>VAX</strong>
+dearest (~2.1×, middle-endian byte reordering). A real program — locals + arithmetic + I/O plus
+some <code>COMMON</code> — realizes far less than that ceiling, and <code>word_memory</code> off pays nothing.</p>
 <hr />
 
         </div>

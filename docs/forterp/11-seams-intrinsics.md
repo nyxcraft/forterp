@@ -8,7 +8,7 @@ retargeted:
 | Seam | Mechanism | Default |
 |------|-----------|---------|
 | **Machine value model** | `Engine(target=…)`, a `Target` object; the engine routes its wrap / pack / truthy / logical sites through `self.tgt` | `NATIVE` (64-bit, 8-bit ASCII, boolean logicals) default; `PDP10` (36-bit, 5×7-bit, `.TRUE.`=−1, bit-wise) for PDP-10 fidelity |
-| **Front-end dialect** | `Dialect` threaded through `scan_file`/`tokenize`/`parse_units` (and `free_form_input` to the engine) | `F66` (default, ANSI) vs `FORTRAN10` (DEC superset) |
+| **Front-end dialect** | `Dialect` threaded through `scan_file`/`tokenize`/`parse_units` (and `free_form_input` to the engine) | `F66` (default, ANSI) vs `F77` (ANSI X3.9-1978) vs `FORTRAN10` (DEC superset) |
 | **OPEN devices** | `eng.register_device(name, fn)`; the core knows only TTY + ordinary files | empty (games register e.g. `GAM:`) |
 | **Unformatted-I/O codec** | `eng.binio`, installed by `install_runtime`; engine calls `self._binio()` (clear error if absent) | `forterp.forbin` (FOROTS records + DEC-10 float) |
 
@@ -27,13 +27,18 @@ it registers `STDLIB` (the library subroutines in `forlib.py`) and sets `eng.bin
 
 Two distinct tables:
 
-- **`INTRINSICS`** (in `engine.py`) — the FORTRAN intrinsic *functions* (`INT`, `SQRT`,
-  `MOD`, `ABS`, `IAND`/`LSH`, the `C*` complex ops, …), evaluated inline via
-  `_apply_intrinsic`. These are pure value→value lambdas.
-- **`STDLIB`** (in `forlib.py`) — the library *subroutines* (`TIME`, `DATE`, `EXIT`,
-  `ERRSNS`/`ERRSET`, `RAN`/`SETRAN`, sense-light ops, …), registered via
-  `register_builtins`. These take `(eng, frame, arg_nodes)` so they can touch engine state
-  and write back through references.
+- **`INTRINSICS`** (in `intrinsics.py`) — the FORTRAN intrinsic *functions* (`INT`, `SQRT`,
+  `MOD`, `ABS`, `LSH`, the `C*` complex ops, …), evaluated inline via `_apply_intrinsic`. Pure
+  value→value lambdas, gated in three tiers by the dialect: `_F66_INTRINSICS` (always
+  available), `_F77_INTRINSICS` (the ANSI F77 additions — generic `LOG`/`MAX`, `TAN`/`ASIN`,
+  the `D…` specifics, `LEN`/`CHAR`/…; flag `f77_intrinsics`, on for F77 and FORTRAN10), and
+  `_DEC_INTRINSICS` (DEC-only — `LSH`/`ROT`, degree-trig, the `DOUBLE COMPLEX` helpers; flag
+  `dec_library`, FORTRAN10 only).
+- **`STDLIB`** (in `forlib.py`) — the DEC library *subroutines* (`TIME`, `DATE`, `EXIT`,
+  `ERRSNS`/`ERRSET`, `RAN`/`SETRAN`, sense-light ops, …), registered via `register_builtins`
+  when `dec_library` is on. The TOPS-10 monitor UUOs (`OUTSTR`/`SLEEP`/…, `UUOLIB` in
+  `uuolib.py`) are a separate tier gated on `uuo_library` — so strict F77 gets neither. These
+  take `(eng, frame, arg_nodes)` so they can touch engine state and write back through refs.
 
 > **Target-awareness (done):** the integer-valued intrinsics follow the engine's `Target`
 > — `_apply_intrinsic` re-applies `self.tgt.wrap` to `INT`/`IFIX`/`IDINT`/`NINT` results,

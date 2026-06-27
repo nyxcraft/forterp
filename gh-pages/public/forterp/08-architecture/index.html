@@ -73,12 +73,18 @@ two's-complement</em> int, character/Hollerith data packs 5×7-bit per word and 
 a signed 36-bit int (so comparisons match PDP-10 <code>CAM</code> arithmetic), <code>.TRUE.</code> is −1 tested
 as <em>sign-negative</em>, and <code>.AND./.OR.</code> are <em>bit-wise</em> on the word.</li>
 </ul>
-<p>In both, <code>REAL</code> is a Python <code>float</code> and <code>COMPLEX</code> a Python <code>complex</code>. A third target,
-<code>VAX</code> (32-bit, little-endian char packing, low-order-bit truth test), is a <strong>provisional,
-unvalidated</strong> guess — it exercises the seam's <code>little_endian</code> and <code>truth</code> knobs but has
-not been checked against a real VAX FORTRAN. Everything else in the design serves running
-real code against the chosen model without that model leaking into places it shouldn't —
-see §6 on the <code>Target</code> seam.</p>
+<p>In both, <code>REAL</code> is a Python <code>float</code> and <code>COMPLEX</code> a Python <code>complex</code>. Two further targets
+ship:</p>
+<ul>
+<li><strong><code>LP64LE</code></strong> — a 64-bit little-endian IEEE machine matching gfortran on x86-64. Its
+faithful type punning (with <code>word_memory</code>, §9) byte-matches gfortran, so it is the
+oracle-validated portable counterpart to <code>PDP10</code>.</li>
+<li><strong><code>VAX</code></strong> — little-endian integers, middle-endian <code>F_floating</code>/<code>D_floating</code>. A
+<strong>provisional, unvalidated</strong> guess implemented from the published format (no VAX oracle
+yet; a probe deck is staged for when one exists).</li>
+</ul>
+<p>Everything else in the design serves running real code against the chosen model without
+that model leaking into places it shouldn't — see §6 on the <code>Target</code> seam.</p>
 <hr />
 <h2 id="the-pipeline">The pipeline</h2>
 <pre><code>.FOR text
@@ -132,8 +138,14 @@ truncated to 6 characters here (<code>_name6</code>). The output AST nodes are t
 <code>ast_nodes.py</code> (<code>Assign</code>, <code>Goto</code>, <code>Do</code>, <code>IfBranch</code>, <code>Call</code>, <code>IoStmt</code>, <code>ImpliedDo</code>,
 <code>ProgramUnit</code>, …).</p>
 <h3 id="engine-engine-py">Engine — <code>engine.py</code></h3>
-<p>The big module (~1700 lines). Two halves: a one-time <strong><code>_build()</code></strong> that lays out storage,
-and the <strong>execution</strong> machinery.</p>
+<p>The execution core (~3,300 lines). Two halves: a one-time <strong><code>_build()</code></strong> that lays out
+storage (COMMON/EQUIVALENCE/DATA, label and DO-terminal tables, ENTRY), and the
+<strong>execution</strong> machinery (expression eval, the statement dispatcher, calls, and the
+terminal/file/random/NAMELIST/internal-file I/O). Two self-contained concerns were lifted
+into leaf modules to keep this one focused: the storage <strong>reference</strong> classes and the
+faithful unchecked-OOB model live in <code>refs.py</code>, and the <strong>intrinsic</strong> library + the scalar
+arithmetic primitives in <code>intrinsics.py</code> (see <a href="../12-internals-reference/index.html">§12 module map</a>).
+The value model is never hard-coded — every value routes through <code>self.tgt</code> (§6).</p>
 <hr />
 
         </div>

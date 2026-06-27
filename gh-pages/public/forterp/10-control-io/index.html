@@ -36,6 +36,7 @@
 <ul class="section-nav__list">
 <li><a class="section-nav__link section-nav__link--l2" href="#the-control-model">The control model</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#i-o-and-format">I/O and FORMAT</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#recoverable-i-o-errors-iostat-err-end">Recoverable I/O errors — `IOSTAT=` / `ERR=` / `END=`</a></li>
 </ul>
         </nav>
       </aside>
@@ -86,6 +87,23 @@ carriage control), and <code>read_values</code> parses an input record under for
 to a default device — units 3 and 6 to the line printer (the injected <code>printer</code>
 service), unit 5 to terminal/card input (the injected <code>readline</code>).</li>
 </ul>
+<h3 id="recoverable-i-o-errors-iostat-err-end">Recoverable I/O errors — <code>IOSTAT=</code> / <code>ERR=</code> / <code>END=</code></h3>
+<p><code>_io_guard</code> wraps every I/O statement and applies the X3.9-1978 §12.7 status rules: an
+<code>IOSTAT=</code> variable is set to <code>0</code> on success, a <em>negative</em> value at end-of-file, and a
+<em>positive</em> value on an error. Three failure modes are routed:</p>
+<ul>
+<li><strong>End-of-file</strong> — a <code>READ</code> past the last record takes <code>END=</code> if present, else (with
+<code>IOSTAT=</code>) sets it negative and continues, else halts.</li>
+<li><strong>Bad input field</strong> — a numeric conversion error takes <code>ERR=</code>, else sets <code>IOSTAT</code> positive,
+else halts.</li>
+<li><strong><code>OPEN</code> failure</strong> — a genuine OS error (the <code>FILE=</code> names a directory, or an unreadable
+file) takes <code>ERR=</code>, else sets <code>IOSTAT</code> positive and continues, else halts cleanly. A merely
+<em>missing</em> file is <strong>not</strong> an error: it connects as an empty input unit (a fresh <code>READ</code> hits
+end-of-file), the faithful FORTRAN-10 behavior — so only true OS failures surface, never as
+a silent <code>IOSTAT=0</code> success.</li>
+</ul>
+<p>With neither <code>IOSTAT=</code> nor <code>ERR=</code>, the error propagates as a clean diagnostic (the CLI prints
+<code>?…</code>), never a raw traceback.</p>
 <hr />
 
         </div>

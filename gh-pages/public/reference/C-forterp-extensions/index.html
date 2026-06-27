@@ -126,6 +126,10 @@ is correct but the second word is a placeholder. On <strong><code>PDP10</code></
 KL10 machine words</strong> (high, low) of the doubleword, so an <strong><code>INTEGER</code></strong> EQUIVALENCEd onto a
 double reads the real machine words — the canonical &quot;examine the bits&quot; idiom — and <code>DOUBLE</code>↔
 <code>DOUBLE</code> association is exact.</li>
+<li><strong><code>DOUBLE COMPLEX</code> (the DEC extension above) occupies four cells</strong> — a real <code>DOUBLE</code> then an
+imaginary <code>DOUBLE</code>, each laid out by the target's own <code>DOUBLE</code> convention — so a member after it
+lands at the right offset and a <code>DOUBLE</code>/<code>REAL</code> overlaid on it reads the real part. This holds
+in the default typed-cell mode as well as under <code>word_memory</code>.</li>
 <li><strong>By default</strong>, other cross-type punning is <em>not</em> bit-faithful — a <code>REAL</code> and an <code>INTEGER</code> that
 share storage read each other's <em>value</em>, not each other's <em>bits</em> (<code>R(1)</code> over a double's word
 reads the raw word as an integer, not the reinterpreted <code>1.5</code>), because a <code>REAL</code>/<code>INTEGER</code> cell

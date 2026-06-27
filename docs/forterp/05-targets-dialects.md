@@ -73,6 +73,10 @@ standardized feature without the rest of the DEC extension):
 The strict/relax knobs `recursion`, `unlimited_rank`, and `bounds_check` are off by default on
 every dialect; see [reference manual Appendix D](../fortran77/D-forterp-extensions.md).
 
+Of the three library tiers, only `f77_intrinsics` is on for F77; `dec_library` and
+`uuo_library` are `FORTRAN10`-only, so strict F77 accepts neither `LSH` nor `CALL SLEEP`.
+
 Notably **off** for F77 (on only for `FORTRAN10`): `do_while`, `dec_operators` (`.XOR.`,
 `==`/`<`/`>`), `slash_dim_bound` (`A(lo/hi)`), `octal_quote`, `tab_format`, `inline_comment`
-(`!`), `extended_io` (`TYPE`/`ACCEPT`/`ENCODE`/`DECODE`, random-access), `free_form_input`.
+(`!`), `extended_io` (`TYPE`/`ACCEPT`/`ENCODE`/`DECODE`, random-access), `free_form_input`,
+`dec_library`, `uuo_library`.

@@ -25,12 +25,18 @@ representation-agnostic; a `Target` makes it concrete. Two ship:
   a signed 36-bit int (so comparisons match PDP-10 `CAM` arithmetic), `.TRUE.` is −1 tested
   as *sign-negative*, and `.AND./.OR.` are *bit-wise* on the word.
 
-In both, `REAL` is a Python `float` and `COMPLEX` a Python `complex`. A third target,
-`VAX` (32-bit, little-endian char packing, low-order-bit truth test), is a **provisional,
-unvalidated** guess — it exercises the seam's `little_endian` and `truth` knobs but has
-not been checked against a real VAX FORTRAN. Everything else in the design serves running
-real code against the chosen model without that model leaking into places it shouldn't —
-see §6 on the `Target` seam.
+In both, `REAL` is a Python `float` and `COMPLEX` a Python `complex`. Two further targets
+ship:
+
+- **`LP64LE`** — a 64-bit little-endian IEEE machine matching gfortran on x86-64. Its
+  faithful type punning (with `word_memory`, §9) byte-matches gfortran, so it is the
+  oracle-validated portable counterpart to `PDP10`.
+- **`VAX`** — little-endian integers, middle-endian `F_floating`/`D_floating`. A
+  **provisional, unvalidated** guess implemented from the published format (no VAX oracle
+  yet; a probe deck is staged for when one exists).
+
+Everything else in the design serves running real code against the chosen model without
+that model leaking into places it shouldn't — see §6 on the `Target` seam.
 
 ---
 
@@ -94,7 +100,13 @@ truncated to 6 characters here (`_name6`). The output AST nodes are the dataclas
 
 ### Engine — `engine.py`
 
-The big module (~1700 lines). Two halves: a one-time **`_build()`** that lays out storage,
-and the **execution** machinery.
+The execution core (~3,300 lines). Two halves: a one-time **`_build()`** that lays out
+storage (COMMON/EQUIVALENCE/DATA, label and DO-terminal tables, ENTRY), and the
+**execution** machinery (expression eval, the statement dispatcher, calls, and the
+terminal/file/random/NAMELIST/internal-file I/O). Two self-contained concerns were lifted
+into leaf modules to keep this one focused: the storage **reference** classes and the
+faithful unchecked-OOB model live in `refs.py`, and the **intrinsic** library + the scalar
+arithmetic primitives in `intrinsics.py` (see [§12 module map](12-internals-reference.md)).
+The value model is never hard-coded — every value routes through `self.tgt` (§6).
 
 ---

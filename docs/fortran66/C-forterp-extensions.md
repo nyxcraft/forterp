@@ -74,6 +74,10 @@ result of an otherwise-conforming program, so they are worth knowing.
     KL10 machine words** (high, low) of the doubleword, so an **`INTEGER`** EQUIVALENCEd onto a
     double reads the real machine words — the canonical "examine the bits" idiom — and `DOUBLE`↔
     `DOUBLE` association is exact.
+  - **`DOUBLE COMPLEX` (the DEC extension above) occupies four cells** — a real `DOUBLE` then an
+    imaginary `DOUBLE`, each laid out by the target's own `DOUBLE` convention — so a member after it
+    lands at the right offset and a `DOUBLE`/`REAL` overlaid on it reads the real part. This holds
+    in the default typed-cell mode as well as under `word_memory`.
   - **By default**, other cross-type punning is *not* bit-faithful — a `REAL` and an `INTEGER` that
     share storage read each other's *value*, not each other's *bits* (`R(1)` over a double's word
     reads the raw word as an integer, not the reinterpreted `1.5`), because a `REAL`/`INTEGER` cell

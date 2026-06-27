@@ -70,7 +70,7 @@ retargeted:</p>
 <tr>
 <td><strong>Front-end dialect</strong></td>
 <td><code>Dialect</code> threaded through <code>scan_file</code>/<code>tokenize</code>/<code>parse_units</code> (and <code>free_form_input</code> to the engine)</td>
-<td><code>F66</code> (default, ANSI) vs <code>FORTRAN10</code> (DEC superset)</td>
+<td><code>F66</code> (default, ANSI) vs <code>F77</code> (ANSI X3.9-1978) vs <code>FORTRAN10</code> (DEC superset)</td>
 </tr>
 <tr>
 <td><strong>OPEN devices</strong></td>
@@ -95,13 +95,18 @@ it registers <code>STDLIB</code> (the library subroutines in <code>forlib.py</co
 <h2 id="intrinsics-vs-library-builtins">Intrinsics vs. library builtins</h2>
 <p>Two distinct tables:</p>
 <ul>
-<li><strong><code>INTRINSICS</code></strong> (in <code>engine.py</code>) — the FORTRAN intrinsic <em>functions</em> (<code>INT</code>, <code>SQRT</code>,
-<code>MOD</code>, <code>ABS</code>, <code>IAND</code>/<code>LSH</code>, the <code>C*</code> complex ops, …), evaluated inline via
-<code>_apply_intrinsic</code>. These are pure value→value lambdas.</li>
-<li><strong><code>STDLIB</code></strong> (in <code>forlib.py</code>) — the library <em>subroutines</em> (<code>TIME</code>, <code>DATE</code>, <code>EXIT</code>,
-<code>ERRSNS</code>/<code>ERRSET</code>, <code>RAN</code>/<code>SETRAN</code>, sense-light ops, …), registered via
-<code>register_builtins</code>. These take <code>(eng, frame, arg_nodes)</code> so they can touch engine state
-and write back through references.</li>
+<li><strong><code>INTRINSICS</code></strong> (in <code>intrinsics.py</code>) — the FORTRAN intrinsic <em>functions</em> (<code>INT</code>, <code>SQRT</code>,
+<code>MOD</code>, <code>ABS</code>, <code>LSH</code>, the <code>C*</code> complex ops, …), evaluated inline via <code>_apply_intrinsic</code>. Pure
+value→value lambdas, gated in three tiers by the dialect: <code>_F66_INTRINSICS</code> (always
+available), <code>_F77_INTRINSICS</code> (the ANSI F77 additions — generic <code>LOG</code>/<code>MAX</code>, <code>TAN</code>/<code>ASIN</code>,
+the <code>D…</code> specifics, <code>LEN</code>/<code>CHAR</code>/…; flag <code>f77_intrinsics</code>, on for F77 and FORTRAN10), and
+<code>_DEC_INTRINSICS</code> (DEC-only — <code>LSH</code>/<code>ROT</code>, degree-trig, the <code>DOUBLE COMPLEX</code> helpers; flag
+<code>dec_library</code>, FORTRAN10 only).</li>
+<li><strong><code>STDLIB</code></strong> (in <code>forlib.py</code>) — the DEC library <em>subroutines</em> (<code>TIME</code>, <code>DATE</code>, <code>EXIT</code>,
+<code>ERRSNS</code>/<code>ERRSET</code>, <code>RAN</code>/<code>SETRAN</code>, sense-light ops, …), registered via <code>register_builtins</code>
+when <code>dec_library</code> is on. The TOPS-10 monitor UUOs (<code>OUTSTR</code>/<code>SLEEP</code>/…, <code>UUOLIB</code> in
+<code>uuolib.py</code>) are a separate tier gated on <code>uuo_library</code> — so strict F77 gets neither. These
+take <code>(eng, frame, arg_nodes)</code> so they can touch engine state and write back through refs.</li>
 </ul>
 <blockquote>
 <p><strong>Target-awareness (done):</strong> the integer-valued intrinsics follow the engine's <code>Target</code>

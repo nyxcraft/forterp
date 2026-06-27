@@ -20,11 +20,31 @@ FORTRAN-66 has no stack-allocated locals and no heap. forterp mirrors that:
 
 Out-of-bounds access mirrors the real machine rather than guarding defensively: an OOB read
 yields `0` and an OOB write is dropped — the documented 1978 behavior (e.g. an `ENEMYM` array
-overrun that read adjacent PDP-10 memory) — rather than raising a clean Python error. A tool
-can *observe* this without changing it through the public census API in `forterp.debug`:
+overrun that read adjacent PDP-10 memory) — rather than raising a clean Python error. This
+holds in **both** storage modes: under `word_memory` (below) an out-of-range access routes
+through `wmem_read`/`wmem_write`, which apply the same read-`0` / drop-write rule and feed the
+same census — so enabling faithful punning never turns an overrun into a raw `IndexError`. A
+tool can *observe* this without changing it through the public census API in `forterp.debug`:
 `oob_census()` (a context manager yielding the OOB reads/writes and per-site log for the
 block), the standalone `set_oob_mode` / `oob_mode` / `oob_counts` / `oob_log`, or `"raise"`
 mode to turn an overrun into an `OobError` for a checker or fuzzer.
+
+### Storage units: `COMPLEX`, `DOUBLE PRECISION`, `DOUBLE COMPLEX`
+
+A datum's *storage-unit* count drives `COMMON`/`EQUIVALENCE` offsets, so forterp sizes the
+multi-word scalar types correctly **even in the default typed-cell mode** — a member after one
+lands at the right offset, and an overlay reads each component:
+
+- **`COMPLEX`** — two cells: real part first, imaginary second (`ComplexPairRef`), so a `REAL`
+  EQUIVALENCEd onto them reads each part.
+- **`DOUBLE PRECISION`** — two cells. On a packed-double target (`PDP10`) these are the two
+  genuine KL10 machine words (`DecDoublePairRef`); on `NATIVE` the value sits in the first cell
+  with a permanent zero shadow in the second.
+- **`DOUBLE COMPLEX`** — four cells: a real `DOUBLE` (cells 0–1) then an imaginary `DOUBLE`
+  (cells 2–3), each following that target's `DOUBLE` convention (`DoubleComplexPairRef`).
+
+These are the typed-cell refs; `word_memory` (below) re-expresses the same sizes through the
+target codec, so block layout agrees in both modes.
 
 ### Faithful type punning — the word-addressable memory model (`wordmem.py`)
 
@@ -53,10 +73,19 @@ types and offsets; the codec owns the bits and the addressable unit, word vs byt
 sizes them in the codec's unit), so block offsets stay accurate; the engine routes the
 storage-associated read/write/array/argument paths through the codec (`WordRef` / `WordArrayView`)
 when `word_memory` is on, and keeps the fast typed-cell path otherwise. It is off by default because
-it changes the observable `commons` representation (raw words/bytes, not typed values) and costs
-~2× per `COMMON` access; locals — never aliased — always stay typed and fast. The faithful single/
-double splitting of `DOUBLE` is a PDP10/LP64/VAX concern; on `NATIVE` (no `mem_model`) a `DOUBLE`
-stays one host float with a zero shadow. This layer is the substrate the planned macroterp bridge's
-word-level memory will build on.
+it changes the observable `commons` representation (raw words/bytes, not typed values) and has a
+cost — but only on the storage-associated path. The faithful single/double splitting of `DOUBLE`
+is a PDP10/LP64/VAX concern; on `NATIVE` (no `mem_model`) a `DOUBLE` stays one host float with a
+zero shadow. This layer is the substrate the planned macroterp bridge's word-level memory will
+build on.
+
+**Performance.** A cross value-model benchmark settles what each piece costs. The *value model
+itself is free*: NATIVE, PDP10, LP64LE, and VAX run arithmetic-heavy kernels within noise of each
+other (per-statement interpreter dispatch dwarfs the 36-bit wrap / single-precision codec). The
+*punning codec* is the only real cost, and only on `COMMON`/`EQUIVALENCE` access: on a
+storage-pathological kernel it runs ~1.5–2.1× the typed-cell baseline — **LP64LE** cheapest
+(~1.5×, native `struct`), **PDP10** mid (~1.8×, Python-bignum bit-ops via `forbin`), **VAX**
+dearest (~2.1×, middle-endian byte reordering). A real program — locals + arithmetic + I/O plus
+some `COMMON` — realizes far less than that ceiling, and `word_memory` off pays nothing.
 
 ---
