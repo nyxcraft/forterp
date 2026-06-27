@@ -156,3 +156,38 @@ def test_word_memory_off_by_default():
         target=forterp.PDP10,
     )
     assert eng.word_memory is False  # not enabled unless asked
+
+
+# ---- word_memory step 3a: single-word array elements pun faithfully -----------------------------
+
+
+def test_word_memory_real_array_punned_as_integer():
+    # a REAL array element written, read through an aliased INTEGER array -> the machine word
+    src = (
+        "      PROGRAM T\n      COMMON /O/ N\n      INTEGER N\n"
+        "      REAL A(3)\n      INTEGER B(3)\n      EQUIVALENCE (A,B)\n"
+        "      A(2)=1.5\n      N=B(2)\n      END\n"
+    )
+    assert _run(src, "INTEGER") == double_to_dec10(1.5)
+
+
+def test_word_memory_real_array_arithmetic_round_trips():
+    # a non-punning REAL array program still computes correctly under word_memory
+    src = (
+        "      PROGRAM T\n      COMMON /O/ OUT\n      REAL OUT,A(3)\n"
+        "      A(1)=2.0\n      A(2)=3.0\n      A(3)=A(1)+A(2)\n      OUT=A(3)\n      END\n"
+    )
+    assert _run(src, "REAL") == 5.0
+
+
+def test_word_memory_double_array_is_guarded():
+    # multi-word array elements aren't supported under word_memory yet (P1 step 3b): fail loud,
+    # not silently wrong.
+    import pytest
+
+    src = (
+        "      PROGRAM T\n      COMMON /CB/ D(3)\n      DOUBLE PRECISION D\n"
+        "      D(1)=1.0D0\n      END\n"
+    )
+    with pytest.raises(NotImplementedError, match="word_memory"):
+        forterp.run_source(src, dialect=forterp.F66, target=forterp.PDP10, word_memory=True)

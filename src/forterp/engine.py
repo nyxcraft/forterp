@@ -335,6 +335,21 @@ class ArrayView:
         return CellRef(self.store, self.base + i)
 
 
+class WordArrayView:
+    """An array view over word-addressable storage (word_memory): element i lives at
+    base + i*units words and .loc(i) yields a WordRef that reads/writes through the typed codec,
+    so an array element puns faithfully (a REAL element read as INTEGER is its machine word)."""
+
+    __slots__ = ("wmem", "store", "base", "typ", "units")
+
+    def __init__(self, wmem, store, base, typ):
+        self.wmem, self.store, self.base, self.typ = wmem, store, base, typ
+        self.units = wmem.units(typ)
+
+    def loc(self, i):
+        return WordRef(self.wmem, self.store, self.base + i * self.units, self.typ)
+
+
 class CharSeqElemRef:
     """One element of a CHARACTER array dummy that is sequence-associated with a CHARACTER actual
     (a substring or array element): a `width`-char window into the actual's character storage,
@@ -1155,6 +1170,14 @@ class Engine:
         dims = unit.arrays[name]
         if name in rt.common_map:
             block, off, _ = rt.common_map[name]
+            if self.word_memory:  # faithful punning over words (single-word elements; 3b: 2-word)
+                typ = self.type_of(unit, name)
+                if self.wmem.units(typ) != 1:
+                    raise NotImplementedError(
+                        f"{typ} array {name!r} under word_memory is not supported yet "
+                        "(multi-word array elements -- P1 step 3b)"
+                    )
+                return WordArrayView(self.wmem, self.commons[block], off, typ), dims
             return ArrayView(self.commons[block], off), dims
         if name not in rt.local_arrays:
             rt.local_arrays[name] = self._alloc_words(array_size(dims))
@@ -1353,6 +1376,8 @@ class Engine:
             dims = self._dims(name, frame)
             subs = [self.eval(a, frame) for a in node.args]
             if type(frame.args.get(name)) is SubstringRef:  # CHARACTER seq-association: char window
+                return self.arrayview(frame, name).loc(self._idx(subs, dims, name)).read()
+            if self.word_memory and name in frame.rt.common_map:  # decode by element type
                 return self.arrayview(frame, name).loc(self._idx(subs, dims, name)).read()
             store, base = self._array_base(frame, name)  # read directly, no CellRef/ArrayView
             return oob_read(store, base + self._idx(subs, dims, name))
@@ -1904,6 +1929,8 @@ class Engine:
             dims = self._dims(tgt.name, frame)
             subs = [self.eval(a, frame) for a in tgt.args]
             if type(frame.args.get(tgt.name)) is SubstringRef:  # CHARACTER seq-association window
+                self.arrayview(frame, tgt.name).loc(self._idx(subs, dims, tgt.name)).write(val)
+            elif self.word_memory and tgt.name in frame.rt.common_map:  # encode by element type
                 self.arrayview(frame, tgt.name).loc(self._idx(subs, dims, tgt.name)).write(val)
             else:
                 store, base = self._array_base(frame, tgt.name)
