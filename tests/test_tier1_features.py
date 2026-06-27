@@ -10,6 +10,8 @@ from conftest import out, run
 
 from forterp.dialect import F66, FORTRAN10
 from forterp.fmt import unpack_chars
+from forterp.forbin import double_to_dec10_pair
+from forterp.target import NATIVE, PDP10
 
 
 # ---- BLOCK DATA (V5 Ch16): declare-only unit that initializes labeled COMMON --
@@ -414,16 +416,30 @@ def test_double_scalar_occupies_two_storage_units():
     assert eng.commons["OUT"][0] == 7  # M (word 2) aliased K (word 2)
 
 
-def test_equivalence_double_scalar_over_real_pair():
-    # A DOUBLE PRECISION scalar EQUIVALENCEd onto REAL(2) occupies two words: the value lands in
-    # R(1) and R(2) is a zero shadow. Unlike COMPLEX, DOUBLE does not split across the two words on
-    # the NATIVE target (one host float) -- faithful two-word splitting is a PDP10-target concern.
+def test_equivalence_double_over_real_pair_native():
+    # On the NATIVE target a DOUBLE is one host float: the value lands in the first word and the
+    # second is a zero shadow (count-accurate, but not bit-split -- there is no second host word).
     eng = run(
         "        PROGRAM T\n        COMMON /OUT/ V1, V2\n"
         "        DOUBLE PRECISION D\n        REAL R(2)\n        EQUIVALENCE (D, R)\n"
-        "        D = 1.5D0\n        V1 = R(1)\n        V2 = R(2)\n        END\n"
+        "        D = 1.5D0\n        V1 = R(1)\n        V2 = R(2)\n        END\n",
+        target=NATIVE,
     )
     assert eng.commons["OUT"][:2] == [1.5, 0.0]
+
+
+def test_pdp10_double_splits_into_machine_words():
+    # On the PDP10 target a storage-associated DOUBLE is held as its two genuine KL10 machine
+    # words, so an INTEGER EQUIVALENCEd onto it reads the real (high, low) doubleword -- the
+    # canonical "examine the bits" idiom, faithful to FORTRAN-10. (Reassembly on read is lossless.)
+    hi, lo = double_to_dec10_pair(1.0)
+    eng = run(
+        "        PROGRAM T\n        COMMON /OUT/ I, J\n"
+        "        DOUBLE PRECISION D\n        INTEGER W(2)\n        EQUIVALENCE (D, W)\n"
+        "        D = 1.0D0\n        I = W(1)\n        J = W(2)\n        END\n",
+        target=PDP10,
+    )
+    assert eng.commons["OUT"][:2] == [hi, lo]
 
 
 def test_equivalence_extends_common_forward():

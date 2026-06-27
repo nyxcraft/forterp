@@ -21,6 +21,7 @@ import itertools
 import math
 
 from forterp import ast_nodes as A
+from forterp.forbin import dec10_pair_to_double, double_to_dec10_pair
 from forterp.target import NATIVE, PDP10
 
 # The default target's value model (see target.py), re-exported as module-level names:
@@ -208,6 +209,32 @@ class ComplexPairRef:
         v = v if isinstance(v, complex) else complex(float(v), 0.0)
         oob_write(self.store, self.idx, v.real)
         oob_write(self.store, self.idx + 1, v.imag)
+
+
+class DecDoublePairRef:
+    """A DOUBLE PRECISION scalar in word-addressable storage on a packed-double target (PDP10),
+    held as the two genuine 36-bit machine words of the KL10 doubleword (high, low). Reading
+    reassembles the host float; writing splits it (forbin codec). So an INTEGER EQUIVALENCEd onto
+    the two words reads the real machine words, exactly as FORTRAN-10 does -- unlike the NATIVE
+    target, where a DOUBLE is one host float in the first cell with a zero shadow in the second.
+
+    The DEC-10 doubleword carries more mantissa bits than a host double, so float -> pair -> float
+    round-trips losslessly; only the reinterpretation idiom (reading the halves) differs."""
+
+    __slots__ = ("store", "idx")
+
+    def __init__(self, store, idx):
+        self.store, self.idx = store, idx
+
+    def read(self):
+        hi = int(oob_read(self.store, self.idx))
+        lo = int(oob_read(self.store, self.idx + 1))
+        return dec10_pair_to_double(hi, lo)
+
+    def write(self, v):
+        hi, lo = double_to_dec10_pair(float(v))
+        oob_write(self.store, self.idx, hi)
+        oob_write(self.store, self.idx + 1, lo)
 
 
 class DictRef:
@@ -406,6 +433,7 @@ class UnitRT:
         self.unit = unit
         self.common_map = {}  # name -> (block, offset, dims|None)
         self.complex_scalars = set()  # storage-associated COMPLEX scalars (2 words, ComplexPairRef)
+        self.double_word_scalars = set()  # storage-assoc DOUBLE scalars on a packed-double target
         self.local_scalars = {}  # static
         self.local_arrays = {}  # name -> store(list)
         self.do_terms = set()  # labels that terminate some DO
@@ -764,6 +792,14 @@ class Engine:
                 for nm in rt.common_map
                 if nm not in u.arrays and self.type_of(u, nm) == "COMPLEX"
             }
+            # On a packed-double target (PDP10) a storage-associated DOUBLE is held as its two
+            # machine words (hi, lo) via DecDoublePairRef; the fast paths consult this set.
+            if self.tgt.packed_double:
+                rt.double_word_scalars = {
+                    nm
+                    for nm in rt.common_map
+                    if nm not in u.arrays and self.type_of(u, nm) == "DOUBLE PRECISION"
+                }
             self.rts[name] = rt
         # ENTRY points (V5 15.7): map each entry name to (owning unit, pc, params)
         for uname, u in self.units.items():
@@ -1145,6 +1181,9 @@ class Engine:
             # EQUIVALENCEd onto the same words reads each part; see ComplexPairRef.
             if self.type_of(unit, name) == "COMPLEX":
                 return ComplexPairRef(store, off)
+            # On a packed-double target a storage-associated DOUBLE is held as two machine words.
+            if self.tgt.packed_double and self.type_of(unit, name) == "DOUBLE PRECISION":
+                return DecDoublePairRef(store, off)
             return CellRef(store, off)
         return DictRef(rt.local_scalars, name)
 
@@ -1268,6 +1307,8 @@ class Engine:
             if name in frame.rt.complex_scalars:  # 2-word COMPLEX: re, im -> one complex
                 off = slot[1]
                 return complex(float(oob_read(store, off)), float(oob_read(store, off + 1)))
+            if name in frame.rt.double_word_scalars:  # 2-word DOUBLE: reassemble from hi, lo
+                return DecDoublePairRef(store, slot[1]).read()
             return store[slot[1]]
         return frame.rt.local_scalars.get(name, 0)
 
@@ -1817,6 +1858,8 @@ class Engine:
                 if slot is not None:
                     if ttype == "COMPLEX":  # 2-word COMPLEX: split into re, im cells
                         ComplexPairRef(self.commons[slot[0]], slot[1]).write(val)
+                    elif name in frame.rt.double_word_scalars:  # 2-word DOUBLE: split hi, lo
+                        DecDoublePairRef(self.commons[slot[0]], slot[1]).write(val)
                     else:
                         self.commons[slot[0]][slot[1]] = val  # in-range COMMON scalar slot
                 else:

@@ -63,12 +63,19 @@ result of an otherwise-conforming program, so they are worth knowing.
   in what they hold:
   - **`COMPLEX` splits faithfully** — the real part in the first cell, the imaginary in the second —
     so an overlay reads each part: `C=(3.0,4.0)` over `R(2)` gives `R(1)=3.0, R(2)=4.0`.
-  - **`DOUBLE PRECISION` does not split on `NATIVE`**, where a double is a single 64-bit host float
-    with no meaningful second word. The value lives in the first cell and the second is a permanent
-    **zero shadow**: `D=1.5D0` with `EQUIVALENCE(D,R)` gives `R(1)=1.5, R(2)=0.0`. The *counting*
-    is correct (a following `COMMON` member sits at the right word); only the second-word *content*
-    is a placeholder. Faithful two-word `DOUBLE` splitting belongs to the `PDP10` target, where the
-    two 36-bit words are physical.
+  - **`DOUBLE PRECISION` splits by target.** On `NATIVE` a double is a single 64-bit host float
+    with no meaningful second word: the value lives in the first cell and the second is a permanent
+    **zero shadow** (`D=1.5D0` with `EQUIVALENCE(D,R)` gives `R(1)=1.5, R(2)=0.0`) — the *counting*
+    is correct but the second word is a placeholder. On **`PDP10`** the cells hold the **two genuine
+    KL10 machine words** (high, low) of the doubleword, so an **`INTEGER`** EQUIVALENCEd onto a
+    double reads the real machine words — the canonical "examine the bits" idiom — and `DOUBLE`↔
+    `DOUBLE` association is exact.
+  - **The one remaining gap:** overlaying a **`REAL`** onto a `PDP10` double's words yields the raw
+    word value, not the word *reinterpreted* as a single-precision float (`R(1)` reads the high word
+    as an integer, not `1.5`). Faithful cross-type bit reinterpretation needs a word-level memory
+    model (where every cell is a raw word, typed on access) — that is reserved for the macroterp
+    bridge. The `INTEGER`-overlay and `DOUBLE`↔`DOUBLE` idioms, which are the common ones, are
+    faithful today.
 
 ### Non-fatal behavior in undefined areas
 

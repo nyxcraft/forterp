@@ -24,6 +24,7 @@ class Target:
         little_endian=False,
         truth=None,
         ieee_math=False,
+        packed_double=False,
     ):
         self.word_bits = word_bits
         self.chars_per_word = chars_per_word
@@ -38,6 +39,11 @@ class Target:
         # any value conforms). True (NATIVE) -> IEEE Inf/NaN, matching gfortran; False (PDP-10/VAX)
         # -> FOROTS's non-fatal recovery (0.0 on divide, |x| stand-ins, with a LIB warning).
         self.ieee_math = ieee_math
+        # packed_double: a storage-associated DOUBLE PRECISION scalar is stored as its two genuine
+        # machine words (the KL10 high/low doubleword, via forbin), so an INTEGER EQUIVALENCEd onto
+        # those words reads the real machine words -- faithful to FORTRAN-10. False (NATIVE/VAX):
+        # the value lives in the first cell with a zero shadow in the second (count-accurate only).
+        self.packed_double = packed_double
         self.mask = (1 << word_bits) - 1
         self.sign = 1 << (word_bits - 1)
         self.modulus = 1 << word_bits  # 2^word_bits: the two's-complement wrap modulus
@@ -126,7 +132,7 @@ class Target:
         return "".join(out)
 
 
-PDP10 = Target()  # faithful DEC PDP-10: 36-bit, 5x7-bit packed ASCII, .TRUE.=-1
+PDP10 = Target(packed_double=True)  # faithful DEC PDP-10: 36-bit, 5x7-bit ASCII, .TRUE.=-1
 
 # The portable host-native target and the default: a clean 64-bit machine for running
 # standard FORTRAN-66 without PDP-10 quirks -- 64-bit two's-complement integers, 8-bit

@@ -115,12 +115,19 @@ in what they hold:
 <ul>
 <li><strong><code>COMPLEX</code> splits faithfully</strong> — the real part in the first cell, the imaginary in the second —
 so an overlay reads each part: <code>C=(3.0,4.0)</code> over <code>R(2)</code> gives <code>R(1)=3.0, R(2)=4.0</code>.</li>
-<li><strong><code>DOUBLE PRECISION</code> does not split on <code>NATIVE</code></strong>, where a double is a single 64-bit host float
-with no meaningful second word. The value lives in the first cell and the second is a permanent
-<strong>zero shadow</strong>: <code>D=1.5D0</code> with <code>EQUIVALENCE(D,R)</code> gives <code>R(1)=1.5, R(2)=0.0</code>. The <em>counting</em>
-is correct (a following <code>COMMON</code> member sits at the right word); only the second-word <em>content</em>
-is a placeholder. Faithful two-word <code>DOUBLE</code> splitting belongs to the <code>PDP10</code> target, where the
-two 36-bit words are physical.</li>
+<li><strong><code>DOUBLE PRECISION</code> splits by target.</strong> On <code>NATIVE</code> a double is a single 64-bit host float
+with no meaningful second word: the value lives in the first cell and the second is a permanent
+<strong>zero shadow</strong> (<code>D=1.5D0</code> with <code>EQUIVALENCE(D,R)</code> gives <code>R(1)=1.5, R(2)=0.0</code>) — the <em>counting</em>
+is correct but the second word is a placeholder. On <strong><code>PDP10</code></strong> the cells hold the <strong>two genuine
+KL10 machine words</strong> (high, low) of the doubleword, so an <strong><code>INTEGER</code></strong> EQUIVALENCEd onto a
+double reads the real machine words — the canonical &quot;examine the bits&quot; idiom — and <code>DOUBLE</code>↔
+<code>DOUBLE</code> association is exact.</li>
+<li><strong>The one remaining gap:</strong> overlaying a <strong><code>REAL</code></strong> onto a <code>PDP10</code> double's words yields the raw
+word value, not the word <em>reinterpreted</em> as a single-precision float (<code>R(1)</code> reads the high word
+as an integer, not <code>1.5</code>). Faithful cross-type bit reinterpretation needs a word-level memory
+model (where every cell is a raw word, typed on access) — that is reserved for the macroterp
+bridge. The <code>INTEGER</code>-overlay and <code>DOUBLE</code>↔<code>DOUBLE</code> idioms, which are the common ones, are
+faithful today.</li>
 </ul>
 </li>
 </ul>
