@@ -7,6 +7,7 @@ over one engine — like `g77`/`gfortran` over gcc:
 |---------|---------|-----|
 | `forterp` | `--std` selects (default `f66`) | the general driver |
 | `pyf66` | strict ANSI FORTRAN-66 | rejects DEC extensions |
+| `pyf77` | ANSI FORTRAN 77 | `CHARACTER`, block `IF`, list-directed I/O, `OPEN`/`CLOSE`/`INQUIRE` |
 | `pyfortran10` | DEC FORTRAN-10 (the superset) | octal, `IMPLICIT`, `'…'`, random-access I/O, … |
 
 Before installing, the same commands are available as `python -m forterp …`.
@@ -47,7 +48,7 @@ forterp main.for lib.for      # main.for's PROGRAM calls SUBROUTINEs defined in 
 
 | Option | Meaning |
 |--------|---------|
-| `--std f66\|fortran10` | language dialect (**`forterp` only**; default `f66`). `pyf66`/`pyfortran10` are pinned. |
+| `--std f66\|f77\|fortran10` | language dialect (**`forterp` only**; default `f66`). `pyf66`/`pyf77`/`pyfortran10` are pinned. |
 | `--target native\|pdp10\|lp64le\|vax` | machine value model (default `native`). `pdp10` = the faithful 36-bit DEC machine; `lp64le` = a 64-bit little-endian IEEE machine (matches gfortran on x86_64 — useful with `--word-memory`); `vax` is provisional. |
 | `--program NAME` | which `PROGRAM`/`SUBROUTINE` unit to run as the main (default: the first). |
 | `--check` | parse and list every diagnostic **without running** — a compile-check. `pyf66 --check prog.for` is a strict-ANSI-F66 conformance linter. |

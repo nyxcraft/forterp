@@ -72,6 +72,11 @@ over one engine — like <code>g77</code>/<code>gfortran</code> over gcc:</p>
 <td>rejects DEC extensions</td>
 </tr>
 <tr>
+<td><code>pyf77</code></td>
+<td>ANSI FORTRAN 77</td>
+<td><code>CHARACTER</code>, block <code>IF</code>, list-directed I/O, <code>OPEN</code>/<code>CLOSE</code>/<code>INQUIRE</code></td>
+</tr>
+<tr>
 <td><code>pyfortran10</code></td>
 <td>DEC FORTRAN-10 (the superset)</td>
 <td>octal, <code>IMPLICIT</code>, <code>'…'</code>, random-access I/O, …</td>
@@ -108,8 +113,8 @@ made executable: <code>#!/usr/bin/env -S pyfortran10 -x</code>.</p>
 </thead>
 <tbody>
 <tr>
-<td><code>--std f66|fortran10</code></td>
-<td>language dialect (<strong><code>forterp</code> only</strong>; default <code>f66</code>). <code>pyf66</code>/<code>pyfortran10</code> are pinned.</td>
+<td><code>--std f66|f77|fortran10</code></td>
+<td>language dialect (<strong><code>forterp</code> only</strong>; default <code>f66</code>). <code>pyf66</code>/<code>pyf77</code>/<code>pyfortran10</code> are pinned.</td>
 </tr>
 <tr>
 <td><code>--target native|pdp10|lp64le|vax</code></td>

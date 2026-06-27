@@ -1,7 +1,8 @@
 """Command-line front-ends over the forterp engine.
 
-Three console entry points (declared in pyproject [project.scripts]):
+Four console entry points (declared in pyproject [project.scripts]):
   pyf66        run a source file as strict ANSI FORTRAN-66 (dialect F66)
+  pyf77        run it as ANSI FORTRAN 77 (dialect F77)
   pyfortran10  run it as DEC FORTRAN-10 (dialect FORTRAN10 -- the DEC superset)
   forterp      general driver; --std selects the dialect (default f66)
 
@@ -143,25 +144,33 @@ def _run(argv, dialect, prog, *, allow_std, default_target="native"):
         "--word-memory",
         action="store_true",
         help="store COMMON/EQUIVALENCE in word-addressable memory so cross-type punning is "
-        "bit-faithful (a REAL read as INTEGER yields the genuine machine word). PDP10 target "
-        "only; off by default (typed cells). Costs ~2x on COMMON access; see docs",
+        "bit-faithful (a REAL read as INTEGER yields the genuine machine word). Needs a "
+        "faithful target (pdp10/lp64le/vax); off by default (typed cells). Costs ~2x on COMMON "
+        "access; see docs",
     )
     if allow_std:
         ap.add_argument(
             "--std",
             choices=_DIALECTS,
             default="f66",
-            help="language dialect (default: f66 = strict ANSI; fortran10 = DEC superset)",
+            help="language dialect (default: f66 = strict ANSI FORTRAN 66; "
+            "f77 = ANSI FORTRAN 77; fortran10 = DEC FORTRAN-10 superset)",
         )
     args = ap.parse_args(argv)
-    std = args.std if allow_std else ("fortran10" if dialect is forterp.FORTRAN10 else "f66")
+    std = (
+        args.std
+        if allow_std
+        else {forterp.FORTRAN10: "fortran10", forterp.F77: "f77"}.get(dialect, "f66")
+    )
 
     if args.version:  # -V / --version (and -VV for the build line); print and exit
         line = f"{prog} {forterp.__version__}"
         if args.version >= 2:
             import platform
 
-            dia = {"f66": "FORTRAN-66", "fortran10": "DEC FORTRAN-10"}.get(std, std)
+            dia = {"f66": "FORTRAN-66", "f77": "FORTRAN 77", "fortran10": "DEC FORTRAN-10"}.get(
+                std, std
+            )
             host = f"{platform.python_implementation()} {platform.python_version()}"
             line += f" ({dia}, {args.target.upper()} target) [{host}] on {sys.platform}"
         print(line)
@@ -300,6 +309,11 @@ def _run(argv, dialect, prog, *, allow_std, default_target="native"):
 def f66_main(argv=None):
     """`pyf66`: run a source file as strict ANSI FORTRAN-66."""
     return _run(argv, forterp.F66, "pyf66", allow_std=False)
+
+
+def f77_main(argv=None):
+    """`pyf77`: run a source file as ANSI FORTRAN 77 (X3.9-1978) on the portable NATIVE machine."""
+    return _run(argv, forterp.F77, "pyf77", allow_std=False)
 
 
 def f10_main(argv=None):

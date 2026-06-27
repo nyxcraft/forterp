@@ -77,6 +77,7 @@ Installing puts three commands on your PATH — thin dialect front-ends over the
 
 ```sh
 pyf66 prog.for              # run as strict ANSI FORTRAN-66 (rejects DEC extensions)
+pyf77 prog.for              # run as ANSI FORTRAN 77 (CHARACTER, block IF, list-directed I/O)
 pyfortran10 prog.for        # run as DEC FORTRAN-10 (the superset: octal, IMPLICIT, '...', …)
 forterp --std fortran10 prog.for   # general driver; --std f66|fortran10|f77 (default: f66)
 forterp --std f77 prog.for         # FORTRAN 77: CHARACTER, block IF, list-directed I/O, INQUIRE

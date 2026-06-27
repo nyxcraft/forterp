@@ -9,7 +9,7 @@ import tempfile
 
 import pytest
 
-from forterp.cli import f10_main, f66_main, main
+from forterp.cli import f10_main, f66_main, f77_main, main
 
 # strict ANSI F66: Hollerith FORMAT, no DEC features
 HELLO_F66 = "      PROGRAM T\n      WRITE(6,10)\n   10 FORMAT(15H HELLO FROM F66)\n      END\n"
@@ -44,6 +44,21 @@ def test_pyfortran10_accepts_dec_feature(capsys):
         os.unlink(p)
     assert rc == 0
     assert "HELLO FROM F10" in capsys.readouterr().out
+
+
+def test_pyf77_runs_character_feature(capsys):
+    # CHARACTER is an F77 type (rejected under strict F66) -- pyf77 must accept and run it.
+    f77 = (
+        "      PROGRAM T\n      CHARACTER*9 S\n"
+        "      S = 'HELLO F77'\n      WRITE(6,*) S\n      END\n"
+    )
+    p = _src(f77)
+    try:
+        rc = f77_main([p])
+    finally:
+        os.unlink(p)
+    assert rc == 0
+    assert "HELLO F77" in capsys.readouterr().out
 
 
 def test_pyf66_rejects_dec_feature(capsys):

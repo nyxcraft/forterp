@@ -31,8 +31,9 @@ docs = ["markdown-it-py"]  # to rebuild the gh-pages site (gh-pages/build_site.p
 
 [project.scripts]
 pyf66 = "forterp.cli:f66_main"          # run as strict ANSI FORTRAN-66
+pyf77 = "forterp.cli:f77_main"          # run as ANSI FORTRAN 77
 pyfortran10 = "forterp.cli:f10_main"    # run as DEC FORTRAN-10 (the DEC superset)
-forterp = "forterp.cli:main"            # general driver: --std f66|fortran10
+forterp = "forterp.cli:main"            # general driver: --std f66|f77|fortran10
 
 [project.urls]
 Homepage = "https://github.com/nyxcraft/forterp"
