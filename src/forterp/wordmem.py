@@ -55,6 +55,11 @@ class Pdp10WordMemory:
     def units(typ: str) -> int:
         return STORAGE_UNITS.get(typ, 1)
 
+    @staticmethod
+    def alloc(n: int) -> list:
+        """A backing store of n addressable units (36-bit words), zero-filled."""
+        return [0] * n
+
     def read(self, store, off: int, typ: str):
         w = store[off] & MASK36
         if typ == "REAL":
@@ -78,3 +83,67 @@ class Pdp10WordMemory:
             store[off + 1] = double_to_dec10(v.imag)
         else:  # INTEGER, LOGICAL, Hollerith: store the word bit-pattern
             store[off] = int(val) & MASK36
+
+
+# ---- LP64 / IEEE codec: the byte-addressable backend (P2) ---------------------------------------
+import struct as _struct  # noqa: E402  (kept module-local to the LP64 backend)
+
+# Cached Struct objects (little-endian, the x86_64 / LP64 layout gfortran emits). DOUBLE COMPLEX is
+# not modeled here yet. Hollerith / unknown types read as the 4-byte integer word.
+_LP64 = {
+    "INTEGER": _struct.Struct("<i"),
+    "REAL": _struct.Struct("<f"),
+    "DOUBLE PRECISION": _struct.Struct("<d"),
+    "LOGICAL": _struct.Struct("<i"),
+}
+_LP64_SINGLE = _struct.Struct("<f")  # the two halves of a COMPLEX
+_LP64_SIZE = {"INTEGER": 4, "REAL": 4, "DOUBLE PRECISION": 8, "COMPLEX": 8, "LOGICAL": 4}
+
+
+def _to_i32(v: int) -> int:
+    """Wrap an integer into signed 32-bit two's complement (so struct '<i' never overflows)."""
+    v = int(v) & 0xFFFFFFFF
+    return v - (1 << 32) if v & (1 << 31) else v
+
+
+class Lp64LeByteMemory:
+    """A typed accessor over a `bytearray`, in the **little-endian** LP64 / IEEE representation
+    (REAL=4 bytes, DOUBLE=8, INTEGER=4) -- exactly what gfortran emits on x86_64 / ARM64. `off` is a
+    BYTE offset; reads/writes go through Python `struct` (the `<` formats), so cross-type aliasing
+    reinterprets the bytes the way the real machine does. This is the byte-addressable sibling of
+    `Pdp10WordMemory`; the bit patterns are validated against gfortran (see the PoC + test ground
+    truth).
+
+    "Le" is in the name on purpose: LP64 fixes the integer/pointer widths but NOT byte order, and
+    a big-endian 64-bit machine (s390x, SPARC64) lays the same values out mirror-reversed -- that
+    would be a separate codec (the `>` formats), not this one."""
+
+    def __init__(self, target=None):
+        self.t = target  # unused for the IEEE codec; kept for interface symmetry
+
+    @staticmethod
+    def units(typ: str) -> int:
+        """Bytes a scalar of this type occupies."""
+        return _LP64_SIZE.get(typ, 4)
+
+    @staticmethod
+    def alloc(n: int) -> bytearray:
+        """A backing store of n addressable units (bytes), zero-filled."""
+        return bytearray(n)
+
+    def read(self, store, off: int, typ: str):
+        if typ == "COMPLEX":
+            re = _LP64_SINGLE.unpack_from(store, off)[0]
+            im = _LP64_SINGLE.unpack_from(store, off + 4)[0]
+            return complex(re, im)
+        return _LP64.get(typ, _LP64["INTEGER"]).unpack_from(store, off)[0]
+
+    def write(self, store, off: int, typ: str, val) -> None:
+        if typ == "COMPLEX":
+            v = val if isinstance(val, complex) else complex(float(val), 0.0)
+            _LP64_SINGLE.pack_into(store, off, v.real)
+            _LP64_SINGLE.pack_into(store, off + 4, v.imag)
+        elif typ in ("REAL", "DOUBLE PRECISION"):
+            _LP64[typ].pack_into(store, off, float(val))
+        else:  # INTEGER, LOGICAL, Hollerith: the 4-byte two's-complement word
+            _LP64["INTEGER"].pack_into(store, off, _to_i32(val))

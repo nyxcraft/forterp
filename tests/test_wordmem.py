@@ -251,3 +251,62 @@ def test_word_memory_arg_pass_array_element_seq_association():
     )
     eng = forterp.run_source(src, dialect=forterp.F66, target=forterp.PDP10, word_memory=True)
     assert eng.wmem.read(eng.commons["C"], 5, "REAL") == 5.0
+
+
+# ---- LP64 little-endian / IEEE codec (P2) -------------------------------------------------------
+# Every expected value here is the genuine gfortran-on-x86_64 bit pattern (validated in the PoC,
+# ~/f66spec scratch; identical across all gfortran --std modes -- it's IEEE layout, not language).
+
+from forterp.wordmem import Lp64LeByteMemory  # noqa: E402
+
+L = Lp64LeByteMemory()
+
+
+def test_lp64_units_in_bytes():
+    assert L.units("REAL") == 4 and L.units("INTEGER") == 4 and L.units("LOGICAL") == 4
+    assert L.units("DOUBLE PRECISION") == 8 and L.units("COMPLEX") == 8
+
+
+def test_lp64_real_punned_as_integer_matches_gfortran():
+    b = L.alloc(4)
+    L.write(b, 0, "REAL", 3.14)
+    assert L.read(b, 0, "INTEGER") == 0x4048F5C3  # gfortran: 1078523331
+
+
+def test_lp64_integer_punned_as_real():
+    b = L.alloc(4)
+    L.write(b, 0, "INTEGER", 0x4048F5C3)
+    assert abs(L.read(b, 0, "REAL") - 3.14) < 1e-6
+
+
+def test_lp64_double_punned_as_two_integer_words_matches_gfortran():
+    b = L.alloc(8)
+    L.write(b, 0, "DOUBLE PRECISION", 1.5)
+    assert L.read(b, 0, "INTEGER") == 0  # low word
+    assert L.read(b, 4, "INTEGER") == 0x3FF80000  # high word; gfortran: 1073217536
+
+
+def test_lp64_two_integer_words_punned_as_double():
+    b = L.alloc(8)
+    L.write(b, 0, "INTEGER", 0)
+    L.write(b, 4, "INTEGER", 0x40000000)
+    assert L.read(b, 0, "DOUBLE PRECISION") == 2.0
+
+
+def test_lp64_double_round_trips_exactly():
+    b = L.alloc(8)
+    L.write(b, 0, "DOUBLE PRECISION", 3.141592653589793)
+    assert L.read(b, 0, "DOUBLE PRECISION") == 3.141592653589793
+
+
+def test_lp64_complex_two_singles():
+    b = L.alloc(8)
+    L.write(b, 0, "COMPLEX", complex(1.5, 2.0))
+    assert L.read(b, 0, "REAL") == 1.5 and L.read(b, 4, "REAL") == 2.0
+    assert L.read(b, 0, "COMPLEX") == complex(1.5, 2.0)
+
+
+def test_lp64_negative_integer_wraps_signed_32():
+    b = L.alloc(4)
+    L.write(b, 0, "INTEGER", -2)
+    assert L.read(b, 0, "INTEGER") == -2
