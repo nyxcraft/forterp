@@ -527,8 +527,10 @@ is the full language; forterp does not implement the separate "subset FORTRAN" l
   be a primary or appear in `DATA` but not inside a `FORMAT`. — ✓
 - **EXTERNAL / INTRINSIC (8.7–8.8).** declare a name an external/dummy procedure, or an
   intrinsic, so it can be passed as an actual argument; an `EXTERNAL` name overrides a
-  like-named intrinsic. — ✓ — ▲ forterp does not *require* `EXTERNAL` merely to pass a
-  procedure (lenient).
+  like-named intrinsic. — ✓ `EXTERNAL` **is** required to pass a procedure as an actual argument
+  (§8.7): a bare undeclared name is taken as a variable, so the program fails when the dummy is
+  called (at the call site, where gfortran rejects it at compile time). Both reach the same
+  conforming outcome.
 - **SAVE (8.9).** retains a local's value across `RETURN`/`END`; `/cb/` saves a whole common
   block; listless `SAVE` saves everything; a no-op in a main program. — ✓ (verified a saved
   counter persists across calls).
@@ -596,9 +598,15 @@ is the full language; forterp does not implement the separate "subset FORTRAN" l
   `SEQUENTIAL`/`DIRECT`/`FORM`/`FORMATTED`/`UNFORMATTED`/`RECL`/`NEXTREC`/`BLANK`. — ✓
 - **File positioning (12.10.4).** `BACKSPACE` / `ENDFILE` / `REWIND` (sequential units). — ✓
 - **Carriage control on printing (12.9.5.2.3).** leading `blank`/`0`/`1`/`+` ⇒ one line / two
-  lines / new page / no advance; the control character is not printed. — ✓ on the printer path
-  (`carriage_control`); ▲ under the FORTRAN-10 *terminal* model consecutive single spaces are
-  not doubled (a documented device-model nuance).
+  lines / new page / no advance; the control character is not printed. — ✓ The standard makes
+  *which devices print* a **processor choice** ("certain devices determined by the processor");
+  forterp makes that choice **per dialect** for standard output (unit 6): **F77 → terminal** (the
+  first character is ordinary data, no carriage control — matching gfortran, which does no
+  carriage control in any mode), **F66 / FORTRAN-10 → line printer** (the first character is
+  consumed as ASA carriage control — the classic DEC behavior). When a device *does* print,
+  forterp applies the §12.9.5.2.3 table exactly. The `carriage_control` engine flag overrides the
+  dialect default ("unless otherwise told"); the FCVS golden run forces it off to byte-match
+  gfortran's file output.
 
 ### §13 Format specification
 

@@ -635,8 +635,10 @@ type; a non-default type/length must be set before the <code>PARAMETER</code>; a
 be a primary or appear in <code>DATA</code> but not inside a <code>FORMAT</code>. — ✓</li>
 <li><strong>EXTERNAL / INTRINSIC (8.7–8.8).</strong> declare a name an external/dummy procedure, or an
 intrinsic, so it can be passed as an actual argument; an <code>EXTERNAL</code> name overrides a
-like-named intrinsic. — ✓ — ▲ forterp does not <em>require</em> <code>EXTERNAL</code> merely to pass a
-procedure (lenient).</li>
+like-named intrinsic. — ✓ <code>EXTERNAL</code> <strong>is</strong> required to pass a procedure as an actual argument
+(§8.7): a bare undeclared name is taken as a variable, so the program fails when the dummy is
+called (at the call site, where gfortran rejects it at compile time). Both reach the same
+conforming outcome.</li>
 <li><strong>SAVE (8.9).</strong> retains a local's value across <code>RETURN</code>/<code>END</code>; <code>/cb/</code> saves a whole common
 block; listless <code>SAVE</code> saves everything; a no-op in a main program. — ✓ (verified a saved
 counter persists across calls).</li>
@@ -704,9 +706,15 @@ UNKNOWN)/<code>ACCESS</code>(SEQUENTIAL/DIRECT)/<code>FORM</code>(FORMATTED/UNFO
 <code>SEQUENTIAL</code>/<code>DIRECT</code>/<code>FORM</code>/<code>FORMATTED</code>/<code>UNFORMATTED</code>/<code>RECL</code>/<code>NEXTREC</code>/<code>BLANK</code>. — ✓</li>
 <li><strong>File positioning (12.10.4).</strong> <code>BACKSPACE</code> / <code>ENDFILE</code> / <code>REWIND</code> (sequential units). — ✓</li>
 <li><strong>Carriage control on printing (12.9.5.2.3).</strong> leading <code>blank</code>/<code>0</code>/<code>1</code>/<code>+</code> ⇒ one line / two
-lines / new page / no advance; the control character is not printed. — ✓ on the printer path
-(<code>carriage_control</code>); ▲ under the FORTRAN-10 <em>terminal</em> model consecutive single spaces are
-not doubled (a documented device-model nuance).</li>
+lines / new page / no advance; the control character is not printed. — ✓ The standard makes
+<em>which devices print</em> a <strong>processor choice</strong> (&quot;certain devices determined by the processor&quot;);
+forterp makes that choice <strong>per dialect</strong> for standard output (unit 6): <strong>F77 → terminal</strong> (the
+first character is ordinary data, no carriage control — matching gfortran, which does no
+carriage control in any mode), <strong>F66 / FORTRAN-10 → line printer</strong> (the first character is
+consumed as ASA carriage control — the classic DEC behavior). When a device <em>does</em> print,
+forterp applies the §12.9.5.2.3 table exactly. The <code>carriage_control</code> engine flag overrides the
+dialect default (&quot;unless otherwise told&quot;); the FCVS golden run forces it off to byte-match
+gfortran's file output.</li>
 </ul>
 <h3 id="13-format-specification">§13 Format specification</h3>
 <ul>

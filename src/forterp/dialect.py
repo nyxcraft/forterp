@@ -82,6 +82,14 @@ class Dialect:
     # (F66's stricter 3-dimension limit is left lenient -- an accept-more for the base dialect.)
     unlimited_rank: bool = False
 
+    # carriage_control: the default device model for standard output (unit 6). True = line printer
+    # (the first character of a formatted record is ASA carriage control, consumed -- the classic
+    # FORTRAN-10 behavior); False = terminal/file (the first character is ordinary data, like
+    # gfortran). §12.9.5.2.3 makes "which devices print" a processor choice, so each dialect picks:
+    # F66/FORTRAN-10 = line printer (faithful to the era/DEC), F77 = terminal (modern, gfortran-
+    # aligned). Overridable: an explicit carriage_control= to the engine wins over this default.
+    carriage_control: bool = True
+
     # bounds_check: when ON, an array subscript outside its declared bounds (§5.4) is a hard error
     # (the gfortran -fcheck=bounds analog). OFF by default, preserving the faithful unchecked model
     # where deliberate over-/under-indexing traverses the COMMON/EQUIVALENCE storage sequence. A
@@ -140,6 +148,7 @@ F77 = Dialect(
     zero_trip_do=True,  # F77 §11.10 zero-trip DO loops
     blank_null=True,  # F77 §13.5.7: a width'd numeric field's blanks default to NULL (ignored)
     strict_stmt_order=True,  # F77 §3.5: specs must precede executables (hard error; FCVS-clean)
+    carriage_control=False,  # standard output is a terminal (first char is data), like gfortran
 )
 
 # CLI / front-end name -> dialect, so every caller resolves the same names in one place.

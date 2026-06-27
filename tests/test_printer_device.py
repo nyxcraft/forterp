@@ -72,3 +72,30 @@ def test_unopened_unit5_formatted_read():
     )
     eng = run(src, inputs=["  5 42"])
     assert (out(eng, 1), out(eng, 2)) == (5, 42)
+
+
+def test_carriage_control_default_follows_the_dialect():
+    # §12.9.5.2.3 makes "which devices print" a processor choice; forterp makes it per-dialect.
+    # F77 standard output is a TERMINAL (first char is data, no carriage control -- matches
+    # gfortran); F66/FORTRAN-10 standard output is the LINE PRINTER (first char consumed as ASA
+    # carriage control). Same program, dialect-dependent default.
+    import forterp
+
+    src = "      PROGRAM T\n      WRITE(6,10) 7\n10    FORMAT(I3)\n      END\n"
+
+    def out6(dialect):
+        return "".join(forterp.run_source(src, dialect=dialect, target=forterp.NATIVE).out)
+
+    assert out6(forterp.F77) == "  7\n"  # terminal: I3 of 7 = '  7', first char NOT consumed
+    assert out6(forterp.FORTRAN10) == " 7\n"  # printer: leading blank consumed as carriage control
+    assert out6(forterp.F66) == " 7\n"  # printer (classic era), same as FORTRAN-10
+
+
+def test_explicit_carriage_control_overrides_the_dialect_default():
+    # "unless otherwise told": an explicit carriage_control= wins over the dialect's default.
+    import forterp
+
+    src = "      PROGRAM T\n      WRITE(6,10) 7\n10    FORMAT(I3)\n      END\n"
+    # force the printer model under F77 (which would otherwise be terminal)
+    eng = forterp.run_source(src, dialect=forterp.F77, target=forterp.NATIVE, carriage_control=True)
+    assert "".join(eng.out) == " 7\n"

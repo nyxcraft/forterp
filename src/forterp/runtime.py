@@ -58,6 +58,7 @@ def engine_kwargs(dialect):
         "blank_null": dialect.blank_null,
         "allow_recursion": dialect.recursion,
         "bounds_check": dialect.bounds_check,
+        "carriage_control": dialect.carriage_control,
     }
 
 
