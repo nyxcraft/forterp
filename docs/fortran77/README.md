@@ -58,3 +58,4 @@ to *select and run* the F77 dialect, see the [Python API guide](../API.md) and [
 - B. [Edit-descriptor quick reference](B-edit-descriptors.md)
 - C. [Operator precedence & the collating sequence](C-precedence-ascii.md)
 - D. [forterp extensions & strict gates](D-forterp-extensions.md)
+- E. [Differences from FORTRAN 66](E-differences-f66.md)

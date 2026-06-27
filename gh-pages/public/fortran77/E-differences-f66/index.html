@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Appendix E. Differences from FORTRAN 66 | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">Appendix E. Differences from FORTRAN 66</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#the-headline-change-the-zero-trip-do">The headline change: the zero-trip `DO`</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#conflicts-catalogued-by-the-standard">Conflicts catalogued by the standard</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#source-form">Source form</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#arrays-and-storage">Arrays and storage</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#hollerith-and-text">Hollerith and text</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#control-flow">Control flow</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#input-output">Input / output</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#formatted-output">Formatted output</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#procedures-and-intrinsics">Procedures and intrinsics</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#items-that-inhibit-portability-appendix-a3">Items that inhibit portability *(Appendix A3)*</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#see-also">See also</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>Appendix E. Differences from FORTRAN 66</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">Appendix E. Differences from FORTRAN 66</p>
+        </header>
+        <div class="prose">
+<p>FORTRAN 77 is mostly a superset of FORTRAN 66, but not entirely: a number of changes mean a program
+that conformed to the 1966 standard can behave <strong>differently</strong> — or stop being valid — under the
+1978 standard. The standard itself catalogues these in its <em>Criteria, Conflicts, and Portability</em>
+appendix <em>(X3.9-1978 Appendix A)</em>; this chapter restates that list in plain terms and, because
+forterp implements <strong>both</strong> dialects, notes what forterp does with each.</p>
+<p>This is the bridge between the two manuals. If you maintain old code, read it alongside the
+<a href="../../reference/index.html">FORTRAN 66 reference manual</a> — the same source can run under both <code>F66</code> and
+<code>F77</code>, and what follows is exactly what changes when you switch.</p>
+<blockquote>
+<p>Throughout, <strong>forterp</strong> notes use: <em>enforced</em> = forterp applies the F77 rule on the <code>F77</code> dialect;
+<em>gated</em> = the behavior differs by dialect (or a knob); <em>lenient</em> = forterp still accepts the old
+form even though strict F77 forbids it (an accept-more extension that cannot break a conforming
+program).</p>
+</blockquote>
+<h2 id="the-headline-change-the-zero-trip-do">The headline change: the zero-trip <code>DO</code></h2>
+<p>The single most consequential difference. In FORTRAN 66 a <code>DO</code> loop is <strong>one-trip</strong> — its range
+always runs at least once. In FORTRAN 77 the iteration count is computed up front as
+<code>MAX(INT((m2 - m1 + m3) / m3), 0)</code>, so a loop whose limit is already passed runs <strong>zero</strong> times
+<em>(§11.10.4)</em>.</p>
+<pre><code class="language-fortran">      K = 0
+      DO 1 I = 1, 0
+      K = K + 1
+1     CONTINUE
+C     -&gt; F77: K = 0 (loop skipped).  F66: K = 1 (one trip).
+</code></pre>
+<p><strong>forterp: gated.</strong> Under <code>F77</code> the loop is zero-trip; under <code>F66</code>/<code>FORTRAN10</code> it is one-trip. The
+<code>zero_trip_do</code> dialect knob flips either default. This genuinely changes results, so always know
+which dialect you are running.</p>
+<h2 id="conflicts-catalogued-by-the-standard">Conflicts catalogued by the standard</h2>
+<p>The 1978 standard lists these as known conflicts with 1966 <em>(Appendix A)</em>. Grouped by area:</p>
+<h3 id="source-form">Source form</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Change in FORTRAN 77</th>
+<th>forterp</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>An all-blank line (cols 1–72) is a <strong>comment</strong>; in F66 it could be the initial line of a statement.</td>
+<td>enforced</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Columns 1–5 of a <strong>continuation</strong> line must be blank.</td>
+<td>enforced</td>
+</tr>
+<tr>
+<td>8</td>
+<td>A labeled <code>END</code> is disallowed (it could clash with an F66 initial line).</td>
+<td>enforced</td>
+</tr>
+</tbody>
+</table>
+<h3 id="arrays-and-storage">Arrays and storage</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Change in FORTRAN 77</th>
+<th>forterp</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>4</td>
+<td>Each subscript must be <strong>within its declared bound</strong> — <code>A(11,1)</code> is invalid for <code>A(10,5)</code>. F66 allowed it if the <em>total</em> offset stayed within the array.</td>
+<td>lenient by default (out-of-bounds read → <code>0</code>); <code>bounds_check</code> makes it a trap</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Only an array <strong>declared</strong> one-dimensional may use a one-dimensional subscript in <code>EQUIVALENCE</code>.</td>
+<td>enforced</td>
+</tr>
+<tr>
+<td>6</td>
+<td>A name may not be given an explicit type <strong>more than once</strong>.</td>
+<td>enforced</td>
+</tr>
+<tr>
+<td>24</td>
+<td>An executable program may contain at most <strong>one unnamed</strong> <code>BLOCK DATA</code>.</td>
+<td>enforced (the <code>BDU</code> diagnostic)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="hollerith-and-text">Hollerith and text</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Change in FORTRAN 77</th>
+<th>forterp</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>3</td>
+<td><strong>Hollerith constants and Hollerith data are removed.</strong> F66 allowed <code>nH</code> constants in <code>DATA</code>/<code>CALL</code>, non-character list items with <code>A</code> editing, and non-character arrays as formats. (The <code>H</code> <em>edit descriptor</em> survives — it is not a Hollerith constant.)</td>
+<td>lenient — forterp still accepts Hollerith under <code>F77</code>; use <code>CHARACTER</code> for new code</td>
+</tr>
+<tr>
+<td>14</td>
+<td>Reading <strong>into</strong> an <code>H</code> edit descriptor is prohibited.</td>
+<td>enforced</td>
+</tr>
+</tbody>
+</table>
+<h3 id="control-flow">Control flow</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Change in FORTRAN 77</th>
+<th>forterp</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>7</td>
+<td>The <strong>extended range</strong> of a <code>DO</code> is gone: you may not transfer <em>into</em> a loop's range from outside.</td>
+<td>follows F77</td>
+</tr>
+</tbody>
+</table>
+<h3 id="input-output">Input / output</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Change in FORTRAN 77</th>
+<th>forterp</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>9</td>
+<td>No record may be written <strong>after an endfile</strong> record in a sequential file.</td>
+<td>follows F77</td>
+</tr>
+<tr>
+<td>10</td>
+<td>A sequential file may not mix <strong>formatted and unformatted</strong> records.</td>
+<td>follows F77</td>
+</tr>
+<tr>
+<td>11</td>
+<td><strong>Negative</strong> unit identifiers are prohibited.</td>
+<td>follows F77</td>
+</tr>
+<tr>
+<td>12</td>
+<td>Parentheses around more than one I/O-list item must mark an <strong>implied <code>DO</code></strong> (redundant parens are removed).</td>
+<td>follows F77</td>
+</tr>
+<tr>
+<td>13</td>
+<td>An entity associated with an input-list item is <strong>defined at the same time</strong> as the list item (F66 delayed it to end-of-statement).</td>
+<td>follows F77</td>
+</tr>
+</tbody>
+</table>
+<h3 id="formatted-output">Formatted output</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Change in FORTRAN 77</th>
+<th>forterp</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>15</td>
+<td>The scale factor for <code>E</code>/<code>D</code>/<code>G</code> output is restricted to reasonable values.</td>
+<td>follows F77</td>
+</tr>
+<tr>
+<td>16</td>
+<td>A numeric output field must not be a <strong>negative zero</strong> (F66 required it for negative internal values).</td>
+<td>follows F77</td>
+</tr>
+<tr>
+<td>17–18</td>
+<td><code>I</code> and <code>F</code> output must not produce <strong>unnecessary leading zeros</strong>.</td>
+<td>follows F77</td>
+</tr>
+<tr>
+<td>19</td>
+<td>A <code>+</code> or <code>-</code> is <strong>required</strong> before the exponent in <code>E</code>/<code>D</code> output (F66 allowed a blank for <code>+</code>).</td>
+<td>follows F77</td>
+</tr>
+</tbody>
+</table>
+<h3 id="procedures-and-intrinsics">Procedures and intrinsics</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Change in FORTRAN 77</th>
+<th>forterp</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>20</td>
+<td>An intrinsic used as an <strong>actual argument</strong> must appear in an <code>INTRINSIC</code> statement, not <code>EXTERNAL</code>. (The F77 intrinsic class absorbs F66's &quot;basic external functions&quot;.)</td>
+<td>follows F77</td>
+</tr>
+<tr>
+<td>21</td>
+<td>A conflicting type-statement no longer removes a name from the <strong>intrinsic class</strong>.</td>
+<td>follows F77</td>
+</tr>
+<tr>
+<td>22</td>
+<td><strong>29 new intrinsic names</strong> were added and may clash with your subprogram names: <code>ACOS</code>, <code>ANINT</code>, <code>ASIN</code>, <code>CHAR</code>, <code>COSH</code>, <code>ICHAR</code>, <code>INDEX</code>, <code>LEN</code>, <code>LGE</code>/<code>LGT</code>/<code>LLE</code>/<code>LLT</code>, <code>LOG</code>, <code>LOG10</code>, <code>MAX</code>, <code>MIN</code>, <code>NINT</code>, <code>SINH</code>, <code>TAN</code>, and the <code>D…</code> variants.</td>
+<td>provided</td>
+</tr>
+<tr>
+<td>23</td>
+<td>The <strong>argument/result types and ranges</strong> of the intrinsics are now specified (they were not in F66).</td>
+<td>follows F77</td>
+</tr>
+</tbody>
+</table>
+<h2 id="items-that-inhibit-portability-appendix-a3">Items that inhibit portability <em>(Appendix A3)</em></h2>
+<p>Even within FORTRAN 77, the standard flags things that vary between processors:</p>
+<ul>
+<li><strong>Collating sequence is not fully specified</strong>, so character relational expressions can differ
+between processors. Use the <code>LGE</code>, <code>LGT</code>, <code>LLE</code>, <code>LLT</code> intrinsics for portable character
+comparison.</li>
+<li><strong>Character data, <code>H</code>/apostrophe edit descriptors, and comment lines</strong> may contain characters one
+processor accepts and another rejects.</li>
+<li><strong>File names, unit numbers, and unit capabilities</strong> are processor-dependent.</li>
+</ul>
+<p>On forterp these resolve to the <a href="../D-forterp-extensions/index.html">target</a>: the <code>NATIVE</code> and <code>PDP10</code> value
+models differ in word size and character packing, which is where character comparisons and any
+Hollerith arithmetic can diverge.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li>The <a href="../../reference/index.html">FORTRAN 66 reference manual</a> — the older dialect in full.</li>
+<li><a href="../D-forterp-extensions/index.html">Appendix D</a> — forterp's own extensions, divergences, and dialect knobs.</li>
+</ul>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

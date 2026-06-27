@@ -105,5 +105,9 @@ the F77 knob table):
 | `unlimited_rank` | lift the array-rank cap (forterp already allows 7 vs the standard's 3) |
 | `carriage_control` | treat the output unit as a printer (carriage control) vs a terminal |
 
+For a side-by-side of how the *next* standard changed the language — the one-trip vs zero-trip `DO`,
+the removal of Hollerith constants, tighter subscript and I/O rules — see
+[Differences from FORTRAN 66](../fortran77/E-differences-f66.md) in the FORTRAN 77 manual.
+
 For anything not covered here, **ANSI X3.9-1966** is authoritative for the base language and the
 **DECsystem-10 FORTRAN-10 Language Manual (V5)** for the extensions.
