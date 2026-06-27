@@ -12,7 +12,7 @@ Every feature is shown with a small, runnable example and its result.
 It is self-contained: you do not need to know any other FORTRAN to use it. It runs on
 [`forterp`](../../README.md); each chapter ends with a **forterp notes** box describing anything
 specific to how forterp implements that part of the language (and which knobs change it). For how
-to *select and run* a dialect, see the [Python API guide](../API.md) and [CLI.md](../CLI.md).
+to *select and run* a dialect, see the [Python API guide](../forterp/04-running-embedding.md) and [Command-line tools](../forterp/02-cli.md).
 
 > **FORTRAN 66 or FORTRAN 77?** F66 is the older, smaller language. If you are writing new code
 > and want the `CHARACTER` type, the block `IF … THEN … ELSE … END IF`, list-directed I/O, and

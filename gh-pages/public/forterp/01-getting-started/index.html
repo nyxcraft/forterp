@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Getting started | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">Getting started</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#the-public-surface">The public surface</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#run-and-inspect">Run and inspect</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>Getting started</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">Getting started</p>
+        </header>
+        <div class="prose">
+<p><code>forterp</code> is usable as a library: parse and run FORTRAN from Python, inspect the result,
+swap the value model or dialect, embed the engine in a host program, or instrument it. The
+package root exposes a focused surface; deeper machinery lives in explicit namespaces.</p>
+<h2 id="the-public-surface">The public surface</h2>
+<p><code>import forterp</code> gives exactly these names (everything else is in a namespace, below):</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>run_source(text, …)</code></td>
+<td>parse + run a source string; returns the <code>Engine</code></td>
+</tr>
+<tr>
+<td><code>parse_source(text, …)</code></td>
+<td>parse → <code>{name: ProgramUnit}</code> (raises <code>ParseError</code>)</td>
+</tr>
+<tr>
+<td><code>f66</code>, <code>fortran10</code>, <code>f77</code></td>
+<td>prebuilt, ready-to-run interpreters</td>
+</tr>
+<tr>
+<td><code>Interpreter</code></td>
+<td>roll your own (target + dialect + runtime)</td>
+</tr>
+<tr>
+<td><code>F66</code>, <code>FORTRAN10</code>, <code>F77</code>, <code>Dialect</code></td>
+<td>the front-end dialect axis</td>
+</tr>
+<tr>
+<td><code>NATIVE</code>, <code>PDP10</code>, <code>LP64LE</code>, <code>VAX</code>, <code>Target</code></td>
+<td>the machine value-model axis</td>
+</tr>
+<tr>
+<td><code>ParseError</code>, <code>SourceOptions</code></td>
+<td>the parse error; source-recovery options</td>
+</tr>
+</tbody>
+</table>
+<h2 id="run-and-inspect">Run and inspect</h2>
+<p><code>run_source</code> returns the <code>Engine</code>, so you read results out of it after the run. By
+convention, programs write results into a <code>COMMON</code> block, which the engine exposes as a flat
+list of words:</p>
+<pre><code class="language-python">import forterp
+
+src = &quot;&quot;&quot;      PROGRAM T
+      COMMON /OUT/ V(40)
+      V(1) = 2 ** 10
+      END
+&quot;&quot;&quot;
+eng = forterp.run_source(src, dialect=forterp.FORTRAN10)
+print(eng.commons[&quot;OUT&quot;][0])        # 1024
+</code></pre>
+<p><code>run_source(text, program=None, dialect=F66, options=None, include_dir=&quot;.&quot;, **kwargs)</code>:
+<code>program</code> picks the main unit (default: the first); <code>dialect</code> is <code>F66</code> (default),
+<code>FORTRAN10</code>, or <code>F77</code>; <code>include_dir</code> is where <code>INCLUDE</code> resolves; extra <code>**kwargs</code> pass through to the
+<code>Engine</code> (see <a href="../04-running-embedding/index.html#embedding-and-io">Embedding</a>).</p>
+<p><code>parse_source(text, dialect=F66, on_error=None, options=None, include_dir=&quot;.&quot;)</code> parses
+without running and returns <code>{name: ProgramUnit}</code>. It raises <code>ParseError</code> (with every
+diagnostic in the message) unless you pass <code>on_error(statement, message)</code>, which receives
+each diagnostic and keeps the partial result.</p>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

@@ -54,4 +54,4 @@ them.
 > **forterp notes.** forterp finds the main program structurally — the unit that is not a
 > `FUNCTION`, `SUBROUTINE`, or `BLOCK DATA` — so a leading `PROGRAM` statement is optional. It
 > begins execution at that unit's first executable statement, exactly as §9.2 prescribes, and the
-> units of a multi-file program are linked first (see [CLI.md](../CLI.md)).
+> units of a multi-file program are linked first (see [Command-line tools](../forterp/02-cli.md)).

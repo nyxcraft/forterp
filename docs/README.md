@@ -1,13 +1,13 @@
 # forterp documentation
 
-- **[DESIGN.md](DESIGN.md)** — the interpreter's architecture: the pipeline (source →
-  lexer → parser → engine), the machine value model, memory/control models, and the four
-  seams that make it standalone. For someone modifying forterp.
-- **[CLI.md](CLI.md)** — the command-line tools (`forterp` / `pyf66` / `pyfortran10`):
-  options, exit codes, multi-file linking, and the interactive command processor.
-- **[API.md](API.md)** — the programmer's reference for the `forterp.*` Python API:
-  running and parsing, the prebuilt interpreters, the target/dialect axes, embedding the
-  engine, the expert namespaces, custom host builtins, and the OOB census.
+- **[The forterp manual](forterp/README.md)** — the guide to the interpreter itself, as a
+  chaptered manual: running it ([command-line tools](forterp/02-cli.md), the
+  [interactive processor](forterp/03-interactive.md)), driving it from Python
+  ([running & embedding](forterp/04-running-embedding.md), the
+  [target/dialect axes](forterp/05-targets-dialects.md), [host routines](forterp/06-host-routines.md)),
+  and how it works inside ([architecture](forterp/08-architecture.md), the
+  [memory model](forterp/09-memory-model.md) and type punning, [seams](forterp/11-seams-intrinsics.md),
+  [testing](forterp/13-testing.md)).
 - **[FORTRAN 66 reference manual](fortran66/README.md)** — the complete FORTRAN 66 language
   (USA Standard X3.9-1966) plus the DEC FORTRAN-10 extensions, example-driven and organized on
   the standard: program form, data types, expressions, statements, procedures, and the intrinsic
@@ -16,7 +16,7 @@
   (ANSI X3.9-1978), example-driven and organized on the standard: data types, arrays,
   expressions, control flow, I/O and `FORMAT`, procedures, and the intrinsic library, with a
   *forterp notes* box per chapter. This is the `forterp.F77` dialect (`--std f77`); see
-  [API.md](API.md#the-two-axes-target-and-dialect) to select it and for the dialect knobs.
+  [the forterp manual](forterp/05-targets-dialects.md#the-two-axes-target-and-dialect) to select it and for the dialect knobs.
 - **[CHANGELOG.md](../CHANGELOG.md)** — dated history of the standalone interpreter.
 
 Runnable material lives outside `docs/`:
@@ -56,7 +56,7 @@ with zero failures. gfortran golden outputs under `tests/fcvs_golden/` independe
 print-only routines (no gfortran needed at test time): with the canonical decks gfortran runs the
 whole corpus and forterp byte-matches 191 of 192 — the lone exception (FM111) is a documented
 gfortran outlier where forterp matches the routine's own CORRECT line. Run `pytest` to execute
-them; see [DESIGN.md §9 (Testing)](DESIGN.md#9-testing) for the full breakdown.
+them; see [the forterp manual §13 (Testing)](forterp/13-testing.md) for the full breakdown.
 
 ## Security & trust model
 

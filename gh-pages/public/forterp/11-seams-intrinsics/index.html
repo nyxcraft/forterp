@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Seams &amp; intrinsics | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">Seams &amp; intrinsics</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#the-four-seams-why-forterp-is-standalone-and-composable">The four seams (why forterp is standalone and composable)</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#intrinsics-vs-library-builtins">Intrinsics vs. library builtins</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#host-routine-marshalling-hostlib-the-decorator-pattern">Host-routine marshalling (`hostlib`) — the decorator pattern</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>Seams &amp; intrinsics</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">Seams &amp; intrinsics</p>
+        </header>
+        <div class="prose">
+<h2 id="the-four-seams-why-forterp-is-standalone-and-composable">The four seams (why forterp is standalone and composable)</h2>
+<p>The whole point of the package breakup was to push the PDP-10/DEC/host specifics out of
+the core through explicit seams, so <code>forterp</code> imports <strong>no</strong> sibling package and can be
+retargeted:</p>
+<table>
+<thead>
+<tr>
+<th>Seam</th>
+<th>Mechanism</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Machine value model</strong></td>
+<td><code>Engine(target=…)</code>, a <code>Target</code> object; the engine routes its wrap / pack / truthy / logical sites through <code>self.tgt</code></td>
+<td><code>NATIVE</code> (64-bit, 8-bit ASCII, boolean logicals) default; <code>PDP10</code> (36-bit, 5×7-bit, <code>.TRUE.</code>=−1, bit-wise) for PDP-10 fidelity</td>
+</tr>
+<tr>
+<td><strong>Front-end dialect</strong></td>
+<td><code>Dialect</code> threaded through <code>scan_file</code>/<code>tokenize</code>/<code>parse_units</code> (and <code>free_form_input</code> to the engine)</td>
+<td><code>F66</code> (default, ANSI) vs <code>FORTRAN10</code> (DEC superset)</td>
+</tr>
+<tr>
+<td><strong>OPEN devices</strong></td>
+<td><code>eng.register_device(name, fn)</code>; the core knows only TTY + ordinary files</td>
+<td>empty (games register e.g. <code>GAM:</code>)</td>
+</tr>
+<tr>
+<td><strong>Unformatted-I/O codec</strong></td>
+<td><code>eng.binio</code>, installed by <code>install_runtime</code>; engine calls <code>self._binio()</code> (clear error if absent)</td>
+<td><code>forterp.forbin</code> (FOROTS records + DEC-10 float)</td>
+</tr>
+</tbody>
+</table>
+<p>Beyond those four, the core takes <strong>environment services</strong> as injected callables rather
+than reaching for the OS: <code>emit</code> (terminal out), <code>readline</code> / <code>getch</code> (terminal in),
+<code>printer</code> (LPT spool), <code>now</code> (clock), and a seeded <code>rng</code>. Determinism is therefore an
+<em>input</em> (fixed clock + seeded RNG by default), which is what makes the test suite stable.</p>
+<p><strong>Composition.</strong> <code>install_runtime(eng)</code> wires the DEC FORTRAN-10 runtime onto a bare core:
+it registers <code>STDLIB</code> (the library subroutines in <code>forlib.py</code>) and sets <code>eng.binio</code>.
+<code>make_engine</code> / <code>run_source</code> in <code>__init__.py</code> do core + runtime in one call.</p>
+<hr />
+<h2 id="intrinsics-vs-library-builtins">Intrinsics vs. library builtins</h2>
+<p>Two distinct tables:</p>
+<ul>
+<li><strong><code>INTRINSICS</code></strong> (in <code>engine.py</code>) — the FORTRAN intrinsic <em>functions</em> (<code>INT</code>, <code>SQRT</code>,
+<code>MOD</code>, <code>ABS</code>, <code>IAND</code>/<code>LSH</code>, the <code>C*</code> complex ops, …), evaluated inline via
+<code>_apply_intrinsic</code>. These are pure value→value lambdas.</li>
+<li><strong><code>STDLIB</code></strong> (in <code>forlib.py</code>) — the library <em>subroutines</em> (<code>TIME</code>, <code>DATE</code>, <code>EXIT</code>,
+<code>ERRSNS</code>/<code>ERRSET</code>, <code>RAN</code>/<code>SETRAN</code>, sense-light ops, …), registered via
+<code>register_builtins</code>. These take <code>(eng, frame, arg_nodes)</code> so they can touch engine state
+and write back through references.</li>
+</ul>
+<blockquote>
+<p><strong>Target-awareness (done):</strong> the integer-valued intrinsics follow the engine's <code>Target</code>
+— <code>_apply_intrinsic</code> re-applies <code>self.tgt.wrap</code> to <code>INT</code>/<code>IFIX</code>/<code>IDINT</code>/<code>NINT</code> results,
+and <code>_lsh</code> takes the target (shift width from <code>tgt.mask</code>). The math/<code>C*</code> intrinsics are
+pure value→value and target-neutral. The whole value model — integer wrap, the logical
+algebra, the character codec, the <code>O</code>-descriptor width, and Hollerith <code>PARAMETER</code>
+constants (packed at use via <code>Engine._const_value</code>, not at parse time) — now routes
+through the <code>Target</code>; there are no known PDP-10 pins left in the core.</p>
+</blockquote>
+<h3 id="host-routine-marshalling-hostlib-the-decorator-pattern">Host-routine marshalling (<code>hostlib</code>) — the decorator pattern</h3>
+<p><code>INTRINSICS</code> and <code>STDLIB</code> are forterp's <em>own</em> routines. A third category is the routines the
+<strong>host</strong> supplies: the geometry/bit-packing/pathfinding helpers and &quot;system calls&quot; the
+programs of this era kept in hand-written assembly and <code>CALL</code>ed. <code>forterp.hostlib</code> is the
+authoring layer for those. The user-facing how-to is in the <a href="../06-host-routines/index.html">host routines</a>; this section is
+how it is <em>built</em>, because the mechanism — a decorator that rewrites a function's calling
+convention from a tuple of declared modes — is a small worked example of a few Python features
+worth naming.</p>
+<p><strong>The pieces of the mechanism:</strong></p>
+<ul>
+<li><strong>A decorator</strong> is just a function that takes a function and returns a replacement.
+<code>@fcall(&quot;IDIST&quot;, args=(INT, INT))</code> is the call <code>fcall(&quot;IDIST&quot;, args=(INT, INT))</code>
+returning the real decorator <code>deco</code>, which is then applied to the body: <code>idist = deco(idist)</code>.
+So <code>deco</code> gets the clean body and returns the uniform <code>fn(eng, frame, arg_nodes)</code> callable
+the engine actually dispatches.</li>
+<li><strong>The modes are values, not type annotations.</strong> <code>IN</code>/<code>INT</code>/<code>OUT</code>/<code>ARRAY</code>/… are <em>instances</em>
+of small <code>Mode</code> classes, passed in the <code>args=</code> tuple. Each has one method, <code>bind(eng, frame, node) -&gt; value-or-handle</code>, that turns one actual-argument AST node into what the body should
+receive — <code>INT</code> does <code>int(eng.eval(node, frame))</code>, <code>OUT</code> wraps <code>eng.arg_ref(node, frame)</code> in
+an <code>OutRef</code>. New host-specific modes are new <code>Mode</code> subclasses (<code>STR</code> is one — it knows the
+target's char codec). This is deliberately <em>not</em> Python's <code>def f(a: int)</code> annotation syntax:
+a mode carries behavior (the bind step), and one parameter can need a handle rather than a
+value, which a type annotation can't express.</li>
+<li><strong>The generated wrapper</strong> closes over the mode tuple and the body. On each call it binds
+every actual through its mode and splats the results into the body
+(<code>fn(*bound)</code>); <code>raw=True</code> skips all of this and returns the body unchanged (it <em>is</em> already
+the uniform callable). The body's return value propagates — used by the function-reference
+dispatch path, ignored by <code>CALL</code> — which is why one decorator serves both functions and
+subroutines.</li>
+<li><strong>Attributes on a function.</strong> Functions are objects, so the wrapper carries its metadata as
+plain attributes: <code>builtin_name</code>, <code>builtin_aliases</code>, <code>builtin_origin</code>, and <code>fcall_fn</code> (the
+original documented body, kept reachable for introspection). <code>builtins_in(module)</code> discovers
+routines by reading <code>builtin_name</code> off every module global — no registration list to keep in
+sync, which is what lets a <code>.py</code> file drop in beside FORTRAN source.</li>
+</ul>
+<p><code>@fcall</code> is literally <code>fcall = builtin</code> (an alias chosen to read right next to PDP-10 source).
+<code>@uuo</code> is the same shape with one addition: its wrapper injects <code>monitor(eng)</code> as the
+body's first argument before the marshalled actuals (or before <code>(eng, frame, arg_nodes)</code> when
+<code>raw=True</code>). That facade is the one piece of <em>state</em> the layer owns — see §6's environment
+seams; it reads <code>eng.emit</code>/<code>eng.clock</code>/<code>eng.root</code> and nothing OS-level, and an embedder can
+inject a richer subclass via <code>eng.monitor</code>.</p>
+<p>The whole module is ~120 lines of marshalling and ~80 of facade. The payoff is that a host
+body is the logic and nothing else, and the messy minority that needs the AST stays in the
+<em>same</em> registry behind <code>raw=True</code> rather than forking a second, lower-level convention.</p>
+<hr />
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

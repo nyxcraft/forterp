@@ -107,8 +107,8 @@ forterp.run_source(src, dialect=forterp.F77, printer=print)
 ```
 
 or from the command line, `forterp --std f77 prog.for`. See the
-[Python API guide](../API.md#the-two-axes-target-and-dialect) for the dialect switches, targets,
-and tunable knobs, and [CLI.md](../CLI.md) for the command line.
+[Python API guide](../forterp/05-targets-dialects.md#the-two-axes-target-and-dialect) for the dialect switches, targets,
+and tunable knobs, and [Command-line tools](../forterp/02-cli.md) for the command line.
 
 ---
 

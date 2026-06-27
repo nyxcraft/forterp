@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The interactive processor | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">The interactive processor</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#interactive-command-processor">Interactive command processor</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#debugging">Debugging</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#immediate-a-repl">`IMMEDIATE` (a REPL)</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>The interactive processor</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">The interactive processor</p>
+        </header>
+        <div class="prose">
+<h2 id="interactive-command-processor">Interactive command processor</h2>
+<p>Launched with <strong>no file</strong>, each command drops into an interactive command processor — a small,
+FORTRAN-focused descendant of the TOPS-10 <code>.</code> prompt. It works on whole source files (F66
+has no incremental-execution model), except for <code>IMMEDIATE</code> mode. The command set is the
+same for all three commands; only the starting dialect differs, and <code>SET STD</code> flips it.</p>
+<pre><code class="language-text">f66&gt; RUN prog.for             # compile + run a file        (alias EXECUTE)
+f66&gt; CHECK prog.for           # parse + list diagnostics, no run  (alias COMPILE)
+f66&gt; LOAD prog.for            # parse a file into the session
+f10&gt; START                    # run the loaded program; RESET drops it
+f10&gt; SET STD fortran10        # switch dialect / TARGET / PROGRAM between runs
+f10&gt; SET TARGET pdp10
+f10&gt; SHOW /OUT/               # inspect a COMMON block after a run; SHOW = settings
+f10&gt; !ls                      # run a host shell command
+f10&gt; @script.mon              # run commands from a file
+f10&gt; HELP                     # the command list
+f10&gt; EXIT                     # quit                          (alias QUIT)
+</code></pre>
+<h3 id="debugging">Debugging</h3>
+<p>The command processor carries a per-statement debugger/profiler (off by default — a plain <code>RUN</code>
+pays nothing):</p>
+<pre><code class="language-text">f66&gt; BREAK 7                  # breakpoint at line 7 (no arg = list); UNBREAK to remove
+f66&gt; STEP                     # the next RUN stops at the first statement
+f66&gt; RUN prog.for             # at a (dbg) prompt: step / next / cont, where, p &lt;expr&gt;
+f66&gt; TRACE on                 # echo each statement as it runs
+f66&gt; PROFILE on               # per-line execution counts; PROFILE (no arg) shows the report
+f66&gt; COVERAGE                 # which lines the last run reached
+</code></pre>
+<p>At the <code>(dbg)</code> prompt, typing a name inspects it (the engine's own evaluator); a bare
+command word wins over a same-named variable, so use <code>p &lt;expr&gt;</code> / <code>=&lt;expr&gt;</code> to force
+inspection.</p>
+<h3 id="immediate-a-repl"><code>IMMEDIATE</code> (a REPL)</h3>
+<pre><code class="language-text">f66&gt; IMMEDIATE                # alias REPL — interactive FORTRAN
+*&gt; I = 6 * 7                  # statements run as you type
+*&gt; TYPE *, I                  # 42
+*&gt; 2 + 3 * 4                  # a bare expression is evaluated and printed -&gt; 14
+</code></pre>
+<p>A <code>DO</code> loop is collected across lines and run as a block; declarations accumulate in a
+persistent session. <code>COMMON</code>/<code>EQUIVALENCE</code>/<code>NAMELIST</code> are out of scope for immediate mode —
+put them in a file and <code>LOAD</code> it.</p>
+<blockquote>
+<p>The command processor's <code>!</code> shell escape and <code>@file</code> scripts run with your shell's privileges and
+are <strong>not</strong> reachable from a running FORTRAN program. Treat a command script as trusted
+input; don't wire the command processor to an untrusted source.</p>
+</blockquote>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

@@ -141,4 +141,4 @@ the *only* way to initialize labeled common *(§7.2.2)*.
 >   give a silently wrong answer; declare a procedure with the F90 `RECURSIVE` keyword (or flip the
 >   `recursion` knob globally) to permit correct recursion. See [Appendix C](C-forterp-extensions.md).
 > - An external function or subroutine may live in a **separate source file**; forterp links the
->   units of a program together (see [CLI.md](../CLI.md)).
+>   units of a program together (see [Command-line tools](../forterp/02-cli.md)).

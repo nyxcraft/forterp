@@ -68,7 +68,7 @@ a program its own way for faithfulness to real FORTRAN-10 V5.</p>
 floats; <code>PDP10</code> reproduces the genuine 36-bit DEC-10 representation.</li>
 </ul>
 <p>The two are orthogonal — you can run strict <code>F66</code> on the faithful <code>PDP10</code> target, or the DEC dialect
-on <code>NATIVE</code>. Selecting them is covered in the <a href="../../api/index.html">Python API guide</a> and <a href="../../cli/index.html">CLI.md</a>.</p>
+on <code>NATIVE</code>. Selecting them is covered in the <a href="../../forterp/04-running-embedding/index.html">Python API guide</a> and <a href="../../forterp/02-cli/index.html">Command-line tools</a>.</p>
 <h2 id="dec-fortran-10-extensions-the-fortran10-dialect">DEC FORTRAN-10 extensions (the <code>FORTRAN10</code> dialect)</h2>
 <p>Strict <code>F66</code> <strong>rejects</strong> all of the following; the <code>FORTRAN10</code> dialect accepts them. They cannot
 change the meaning of a program that stays within the standard, so they are pure additions.</p>
@@ -170,7 +170,7 @@ is whitespace-delimited on any dialect.)</p>
 dialect uses the zero-trip test. This genuinely changes results, so it is dialect-selected.</p>
 <h2 id="the-f66-dialect-knobs">The <code>F66</code> dialect knobs</h2>
 <p>Most of the above is bundled into the dialect presets, but individual behaviors can be tuned. The
-knobs most relevant to F66 (set on a <code>Dialect</code>; see the <a href="../../api/index.html">API guide</a> for the full list and
+knobs most relevant to F66 (set on a <code>Dialect</code>; see the <a href="../../forterp/04-running-embedding/index.html">API guide</a> for the full list and
 the F77 knob table):</p>
 <table>
 <thead>

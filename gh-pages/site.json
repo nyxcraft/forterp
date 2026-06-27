@@ -28,24 +28,11 @@
       "featured": true
     },
     {
-      "slug": "design",
-      "title": "Architecture & design",
-      "source": "docs/DESIGN.md",
-      "summary": "How it works inside and why: the source → lexer → parser → engine pipeline, the pluggable Target value model and Dialect axis, the memory/control models, and the seams that make it standalone.",
-      "featured": true
-    },
-    {
-      "slug": "cli",
-      "title": "Command-line tools",
-      "source": "docs/CLI.md",
-      "summary": "The forterp / pyf66 / pyfortran10 commands: options, exit codes, multi-file linking, and the interactive monitor — RUN/LOAD, the per-statement debugger/profiler, and the IMMEDIATE REPL.",
-      "featured": true
-    },
-    {
-      "slug": "api",
-      "title": "Python API guide",
-      "source": "docs/API.md",
-      "summary": "Using forterp as a library: run_source / parse_source, the prebuilt interpreters and the Interpreter class, the target and dialect axes, embedding the Engine, the expert namespaces, custom host builtins, and the OOB census.",
+      "slug": "forterp",
+      "title": "The forterp manual",
+      "source": "docs/forterp/README.md",
+      "chapters": "docs/forterp",
+      "summary": "The guide to the interpreter itself: running it (CLI + the interactive processor), driving it from Python (run_source, the Interpreter class, custom host routines), the target/dialect axes and faithful type punning, and how it works inside (the pipeline, the memory model, the seams, testing). A chaptered manual.",
       "featured": true
     },
     {

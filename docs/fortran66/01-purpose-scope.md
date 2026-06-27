@@ -68,7 +68,7 @@ carriage control are covered in [Chapter 7](07-statements.md).
 >   `NATIVE` by default (the host's 64-bit integers and floats), or `PDP10` for the faithful 36-bit
 >   DEC-10 representation.
 >
-> Selecting these is covered in the [Python API guide](../API.md) and [CLI.md](../CLI.md). The few
+> Selecting these is covered in the [Python API guide](../forterp/04-running-embedding.md) and [Command-line tools](../forterp/02-cli.md). The few
 > places where forterp deliberately interprets a program *differently* from a strict reading of
 > the standard — for faithfulness to how real FORTRAN-10 V5 behaved — are collected in
 > [Appendix C](C-forterp-extensions.md); each is also flagged in a **forterp notes** box where it

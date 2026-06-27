@@ -4,27 +4,27 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Command-line tools | forterp</title>
-  <meta name="description" content="The forterp / pyf66 / pyfortran10 commands: options, exit codes, multi-file linking, and the interactive monitor — RUN/LOAD, the per-statement debugger/profiler, and the IMMEDIATE REPL.">
-  <link rel="stylesheet" href="../assets/site.css?v=de204dc9">
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
 </head>
 <body class="site-doc">
   <a class="skip-link" href="#main-content">Skip to main content</a>
   <div class="page-shell">
     <header class="site-header site-header--compact">
-      <a class="brand" href="../index.html">
-        <img class="brand__icon" src="../assets/logo-forterp.svg" alt="" aria-hidden="true">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
         <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
       </a>
       <nav class="top-nav" aria-label="Primary">
-        <a href="../docs/index.html">Docs</a>
+        <a href="../../docs/index.html">Docs</a>
         <a href="https://github.com/nyxcraft/forterp">GitHub</a>
       </nav>
     </header>
 
     <nav class="breadcrumbs" aria-label="Breadcrumb">
-      <a href="../index.html">Home</a>
+      <a href="../../index.html">Home</a>
       <span class="breadcrumbs__sep" aria-hidden="true">›</span>
-      <a href="../docs/index.html">Docs</a>
+      <a href="../../docs/index.html">Docs</a>
       <span class="breadcrumbs__sep" aria-hidden="true">›</span>
       <span aria-current="page">Command-line tools</span>
     </nav>
@@ -38,9 +38,6 @@
 <li><a class="section-nav__link section-nav__link--l3" href="#linking-several-files">Linking several files</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#options">Options</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#exit-codes">Exit codes</a></li>
-<li><a class="section-nav__link section-nav__link--l2" href="#interactive-command-processor">Interactive command processor</a></li>
-<li><a class="section-nav__link section-nav__link--l3" href="#debugging">Debugging</a></li>
-<li><a class="section-nav__link section-nav__link--l3" href="#immediate-a-repl">`IMMEDIATE` (a REPL)</a></li>
 </ul>
         </nav>
       </aside>
@@ -49,7 +46,7 @@
         <header class="docs-article__header">
           <p class="eyebrow">Documentation</p>
           <h1>Command-line tools</h1>
-          <p class="docs-article__summary">The forterp / pyf66 / pyfortran10 commands: options, exit codes, multi-file linking, and the interactive monitor — RUN/LOAD, the per-statement debugger/profiler, and the IMMEDIATE REPL.</p>
+          <p class="docs-article__summary"></p>
           <p class="docs-article__source">Command-line tools</p>
         </header>
         <div class="prose">
@@ -136,7 +133,7 @@ made executable: <code>#!/usr/bin/env -S pyfortran10 -x</code>.</p>
 </tr>
 <tr>
 <td><code>--word-memory</code></td>
-<td>store <code>COMMON</code>/<code>EQUIVALENCE</code> in word-addressable memory so cross-type punning is bit-faithful (a <code>REAL</code> read as <code>INTEGER</code> yields the genuine machine word). Needs a target with a memory model — <code>pdp10</code> (KL10 words, validated vs a real KL10), <code>lp64le</code> (IEEE bytes, matches gfortran), or <code>vax</code> (LE ints + middle-endian F/D floats, <strong>best-effort/unvalidated</strong>); off by default (typed cells). Costs ~2× on <code>COMMON</code> access — see the <a href="../reference/C-forterp-extensions/index.html">FORTRAN 66 manual, Appendix C</a>.</td>
+<td>store <code>COMMON</code>/<code>EQUIVALENCE</code> in word-addressable memory so cross-type punning is bit-faithful (a <code>REAL</code> read as <code>INTEGER</code> yields the genuine machine word). Needs a target with a memory model — <code>pdp10</code> (KL10 words, validated vs a real KL10), <code>lp64le</code> (IEEE bytes, matches gfortran), or <code>vax</code> (LE ints + middle-endian F/D floats, <strong>best-effort/unvalidated</strong>); off by default (typed cells). Costs ~2× on <code>COMMON</code> access — see the <a href="../../reference/C-forterp-extensions/index.html">FORTRAN 66 manual, Appendix C</a>.</td>
 </tr>
 <tr>
 <td><code>-c CMD</code></td>
@@ -196,57 +193,13 @@ made executable: <code>#!/usr/bin/env -S pyfortran10 -x</code>.</p>
 </tbody>
 </table>
 <p>Runtime faults are reported as a single <code>?…</code> line on stderr — never a Python traceback.</p>
-<h2 id="interactive-command-processor">Interactive command processor</h2>
-<p>Launched with <strong>no file</strong>, each command drops into an interactive command processor — a small,
-FORTRAN-focused descendant of the TOPS-10 <code>.</code> prompt. It works on whole source files (F66
-has no incremental-execution model), except for <code>IMMEDIATE</code> mode. The command set is the
-same for all three commands; only the starting dialect differs, and <code>SET STD</code> flips it.</p>
-<pre><code class="language-text">f66&gt; RUN prog.for             # compile + run a file        (alias EXECUTE)
-f66&gt; CHECK prog.for           # parse + list diagnostics, no run  (alias COMPILE)
-f66&gt; LOAD prog.for            # parse a file into the session
-f10&gt; START                    # run the loaded program; RESET drops it
-f10&gt; SET STD fortran10        # switch dialect / TARGET / PROGRAM between runs
-f10&gt; SET TARGET pdp10
-f10&gt; SHOW /OUT/               # inspect a COMMON block after a run; SHOW = settings
-f10&gt; !ls                      # run a host shell command
-f10&gt; @script.mon              # run commands from a file
-f10&gt; HELP                     # the command list
-f10&gt; EXIT                     # quit                          (alias QUIT)
-</code></pre>
-<h3 id="debugging">Debugging</h3>
-<p>The command processor carries a per-statement debugger/profiler (off by default — a plain <code>RUN</code>
-pays nothing):</p>
-<pre><code class="language-text">f66&gt; BREAK 7                  # breakpoint at line 7 (no arg = list); UNBREAK to remove
-f66&gt; STEP                     # the next RUN stops at the first statement
-f66&gt; RUN prog.for             # at a (dbg) prompt: step / next / cont, where, p &lt;expr&gt;
-f66&gt; TRACE on                 # echo each statement as it runs
-f66&gt; PROFILE on               # per-line execution counts; PROFILE (no arg) shows the report
-f66&gt; COVERAGE                 # which lines the last run reached
-</code></pre>
-<p>At the <code>(dbg)</code> prompt, typing a name inspects it (the engine's own evaluator); a bare
-command word wins over a same-named variable, so use <code>p &lt;expr&gt;</code> / <code>=&lt;expr&gt;</code> to force
-inspection.</p>
-<h3 id="immediate-a-repl"><code>IMMEDIATE</code> (a REPL)</h3>
-<pre><code class="language-text">f66&gt; IMMEDIATE                # alias REPL — interactive FORTRAN
-*&gt; I = 6 * 7                  # statements run as you type
-*&gt; TYPE *, I                  # 42
-*&gt; 2 + 3 * 4                  # a bare expression is evaluated and printed -&gt; 14
-</code></pre>
-<p>A <code>DO</code> loop is collected across lines and run as a block; declarations accumulate in a
-persistent session. <code>COMMON</code>/<code>EQUIVALENCE</code>/<code>NAMELIST</code> are out of scope for immediate mode —
-put them in a file and <code>LOAD</code> it.</p>
-<blockquote>
-<p>The command processor's <code>!</code> shell escape and <code>@file</code> scripts run with your shell's privileges and
-are <strong>not</strong> reachable from a running FORTRAN program. Treat a command script as trusted
-input; don't wire the command processor to an untrusted source.</p>
-</blockquote>
 
         </div>
       </article>
     </main>
 
     <footer class="site-footer">
-      <p>© 2026 Nicholas J. Kisseberth · <a href="../index.html">forterp</a> is <a href="../license/index.html">MIT-licensed</a>.</p>
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
       <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
     </footer>
   </div>

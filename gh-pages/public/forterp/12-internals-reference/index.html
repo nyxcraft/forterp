@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Internals reference | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">Internals reference</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#module-map">Module map</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#engine-runtime-state-reference">Engine runtime state (reference)</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>Internals reference</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">Internals reference</p>
+        </header>
+        <div class="prose">
+<h2 id="module-map">Module map</h2>
+<p>What each module <strong>owns</strong> (responsibilities age better than line counts):</p>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>Owns</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>engine.py</code></td>
+<td>tree-walking execution; storage layout in <code>_build</code> (COMMON/EQUIVALENCE/DATA, label + DO-terminal tables, ENTRY); expression eval + control flow; terminal/file/random/NAMELIST/ENCODE-DECODE I/O; the inline intrinsic table; routing the value model through <code>self.tgt</code></td>
+</tr>
+<tr>
+<td><code>parser.py</code></td>
+<td>recursive-descent parse → AST; statement + spec-statement dispatch; blanks-insignificance parse-retry; 6-char name truncation; <code>pack5</code></td>
+</tr>
+<tr>
+<td><code>fmt.py</code></td>
+<td>the FORMAT engine: <code>parse_format</code> → items, <code>render</code> (output), <code>read_values</code> (input), carriage control</td>
+</tr>
+<tr>
+<td><code>source.py</code></td>
+<td>fixed-form card reader: column fields, continuation, tab-format, inline <code>!</code>, <code>;</code>-split, <code>INCLUDE</code> (<code>scan_file</code>/<code>scan_text</code>)</td>
+</tr>
+<tr>
+<td><code>ast_nodes.py</code></td>
+<td>the AST dataclasses + the <code>Expr</code>/<code>IoItem</code>/<code>FormatRef</code>/<code>Dims</code> contract aliases</td>
+</tr>
+<tr>
+<td><code>lexer.py</code></td>
+<td>tokenizer; gates the DEC lexical extensions on the <code>Dialect</code></td>
+</tr>
+<tr>
+<td><code>forlib.py</code></td>
+<td><code>STDLIB</code> — the FORTRAN-10 library subroutines (TIME/DATE/EXIT/ERRSNS/RAN/…)</td>
+</tr>
+<tr>
+<td><code>uuolib.py</code></td>
+<td><code>UUOLIB</code> — the standard TOPS-10 monitor UUOs (OUTSTR/OUTCHR/MSTIME/SLEEP/GETTAB); installed only under the FORTRAN-10 dialect</td>
+</tr>
+<tr>
+<td><code>hostlib.py</code></td>
+<td>the host-routine authoring layer: the <code>@fcall</code>/<code>@uuo</code>/<code>@builtin</code> decorators + arg modes (<code>IN</code>/<code>INT</code>/<code>STR</code>/<code>OUT</code>/<code>ARRAY</code>), <code>OutRef</code>, <code>builtins_in</code>, and the baseline injectable <code>Monitor</code> facade</td>
+</tr>
+<tr>
+<td><code>forbin.py</code></td>
+<td>FOROTS unformatted-record framing (LSCW) + DEC-10 float (incl. the two-word DOUBLE PRECISION doubleword) — the <code>binio</code> codec</td>
+</tr>
+<tr>
+<td><code>wordmem.py</code></td>
+<td>word-addressable typed memory for faithful cross-type punning (<code>word_memory</code>): the <code>Pdp10WordMemory</code> / <code>Lp64LeByteMemory</code> / <code>VaxByteMemory</code> per-target codecs (see §3.1)</td>
+</tr>
+<tr>
+<td><code>diagnostics.py</code></td>
+<td>V5 Appendix-F message rendering (<code>?FTNxxx</code> / <code>%FTNxxx</code>)</td>
+</tr>
+<tr>
+<td><code>target.py</code></td>
+<td>the <code>Target</code> value-model seam (<code>PDP10</code> / <code>NATIVE</code> / <code>LP64LE</code> / <code>VAX</code>)</td>
+</tr>
+<tr>
+<td><code>dialect.py</code></td>
+<td>the <code>Dialect</code> front-end seam (<code>F66</code> default / <code>FORTRAN10</code> superset)</td>
+</tr>
+<tr>
+<td><code>__init__.py</code></td>
+<td>public API + <code>install_runtime</code> / <code>make_engine</code> / <code>parse_source</code> / <code>run_source</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="engine-runtime-state-reference">Engine runtime state (reference)</h2>
+<p>What an <code>Engine</code> carries while running — the things <code>_file_ctl</code>, <code>do_io</code>, <code>eval</code>, and
+<code>call_*</code> operate on:</p>
+<ul>
+<li><strong><code>self.units</code></strong> — <code>{name: ProgramUnit}</code>, the parsed AST (one per PROGRAM / SUBROUTINE /
+FUNCTION / BLOCK DATA).</li>
+<li><strong><code>self.rts</code></strong> — <code>{name: UnitRT}</code>, the compiled per-unit runtime built by <code>_build</code>: the
+executable <code>code</code> list, the label→PC table, the DO-terminator label set, the
+<code>common_map</code> (name → block + offset), and <strong>static</strong> <code>local_scalars</code> / <code>local_arrays</code>.
+FORTRAN-10 locals persist across calls, so they live here, <em>not</em> in the frame.</li>
+<li><strong><code>Frame</code></strong> — one call activation: its <code>UnitRT</code>, the actual-argument bindings (<code>args</code>:
+dummy name → reference), a program counter <code>pc</code>, and a <code>do_stack</code> of <code>DoFrame</code>s.
+<code>run(frame)</code> is the fetch-execute loop.</li>
+<li><strong><code>self.commons</code></strong> — <code>{block: [word, ...]}</code>, flat per-block stores; storage association
+maps each unit's variables onto offsets here (<code>EQUIVALENCE</code> extends/aliases a block).</li>
+<li><strong><code>self.io</code></strong> — <code>{unit: state}</code>; the state shape depends on its <code>&quot;mode&quot;</code>: <code>term</code>
+(terminal), <code>lpt</code> (line printer), <code>r</code> / <code>w</code> (sequential records <code>{recs, pos, path}</code>,
+<code>+ &quot;text&quot;: True</code> for a formatted text file), <code>random</code> (record-indexed <code>{recs, pos, assoc}</code>). Unformatted records are plain value-lists; the FOROTS <code>binio</code> codec encodes
+them only when writing a real file — there is no separate &quot;binary&quot; mode.</li>
+<li><strong>References</strong> (the by-reference argument abstraction): <code>CellRef</code> (a slot in an
+array/COMMON store), <code>DictRef</code> (a local scalar), <code>TempRef</code> (an expression result with
+nowhere to write back), <code>ProcRef</code> (a passed subprogram name), <code>ArrayView</code> (a based view
+over an array argument, resolving adjustable dimensions per call).</li>
+</ul>
+<hr />
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

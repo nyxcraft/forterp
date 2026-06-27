@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The memory model | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">The memory model</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l3" href="#faithful-type-punning-the-word-addressable-memory-model-wordmem-py">Faithful type punning — the word-addressable memory model (`wordmem.py`)</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>The memory model</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">The memory model</p>
+        </header>
+        <div class="prose">
+<p>FORTRAN-66 has no stack-allocated locals and no heap. forterp mirrors that:</p>
+<ul>
+<li><strong>COMMON blocks are flat word arrays</strong> (<code>self.commons[block] = [...]</code>). Storage
+association is real: each unit's variables are mapped onto <em>offsets</em> into the block, so
+two units with different variable layouts overlay the same words. <code>EQUIVALENCE</code> is laid
+out by <code>_layout_equivalence</code>, which also extends/aliases COMMON.</li>
+<li><strong>Locals are static per unit.</strong> FORTRAN-10 allocated locals statically, so they <em>persist
+across calls</em> — forterp keeps them in the <code>UnitRT</code>, not in the call frame. This matches
+FORTRAN-10, and programs sometimes depend on it.</li>
+<li><strong>Arguments are passed by reference.</strong> The engine never copies a value into a callee; it
+passes a <em>reference cell</em> so the callee can write back. The reference abstraction has
+several shapes: <code>CellRef</code> (into an array/COMMON store), <code>DictRef</code> (a local), <code>TempRef</code>
+(an expression result with nowhere to write), <code>ProcRef</code> (a passed subprogram name), and
+<code>ArrayView</code> (a based view for array arguments with adjustable dimensions). <code>array_size</code>
+/ <code>linidx</code> implement column-major indexing.</li>
+<li><strong><code>DATA</code> initialization</strong> runs at build time (<code>_apply_data</code>, <code>_const_eval_int</code>), with
+repeat counts.</li>
+</ul>
+<p>Out-of-bounds access mirrors the real machine rather than guarding defensively: an OOB read
+yields <code>0</code> and an OOB write is dropped — the documented 1978 behavior (e.g. an <code>ENEMYM</code> array
+overrun that read adjacent PDP-10 memory) — rather than raising a clean Python error. A tool
+can <em>observe</em> this without changing it through the public census API in <code>forterp.debug</code>:
+<code>oob_census()</code> (a context manager yielding the OOB reads/writes and per-site log for the
+block), the standalone <code>set_oob_mode</code> / <code>oob_mode</code> / <code>oob_counts</code> / <code>oob_log</code>, or <code>&quot;raise&quot;</code>
+mode to turn an overrun into an <code>OobError</code> for a checker or fuzzer.</p>
+<h3 id="faithful-type-punning-the-word-addressable-memory-model-wordmem-py">Faithful type punning — the word-addressable memory model (<code>wordmem.py</code>)</h3>
+<p>By default a <code>COMMON</code>/<code>EQUIVALENCE</code> cell holds a <strong>typed Python value</strong> (an <code>int</code> for <code>INTEGER</code>,
+a <code>float</code> for <code>REAL</code>, a <code>complex</code> for <code>COMPLEX</code>). That's fast and clean, but it isn't <em>bit</em>-faithful
+when a program <strong>puns</strong> storage — reads the same words as a different type (the classic <code>EQUIVALENCE (X, K)</code> with <code>X</code> real and <code>K</code> integer, to look at a float's bits). A <code>REAL</code> cell holding a host
+float can't be reinterpreted as the genuine machine word.</p>
+<p>The opt-in <strong><code>word_memory</code></strong> mode (engine flag / <code>--word-memory</code>; off by default) fixes this for the
+value-model targets. A storage-associated block becomes a <strong>raw store</strong> and every access goes through
+a <strong>per-type codec</strong> keyed on the <em>accessing</em> type, so the same words read as different types
+reinterpret the bits exactly as the real machine does. The codec is the target's, selected by
+<code>Target.mem_model</code>, behind a tiny uniform interface — <code>alloc(n)</code>, <code>units(type)</code>, <code>read(store, off, type)</code>, <code>write(store, off, type, val)</code> — so the engine stays representation-agnostic (it only knows
+types and offsets; the codec owns the bits and the addressable unit, word vs byte):</p>
+<ul>
+<li><strong><code>Pdp10WordMemory</code></strong> (<code>mem_model=&quot;pdp10&quot;</code>) — a list of 36-bit words; floats via the KL10 codec in
+<code>forbin</code>. Validated bit-for-bit against a real PDP-10 (SIMH KS10, DEC FORTRAN-10).</li>
+<li><strong><code>Lp64LeByteMemory</code></strong> (<code>mem_model=&quot;lp64le&quot;</code>) — a <code>bytearray</code>; floats via Python <code>struct</code> in the
+little-endian LP64/IEEE layout. Byte-matches gfortran on x86_64.</li>
+<li><strong><code>VaxByteMemory</code></strong> (<code>mem_model=&quot;vax&quot;</code>) — a <code>bytearray</code>; LE integers and middle-endian (word-
+swapped) <code>F</code>/<code>D_floating</code>. Best-effort, <strong>unvalidated</strong> (no VAX oracle yet).</li>
+</ul>
+<p><code>COMPLEX</code>/<code>DOUBLE PRECISION</code>/<code>DOUBLE COMPLEX</code> occupy two/two/four storage units (<code>_member_words</code>
+sizes them in the codec's unit), so block offsets stay accurate; the engine routes the
+storage-associated read/write/array/argument paths through the codec (<code>WordRef</code> / <code>WordArrayView</code>)
+when <code>word_memory</code> is on, and keeps the fast typed-cell path otherwise. It is off by default because
+it changes the observable <code>commons</code> representation (raw words/bytes, not typed values) and costs
+~2× per <code>COMMON</code> access; locals — never aliased — always stay typed and fast. The faithful single/
+double splitting of <code>DOUBLE</code> is a PDP10/LP64/VAX concern; on <code>NATIVE</code> (no <code>mem_model</code>) a <code>DOUBLE</code>
+stays one host float with a zero shadow. This layer is the substrate the planned macroterp bridge's
+word-level memory will build on.</p>
+<hr />
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

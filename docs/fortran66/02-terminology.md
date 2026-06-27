@@ -83,7 +83,7 @@ contain at least one item unless an exception is stated *(§2)*.
 
 > **forterp notes.** forterp builds an executable program from one *or more* source files: you can
 > keep the main program and each subprogram in separate files and forterp links them, the way a
-> classic `LINK`/`LOADER` step would (see [CLI.md](../CLI.md) for multi-file runs). The main
+> classic `LINK`/`LOADER` step would (see [Command-line tools](../forterp/02-cli.md) for multi-file runs). The main
 > program is identified structurally — the unit that is not headed by `FUNCTION`, `SUBROUTINE`, or
 > `BLOCK DATA` — exactly as in §9.1.5, so a leading `PROGRAM` statement is convenient but not
 > required for forterp to find it.

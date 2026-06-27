@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Architecture | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">Architecture</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#what-forterp-is-and-the-one-decision-everything-follows-from">What forterp is, and the one decision everything follows from</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#the-pipeline">The pipeline</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#source-reader-source-py">Source reader — `source.py`</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#lexer-lexer-py">Lexer — `lexer.py`</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#parser-parser-py">Parser — `parser.py`</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#engine-engine-py">Engine — `engine.py`</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>Architecture</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">Architecture</p>
+        </header>
+        <div class="prose">
+<p>How the <code>forterp</code> interpreter is built and why it's built that way. This is the architecture
+companion to the user-facing <a href="../../reference/index.html">FORTRAN 66 reference manual</a>; it's for
+someone modifying the interpreter, not someone writing FORTRAN.</p>
+<hr />
+<h2 id="what-forterp-is-and-the-one-decision-everything-follows-from">What forterp is, and the one decision everything follows from</h2>
+<p><code>forterp</code> is a <strong>tree-walking interpreter</strong> for FORTRAN-66. It parses <code>.FOR</code> source to an AST
+and executes the AST directly — it does not compile to bytecode or transpile to Python.</p>
+<p>The load-bearing decision is that <strong>the machine value model is pluggable</strong>, owned by a
+<code>Target</code> the engine routes every value through: the integer word width and overflow, the
+logical-truth convention, and how characters pack into words. The core is
+representation-agnostic; a <code>Target</code> makes it concrete. Two ship:</p>
+<ul>
+<li><strong><code>NATIVE</code></strong> (the default) — a clean 64-bit host machine for running standard
+FORTRAN-66: 64-bit two's-complement integers, 8-bit ASCII packed into words, <code>.TRUE.</code>=1
+tested as <em>nonzero</em>, with <em>boolean</em> logical operators.</li>
+<li><strong><code>PDP10</code></strong> — a <em>faithful</em> DEC FORTRAN-10 model, whose priority is to run 1970s PDP-10
+code the way the machine ran it, quirks included: a word is a <em>signed 36-bit
+two's-complement</em> int, character/Hollerith data packs 5×7-bit per word and reads back as
+a signed 36-bit int (so comparisons match PDP-10 <code>CAM</code> arithmetic), <code>.TRUE.</code> is −1 tested
+as <em>sign-negative</em>, and <code>.AND./.OR.</code> are <em>bit-wise</em> on the word.</li>
+</ul>
+<p>In both, <code>REAL</code> is a Python <code>float</code> and <code>COMPLEX</code> a Python <code>complex</code>. A third target,
+<code>VAX</code> (32-bit, little-endian char packing, low-order-bit truth test), is a <strong>provisional,
+unvalidated</strong> guess — it exercises the seam's <code>little_endian</code> and <code>truth</code> knobs but has
+not been checked against a real VAX FORTRAN. Everything else in the design serves running
+real code against the chosen model without that model leaking into places it shouldn't —
+see §6 on the <code>Target</code> seam.</p>
+<hr />
+<h2 id="the-pipeline">The pipeline</h2>
+<pre><code>.FOR text
+   │   source.py    fixed-form card reader  → logical statements   (dialect-gated)
+   ▼
+[Statement(label, text, line), …]
+   │   lexer.py     tokenize statement text → tokens               (dialect-gated)
+   ▼
+[Token(kind, value), …]
+   │   parser.py    recursive-descent       → AST (ast_nodes.py)
+   ▼
+{name: ProgramUnit}              one per PROGRAM/SUBROUTINE/FUNCTION/BLOCK DATA
+   │   engine.py    _build(): COMMON layout, EQUIVALENCE, DATA, label tables, ENTRY
+   ▼
+Engine.run(Frame(unit, args))    tree-walking execution
+</code></pre>
+<h3 id="source-reader-source-py">Source reader — <code>source.py</code></h3>
+<p>Fixed-form is genuinely a <em>card</em> format, so this stage is its own pass, not part of the
+lexer. It turns column-oriented text into a list of <code>Statement(label, text, line)</code>:</p>
+<ul>
+<li>Column 1 <code>C</code>/<code>*</code> → comment; columns 1–5 label; column 6 non-blank → continuation
+(joined onto the previous statement); 7–72 body; 73–80 sequence field dropped
+unconditionally (as both real F10/F66 compilers do).</li>
+<li><strong>DEC extensions, gated by the <code>Dialect</code>:</strong> TAB-format lines (<code>_tab_split</code>) and trailing
+<code>!</code> inline comments (<code>_split_inline_comment</code>). <code>;</code> statement separation is handled here
+too (<code>_split_semicolons</code>).</li>
+<li><strong>Source recovery, via <code>SourceOptions</code> (NOT the dialect):</strong> <code>recover_shifted_cols</code> keeps
+statement text that spilled past col 72 in re-indented decks (<code>_trim_seqfield</code>). It copes
+with imperfect <em>input</em>, not a dialect of the <em>language</em>, so it sits off the dialect axis;
+the default drops 73+ (matching real FORTRAN-10).</li>
+<li><code>INCLUDE</code>/related directives are resolved by <code>expand_includes</code> after the scan.</li>
+</ul>
+<h3 id="lexer-lexer-py">Lexer — <code>lexer.py</code></h3>
+<p><code>tokenize(text, dialect=F66)</code> produces <code>Token(kind, value)</code> for the statement body.
+The <code>Dialect</code> gates the DEC lexical extensions — octal <code>&quot;nnn</code> literals and the <code>READ(u'r)</code>
+random-access apostrophe. Numbers (<code>_read_number</code>), strings/Hollerith (<code>_read_string</code>),
+and the dotted operators <code>.EQ./.AND./.TRUE.</code> (<code>_match_dot</code>) are recognized here.</p>
+<blockquote>
+<p><strong>Blanks-insignificance (F66 §3.1.6)</strong> is the awkward one — in F66 blanks inside tokens
+are not significant (<code>GO TO</code> == <code>GOTO</code>). Rather than complicate the lexer, the parser
+retries with blanks stripped (<code>_strip_blanks</code> / <code>_respace_stmt</code>) when a first parse
+fails. This is why some logic lives in <code>parser.py:fix_tokens</code>/<code>_strip_blanks</code>.</p>
+</blockquote>
+<h3 id="parser-parser-py">Parser — <code>parser.py</code></h3>
+<p>Hand-written recursive descent. Expressions use a precedence ladder, lowest to highest:
+<code>p_equiv</code> (<code>.EQV./.NEQV./.XOR.</code>) → <code>p_or</code> → <code>p_and</code> → <code>p_not</code> → <code>p_rel</code> → <code>p_add</code> →
+<code>p_mul</code> → <code>p_unary</code> → <code>p_pow</code> (right-assoc <code>**</code>) → <code>p_primary</code>. Statements are dispatched
+in <code>parse_exec</code>; the specification statements (<code>COMMON</code>, <code>EQUIVALENCE</code>, <code>DATA</code>, <code>NAMELIST</code>,
+<code>DEFINE FILE</code>, type decls) attach their info to the <code>ProgramUnit</code>. Symbolic names are
+truncated to 6 characters here (<code>_name6</code>). The output AST nodes are the dataclasses in
+<code>ast_nodes.py</code> (<code>Assign</code>, <code>Goto</code>, <code>Do</code>, <code>IfBranch</code>, <code>Call</code>, <code>IoStmt</code>, <code>ImpliedDo</code>,
+<code>ProgramUnit</code>, …).</p>
+<h3 id="engine-engine-py">Engine — <code>engine.py</code></h3>
+<p>The big module (~1700 lines). Two halves: a one-time <strong><code>_build()</code></strong> that lays out storage,
+and the <strong>execution</strong> machinery.</p>
+<hr />
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

@@ -48,7 +48,7 @@ forterp reports an error instead of guessing:
 | `carriage_control` | per dialect | force standard output to be a line printer (on) or a terminal (off); F77 defaults to terminal, F66/FORTRAN-10 to line printer ([Ch 13](13-format.md)) |
 
 (These are engine flags; the dialect sets sensible defaults. See the
-[Python API guide](../API.md#the-f77-dialect-knobs) for the full knob list and how to set them.)
+[Python API guide](../forterp/05-targets-dialects.md#the-f77-dialect-knobs) for the full knob list and how to set them.)
 
 ## The one true divergence
 

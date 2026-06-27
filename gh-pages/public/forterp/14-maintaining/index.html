@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Maintainer recipes | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">Maintainer recipes</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#how-to-change-things-maintainer-recipes">How to change things (maintainer recipes)</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>Maintainer recipes</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">Maintainer recipes</p>
+        </header>
+        <div class="prose">
+<h2 id="how-to-change-things-maintainer-recipes">How to change things (maintainer recipes)</h2>
+<p>Each entry is the trail to follow. Add a test through the <strong>real pipeline</strong>
+(<code>tests/</code>, via <code>conftest.run</code> / <code>run_int</code>), plus an FCVS-grade check for conformance.</p>
+<ul>
+<li><strong>Add a syntax form</strong> — recognize the token in <code>lexer.py</code> (gate it on the <code>Dialect</code>
+if it's an extension), parse it in <code>parser.py</code> (a <code>parse_*</code> method + a branch in the
+statement dispatch), and execute it in <code>engine.exec_stmt</code>. A new node shape goes in
+<code>ast_nodes.py</code>.</li>
+<li><strong>Add a statement node</strong> — a dataclass in <code>ast_nodes.py</code> (subclass <code>Stmt</code>), produced by
+<code>parser.py</code>, handled in <code>engine.exec_stmt</code>.</li>
+<li><strong>Add an intrinsic</strong> — a pure value→value entry in <code>engine.INTRINSICS</code> (the lambda takes
+the arg-value list <code>a</code>). If it returns an integer that must wrap to the target word, add
+its name to <code>_INT_RESULT</code>; a width-dependent op (like <code>LSH</code>) routes through <code>self.tgt</code>
+in <code>_apply_intrinsic</code>.</li>
+<li><strong>Add a library subroutine</strong> — a <code>b_NAME(eng, frame, arg_nodes)</code> function in <code>forlib.py</code>,
+listed in the <code>STDLIB</code> table; it may touch engine state and write back via
+<code>eng.arg_ref(...)</code>. <code>install_runtime</code> registers <code>STDLIB</code>.</li>
+<li><strong>Add a FORMAT descriptor</strong> — extend <code>fmt.parse_format</code> (emit an <code>Item</code>), render it in
+<code>_render_one</code>, read it in <code>read_values</code>. The <code>target</code> is already threaded in for cases
+where width/packing/logical-truth matters.</li>
+<li><strong>Add a target or dialect knob</strong> — a value-model property goes on <code>Target</code> (<code>target.py</code>)
+and must be routed through <code>self.tgt</code> in the engine, never hardcoded; a front-end option
+goes on <code>Dialect</code> (<code>dialect.py</code>), gated in <code>source.py</code> / <code>lexer.py</code> and threaded via
+<code>parse_units</code>.</li>
+<li><strong>Where tests go</strong> — <code>tests/test_*.py</code> exercise the full pipeline; value-model behavior
+belongs in <code>test_native_target.py</code> (NATIVE vs PDP10), dialect gating in <code>test_dialect.py</code>,
+and conformance through the FCVS corpus.</li>
+</ul>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

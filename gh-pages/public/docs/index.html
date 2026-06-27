@@ -37,14 +37,14 @@
         </header>
         <div class="prose">
 <ul>
-<li><strong><a href="../design/index.html">DESIGN.md</a></strong> — the interpreter's architecture: the pipeline (source →
-lexer → parser → engine), the machine value model, memory/control models, and the four
-seams that make it standalone. For someone modifying forterp.</li>
-<li><strong><a href="../cli/index.html">CLI.md</a></strong> — the command-line tools (<code>forterp</code> / <code>pyf66</code> / <code>pyfortran10</code>):
-options, exit codes, multi-file linking, and the interactive command processor.</li>
-<li><strong><a href="../api/index.html">API.md</a></strong> — the programmer's reference for the <code>forterp.*</code> Python API:
-running and parsing, the prebuilt interpreters, the target/dialect axes, embedding the
-engine, the expert namespaces, custom host builtins, and the OOB census.</li>
+<li><strong><a href="../forterp/index.html">The forterp manual</a></strong> — the guide to the interpreter itself, as a
+chaptered manual: running it (<a href="../forterp/02-cli/index.html">command-line tools</a>, the
+<a href="../forterp/03-interactive/index.html">interactive processor</a>), driving it from Python
+(<a href="../forterp/04-running-embedding/index.html">running &amp; embedding</a>, the
+<a href="../forterp/05-targets-dialects/index.html">target/dialect axes</a>, <a href="../forterp/06-host-routines/index.html">host routines</a>),
+and how it works inside (<a href="../forterp/08-architecture/index.html">architecture</a>, the
+<a href="../forterp/09-memory-model/index.html">memory model</a> and type punning, <a href="../forterp/11-seams-intrinsics/index.html">seams</a>,
+<a href="../forterp/13-testing/index.html">testing</a>).</li>
 <li><strong><a href="../reference/index.html">FORTRAN 66 reference manual</a></strong> — the complete FORTRAN 66 language
 (USA Standard X3.9-1966) plus the DEC FORTRAN-10 extensions, example-driven and organized on
 the standard: program form, data types, expressions, statements, procedures, and the intrinsic
@@ -53,7 +53,7 @@ library, with a <em>forterp notes</em> box per chapter. This is forterp's <stron
 (ANSI X3.9-1978), example-driven and organized on the standard: data types, arrays,
 expressions, control flow, I/O and <code>FORMAT</code>, procedures, and the intrinsic library, with a
 <em>forterp notes</em> box per chapter. This is the <code>forterp.F77</code> dialect (<code>--std f77</code>); see
-<a href="../api/index.html#the-two-axes-target-and-dialect">API.md</a> to select it and for the dialect knobs.</li>
+<a href="../forterp/05-targets-dialects/index.html#the-two-axes-target-and-dialect">the forterp manual</a> to select it and for the dialect knobs.</li>
 <li><strong><a href="../changelog/index.html">CHANGELOG.md</a></strong> — dated history of the standalone interpreter.</li>
 </ul>
 <p>Runnable material lives outside <code>docs/</code>:</p>
@@ -90,7 +90,7 @@ with zero failures. gfortran golden outputs under <code>tests/fcvs_golden/</code
 print-only routines (no gfortran needed at test time): with the canonical decks gfortran runs the
 whole corpus and forterp byte-matches 191 of 192 — the lone exception (FM111) is a documented
 gfortran outlier where forterp matches the routine's own CORRECT line. Run <code>pytest</code> to execute
-them; see <a href="../design/index.html#9-testing">DESIGN.md §9 (Testing)</a> for the full breakdown.</p>
+them; see <a href="../forterp/13-testing/index.html">the forterp manual §13 (Testing)</a> for the full breakdown.</p>
 <h2 id="security-trust-model">Security &amp; trust model</h2>
 <p>forterp is an <strong>interpreter, not a sandbox</strong>: a program runs with the invoking process's
 privileges and its <code>OPEN</code>/<code>READ</code>/<code>WRITE</code> reach the real filesystem (absolute or <code>..</code> paths

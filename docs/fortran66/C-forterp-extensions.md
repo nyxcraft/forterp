@@ -16,7 +16,7 @@ forterp separates the things X3.9-1966 leaves open into two independent choices:
   floats; `PDP10` reproduces the genuine 36-bit DEC-10 representation.
 
 The two are orthogonal — you can run strict `F66` on the faithful `PDP10` target, or the DEC dialect
-on `NATIVE`. Selecting them is covered in the [Python API guide](../API.md) and [CLI.md](../CLI.md).
+on `NATIVE`. Selecting them is covered in the [Python API guide](../forterp/04-running-embedding.md) and [Command-line tools](../forterp/02-cli.md).
 
 ## DEC FORTRAN-10 extensions (the `FORTRAN10` dialect)
 
@@ -120,7 +120,7 @@ dialect uses the zero-trip test. This genuinely changes results, so it is dialec
 ## The `F66` dialect knobs
 
 Most of the above is bundled into the dialect presets, but individual behaviors can be tuned. The
-knobs most relevant to F66 (set on a `Dialect`; see the [API guide](../API.md) for the full list and
+knobs most relevant to F66 (set on a `Dialect`; see the [API guide](../forterp/04-running-embedding.md) for the full list and
 the F77 knob table):
 
 | Knob | Effect |

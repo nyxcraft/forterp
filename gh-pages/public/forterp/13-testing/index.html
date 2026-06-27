@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Testing | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">Testing</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>Testing</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">Testing</p>
+        </header>
+        <div class="prose">
+<p>Tests run through the <strong>real pipeline</strong> (source reader → lexer → parser → engine), never
+against internal mocks — see <code>tests/conftest.py</code> (<code>run()</code>/<code>run_int()</code> compile a snippet and
+hand back the <code>Engine</code> to inspect COMMON). Conformance is the <strong>FCVS</strong> corpus
+(<code>tests/fcvs/</code>, driven by <code>tests/fcvs_runner.py</code>): each audit routine is self-checking and
+prints a PASS/ERROR tally to the line printer, which the runner captures and parses. The
+corpus is the <strong>full 192-routine FCVS set</strong> (pristine from the public-domain NIST suite,
+with the canonical <code>.DAT</code> input decks): every file parses and runs, so a parse failure is a
+regression, not &quot;out of scope.&quot; <code>test_fcvs_f66_conformance.py</code> runs the F66-valid subset
+(<code>F66_SUBSET</code>, 52 routines) under <code>F66</code>; <code>test_fcvs_f77_conformance.py</code> runs all 192 under
+<code>F77</code>; both also run under both value-model targets (<code>NATIVE</code> and <code>PDP10</code>) and produce the
+identical aggregate — independent evidence both seams preserve standard behavior. On top of
+the self-check, <code>test_fcvs_golden.py</code> is a <strong>second, independent oracle</strong>: a byte-for-byte
+diff against committed gfortran (<code>-std=legacy</code>) output (<code>tests/fcvs_golden/</code>), so the
+print-and-eyeball routines that carry no PASS/FAIL tally are still validated.</p>
+<p>Card-reader input comes from the canonical NIST <code>&lt;NAME&gt;.DAT</code> decks vendored beside each <code>.FOR</code>
+(one 80-column card per line), not the lossy <code>CARD nn</code> image comments. Every routine sits in
+exactly one validation bucket (enforced by <code>test_whole_corpus_is_accounted_for</code>): a <em>byte-match</em>
+against the golden (the large majority), a <em>value-token</em> compare where list-directed field widths
+are processor-dependent (FM905/907), the routine's <em>own self-check</em> where gfortran is an unreliable
+oracle (FM257, FM406), or the single documented <code>KNOWN_GF_DIFF</code> (FM111, where gfortran is the
+outlier on an <code>F2.1</code> overflow). With the correct decks gfortran runs the whole 192-routine corpus
+and <strong>forterp byte-matches 191 of 192</strong>; the self-checking routines report <strong>zero failures</strong>
+(FM001's &quot;force fail&quot; test is a negative assertion the runner counts as a pass by design). The full
+suite passes standalone (747 tests), no gfortran needed at test time.</p>
+<hr />
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

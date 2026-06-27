@@ -3,30 +3,30 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Python API guide | forterp</title>
-  <meta name="description" content="Using forterp as a library: run_source / parse_source, the prebuilt interpreters and the Interpreter class, the target and dialect axes, embedding the Engine, the expert namespaces, custom host builtins, and the OOB census.">
-  <link rel="stylesheet" href="../assets/site.css?v=de204dc9">
+  <title>Host routines | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
 </head>
 <body class="site-doc">
   <a class="skip-link" href="#main-content">Skip to main content</a>
   <div class="page-shell">
     <header class="site-header site-header--compact">
-      <a class="brand" href="../index.html">
-        <img class="brand__icon" src="../assets/logo-forterp.svg" alt="" aria-hidden="true">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
         <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
       </a>
       <nav class="top-nav" aria-label="Primary">
-        <a href="../docs/index.html">Docs</a>
+        <a href="../../docs/index.html">Docs</a>
         <a href="https://github.com/nyxcraft/forterp">GitHub</a>
       </nav>
     </header>
 
     <nav class="breadcrumbs" aria-label="Breadcrumb">
-      <a href="../index.html">Home</a>
+      <a href="../../index.html">Home</a>
       <span class="breadcrumbs__sep" aria-hidden="true">›</span>
-      <a href="../docs/index.html">Docs</a>
+      <a href="../../docs/index.html">Docs</a>
       <span class="breadcrumbs__sep" aria-hidden="true">›</span>
-      <span aria-current="page">Python API guide</span>
+      <span aria-current="page">Host routines</span>
     </nav>
 
     <main id="main-content" class="docs-layout" tabindex="-1">
@@ -34,13 +34,6 @@
         <p class="docs-sidebar__eyebrow">On this page</p>
         <nav class="section-nav" aria-label="On this page">
 <ul class="section-nav__list">
-<li><a class="section-nav__link section-nav__link--l2" href="#the-public-surface">The public surface</a></li>
-<li><a class="section-nav__link section-nav__link--l2" href="#run-and-inspect">Run and inspect</a></li>
-<li><a class="section-nav__link section-nav__link--l2" href="#the-two-axes-target-and-dialect">The two axes: target and dialect</a></li>
-<li><a class="section-nav__link section-nav__link--l3" href="#the-f77-dialect-knobs">The F77 dialect knobs</a></li>
-<li><a class="section-nav__link section-nav__link--l2" href="#prebuilt-interpreters-and-the-interpreter-class">Prebuilt interpreters and the `Interpreter` class</a></li>
-<li><a class="section-nav__link section-nav__link--l2" href="#embedding-and-i-o">Embedding and I/O</a></li>
-<li><a class="section-nav__link section-nav__link--l2" href="#expert-namespaces">Expert namespaces</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#custom-host-routines-builtins">Custom host routines (builtins)</a></li>
 <li><a class="section-nav__link section-nav__link--l3" href="#two-decorators">Two decorators</a></li>
 <li><a class="section-nav__link section-nav__link--l3" href="#argument-modes">Argument modes</a></li>
@@ -49,8 +42,6 @@
 <li><a class="section-nav__link section-nav__link--l3" href="#the-monitor-uuo-s-mon">The monitor (`@uuo`&#x27;s `mon`)</a></li>
 <li><a class="section-nav__link section-nav__link--l3" href="#standard-monitor-uuos-forterp-uuolib">Standard monitor UUOs (`forterp.uuolib`)</a></li>
 <li><a class="section-nav__link section-nav__link--l3" href="#pluggable-open-devices">Pluggable `OPEN` devices</a></li>
-<li><a class="section-nav__link section-nav__link--l2" href="#instrumentation-the-oob-census">Instrumentation: the OOB census</a></li>
-<li><a class="section-nav__link section-nav__link--l2" href="#errors">Errors</a></li>
 </ul>
         </nav>
       </aside>
@@ -58,321 +49,17 @@
       <article class="docs-article">
         <header class="docs-article__header">
           <p class="eyebrow">Documentation</p>
-          <h1>Python API guide</h1>
-          <p class="docs-article__summary">Using forterp as a library: run_source / parse_source, the prebuilt interpreters and the Interpreter class, the target and dialect axes, embedding the Engine, the expert namespaces, custom host builtins, and the OOB census.</p>
-          <p class="docs-article__source">Python API guide</p>
+          <h1>Host routines</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">Host routines</p>
         </header>
         <div class="prose">
-<p><code>forterp</code> is usable as a library: parse and run FORTRAN from Python, inspect the result,
-swap the value model or dialect, embed the engine in a host program, or instrument it. The
-package root exposes a focused surface; deeper machinery lives in explicit namespaces.</p>
-<h2 id="the-public-surface">The public surface</h2>
-<p><code>import forterp</code> gives exactly these names (everything else is in a namespace, below):</p>
-<table>
-<thead>
-<tr>
-<th>Name</th>
-<th>What</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>run_source(text, …)</code></td>
-<td>parse + run a source string; returns the <code>Engine</code></td>
-</tr>
-<tr>
-<td><code>parse_source(text, …)</code></td>
-<td>parse → <code>{name: ProgramUnit}</code> (raises <code>ParseError</code>)</td>
-</tr>
-<tr>
-<td><code>f66</code>, <code>fortran10</code>, <code>f77</code></td>
-<td>prebuilt, ready-to-run interpreters</td>
-</tr>
-<tr>
-<td><code>Interpreter</code></td>
-<td>roll your own (target + dialect + runtime)</td>
-</tr>
-<tr>
-<td><code>F66</code>, <code>FORTRAN10</code>, <code>F77</code>, <code>Dialect</code></td>
-<td>the front-end dialect axis</td>
-</tr>
-<tr>
-<td><code>NATIVE</code>, <code>PDP10</code>, <code>LP64LE</code>, <code>VAX</code>, <code>Target</code></td>
-<td>the machine value-model axis</td>
-</tr>
-<tr>
-<td><code>ParseError</code>, <code>SourceOptions</code></td>
-<td>the parse error; source-recovery options</td>
-</tr>
-</tbody>
-</table>
-<h2 id="run-and-inspect">Run and inspect</h2>
-<p><code>run_source</code> returns the <code>Engine</code>, so you read results out of it after the run. By
-convention, programs write results into a <code>COMMON</code> block, which the engine exposes as a flat
-list of words:</p>
-<pre><code class="language-python">import forterp
-
-src = &quot;&quot;&quot;      PROGRAM T
-      COMMON /OUT/ V(40)
-      V(1) = 2 ** 10
-      END
-&quot;&quot;&quot;
-eng = forterp.run_source(src, dialect=forterp.FORTRAN10)
-print(eng.commons[&quot;OUT&quot;][0])        # 1024
-</code></pre>
-<p><code>run_source(text, program=None, dialect=F66, options=None, include_dir=&quot;.&quot;, **kwargs)</code>:
-<code>program</code> picks the main unit (default: the first); <code>dialect</code> is <code>F66</code> (default),
-<code>FORTRAN10</code>, or <code>F77</code>; <code>include_dir</code> is where <code>INCLUDE</code> resolves; extra <code>**kwargs</code> pass through to the
-<code>Engine</code> (see <a href="#embedding-and-io">Embedding</a>).</p>
-<p><code>parse_source(text, dialect=F66, on_error=None, options=None, include_dir=&quot;.&quot;)</code> parses
-without running and returns <code>{name: ProgramUnit}</code>. It raises <code>ParseError</code> (with every
-diagnostic in the message) unless you pass <code>on_error(statement, message)</code>, which receives
-each diagnostic and keeps the partial result.</p>
-<h2 id="the-two-axes-target-and-dialect">The two axes: target and dialect</h2>
-<p>They are orthogonal — any pairing is valid.</p>
-<p><strong>Target</strong> — the machine value model (integer word width + overflow, the logical-truth
-convention, the character codec):</p>
-<ul>
-<li><code>forterp.NATIVE</code> — a clean 64-bit host: 64-bit two's-complement, 8-bit ASCII, <code>.TRUE.</code>=1
-with boolean logicals. <strong>The default</strong>, for running standard F66 portably.</li>
-<li><code>forterp.PDP10</code> — the DEC FORTRAN-10 machine: 36-bit two's-complement, 5×7-bit packed
-ASCII, <code>.TRUE.</code>=−1 with bit-wise logicals. The faithful, validated opt-in.</li>
-<li><code>forterp.LP64LE</code> — a 64-bit little-endian IEEE machine (32-bit <code>INTEGER</code>/<code>REAL</code>, 64-bit
-<code>DOUBLE</code>) — matches gfortran on x86_64; most useful with <code>word_memory</code> (below).</li>
-<li><code>forterp.VAX</code> — a provisional, unvalidated 32-bit guess.</li>
-<li><code>forterp.Target(word_bits=…, chars_per_word=…, bits_per_char=…, logical_true=…, bitwise_logic=…, little_endian=…, truth=…, mem_model=…)</code> — build your own.</li>
-</ul>
-<pre><code class="language-python">forterp.run_source(src, target=forterp.PDP10)   # 36-bit arithmetic, packed ASCII
-</code></pre>
-<p><strong>Faithful type punning</strong> — by default <code>COMMON</code>/<code>EQUIVALENCE</code> cells hold typed values, so reading
-the same storage as a different type isn't bit-faithful. Pass <code>word_memory=True</code> (PDP10/LP64LE/VAX
-only; CLI <code>--word-memory</code>) to store such blocks as raw machine words/bytes and reinterpret on
-access, so a <code>REAL</code> read as an <code>INTEGER</code> yields the genuine machine word — validated against a real
-KL10 (PDP10) and gfortran (LP64LE). Off by default: it changes the <code>commons</code> representation to raw
-words and costs ~2× per <code>COMMON</code> access. See the <a href="../reference/C-forterp-extensions/index.html">FORTRAN 66 manual, Appendix C</a>.</p>
-<pre><code class="language-python">forterp.run_source(src, target=forterp.PDP10, word_memory=True)  # bit-faithful punning
-</code></pre>
-<p><strong>Dialect</strong> — the front-end language. <code>forterp.F66</code> is strict ANSI X3.9-1966 and genuinely
-<em>rejects</em> non-F66 constructs; <code>forterp.FORTRAN10</code> is the DEC superset (octal, tab-format,
-<code>!</code> comments, apostrophe strings, random-access I/O, free-form input, the DEC intrinsic
-library); <code>forterp.F77</code> is ANSI X3.9-1978 — the <code>CHARACTER</code> type, the block <code>IF</code>,
-list-directed and keyword-driven I/O, internal files, <code>INQUIRE</code>, <code>PARAMETER</code>/<code>SAVE</code>, and
-<code>.EQV.</code>/<code>.NEQV.</code>. See the <strong><a href="../fortran77/index.html">FORTRAN 77 reference manual</a></strong> for the
-language itself, and the F77 dialect knobs just below.</p>
-<p><strong>SourceOptions</strong> — orthogonal to the dialect; it copes with imperfect <em>input</em>, not a
-language variant. <code>forterp.SourceOptions(recover_shifted_cols=True)</code> keeps statement text
-that spilled past column 72 in a mechanically re-indented deck. The default is no recovery
-(columns 7–72, sequence field dropped).</p>
-<h3 id="the-f77-dialect-knobs">The F77 dialect knobs</h3>
-<p>A <code>Dialect</code> is a set of front-end flags; <code>forterp.F77</code> turns on exactly the subset ANSI
-X3.9-1978 standardized (several were split out of the broader DEC bundles so F77 gets the
-standardized feature without the rest of the DEC extension):</p>
-<table>
-<thead>
-<tr>
-<th>Knob</th>
-<th>Enables</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>character_type</code></td>
-<td>the <code>CHARACTER</code> data type — quoted strings become <code>str</code>, not Hollerith words</td>
-</tr>
-<tr>
-<td><code>block_if</code></td>
-<td><code>IF … THEN</code> / <code>ELSE IF</code> / <code>ELSE</code> / <code>END IF</code></td>
-</tr>
-<tr>
-<td><code>list_directed_io</code></td>
-<td>list-directed <code>*</code> <code>READ</code>/<code>WRITE</code> (split from the DEC <code>extended_io</code> bundle)</td>
-</tr>
-<tr>
-<td><code>eqv_operators</code></td>
-<td><code>.EQV.</code> / <code>.NEQV.</code> (split from the DEC <code>dec_operators</code> bundle)</td>
-</tr>
-<tr>
-<td><code>parameter_stmt</code></td>
-<td>the <code>PARAMETER</code> statement</td>
-</tr>
-<tr>
-<td><code>implicit_stmt</code></td>
-<td>the <code>IMPLICIT</code> statement (incl. <code>IMPLICIT CHARACTER*n</code>)</td>
-</tr>
-<tr>
-<td><code>save_stmt</code>, <code>intrinsic_stmt</code></td>
-<td><code>SAVE</code> / <code>INTRINSIC</code></td>
-</tr>
-<tr>
-<td><code>expr_subscripts</code></td>
-<td>general integer expressions in subscripts and <code>DO</code> bounds</td>
-</tr>
-<tr>
-<td><code>array_lower_bounds</code></td>
-<td><code>DIMENSION A(lo:hi)</code>, assumed-size <code>A(*)</code>, adjustable bounds</td>
-</tr>
-<tr>
-<td><code>alt_return</code></td>
-<td>alternate-return actual arguments (<code>CALL S(*99)</code>)</td>
-</tr>
-<tr>
-<td><code>mixed_complex_assign</code></td>
-<td><code>COMPLEX</code> ↔ numeric assignment</td>
-</tr>
-<tr>
-<td><code>apostrophe_string</code></td>
-<td><code>'…'</code> string constants</td>
-</tr>
-<tr>
-<td><code>dec_intrinsics</code></td>
-<td>the F77 generic intrinsic library (a superset of F66 Tables 3 &amp; 4)</td>
-</tr>
-<tr>
-<td><code>strict_stmt_order</code></td>
-<td>enforce &quot;specifications before executables&quot; (§3.5) as a hard error</td>
-</tr>
-<tr>
-<td><code>carriage_control</code></td>
-<td><strong>off</strong> for F77 — standard output is a terminal, not a line printer</td>
-</tr>
-</tbody>
-</table>
-<p>The strict/relax knobs <code>recursion</code>, <code>unlimited_rank</code>, and <code>bounds_check</code> are off by default on
-every dialect; see <a href="../fortran77/D-forterp-extensions/index.html">reference manual Appendix D</a>.</p>
-<p>Notably <strong>off</strong> for F77 (on only for <code>FORTRAN10</code>): <code>do_while</code>, <code>dec_operators</code> (<code>.XOR.</code>,
-<code>==</code>/<code>&lt;</code>/<code>&gt;</code>), <code>slash_dim_bound</code> (<code>A(lo/hi)</code>), <code>octal_quote</code>, <code>tab_format</code>, <code>inline_comment</code>
-(<code>!</code>), <code>extended_io</code> (<code>TYPE</code>/<code>ACCEPT</code>/<code>ENCODE</code>/<code>DECODE</code>, random-access), <code>free_form_input</code>.</p>
-<h2 id="prebuilt-interpreters-and-the-interpreter-class">Prebuilt interpreters and the <code>Interpreter</code> class</h2>
-<p><code>forterp.fortran10</code> (<code>PDP10</code> + <code>FORTRAN10</code> + free-form input), <code>forterp.f66</code> (<code>NATIVE</code> +
-strict <code>F66</code>), and <code>forterp.f77</code> (<code>NATIVE</code> + <code>F77</code>, with the <code>CHARACTER</code> type on) are
-ready-to-run presets. Build your own with <code>Interpreter(target, dialect, *, free_form_input=None, dec_intrinsics=None, runtime=True, source_options=None)</code> — the two
-flags default from the dialect, so you can't construct a contradictory pairing.</p>
-<p>Each interpreter offers a uniform surface:</p>
-<pre><code class="language-python">fp = forterp.fortran10
-
-eng              = fp.run_source(src, program=None, **engine_kwargs)   # parse + run
-units, errors    = fp.parse_text(src)                                  # parse a string
-units, errors    = fp.parse_file(&quot;PROG.FOR&quot;)                           # parse a file
-units, errors    = fp.parse_dir(&quot;src/&quot;, exclude={&quot;SCRATCH&quot;})           # parse a directory
-eng              = fp.build_engine(units, runtime=True, **engine_kwargs)  # engine, ready to run
-</code></pre>
-<p><code>parse_text</code>/<code>parse_file</code> return <code>(units, errors)</code> where <code>errors</code> is a list of
-<code>(line, message)</code>; <code>parse_dir</code> errors are <code>(file, line, message)</code> (a directory spans files).
-<code>build_engine</code> installs the DEC runtime (the library + FOROTS binary-I/O codec) unless
-<code>runtime=False</code>, and never shadows a routine the program defines itself.</p>
-<h2 id="embedding-and-i-o">Embedding and I/O</h2>
-<p>The <code>Engine</code> is the runtime. Build one with <code>forterp.runtime.make_engine(units, dialect=None, **kwargs)</code> (it installs the runtime and applies the dialect's engine flags),
-then <code>eng.run_program(name)</code>. The engine's host touchpoints are injected callbacks, so it
-stays host-agnostic:</p>
-<table>
-<thead>
-<tr>
-<th><code>Engine</code>/<code>make_engine</code> kwarg</th>
-<th>Role</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>emit</code></td>
-<td>sink for terminal output (<code>TYPE</code>, list-directed, unit 5) — a <code>str -&gt; None</code> callback</td>
-</tr>
-<tr>
-<td><code>printer</code></td>
-<td>sink for the line printer (units 3/6)</td>
-</tr>
-<tr>
-<td><code>readline</code></td>
-<td>source for <code>READ</code>/<code>ACCEPT</code> — returns one line (<code>&quot;&quot;</code> at EOF)</td>
-</tr>
-<tr>
-<td><code>getch</code></td>
-<td>single-character input, if needed</td>
-</tr>
-<tr>
-<td><code>set_echo</code></td>
-<td><code>bool -&gt; None</code> — change the terminal echo mode (a program's <code>ECHOON</code>/<code>ECHOFF</code>); <code>run_source</code> defaults it to <code>runtime.default_terminal_echo</code> (flips termios <code>ECHO</code> on a tty, restored after)</td>
-</tr>
-<tr>
-<td><code>set_autowrap</code></td>
-<td><code>bool -&gt; None</code> — <em>optional</em> extra hook for the PDP-10 &quot;free CR-LF&quot; mode (<code>TRMOP.</code> <code>.TONFC</code>). Under the DEC dialect the engine already wraps terminal output at <code>tty_width</code> host-side, so this is only for a front-end that renders elsewhere (e.g. an ANSI terminal emitting <code>ESC[?7l</code>/<code>?7h</code>)</td>
-</tr>
-<tr>
-<td><code>target</code></td>
-<td>the value model (default <code>NATIVE</code>)</td>
-</tr>
-<tr>
-<td><code>root</code></td>
-<td>base directory for <code>INCLUDE</code> and <code>OPEN</code> file specs</td>
-</tr>
-<tr>
-<td><code>max_array_words</code></td>
-<td>cap on a single array/<code>COMMON</code> allocation (default 50M)</td>
-</tr>
-<tr>
-<td><code>dec_files</code></td>
-<td>read/write unformatted sequential files as real FOROTS binary (opt-in; default off — the portable JSON word-list otherwise)</td>
-</tr>
-<tr>
-<td><code>tty_width</code></td>
-<td>terminal carriage width for the FORTRAN-10 free-CR-LF wrap (default 80; <code>0</code> = no wrap)</td>
-</tr>
-<tr>
-<td><code>tty_autowrap</code></td>
-<td>whether terminal output wraps at <code>tty_width</code> (default on; a program toggles it via <code>TRMOP.</code> <code>.TONFC</code>)</td>
-</tr>
-</tbody>
-</table>
-<pre><code class="language-python">out = []
-units = forterp.parse_source(src, dialect=forterp.FORTRAN10)
-eng = forterp.runtime.make_engine(units, dialect=forterp.FORTRAN10, printer=out.append)
-eng.run_program()                # or run_program(&quot;MAIN&quot;)
-print(&quot;&quot;.join(out))
-</code></pre>
-<p>Reading results back is just inspecting engine state: <code>eng.commons[&quot;BLK&quot;]</code> (a flat word
-list) is the usual channel for using FORTRAN as a compute kernel.</p>
-<h2 id="expert-namespaces">Expert namespaces</h2>
-<p>The root stays focused; the rest is organized into namespaces (<code>import forterp</code> makes them
-available as <code>forterp.&lt;namespace&gt;</code>):</p>
-<table>
-<thead>
-<tr>
-<th>Namespace</th>
-<th>Holds</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>forterp.runtime</code></td>
-<td><code>Engine</code>, <code>Frame</code>, <code>make_engine</code>, <code>install_runtime</code>, <code>engine_kwargs</code>, <code>STDLIB</code></td>
-</tr>
-<tr>
-<td><code>forterp.frontend</code></td>
-<td>the parse stages: <code>scan_file</code>, <code>expand_includes</code>, <code>parse_units</code>, <code>parse_expression</code>, <code>tokenize</code>, <code>Token</code>, <code>LexError</code></td>
-</tr>
-<tr>
-<td><code>forterp.format</code></td>
-<td>the FORMAT engine: <code>parse_format</code>, <code>render</code>, <code>read_values</code>, <code>apply_carriage</code>, <code>InputConversionError</code></td>
-</tr>
-<tr>
-<td><code>forterp.ast</code></td>
-<td>the AST node classes the parser produces</td>
-</tr>
-<tr>
-<td><code>forterp.hostlib</code></td>
-<td>declarative authoring of host builtins (below)</td>
-</tr>
-<tr>
-<td><code>forterp.debug</code></td>
-<td>the OOB-access census (below) and the interactive tracer/profiler</td>
-</tr>
-</tbody>
-</table>
 <h2 id="custom-host-routines-builtins">Custom host routines (builtins)</h2>
 <p>A host can add its own routines that FORTRAN <code>CALL</code>s or references — the
 geometry/bit-packing/pathfinding helpers and the &quot;system calls&quot; (terminal I/O, file reads,
 the clock) that programs of this era kept in hand-written assembly. <code>forterp.hostlib</code> is the
 authoring layer: declare each parameter's <em>mode</em> and write a clean Python body; the argument
-marshalling is generated. (For <em>how</em> it is generated, see the <a href="../design/index.html">design notes</a>.)</p>
+marshalling is generated. (For <em>how</em> it is generated, see the <a href="../11-seams-intrinsics/index.html">design notes</a>.)</p>
 <h3 id="two-decorators">Two decorators</h3>
 <p>The programs being run had host routines of two kinds, and there is a decorator for each:</p>
 <ul>
@@ -624,7 +311,7 @@ FORTRAN-10 V5 <em>language library</em> (<code>TIME</code>/<code>DATE</code>/<co
 <p><strong>They read the engine seam directly, not the <code>Monitor</code> facade.</strong> The bundled UUOs are plain
 <code>fn(eng, frame, arg_nodes)</code> builtins that reach <code>eng.emit</code> / <code>eng.clock</code> / <code>eng.tgt</code> themselves
 (the same way <code>STDLIB</code> does), so injecting an <code>eng.monitor</code> does <em>not</em> by itself change <code>OUTSTR</code>
-or <code>MSTIME</code> — those follow the engine's <a href="#embedding-and-io">I/O callbacks</a> (<code>emit</code>, <code>clock</code>),
+or <code>MSTIME</code> — those follow the engine's <a href="../04-running-embedding/index.html#embedding-and-io">I/O callbacks</a> (<code>emit</code>, <code>clock</code>),
 which is the lowest seam to override if you only want to redirect their output.</p>
 <p>To override a bundled call itself, <strong>register your own routine for that name</strong> — a host routine
 registered after the runtime wins over the bundled one (it never shadows a routine the <em>program</em>
@@ -644,56 +331,13 @@ injected identity's PPN for <code>.GTPPN</code>.</p>
 <h3 id="pluggable-open-devices">Pluggable <code>OPEN</code> devices</h3>
 <p>A related seam: <code>eng.register_device(&quot;GAM&quot;, fn(eng, unit, specs, frame))</code> lets a program
 <code>OPEN(…, DEVICE='GAM')</code> route to your handler; the core knows only TTY + ordinary files.</p>
-<h2 id="instrumentation-the-oob-census">Instrumentation: the OOB census</h2>
-<p>The engine reproduces the unchecked PDP-10 faithfully — an out-of-bounds read yields <code>0</code>, an
-OOB write is dropped (the 1978 overrun behavior). <code>forterp.debug</code> lets you <em>observe</em> that
-without changing it:</p>
-<pre><code class="language-python">import forterp, forterp.debug
-
-with forterp.debug.oob_census() as census:        # mode &quot;log&quot; by default
-    forterp.fortran10.run_source(src)
-print(census.reads, census.writes)                # counts during the block
-for site in census.sites:                          # per-site records (mode &quot;log&quot;)
-    print(site[&quot;op&quot;], site[&quot;routine&quot;], site[&quot;array&quot;], site[&quot;idx&quot;], site[&quot;len&quot;])
-</code></pre>
-<p>The context manager restores the prior mode on exit (even on exception). For finer control
-there is a standalone surface: <code>set_oob_mode(&quot;off&quot;|&quot;log&quot;|&quot;raise&quot;)</code> / <code>oob_mode()</code>,
-<code>oob_counts()</code> → <code>(reads, writes)</code>, and <code>oob_log()</code> / <code>clear_oob_log()</code>. In <code>&quot;raise&quot;</code> mode
-an overrun raises <code>forterp.debug.OobError</code> — turning the faithful overrun into a hard error
-for a checker or fuzzer.</p>
-<h2 id="errors">Errors</h2>
-<table>
-<thead>
-<tr>
-<th>Exception</th>
-<th>Raised when</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>forterp.ParseError</code></td>
-<td>malformed source (front-end); message carries every diagnostic</td>
-</tr>
-<tr>
-<td><code>forterp.format.InputConversionError</code></td>
-<td>a bad numeric field on formatted/list-directed/NAMELIST input</td>
-</tr>
-<tr>
-<td><code>forterp.debug.OobError</code></td>
-<td>an out-of-bounds access while the census mode is <code>&quot;raise&quot;</code></td>
-</tr>
-</tbody>
-</table>
-<p>A runtime fault inside a FORTRAN program surfaces as an ordinary Python exception
-(<code>RuntimeError</code>, <code>ValueError</code>, …) out of <code>run_source</code>/<code>run_program</code>; an explicit <code>STOP</code>
-raises <code>forterp.runtime.StopExecution</code>, which <code>run_program</code> swallows as normal termination.</p>
 
         </div>
       </article>
     </main>
 
     <footer class="site-footer">
-      <p>© 2026 Nicholas J. Kisseberth · <a href="../index.html">forterp</a> is <a href="../license/index.html">MIT-licensed</a>.</p>
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
       <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
     </footer>
   </div>

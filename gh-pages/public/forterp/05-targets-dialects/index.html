@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Targets &amp; dialects | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">Targets &amp; dialects</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#the-two-axes-target-and-dialect">The two axes: target and dialect</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#the-f77-dialect-knobs">The F77 dialect knobs</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>Targets &amp; dialects</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">Targets &amp; dialects</p>
+        </header>
+        <div class="prose">
+<h2 id="the-two-axes-target-and-dialect">The two axes: target and dialect</h2>
+<p>They are orthogonal — any pairing is valid.</p>
+<p><strong>Target</strong> — the machine value model (integer word width + overflow, the logical-truth
+convention, the character codec):</p>
+<ul>
+<li><code>forterp.NATIVE</code> — a clean 64-bit host: 64-bit two's-complement, 8-bit ASCII, <code>.TRUE.</code>=1
+with boolean logicals. <strong>The default</strong>, for running standard F66 portably.</li>
+<li><code>forterp.PDP10</code> — the DEC FORTRAN-10 machine: 36-bit two's-complement, 5×7-bit packed
+ASCII, <code>.TRUE.</code>=−1 with bit-wise logicals. The faithful, validated opt-in.</li>
+<li><code>forterp.LP64LE</code> — a 64-bit little-endian IEEE machine (32-bit <code>INTEGER</code>/<code>REAL</code>, 64-bit
+<code>DOUBLE</code>) — matches gfortran on x86_64; most useful with <code>word_memory</code> (below).</li>
+<li><code>forterp.VAX</code> — a provisional, unvalidated 32-bit guess.</li>
+<li><code>forterp.Target(word_bits=…, chars_per_word=…, bits_per_char=…, logical_true=…, bitwise_logic=…, little_endian=…, truth=…, mem_model=…)</code> — build your own.</li>
+</ul>
+<pre><code class="language-python">forterp.run_source(src, target=forterp.PDP10)   # 36-bit arithmetic, packed ASCII
+</code></pre>
+<p><strong>Faithful type punning</strong> — by default <code>COMMON</code>/<code>EQUIVALENCE</code> cells hold typed values, so reading
+the same storage as a different type isn't bit-faithful. Pass <code>word_memory=True</code> (PDP10/LP64LE/VAX
+only; CLI <code>--word-memory</code>) to store such blocks as raw machine words/bytes and reinterpret on
+access, so a <code>REAL</code> read as an <code>INTEGER</code> yields the genuine machine word — validated against a real
+KL10 (PDP10) and gfortran (LP64LE). Off by default: it changes the <code>commons</code> representation to raw
+words and costs ~2× per <code>COMMON</code> access. See the <a href="../../reference/C-forterp-extensions/index.html">FORTRAN 66 manual, Appendix C</a>.</p>
+<pre><code class="language-python">forterp.run_source(src, target=forterp.PDP10, word_memory=True)  # bit-faithful punning
+</code></pre>
+<p><strong>Dialect</strong> — the front-end language. <code>forterp.F66</code> is strict ANSI X3.9-1966 and genuinely
+<em>rejects</em> non-F66 constructs; <code>forterp.FORTRAN10</code> is the DEC superset (octal, tab-format,
+<code>!</code> comments, apostrophe strings, random-access I/O, free-form input, the DEC intrinsic
+library); <code>forterp.F77</code> is ANSI X3.9-1978 — the <code>CHARACTER</code> type, the block <code>IF</code>,
+list-directed and keyword-driven I/O, internal files, <code>INQUIRE</code>, <code>PARAMETER</code>/<code>SAVE</code>, and
+<code>.EQV.</code>/<code>.NEQV.</code>. See the <strong><a href="../../fortran77/index.html">FORTRAN 77 reference manual</a></strong> for the
+language itself, and the F77 dialect knobs just below.</p>
+<p><strong>SourceOptions</strong> — orthogonal to the dialect; it copes with imperfect <em>input</em>, not a
+language variant. <code>forterp.SourceOptions(recover_shifted_cols=True)</code> keeps statement text
+that spilled past column 72 in a mechanically re-indented deck. The default is no recovery
+(columns 7–72, sequence field dropped).</p>
+<h3 id="the-f77-dialect-knobs">The F77 dialect knobs</h3>
+<p>A <code>Dialect</code> is a set of front-end flags; <code>forterp.F77</code> turns on exactly the subset ANSI
+X3.9-1978 standardized (several were split out of the broader DEC bundles so F77 gets the
+standardized feature without the rest of the DEC extension):</p>
+<table>
+<thead>
+<tr>
+<th>Knob</th>
+<th>Enables</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character_type</code></td>
+<td>the <code>CHARACTER</code> data type — quoted strings become <code>str</code>, not Hollerith words</td>
+</tr>
+<tr>
+<td><code>block_if</code></td>
+<td><code>IF … THEN</code> / <code>ELSE IF</code> / <code>ELSE</code> / <code>END IF</code></td>
+</tr>
+<tr>
+<td><code>list_directed_io</code></td>
+<td>list-directed <code>*</code> <code>READ</code>/<code>WRITE</code> (split from the DEC <code>extended_io</code> bundle)</td>
+</tr>
+<tr>
+<td><code>eqv_operators</code></td>
+<td><code>.EQV.</code> / <code>.NEQV.</code> (split from the DEC <code>dec_operators</code> bundle)</td>
+</tr>
+<tr>
+<td><code>parameter_stmt</code></td>
+<td>the <code>PARAMETER</code> statement</td>
+</tr>
+<tr>
+<td><code>implicit_stmt</code></td>
+<td>the <code>IMPLICIT</code> statement (incl. <code>IMPLICIT CHARACTER*n</code>)</td>
+</tr>
+<tr>
+<td><code>save_stmt</code>, <code>intrinsic_stmt</code></td>
+<td><code>SAVE</code> / <code>INTRINSIC</code></td>
+</tr>
+<tr>
+<td><code>expr_subscripts</code></td>
+<td>general integer expressions in subscripts and <code>DO</code> bounds</td>
+</tr>
+<tr>
+<td><code>array_lower_bounds</code></td>
+<td><code>DIMENSION A(lo:hi)</code>, assumed-size <code>A(*)</code>, adjustable bounds</td>
+</tr>
+<tr>
+<td><code>alt_return</code></td>
+<td>alternate-return actual arguments (<code>CALL S(*99)</code>)</td>
+</tr>
+<tr>
+<td><code>mixed_complex_assign</code></td>
+<td><code>COMPLEX</code> ↔ numeric assignment</td>
+</tr>
+<tr>
+<td><code>apostrophe_string</code></td>
+<td><code>'…'</code> string constants</td>
+</tr>
+<tr>
+<td><code>dec_intrinsics</code></td>
+<td>the F77 generic intrinsic library (a superset of F66 Tables 3 &amp; 4)</td>
+</tr>
+<tr>
+<td><code>strict_stmt_order</code></td>
+<td>enforce &quot;specifications before executables&quot; (§3.5) as a hard error</td>
+</tr>
+<tr>
+<td><code>carriage_control</code></td>
+<td><strong>off</strong> for F77 — standard output is a terminal, not a line printer</td>
+</tr>
+</tbody>
+</table>
+<p>The strict/relax knobs <code>recursion</code>, <code>unlimited_rank</code>, and <code>bounds_check</code> are off by default on
+every dialect; see <a href="../../fortran77/D-forterp-extensions/index.html">reference manual Appendix D</a>.</p>
+<p>Notably <strong>off</strong> for F77 (on only for <code>FORTRAN10</code>): <code>do_while</code>, <code>dec_operators</code> (<code>.XOR.</code>,
+<code>==</code>/<code>&lt;</code>/<code>&gt;</code>), <code>slash_dim_bound</code> (<code>A(lo/hi)</code>), <code>octal_quote</code>, <code>tab_format</code>, <code>inline_comment</code>
+(<code>!</code>), <code>extended_io</code> (<code>TYPE</code>/<code>ACCEPT</code>/<code>ENCODE</code>/<code>DECODE</code>, random-access), <code>free_form_input</code>.</p>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

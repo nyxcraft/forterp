@@ -8,7 +8,7 @@ shown with a small, runnable example and its result.
 This manual is self-contained: you do not need to know an earlier FORTRAN to use it. It runs on
 [`forterp`](../../README.md); each chapter ends with a **forterp notes** box describing anything
 specific to how forterp implements that part of the language (and which knobs change it). For how
-to *select and run* the F77 dialect, see the [Python API guide](../API.md) and [CLI.md](../CLI.md).
+to *select and run* the F77 dialect, see the [Python API guide](../forterp/04-running-embedding.md) and [Command-line tools](../forterp/02-cli.md).
 
 ## How to read this manual
 
