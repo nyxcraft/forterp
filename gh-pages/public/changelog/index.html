@@ -34,6 +34,7 @@
         <p class="docs-sidebar__eyebrow">On this page</p>
         <nav class="section-nav" aria-label="On this page">
 <ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#2026-06-27-the-forterp-manual-an-engine-refactor-review-fixes-and-a-fortran-77-command">2026-06-27 — the forterp manual, an engine refactor, review fixes, and a FORTRAN 77 command</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#2026-06-27-faithful-type-punning-the-value-model-targets-and-three-language-features">2026-06-27 — faithful type punning, the value-model targets, and three language features</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#2026-06-27-the-fortran-66-reference-manual-and-a-cross-dialect-bridge">2026-06-27 — the FORTRAN 66 reference manual, and a cross-dialect bridge</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#2026-06-26-fcvs-the-whole-conformance-corpus-now-matches-gfortran">2026-06-26 — FCVS: the whole conformance corpus now matches gfortran</a></li>
@@ -60,6 +61,14 @@
           <p class="docs-article__source">Changelog</p>
         </header>
         <div class="prose">
+<h2 id="2026-06-27-the-forterp-manual-an-engine-refactor-review-fixes-and-a-fortran-77-command">2026-06-27 — the forterp manual, an engine refactor, review fixes, and a FORTRAN 77 command</h2>
+<ul>
+<li><strong>20:30</strong> — Reorganized the <code>API</code>/<code>CLI</code>/<code>DESIGN</code> references into a chaptered <strong><code>docs/forterp/</code> manual</strong> (14 chapters — getting started, the command-line tools and interactive processor, running &amp; embedding, the target/dialect axes, host routines, the architecture, the memory model, control &amp; I/O, seams &amp; intrinsics, internals, testing, maintaining), published to the site; retired the three monolithic docs.</li>
+<li><strong>21:00</strong> — <strong>Refactored <code>engine.py</code></strong>: extracted <code>refs.py</code> (the storage Ref/View classes + the unchecked out-of-bounds machinery) and <code>intrinsics.py</code> (the intrinsic-function library + the <code>trunc_div</code>/<code>fort_mod</code> arithmetic primitives) as dependency-leaf modules — 3,831 → 3,277 lines, with the <code>forterp.engine.*</code> surface preserved by re-export. No behavior or performance change.</li>
+<li><strong>21:20</strong> — <strong>Cross value-model perf analysis</strong>: the faithful targets cost nothing measurable on arithmetic; <code>word_memory</code> punning costs ~1.5–2.1× <em>only</em> on storage-associated (<code>COMMON</code>/<code>EQUIVALENCE</code>) access, and is off by default — VAX dearest (middle-endian floats), LP64LE cheapest (native <code>struct</code>), PDP10 between.</li>
+<li><strong>21:40</strong> — Acted on an <strong>external review</strong>: (1) <code>word_memory</code> overruns now follow the faithful unchecked-pointer rule (read → 0, write dropped) instead of raising <code>IndexError</code>; (2) a recursive procedure's local <code>EQUIVALENCE</code> storage is snapshotted per activation, not shared across calls; (3) a genuine <code>OPEN</code> failure (a directory, an unreadable file) reports <code>IOSTAT=</code>/<code>ERR=</code> instead of silently connecting an empty unit — a merely <em>missing</em> file still connects empty; (4) cleared the stale &quot;F77 is a subset&quot; comments and the <code>--word-memory</code>/<code>--std</code> help text. (The <code>DOUBLE COMPLEX</code> legacy-layout and dialect-capability-flag findings are deferred.)</li>
+<li><strong>21:50</strong> — A <strong><code>pyf77</code></strong> console command — run a source file as ANSI FORTRAN 77 (<code>pyf77 prog.for</code>), alongside <code>pyf66</code> and <code>pyfortran10</code>; <code>forterp --std f77</code> is the general-driver equivalent.</li>
+</ul>
 <h2 id="2026-06-27-faithful-type-punning-the-value-model-targets-and-three-language-features">2026-06-27 — faithful type punning, the value-model targets, and three language features</h2>
 <ul>
 <li><strong>12:10</strong> — <code>DOUBLE PRECISION</code> now occupies <strong>two</strong> storage units in <code>COMMON</code>/<code>EQUIVALENCE</code>, matching the standard's storage-unit count (it was one) — so a member after a <code>DOUBLE</code> no longer lands at the wrong word. On the PDP10 target a double is stored as its two genuine KL10 machine words.</li>

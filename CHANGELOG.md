@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-06-27 — the forterp manual, an engine refactor, review fixes, and a FORTRAN 77 command
+
+- **20:30** — Reorganized the `API`/`CLI`/`DESIGN` references into a chaptered **`docs/forterp/` manual** (14 chapters — getting started, the command-line tools and interactive processor, running & embedding, the target/dialect axes, host routines, the architecture, the memory model, control & I/O, seams & intrinsics, internals, testing, maintaining), published to the site; retired the three monolithic docs.
+- **21:00** — **Refactored `engine.py`**: extracted `refs.py` (the storage Ref/View classes + the unchecked out-of-bounds machinery) and `intrinsics.py` (the intrinsic-function library + the `trunc_div`/`fort_mod` arithmetic primitives) as dependency-leaf modules — 3,831 → 3,277 lines, with the `forterp.engine.*` surface preserved by re-export. No behavior or performance change.
+- **21:20** — **Cross value-model perf analysis**: the faithful targets cost nothing measurable on arithmetic; `word_memory` punning costs ~1.5–2.1× *only* on storage-associated (`COMMON`/`EQUIVALENCE`) access, and is off by default — VAX dearest (middle-endian floats), LP64LE cheapest (native `struct`), PDP10 between.
+- **21:40** — Acted on an **external review**: (1) `word_memory` overruns now follow the faithful unchecked-pointer rule (read → 0, write dropped) instead of raising `IndexError`; (2) a recursive procedure's local `EQUIVALENCE` storage is snapshotted per activation, not shared across calls; (3) a genuine `OPEN` failure (a directory, an unreadable file) reports `IOSTAT=`/`ERR=` instead of silently connecting an empty unit — a merely *missing* file still connects empty; (4) cleared the stale "F77 is a subset" comments and the `--word-memory`/`--std` help text. (The `DOUBLE COMPLEX` legacy-layout and dialect-capability-flag findings are deferred.)
+- **21:50** — A **`pyf77`** console command — run a source file as ANSI FORTRAN 77 (`pyf77 prog.for`), alongside `pyf66` and `pyfortran10`; `forterp --std f77` is the general-driver equivalent.
+
 ## 2026-06-27 — faithful type punning, the value-model targets, and three language features
 
 - **12:10** — `DOUBLE PRECISION` now occupies **two** storage units in `COMMON`/`EQUIVALENCE`, matching the standard's storage-unit count (it was one) — so a member after a `DOUBLE` no longer lands at the wrong word. On the PDP10 target a double is stored as its two genuine KL10 machine words.
