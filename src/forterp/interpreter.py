@@ -167,7 +167,7 @@ fortran10 = Interpreter(PDP10, FORTRAN10)
 #: library (free_form_input / dec_intrinsics are taken from the F66 dialect).
 f66 = Interpreter(NATIVE, F66)
 
-#: ANSI FORTRAN 77 (X3.9-1978) -- portable NATIVE machine, F77 dialect. The control-flow +
-#: declaration subset for now (block IF, DO WHILE off by default, SAVE, the F77 syntax already
-#: shared with FORTRAN-10); CHARACTER and the full F77 I/O set are planned.
+#: ANSI FORTRAN 77 (X3.9-1978) -- portable NATIVE machine, F77 dialect. The full language: the
+#: CHARACTER type, the block IF, list-directed I/O, OPEN/CLOSE/INQUIRE, .EQV./.NEQV., zero-trip
+#: DO, and strict F77 statement ordering. DEC-only extensions stay off (use FORTRAN10 for those).
 f77 = Interpreter(NATIVE, F77)

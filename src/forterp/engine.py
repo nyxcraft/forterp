@@ -51,6 +51,8 @@ from forterp.refs import (
     linidx,
     oob_read,
     oob_write,
+    wmem_read,
+    wmem_write,
 )
 from forterp.target import NATIVE, PDP10
 
@@ -76,6 +78,10 @@ IO_OK = (0, 0)  # success / status cleared
 IO_EOF = (24, 308)  # end-of-file on input
 IO_BAD_RECORD = (25, 302)  # invalid or unwritten (random-access) record
 IO_ILLEGAL_CHAR = (38, 311)  # illegal character in formatted input
+# OPEN could not connect the file (e.g. it is a directory, or unreadable) -- as opposed to a
+# merely missing file, which still connects as an empty input unit. The exact status is
+# processor-dependent (X3.9-1978 12.10.1); a positive code so IOSTAT> 0 and ERR= fires.
+IO_OPEN_FAIL = (30, 0)
 
 # Sentinel for the endfile record an ENDFILE statement writes (X3.9-1978 12.10.4.2). It sits in
 # a sequential unit's record list: a READ that reaches it hits end-of-file, and a BACKSPACE backs
@@ -1063,7 +1069,7 @@ class Engine:
         if slot is not None:
             store = self.commons[slot[0]]
             if self.word_memory and slot[2] is None:  # faithful punning: decode by type
-                return self.wmem.read(store, slot[1], self.type_of(frame.rt.unit, name))
+                return wmem_read(self.wmem, store, slot[1], self.type_of(frame.rt.unit, name))
             if name in frame.rt.complex_scalars:  # 2-word COMPLEX: re, im -> one complex
                 off = slot[1]
                 return complex(float(oob_read(store, off)), float(oob_read(store, off + 1)))
@@ -1346,16 +1352,21 @@ class Engine:
         (F90) or the global `recursion` knob is on, snapshotting the active activation's static
         locals so the nested call gets its own working storage; otherwise raise IllegalRecursion.
         Returns the snapshot to hand to `_leave_unit` (None if this is the outermost activation).
-        COMMON is intentionally untouched -- it is shared, not local."""
+        Real COMMON is intentionally untouched -- it is shared, not local. But a unit's LOCAL
+        EQUIVALENCE groups live in synthetic `$EQV.<unit>.*` blocks inside self.commons; those are
+        local storage, so they are snapshotted alongside the static locals (else a recursive call's
+        EQUIVALENCEd locals would leak into the caller's activation)."""
         if crt in self._active:
             if not (crt.unit.recursive or self.allow_recursion):
                 raise IllegalRecursion(
                     f"subprogram {crt.unit.name!r} references itself (recursion; F77 15.5.2). "
                     f"Declare it RECURSIVE, or enable the `recursion` dialect knob, to allow it."
                 )
+            eqv_prefix = f"$EQV.{crt.unit.name}."
             return (
                 dict(crt.local_scalars),
                 {k: list(v) for k, v in crt.local_arrays.items()},
+                {k: list(v) for k, v in self.commons.items() if k.startswith(eqv_prefix)},
             )
         self._active.add(crt)
         return None
@@ -1363,15 +1374,17 @@ class Engine:
     def _leave_unit(self, crt, snap):
         """Companion to `_enter_unit`. On the outermost activation (`snap` is None) just mark the
         unit inactive; on a recursive activation, restore the caller's saved locals in place (so
-        any held reference to the dicts stays valid)."""
+        any held reference to the dicts/stores stays valid)."""
         if snap is None:
             self._active.discard(crt)
             return
-        scalars, arrays = snap
+        scalars, arrays, eqvs = snap
         crt.local_scalars.clear()
         crt.local_scalars.update(scalars)
         crt.local_arrays.clear()
         crt.local_arrays.update({k: list(v) for k, v in arrays.items()})
+        for k, v in eqvs.items():  # restore local-EQUIVALENCE blocks in place
+            self.commons[k][:] = v
 
     def _entry_frame(self, name, arg_nodes, frame):
         """Build a frame entering `name`'s owning unit at the ENTRY's pc, bound to
@@ -1535,6 +1548,20 @@ class Engine:
             if err is not None:
                 return Goto(err)
             raise
+        except OSError:
+            # OPEN (or another I/O op) failed at the OS level -- e.g. the FILE= is a directory or
+            # unreadable. This is a recoverable I/O error, NOT silent success (X3.9-1978 12.10.1):
+            #   ERR=    -> transfer there;
+            #   IOSTAT= -> set it (positive) and continue to the next statement (non-fatal);
+            #   neither -> re-raise for a clean halt.
+            self.last_io_error = IO_OPEN_FAIL
+            self._set_iostat(s, frame)
+            specs = getattr(s, "specs", None) or {}
+            if specs.get("ERR") is not None:
+                return Goto(specs["ERR"])
+            if specs.get("IOSTAT") is not None:
+                return None
+            raise
         self._set_iostat(s, frame)
         return ctrl
 
@@ -1620,7 +1647,7 @@ class Engine:
                 slot = frame.rt.common_map.get(name)
                 if slot is not None:
                     if self.word_memory and slot[2] is None:  # faithful punning: encode by type
-                        self.wmem.write(self.commons[slot[0]], slot[1], ttype, val)
+                        wmem_write(self.wmem, self.commons[slot[0]], slot[1], ttype, val)
                     elif ttype in COMPLEX_TYPES:  # 2-word COMPLEX: split into re, im cells
                         ComplexPairRef(self.commons[slot[0]], slot[1]).write(val)
                     elif name in frame.rt.double_word_scalars:  # 2-word DOUBLE: split hi, lo
@@ -2957,8 +2984,10 @@ class Engine:
         try:
             with open(path, "rb") as fh:
                 raw = fh.read()
-        except OSError:  # missing/empty -> an empty unit (a fresh READ hits END=)
+        except FileNotFoundError:  # missing -> an empty unit (a fresh READ hits END=)
             return {"recs": [], "pos": 0, "mode": "r", "path": path}
+        # A genuine open failure (a directory, a permission error) is NOT a silent empty unit --
+        # let it propagate so OPEN reports it via IOSTAT=/ERR= (or a clean halt). See _io_guard.
         if raw[:1] == b"\x00":  # a core-dump START LSCW begins 0x00 -> this is a FOROTS binary file
             if not self.forots:  # config mismatch: a binary file, unit not in dec mode
                 raise OSError(

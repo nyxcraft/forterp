@@ -458,3 +458,23 @@ def test_double_complex_word_memory_layout_and_punning():
     assert len(eng.commons["C"]) == 5  # 4 words + 1 integer
     assert eng.wmem.read(eng.commons["C"], 4, "INTEGER") == 7
     assert eng.wmem.read(eng.commons["C"], 0, "DOUBLE COMPLEX") == complex(1.5, 2.5)
+
+
+def test_word_memory_oob_reads_zero_and_drops_write():
+    """word_memory honors the faithful unchecked-pointer OOB behavior (read -> 0, write dropped)
+    rather than letting the raw codec raise IndexError on an overrun (external review #1)."""
+    import forterp.debug
+
+    src = """      PROGRAM T
+      COMMON /O/ A(2), R
+      A(1) = 11.0
+      A(2) = 22.0
+      A(5) = 99.0
+      R = A(4)
+      END
+"""
+    with forterp.debug.oob_census() as census:
+        eng = forterp.run_source(src, dialect=forterp.F66, target=forterp.PDP10, word_memory=True)
+    assert len(eng.commons["O"]) == 3  # the OOB A(5)= did not grow the block
+    assert eng.commons["O"][-1] == 0  # R = A(4) read OOB -> 0.0 (encodes to word 0)
+    assert census.reads >= 1 and census.writes >= 1  # the OOB census saw both

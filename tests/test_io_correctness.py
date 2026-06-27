@@ -217,3 +217,34 @@ def test_iostat_specifier_is_defined_per_f77_12_7():
     )
     eng = run(src, dialect=forterp.F77)
     assert out(eng, 1) > 0 and out(eng, 2) == 1
+
+
+def test_open_of_a_directory_reports_iostat_not_silent_success():
+    """A genuine OPEN failure (the FILE= names a directory -- here '.') must surface via IOSTAT=
+    (positive), not connect a silent empty unit with IOSTAT=0 (external review #4)."""
+    src = HEAD + "        OPEN(UNIT=7,FILE='.',IOSTAT=IOS)\n        V(1) = IOS\n" + TAIL
+    eng = run(src, dialect=forterp.FORTRAN10)
+    assert eng.commons["OUT"][0] != 0
+
+
+def test_open_failure_honors_err_label():
+    """An OPEN failure transfers to ERR= when present (external review #4)."""
+    src = (
+        HEAD
+        + "        OPEN(UNIT=7,FILE='.',ERR=99)\n"
+        + "        V(1) = 1\n        GO TO 100\n"
+        + "   99   V(1) = 42\n  100   CONTINUE\n"
+        + TAIL
+    )
+    eng = run(src, dialect=forterp.FORTRAN10)
+    assert eng.commons["OUT"][0] == 42
+
+
+def test_open_missing_file_still_connects_empty(tmp_path):
+    """A merely MISSING file still connects as an empty input unit with IOSTAT=0 -- the faithful
+    behavior is preserved; only genuine OS errors are reported (external review #4)."""
+    src = (
+        HEAD + "        OPEN(UNIT=7,FILE='no_such_zzz.dat',IOSTAT=IOS)\n        V(1) = IOS\n" + TAIL
+    )
+    eng = run(src, dialect=forterp.FORTRAN10)
+    assert eng.commons["OUT"][0] == 0

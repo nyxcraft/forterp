@@ -128,10 +128,10 @@ FORTRAN10 = Dialect(  # DEC FORTRAN-10 V5 superset: every extension on
     intrinsic_stmt=True,
     blank_null=True,  # FORTRAN-10 V5: width'd numeric input ignores blanks (BLANK=NULL default)
 )
-# ANSI X3.9-1978 (FORTRAN 77): the standard between F66 and the DEC superset. Reuses the
-# knobs F77 standardized; DEC-only extensions (octal `"`, tab format, free-form input, TYPE/
-# ACCEPT, ENCODE/DECODE, symbolic == operators, `;`, DO WHILE) stay off. CHARACTER and the
-# full F77 I/O set are not here yet (planned); this is the control-flow + declaration subset.
+# ANSI X3.9-1978 (FORTRAN 77): the standard between F66 and the DEC superset. The full language --
+# the CHARACTER type, list-directed I/O, the block IF, .EQV./.NEQV., zero-trip DO, and strict F77
+# statement ordering are all on. DEC-only extensions (octal `"`, tab format, free-form input, TYPE/
+# ACCEPT, ENCODE/DECODE, symbolic == operators, `;`, DO WHILE) stay off -- use FORTRAN10 for those.
 F77 = Dialect(
     apostrophe_string=True,  # CHARACTER/Hollerith apostrophe constants
     implicit_stmt=True,

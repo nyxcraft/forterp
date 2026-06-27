@@ -94,6 +94,38 @@ def oob_write(store, idx, v):
         _oob_event(idx, len(store), "write")
 
 
+# word_memory codec types whose zero value is complex (read of an OOB datum yields it).
+_WMEM_COMPLEX = ("COMPLEX", "DOUBLE COMPLEX")
+
+
+def wmem_read(wmem, store, off, typ):
+    """Read a typed datum from word-addressable (word_memory) storage with the same
+    unchecked-pointer semantics as `oob_read`: a datum whose whole span (off .. off+units)
+    falls outside the store reads 0 -- 0j for a complex type -- rather than the codec
+    faulting with an IndexError. Every word_memory access routes through here so punned
+    storage honors the faithful OOB behavior (and the census counters) just like a CellRef."""
+    if 0 <= off and off + wmem.units(typ) <= len(store):
+        return wmem.read(store, off, typ)
+    global OOB_READS
+    OOB_READS += 1
+    if OOB_CHECK != "off":
+        _oob_event(off, len(store), "read")
+    return 0j if typ in _WMEM_COMPLEX else 0
+
+
+def wmem_write(wmem, store, off, typ, v):
+    """Write a typed datum to word-addressable (word_memory) storage with the same
+    unchecked-pointer semantics as `oob_write`: a datum whose span falls outside the store is
+    dropped rather than faulting. The write counterpart of `wmem_read`."""
+    if 0 <= off and off + wmem.units(typ) <= len(store):
+        wmem.write(store, off, typ, v)
+        return
+    global OOB_WRITES
+    OOB_WRITES += 1
+    if OOB_CHECK != "off":
+        _oob_event(off, len(store), "write")
+
+
 class CellRef:
     """Reference to one word in a backing list.
 
@@ -193,10 +225,10 @@ class WordRef:
         self.wmem, self.store, self.off, self.typ = wmem, store, off, typ
 
     def read(self):
-        return self.wmem.read(self.store, self.off, self.typ)
+        return wmem_read(self.wmem, self.store, self.off, self.typ)
 
     def write(self, v):
-        self.wmem.write(self.store, self.off, self.typ, v)
+        wmem_write(self.wmem, self.store, self.off, self.typ, v)
 
 
 class TempRef:

@@ -1,9 +1,10 @@
-"""forterp -- a configurable FORTRAN-66 / DEC FORTRAN-10 interpreter in Python.
+"""forterp -- a configurable FORTRAN 66 / 77 / DEC FORTRAN-10 interpreter in Python.
 
-A configurable FORTRAN-66 interpreter: the machine value model (`Target`) and the
-front-end dialect (`Dialect`) are both pluggable. The default target is NATIVE (a
-portable 64-bit host); PDP10 (36-bit, packed ASCII, .TRUE.=-1) is the faithful DEC
-FORTRAN-10 target, selected with `Engine(..., target=PDP10)`.
+The machine value model (`Target`) and the front-end dialect (`Dialect`) are both
+pluggable. Dialects: F66 (default, strict ANSI X3.9-1966), F77 (the full ANSI
+X3.9-1978 language), and FORTRAN10 (the DEC FORTRAN-10 superset). The default target
+is NATIVE (a portable 64-bit host); PDP10 (36-bit, packed ASCII, .TRUE.=-1) is the
+faithful DEC FORTRAN-10 target, selected with `Engine(..., target=PDP10)`.
 
 Quick start::
 

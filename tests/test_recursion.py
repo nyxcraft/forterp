@@ -201,3 +201,23 @@ def test_recursive_subroutine():
     )
     eng = forterp.run_source(src, dialect=forterp.FORTRAN10, target=forterp.NATIVE)
     assert eng.commons["O"][0] == 5
+
+
+def test_recursive_local_equivalence_is_isolated_per_activation():
+    """A unit's local EQUIVALENCE storage lives in synthetic $EQV blocks; a recursive activation
+    must get its own, not share the caller's (external review #2). F(2): the outer A=2 must
+    survive the nested F(1), so F returns 2 -- not 1, as it did when $EQV was not snapshotted."""
+    src = """      PROGRAM T
+      COMMON /O/ R
+      R = F(2)
+      END
+      RECURSIVE FUNCTION F(N)
+      EQUIVALENCE (A, B)
+      A = N
+      IF (N .GT. 1) X = F(N-1)
+      F = B
+      RETURN
+      END
+"""
+    eng = forterp.run_source(src, dialect=forterp.FORTRAN10, target=forterp.NATIVE)
+    assert eng.commons["O"][0] == 2
