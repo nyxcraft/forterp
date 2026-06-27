@@ -108,9 +108,12 @@ def double_to_dec10_pair(x: float) -> tuple:
         raise Dec10FloatError(f"{x!r} is out of DEC-10 double-precision range")
     hi = (((e + 128) & 0o377) << 27) | ((frac >> 35) & MASK27)  # bit0=0 (positive)
     lo = frac & MASK35  # the 35 low fraction bits in bits 1-35; bit0=0
-    if neg:  # two's-complement the whole 72-bit doubleword
+    if neg:  # two's-complement the whole 72-bit doubleword (KL10 DMOVN)...
         comb = (-((hi << 36) | lo)) & MASK72
         hi, lo = comb >> 36, comb & MASK36
+        lo &= MASK35  # ...but the low word carries NO sign of its own: force its high bit (2^35)
+        #               to 0. A flat 72-bit negate sets it; real DEC FORTRAN-10 clears it (verified
+        #               on a KL10: -3.14D0 low word is 205075341217, not the naive 605075341217).
     return hi, lo
 
 

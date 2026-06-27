@@ -194,12 +194,19 @@ def test_dec10_double_keeps_precision_a_single_would_lose():
     assert dec10_to_double(double_to_dec10(0.1)) != 0.1
 
 
-def test_dec10_double_negative_is_twos_complement_of_the_doubleword():
-    hi_p, lo_p = double_to_dec10_pair(2.5)
-    hi_n, lo_n = double_to_dec10_pair(-2.5)
-    pos = (hi_p << 36) | lo_p
-    neg = (hi_n << 36) | lo_n
-    assert neg == ((-pos) & ((1 << 72) - 1))
+def test_dec10_double_negative_clears_the_low_word_sign_bit():
+    # A negative DOUBLE is the two's complement of the 72-bit doubleword EXCEPT the low word
+    # carries no sign of its own -- its high bit (2^35) is forced to 0. Verified on a real KL10
+    # under DEC FORTRAN-10 (SIMH KS10): -3.14D0 -> 575156050753 205075341217, NOT the naive
+    # 72-bit-negate low word 605075341217. See ~/f66spec/notes/PDP10-PUNNING-PROBE2.OUT.
+    hi, lo = double_to_dec10_pair(-3.14)
+    assert hi == 0o575156050753  # high word matches the genuine KL10 encoding exactly
+    assert lo >> 35 == 0  # the low word's sign bit (2^35) is cleared, not set
+    assert lo == 0o205075341000  # forterp's 52-bit low word (KL10's 62-bit tail is 205075341217)
+    assert dec10_pair_to_double(hi, lo) == -3.14  # round-trips
+    # a negative whose low word is zero is unaffected (the flat negate already leaves bit 35 clear):
+    assert double_to_dec10_pair(-2.5)[1] == 0
+    assert dec10_pair_to_double(*double_to_dec10_pair(-2.5)) == -2.5
 
 
 @pytest.mark.parametrize("x", [float("inf"), float("-inf"), float("nan"), 1.0e40, 1.0e-50])
