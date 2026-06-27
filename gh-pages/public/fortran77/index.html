@@ -788,8 +788,12 @@ and lexical-comparison families) with the Table-5 semantics verified (<code>INT<
 <li><strong>Block data (§16).</strong> <code>BLOCK DATA [sub]</code> supplies initial values for <strong>named</strong> common blocks
 via <code>DATA</code>, using only specification statements; only named-common entities may be
 initialized. — ✓ verified (a <code>BLOCK DATA</code> initializes a named block read by the main program).
-— ▲ the &quot;specify all entities of an initialized block&quot; and &quot;≤1 unnamed block-data&quot; rules are
-not enforced (lenient).</li>
+The two §16.2 restrictions split: — ▲ &quot;specify all entities of an initialized block&quot; is <strong>not</strong>
+enforced (accept-more): a block data declaring only a <em>prefix</em> of the block initializes those
+entities correctly and leaves the rest uninitialized — harmless, and gfortran only warns. — ✓
+&quot;<strong>at most one unnamed block data</strong>&quot; <strong>is</strong> enforced: a second unnamed <code>BLOCK DATA</code> is a hard
+error (<code>?FTNBDU</code>, all dialects), because the two would otherwise collide in the unit table and
+one block's initialization would be silently lost. Named block datas are unaffected.</li>
 </ul>
 <h3 id="17-association-and-definition">§17 Association and definition</h3>
 <ul>

@@ -681,8 +681,12 @@ is the full language; forterp does not implement the separate "subset FORTRAN" l
 - **Block data (§16).** `BLOCK DATA [sub]` supplies initial values for **named** common blocks
   via `DATA`, using only specification statements; only named-common entities may be
   initialized. — ✓ verified (a `BLOCK DATA` initializes a named block read by the main program).
-  — ▲ the "specify all entities of an initialized block" and "≤1 unnamed block-data" rules are
-  not enforced (lenient).
+  The two §16.2 restrictions split: — ▲ "specify all entities of an initialized block" is **not**
+  enforced (accept-more): a block data declaring only a *prefix* of the block initializes those
+  entities correctly and leaves the rest uninitialized — harmless, and gfortran only warns. — ✓
+  "**at most one unnamed block data**" **is** enforced: a second unnamed `BLOCK DATA` is a hard
+  error (`?FTNBDU`, all dialects), because the two would otherwise collide in the unit table and
+  one block's initialization would be silently lost. Named block datas are unaffected.
 
 ### §17 Association and definition
 

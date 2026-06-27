@@ -39,6 +39,55 @@ def test_named_block_data_with_array():
     assert [out(eng, i) for i in range(1, 4)] == [10, 20, 30]
 
 
+# ---- BLOCK DATA restrictions (§16.2) ---------------------------------------
+def test_two_unnamed_block_data_rejected():
+    # §16.2: "There must not be more than one unnamed block data subprogram." A second one would
+    # silently overwrite the first ($BLOCKDATA collides), losing a block's init -- so it's a hard
+    # error (all dialects).
+    import forterp
+
+    src = (
+        "      BLOCK DATA\n      COMMON /A/ X\n      DATA X /1.0/\n      END\n"
+        "      BLOCK DATA\n      COMMON /B/ Y\n      DATA Y /2.0/\n      END\n"
+        "      PROGRAM T\n      COMMON /A/ X\n      COMMON /B/ Y\n      END\n"
+    )
+    with pytest.raises(forterp.ParseError, match="unnamed BLOCK DATA"):
+        forterp.run_source(src, dialect=forterp.F77, target=forterp.NATIVE)
+
+
+def test_one_unnamed_plus_named_block_data_both_run():
+    # One unnamed + any number of NAMED block datas is fine -- each has its own name, no collision.
+    import forterp
+
+    src = (
+        "      BLOCK DATA\n      COMMON /A/ X\n      DATA X /1.0/\n      END\n"
+        "      BLOCK DATA INIT\n      COMMON /B/ Y\n      DATA Y /2.0/\n      END\n"
+        "      PROGRAM T\n      COMMON /O/ Z(2)\n      COMMON /A/ X\n      COMMON /B/ Y\n"
+        "      Z(1)=X\n      Z(2)=Y\n      END\n"
+    )
+    assert forterp.run_source(src, dialect=forterp.F77, target=forterp.NATIVE).commons["O"] == [
+        1.0,
+        2.0,
+    ]
+
+
+def test_partial_block_data_initializes_the_declared_prefix():
+    # §16.2 "specify all entities" is NOT enforced (accept-more): a block data declaring only a
+    # prefix of a common block initializes those entities correctly; the rest stay uninitialized.
+    import forterp
+
+    src = (
+        "      BLOCK DATA\n      COMMON /CB/ A, B\n      DATA A, B /1.0, 2.0/\n      END\n"
+        "      PROGRAM T\n      COMMON /O/ X(3)\n      COMMON /CB/ A, B, C\n"
+        "      X(1)=A\n      X(2)=B\n      X(3)=C\n      END\n"
+    )
+    assert forterp.run_source(src, dialect=forterp.F77, target=forterp.NATIVE).commons["O"] == [
+        1.0,
+        2.0,
+        0.0,
+    ]
+
+
 # ---- ENTRY (V5 15.7): alternate subprogram entry points --------------------
 def test_entry_subroutine_alternate_entry():
     # CALL SECOND enters the subroutine at the ENTRY, binding the ENTRY's own dummy

@@ -29,6 +29,7 @@ SEVERITY = {
     "ORD": "?",  # statement out of order (F77 §3.5; strict dialects only)
     "ECC": "?",  # empty character constant (F77 §4.8.1 requires a nonempty string)
     "RNK": "?",  # array exceeds seven dimensions (F77 §5.1; lift with unlimited_rank)
+    "BDU": "?",  # more than one unnamed BLOCK DATA subprogram (F77 §16.2)
 }
 
 # canonical App-F message text for the parameterless mnemonics

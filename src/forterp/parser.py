@@ -1581,6 +1581,7 @@ def parse_units(statements, *, on_error=None, on_warn=None, dialect=F66):
     selects the front-end extensions (default F66; FORTRAN10 for the DEC superset)."""
     units = []
     seen = set()  # real unit names, to catch a duplicate definition (else one silently wins)
+    seen_unnamed_bd = False  # F77 16.2: at most one UNNAMED block data subprogram
     unit = None
     for st in statements:
         if st.kind == "include":
@@ -1610,6 +1611,17 @@ def parse_units(statements, *, on_error=None, on_warn=None, dialect=F66):
                         msg = f"duplicate program unit name {unit.name!r}"
                         on_error(st, diag("DUP", msg, st.line))
                 seen.add(unit.name)
+                # F77 16.2: "There must not be more than one unnamed block data subprogram." A
+                # second one would silently overwrite the first ($BLOCKDATA collides in the unit
+                # map -> one block's initialization is lost), so reject it. (Named block datas are
+                # unaffected -- each has its own name.)
+                if unit.kind == "blockdata" and unit.name == "$BLOCKDATA":
+                    if seen_unnamed_bd and on_error:
+                        on_error(
+                            st,
+                            diag("BDU", "more than one unnamed BLOCK DATA subprogram", st.line),
+                        )
+                    seen_unnamed_bd = True
             except ParseError as e:
                 if on_error:
                     on_error(st, diag(e.mnemonic, str(e), st.line))
