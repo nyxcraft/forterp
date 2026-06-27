@@ -70,6 +70,29 @@ def test_render_integer_overflow_yields_asterisks():
     assert render(parse_format("(I4)"), [42]) == ("  42", False)  # fits -> normal
 
 
+def test_render_hex_matches_gfortran():
+    # Z (hexadecimal) is an F90/gfortran extension; every value here is gfortran's x86_64 output.
+    assert render(parse_format("(Z8)"), [255]) == ("      FF", False)  # blank-pad to width
+    assert render(parse_format("(Z8.6)"), [255]) == ("  0000FF", False)  # Zw.m zero-fills to m
+    assert render(parse_format("(Z8.8)"), [0x4048F5C3]) == ("4048F5C3", False)
+
+
+def test_render_hex_overflow_yields_asterisks():
+    assert render(parse_format("(Z4)"), [0x4048F5C3]) == ("****", False)
+
+
+def test_render_hex_negative_is_target_word_twos_complement():
+    from forterp.target import LP64LE, NATIVE
+
+    # a negative is its two's-complement word at the TARGET width (gfortran x86_64: -1 -> FFFFFFFF)
+    assert render(parse_format("(Z9)"), [-1], target=LP64LE) == (" FFFFFFFF", False)  # 32-bit
+    assert render(parse_format("(Z18)"), [-1], target=NATIVE) == ("  FFFFFFFFFFFFFFFF", False)
+
+
+def test_read_hex_field_round_trips():
+    assert read_values(parse_format("(Z8)"), "4048F5C3") == [("Z", 0x4048F5C3)]
+
+
 def test_render_iw_dot_zero_of_zero_is_blank():
     # Iw.m with m=0 prints at least 0 digits, so a ZERO value is an ALL-BLANK field (X3.9-1978
     # 13.5.9.1) -- not "0". Nonzero is unaffected, and m>0 still zero-fills. Regression: FM903.

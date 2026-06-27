@@ -38,7 +38,9 @@ change the meaning of a program that stays within the standard, so they are pure
 **Operators**
 - symbolic relationals `==` `#` `<` `>` `<=` `>=`; the extended logicals `.XOR.` `.EQV.` `.NEQV.`;
   `^` as an alternate power operator (`**` is the ANSI form);
-- extra intrinsics such as the `LSH` shift, and additional `O`/`R`/`T`/`$` `FORMAT` descriptors.
+- extra intrinsics such as the `LSH` shift, and additional `O`/`R`/`T`/`$` `FORMAT` descriptors
+  (forterp also accepts the `Z` hexadecimal descriptor — a Fortran-90/gfortran extension — on every
+  dialect, e.g. `Z8.8` prints a word as eight hex digits, matching gfortran's bytes).
 
 **Relaxed F66 constraints**
 - general integer expressions as array subscripts (lifting the §5.1.3.3 restriction —

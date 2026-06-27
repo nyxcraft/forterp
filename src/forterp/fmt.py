@@ -2,7 +2,8 @@
 or parse an input record.
 
 Edit descriptors supported (V5 Ch13, Table 13-1):
-  Iw, Ow (octal), Lw (logical), Aw / Rw (alphanumeric), Fw.d, Ew.d, Dw.d, Gw.d,
+  Iw, Ow (octal), Zw (hexadecimal -- F90/gfortran extension), Lw (logical), Aw / Rw
+  (alphanumeric), Fw.d, Ew.d, Dw.d, Gw.d,
   nX, Tw (tab), nP (scale factor), kHs and '...' literals, / record delimiter,
   $ carriage-return suppression, and (group) repeats.  Bare descriptors (no
   width) take their V5 default widths (13.2.6, KI10/KL10): I15, O15, L15, A5,
@@ -207,7 +208,7 @@ def _parse_seq(s, p, depth=0):
 
 
 # ---- output ----------------------------------------------------------------
-_DATA_DESCRIPTORS = ("A", "I", "G", "F", "E", "D", "O", "L", "R")
+_DATA_DESCRIPTORS = ("A", "I", "G", "F", "E", "D", "O", "Z", "L", "R")
 
 # V5 13.2.6 bare-descriptor default field widths (KI10/KL10): (w, d).
 _DEFAULTS = {
@@ -215,6 +216,7 @@ _DEFAULTS = {
     "R": (5, None),
     "I": (15, None),
     "O": (15, None),
+    "Z": (15, None),  # hexadecimal (F90/gfortran extension); octal-like default width
     "L": (15, None),
     "F": (15, 7),
     "E": (15, 7),
@@ -335,6 +337,8 @@ def _render_one(k, it, v, scale, target=NATIVE, plus=False):
         return _ifmt(int(v), w, d, plus)
     if k == "O":
         return _ofmt(int(v), w, target)
+    if k == "Z":
+        return _zfmt(int(v), w, d, target)
     if k == "L":
         return " " * (max(w, 1) - 1) + ("T" if target.truthy(v) else "F")
     if k == "F":
@@ -381,6 +385,19 @@ def _ofmt(iv, w, target=NATIVE):
     if w and len(s) > w:
         return "*" * w
     return s.zfill(w) if w else s  # V5 Table 13-2: O is ZERO-padded
+
+
+def _zfmt(iv, w, m=None, target=NATIVE):
+    """Z (hexadecimal) -- an F90/gfortran extension: UPPERCASE hex of the word's bit pattern at the
+    target width (so a negative is its two's-complement word, e.g. -1 -> FFFFFFFF on a 32-bit
+    target). Zw.m zero-fills to at least m digits; the field is then blank-padded to w (gfortran),
+    or asterisks if it overflows."""
+    s = format(int(iv) & target.mask, "X")
+    if m is not None and len(s) < m:  # Zw.m: at least m hex digits, zero-filled
+        s = s.zfill(m)
+    if w and len(s) > w:
+        return "*" * w
+    return s.rjust(w) if w else s  # blank-padded to the field width
 
 
 def _fit(s, w):
@@ -579,7 +596,7 @@ class InputConversionError(Exception):
 # Edit descriptors that consume one input field (and produce one value), in transfer order.
 # A widthless A reads as many columns as the matching list item's declared length, so the
 # caller may pass `a_widths` -- one width per field, popped here in lockstep.
-_VALUE_KINDS = frozenset({"A", "R", "G", "I", "O", "F", "E", "D", "L"})
+_VALUE_KINDS = frozenset({"A", "R", "G", "I", "O", "Z", "F", "E", "D", "L"})
 
 
 def read_values(
@@ -650,11 +667,11 @@ def read_values(
                 vals.append(("I", _to_int(chunk, 10)))
             else:  # Gw.d reads as for F (7.2.3.6.2)
                 vals.append(("F", _read_real(chunk, it.b if it.a is not None else None, scale, bz)))
-        elif k in ("I", "O"):
+        elif k in ("I", "O", "Z"):
             chunk, pos, tok = _grab(it, line, pos, free_form, rec_end)
             if not tok:  # column field: blanks are zeros (BZ) or ignored (BN), per `bz`
                 chunk = _blank_fill(chunk, bz)
-            vals.append((k, _to_int(chunk, 8 if k == "O" else 10)))
+            vals.append((k, _to_int(chunk, {"O": 8, "Z": 16}.get(k, 10))))
         elif k in ("F", "E", "D"):
             chunk, pos, _tok = _grab(it, line, pos, free_form, rec_end)
             vals.append(("F", _read_real(chunk, it.b if it.a is not None else None, scale, bz)))

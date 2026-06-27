@@ -90,7 +90,9 @@ alternate-return <code>CALL</code> arguments.</li>
 <ul>
 <li>symbolic relationals <code>==</code> <code>#</code> <code>&lt;</code> <code>&gt;</code> <code>&lt;=</code> <code>&gt;=</code>; the extended logicals <code>.XOR.</code> <code>.EQV.</code> <code>.NEQV.</code>;
 <code>^</code> as an alternate power operator (<code>**</code> is the ANSI form);</li>
-<li>extra intrinsics such as the <code>LSH</code> shift, and additional <code>O</code>/<code>R</code>/<code>T</code>/<code>$</code> <code>FORMAT</code> descriptors.</li>
+<li>extra intrinsics such as the <code>LSH</code> shift, and additional <code>O</code>/<code>R</code>/<code>T</code>/<code>$</code> <code>FORMAT</code> descriptors
+(forterp also accepts the <code>Z</code> hexadecimal descriptor — a Fortran-90/gfortran extension — on every
+dialect, e.g. <code>Z8.8</code> prints a word as eight hex digits, matching gfortran's bytes).</li>
 </ul>
 <p><strong>Relaxed F66 constraints</strong></p>
 <ul>
