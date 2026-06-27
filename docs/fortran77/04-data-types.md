@@ -91,7 +91,7 @@ two apostrophes:
 
 The length of a character constant is the number of characters it represents (each `''` counts as
 one). The full `CHARACTER` story — declaration, padding, concatenation, substrings — is in
-[Chapter 5](05-arrays-substrings.md) and the [forterp F77 guide](../FORTRAN77.md).
+[Chapter 5](05-arrays-substrings.md) and [Chapter 8](08-specification.md).
 
 ## Signed zero
 

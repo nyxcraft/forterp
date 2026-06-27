@@ -29,8 +29,8 @@ validated against the DEC FORTRAN-10 V5 manual and the **FCVS** conformance corp
 
 The other axis is the **front-end dialect**: `F66` (strict ANSI X3.9-1966, the default),
 `FORTRAN10` (the DEC superset), and `F77` (ANSI X3.9-1978 — the `CHARACTER` type, the block
-`IF`, list-directed I/O, `INQUIRE`; see [docs/FORTRAN77.md](docs/FORTRAN77.md)). Target and
-dialect are orthogonal — any pairing runs.
+`IF`, list-directed I/O, `INQUIRE`; see the [FORTRAN 77 reference manual](docs/fortran77/README.md)).
+Target and dialect are orthogonal — any pairing runs.
 
 ## Install
 
@@ -153,8 +153,8 @@ f66> PROFILE                 #    5  FAC:6   (the loop body ran 5 times)
   logical) is a *provisional, unvalidated* guess. Pass `Engine(..., target=...)`.
 - **Front-end dialect** — `forterp.F66` (strict ANSI X3.9-1966), `forterp.FORTRAN10` (the DEC
   extensions), or `forterp.F77` (ANSI X3.9-1978: the `CHARACTER` type, block `IF`,
-  list-directed I/O, `INQUIRE` — see [docs/FORTRAN77.md](docs/FORTRAN77.md)). Threaded through
-  the source reader, lexer, and parser.
+  list-directed I/O, `INQUIRE` — see the [FORTRAN 77 reference manual](docs/fortran77/README.md)).
+  Threaded through the source reader, lexer, and parser.
 - **OPEN devices** — `eng.register_device(name, handler)` plugs in special devices.
 - **Unformatted I/O codec** — `forterp.runtime.install_runtime(eng)` wires the FOROTS binary-record +
   DEC-10 float codec used by binary `READ`/`WRITE`.
@@ -173,7 +173,7 @@ tab-format source, random-access `READ(u'r)`).
 the block `IF` (`IF…THEN`/`ELSE IF`/`ELSE`/`END IF`), list-directed and keyword-driven I/O
 (`READ(UNIT=…,FMT=…)`), internal files, `INQUIRE`, `PARAMETER`/`SAVE`/`INTRINSIC`,
 assumed-size arrays, and `.EQV.`/`.NEQV.` — all exercised against the FORTRAN-77 **FCVS**
-audit corpus. See [docs/FORTRAN77.md](docs/FORTRAN77.md) and [`docs/`](docs/).
+audit corpus. See the [FORTRAN 77 reference manual](docs/fortran77/README.md) and [`docs/`](docs/).
 
 ## Examples & demos
 

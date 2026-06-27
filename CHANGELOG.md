@@ -7,7 +7,7 @@
 - **11:19** — Worked through the formatted-I/O punch-list that comparison turned up — a run of number- and text-field parsing and printing edge cases — and taught the harness to count the suite's one deliberately-failing self-test as the pass it is designed to be.
 - **13:58** — Traced the remaining differences to their real cause: the test input decks were being rebuilt — lossily — from comments in the source. Vendored the original NIST input decks instead (public-domain, from the gklimowicz/FCVS project). With correct input, gfortran runs all 192 routines, forterp runs them too, and the input/output bugs this exposed are fixed.
 - **14:05** — Cleared the final two differences (scientific-notation rounding and scale-factor handling). forterp now matches gfortran on **191 of 192** routines — the lone exception is one field where gfortran disagrees with the test's own stated correct answer and forterp is right.
-- **14:28** — Wrote the conformance work up across the docs (see [docs/FORTRAN77.md §8](docs/FORTRAN77.md)).
+- **14:28** — Wrote the conformance work up across the docs (see [docs/DESIGN.md §9](docs/DESIGN.md#9-testing)).
 
 ## 2026-06-25 — driving the FORTRAN 77 conformance suite to a clean pass
 

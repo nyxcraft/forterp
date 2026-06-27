@@ -70,12 +70,44 @@ forterp.run_source(src, target=forterp.PDP10)   # 36-bit arithmetic, packed ASCI
 `!` comments, apostrophe strings, random-access I/O, free-form input, the DEC intrinsic
 library); `forterp.F77` is ANSI X3.9-1978 — the `CHARACTER` type, the block `IF`,
 list-directed and keyword-driven I/O, internal files, `INQUIRE`, `PARAMETER`/`SAVE`, and
-`.EQV.`/`.NEQV.`. See **[FORTRAN77.md](FORTRAN77.md)** for the full F77 reference.
+`.EQV.`/`.NEQV.`. See the **[FORTRAN 77 reference manual](fortran77/README.md)** for the
+language itself, and the F77 dialect knobs just below.
 
 **SourceOptions** — orthogonal to the dialect; it copes with imperfect *input*, not a
 language variant. `forterp.SourceOptions(recover_shifted_cols=True)` keeps statement text
 that spilled past column 72 in a mechanically re-indented deck. The default is no recovery
 (columns 7–72, sequence field dropped).
+
+### The F77 dialect knobs
+
+A `Dialect` is a set of front-end flags; `forterp.F77` turns on exactly the subset ANSI
+X3.9-1978 standardized (several were split out of the broader DEC bundles so F77 gets the
+standardized feature without the rest of the DEC extension):
+
+| Knob | Enables |
+|------|---------|
+| `character_type` | the `CHARACTER` data type — quoted strings become `str`, not Hollerith words |
+| `block_if` | `IF … THEN` / `ELSE IF` / `ELSE` / `END IF` |
+| `list_directed_io` | list-directed `*` `READ`/`WRITE` (split from the DEC `extended_io` bundle) |
+| `eqv_operators` | `.EQV.` / `.NEQV.` (split from the DEC `dec_operators` bundle) |
+| `parameter_stmt` | the `PARAMETER` statement |
+| `implicit_stmt` | the `IMPLICIT` statement (incl. `IMPLICIT CHARACTER*n`) |
+| `save_stmt`, `intrinsic_stmt` | `SAVE` / `INTRINSIC` |
+| `expr_subscripts` | general integer expressions in subscripts and `DO` bounds |
+| `array_lower_bounds` | `DIMENSION A(lo:hi)`, assumed-size `A(*)`, adjustable bounds |
+| `alt_return` | alternate-return actual arguments (`CALL S(*99)`) |
+| `mixed_complex_assign` | `COMPLEX` ↔ numeric assignment |
+| `apostrophe_string` | `'…'` string constants |
+| `dec_intrinsics` | the F77 generic intrinsic library (a superset of F66 Tables 3 & 4) |
+| `strict_stmt_order` | enforce "specifications before executables" (§3.5) as a hard error |
+| `carriage_control` | **off** for F77 — standard output is a terminal, not a line printer |
+
+The strict/relax knobs `recursion`, `unlimited_rank`, and `bounds_check` are off by default on
+every dialect; see [reference manual Appendix D](fortran77/D-forterp-extensions.md).
+
+Notably **off** for F77 (on only for `FORTRAN10`): `do_while`, `dec_operators` (`.XOR.`,
+`==`/`<`/`>`), `slash_dim_bound` (`A(lo/hi)`), `octal_quote`, `tab_format`, `inline_comment`
+(`!`), `extended_io` (`TYPE`/`ACCEPT`/`ENCODE`/`DECODE`, random-access), `free_form_input`.
 
 ## Prebuilt interpreters and the `Interpreter` class
 

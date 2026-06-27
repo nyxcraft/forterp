@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>FORTRAN 77 reference | forterp</title>
-  <meta name="description" content="The FORTRAN 77 dialect (forterp.F77 / --std f77): the CHARACTER type, the block IF, list-directed and keyword-driven I/O, internal files, INQUIRE, PARAMETER/SAVE, and .EQV./.NEQV. — everything F77 adds over the FORTRAN-66 base, with the FCVS-77 conformance status.">
+  <meta name="description" content="A complete, example-driven reference manual for the FORTRAN 77 language (ANSI X3.9-1978), organized on the standard: data types, arrays, expressions, control flow, I/O and FORMAT, procedures, and the intrinsic library — with a forterp notes box per chapter. This is the forterp.F77 dialect.">
   <link rel="stylesheet" href="../assets/site.css?v=de204dc9">
 </head>
 <body class="site-doc">
@@ -34,30 +34,8 @@
         <p class="docs-sidebar__eyebrow">On this page</p>
         <nav class="section-nav" aria-label="On this page">
 <ul class="section-nav__list">
-<li><a class="section-nav__link section-nav__link--l2" href="#1-selecting-and-using-the-f77-dialect">1. Selecting and using the F77 dialect</a></li>
-<li><a class="section-nav__link section-nav__link--l2" href="#2-the-character-type">2. The `CHARACTER` type</a></li>
-<li><a class="section-nav__link section-nav__link--l3" href="#declaration">Declaration</a></li>
-<li><a class="section-nav__link section-nav__link--l3" href="#assignment-blank-pad-truncate">Assignment — blank-pad / truncate</a></li>
-<li><a class="section-nav__link section-nav__link--l3" href="#concatenation">Concatenation — `//`</a></li>
-<li><a class="section-nav__link section-nav__link--l3" href="#comparison-blank-padded">Comparison — blank-padded</a></li>
-<li><a class="section-nav__link section-nav__link--l3" href="#substrings-name-lo-hi">Substrings — `name(lo:hi)`</a></li>
-<li><a class="section-nav__link section-nav__link--l3" href="#character-intrinsics">Character intrinsics</a></li>
-<li><a class="section-nav__link section-nav__link--l2" href="#3-structured-control-flow-the-block-if">3. Structured control flow — the block `IF`</a></li>
-<li><a class="section-nav__link section-nav__link--l2" href="#4-declarations-and-specification-statements">4. Declarations and specification statements</a></li>
-<li><a class="section-nav__link section-nav__link--l3" href="#arrays-assumed-size-and-adjustable">Arrays: assumed-size and adjustable</a></li>
-<li><a class="section-nav__link section-nav__link--l2" href="#5-expressions-and-operators">5. Expressions and operators</a></li>
-<li><a class="section-nav__link section-nav__link--l2" href="#6-input-output">6. Input / output</a></li>
-<li><a class="section-nav__link section-nav__link--l3" href="#list-directed-i-o">List-directed I/O — `*`</a></li>
-<li><a class="section-nav__link section-nav__link--l3" href="#keyword-control-lists">Keyword control lists</a></li>
-<li><a class="section-nav__link section-nav__link--l3" href="#internal-files">Internal files</a></li>
-<li><a class="section-nav__link section-nav__link--l3" href="#sequential-files-scratch-units-and-record-fidelity">Sequential files, scratch units, and record fidelity</a></li>
-<li><a class="section-nav__link section-nav__link--l3" href="#open-close-inquire">`OPEN` / `CLOSE` / `INQUIRE`</a></li>
-<li><a class="section-nav__link section-nav__link--l3" href="#widthless-a">Widthless `A`</a></li>
-<li><a class="section-nav__link section-nav__link--l2" href="#7-what-the-f77-dialect-does-not-add">7. What the F77 dialect does *not* add</a></li>
-<li><a class="section-nav__link section-nav__link--l2" href="#8-conformance-fcvs-77">8. Conformance — FCVS-77</a></li>
-<li><a class="section-nav__link section-nav__link--l2" href="#9-the-f77-dialect-knobs">9. The F77 dialect knobs</a></li>
-<li><a class="section-nav__link section-nav__link--l2" href="#10-the-fortran-77-language-reference">10. The FORTRAN 77 language reference</a></li>
-<li><a class="section-nav__link section-nav__link--l3" href="#the-fortran-77-reference-manual-fortran77-readme-md">→ [The FORTRAN 77 reference manual](fortran77/README.md)</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#how-to-read-this-manual">How to read this manual</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#contents">Contents</a></li>
 </ul>
         </nav>
       </aside>
@@ -66,403 +44,63 @@
         <header class="docs-article__header">
           <p class="eyebrow">Documentation</p>
           <h1>FORTRAN 77 reference</h1>
-          <p class="docs-article__summary">The FORTRAN 77 dialect (forterp.F77 / --std f77): the CHARACTER type, the block IF, list-directed and keyword-driven I/O, internal files, INQUIRE, PARAMETER/SAVE, and .EQV./.NEQV. — everything F77 adds over the FORTRAN-66 base, with the FCVS-77 conformance status.</p>
-          <p class="docs-article__source">FORTRAN 77 language reference</p>
+          <p class="docs-article__summary">A complete, example-driven reference manual for the FORTRAN 77 language (ANSI X3.9-1978), organized on the standard: data types, arrays, expressions, control flow, I/O and FORMAT, procedures, and the intrinsic library — with a forterp notes box per chapter. This is the forterp.F77 dialect.</p>
+          <p class="docs-article__source">The FORTRAN 77 reference manual</p>
         </header>
         <div class="prose">
-<p>A working reference for the <strong>FORTRAN 77</strong> dialect <code>forterp</code> implements: <strong>ANSI X3.9-1978</strong>
-layered on the FORTRAN-66 base that the interpreter already runs. The headline addition is
-the <strong><code>CHARACTER</code> data type</strong>; F77 also brings the block <code>IF</code> construct, list-directed and
-keyword-driven I/O, internal files, <code>INQUIRE</code>, <code>PARAMETER</code>/<code>SAVE</code>/<code>INTRINSIC</code>, and the
-<code>.EQV.</code>/<code>.NEQV.</code> operators. This file documents what the F77 dialect adds over
-<a href="../reference/index.html">FORTRAN-66</a> — read that first for the base language (source form, the
-arithmetic/control/<code>COMMON</code> core, <code>FORMAT</code>).</p>
-<blockquote>
-<p>📖 <strong>Looking for the language itself?</strong> This page is a guide to forterp's F77 <em>dialect</em> —
-selecting it, the <code>CHARACTER</code> type, the I/O additions, the tunable knobs. For a complete,
-example-driven reference to the <strong>FORTRAN 77 language</strong>, organized on the standard and
-self-contained, read the <strong><a href="../docs/index.html">FORTRAN 77 reference manual</a></strong>.</p>
-</blockquote>
-<blockquote>
-<p>Notation: items here are FORTRAN-77 features unless marked <strong>[DEC]</strong> (a FORTRAN-10
-extension that strict F77 does not include) or <strong>[F66]</strong> (carried over from the base).
-Select the dialect with <code>forterp.F77</code>, the prebuilt <code>forterp.f77</code>, or the CLI <code>--std f77</code>.</p>
-</blockquote>
-<hr />
-<h2 id="1-selecting-and-using-the-f77-dialect">1. Selecting and using the F77 dialect</h2>
-<pre><code class="language-python">import forterp
-
-src = '''      PROGRAM GREET
-      CHARACTER*12 WHO
-      WHO = 'WORLD'
-      WRITE (6, '(A,A)') 'HELLO, ', WHO
-      END
-'''
-forterp.run_source(src, dialect=forterp.F77, printer=print)   # HELLO, WORLD
-forterp.f77.run_source(src, printer=print)                    # the prebuilt interpreter
-</code></pre>
-<pre><code class="language-sh">forterp --std f77 prog.for          # the general CLI driver, F77 dialect
-</code></pre>
-<p>The F77 dialect runs on the <strong><code>NATIVE</code></strong> target by default (64-bit, 8-bit ASCII), where a
-character value is an ordinary Python <code>str</code>. The target and dialect axes stay orthogonal
-(see <a href="../api/index.html">API.md</a>) — you <em>can</em> pair F77 with <code>PDP10</code>, but the F77 corpus is validated on
-<code>NATIVE</code>. The single switch that changes the value model for characters is the dialect knob
-<strong><code>character_type</code></strong> (§9): with it on, a quoted string is a <code>CHARACTER</code> constant (a <code>str</code>),
-not a Hollerith word packed into an integer as it is under F66/FORTRAN-10.</p>
-<hr />
-<h2 id="2-the-character-type">2. The <code>CHARACTER</code> type</h2>
-<p>The defining feature of F77. A <code>CHARACTER</code> entity holds a fixed-length string of
-characters; its length is part of its type.</p>
-<h3 id="declaration">Declaration</h3>
-<pre><code class="language-fortran">      CHARACTER         C          ! length 1
-      CHARACTER*8       NAME       ! length 8 (the keyword *len is the default)
-      CHARACTER         TAG*3, MSG*40   ! per-name length overrides the keyword length
-      CHARACTER*5       WORD(10)   ! a 10-element array of CHARACTER*5
-      CHARACTER*(*)     ARG        ! assumed length: a dummy takes the actual's length
-      CHARACTER*(LMAX)  BUF        ! a parenthesised integer-constant expr (e.g. a PARAMETER)
-</code></pre>
+<p>A complete, example-driven reference for the <strong>FORTRAN 77</strong> language — ANSI X3.9-1978, the full
+language (not the subset level). It is written for people who want to <em>read and write</em> FORTRAN 77,
+whether to maintain vintage code or to understand what a classic program does. Every feature is
+shown with a small, runnable example and its result.</p>
+<p>This manual is self-contained: you do not need to know an earlier FORTRAN to use it. It runs on
+<a href="../docs/index.html"><code>forterp</code></a>; each chapter ends with a <strong>forterp notes</strong> box describing anything
+specific to how forterp implements that part of the language (and which knobs change it). For how
+to <em>select and run</em> the F77 dialect, see the <a href="../api/index.html">Python API guide</a> and <a href="../cli/index.html">CLI.md</a>.</p>
+<h2 id="how-to-read-this-manual">How to read this manual</h2>
 <ul>
-<li>The length is the number of characters; the default is 1.</li>
-<li><code>CHARACTER*(*)</code> is an <strong>assumed length</strong> dummy argument — it inherits the length of the
-actual argument passed to it.</li>
-<li>A parenthesised length <code>*(expr)</code> may be any integer-constant expression, including a
-<code>PARAMETER</code> name (X3.9-1978 §5.1).</li>
-<li><code>IMPLICIT CHARACTER*n (letters)</code> types whole initial-letter ranges as <code>CHARACTER*n</code> —
-the standard preamble used throughout the FCVS audit suite.</li>
+<li>Chapters follow the structure of the standard, but you can read them in any order — they
+cross-reference each other.</li>
+<li>Code is shown in <strong>fixed source form</strong> (the classic column layout explained in
+<a href="03-source-form.md">Chapter 3</a>). Expected output appears in a trailing comment.</li>
+<li>A box marked <strong>forterp notes</strong> flags behavior particular to forterp — an enforced rule, a
+supported extension, or a tunable default. These never change what a standard-conforming
+program means; they tell you what to expect at the edges.</li>
+<li>Section numbers in parentheses, e.g. <em>(§6.1.5)</em>, point at the standard for authority.</li>
 </ul>
-<h3 id="assignment-blank-pad-truncate">Assignment — blank-pad / truncate</h3>
-<p>Assignment fits the right-hand side to the target's declared length: a shorter value is
-<strong>blank-padded on the right</strong>, a longer one is <strong>truncated</strong> (X3.9-1978 §10.4).</p>
-<pre><code class="language-fortran">      CHARACTER*5 S
-      S = 'HI'        ! S = 'HI   '   (padded to 5)
-      S = 'HELLO!'    ! S = 'HELLO'   (truncated to 5)
-</code></pre>
-<h3 id="concatenation">Concatenation — <code>//</code></h3>
-<pre><code class="language-fortran">      CHARACTER*6 R
-      R = 'AB' // 'CD'     ! R = 'ABCD  '
-</code></pre>
-<h3 id="comparison-blank-padded">Comparison — blank-padded</h3>
-<p>Relational comparison pads the shorter operand with blanks to the longer length, then
-compares left to right, so <code>'HI'</code> and <code>'HI   '</code> compare <strong>equal</strong> (X3.9-1978 §6.3.5).</p>
-<pre><code class="language-fortran">      IF (S .EQ. 'HI') ...        ! true when S = 'HI   '
-</code></pre>
-<h3 id="substrings-name-lo-hi">Substrings — <code>name(lo:hi)</code></h3>
-<p>A contiguous slice, 1-based and inclusive, usable as a value <strong>or</strong> an assignable target.
-Either bound may be omitted (<code>(:)</code>, <code>(lo:)</code>, <code>(:hi)</code>; defaults 1 and <code>LEN</code>).</p>
-<pre><code class="language-fortran">      CHARACTER*5 R
-      R = 'ABCDE'
-      R(2:4) = 'XY'      ! R = 'AXY E'  (RHS fitted to the 3-char slice, rest untouched)
-      C2 = R(2:3)        ! 'XY'  (read)
-      W(K)(1:2) = 'ZZ'   ! array-element substring (the element of a CHARACTER array)
-</code></pre>
-<h3 id="character-intrinsics">Character intrinsics</h3>
-<table>
-<thead>
-<tr>
-<th>Function</th>
-<th>Result</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>LEN(s)</code></td>
-<td>declared length of <code>s</code> (an integer)</td>
-</tr>
-<tr>
-<td><code>CHAR(i)</code></td>
-<td>the character whose code is <code>i</code></td>
-</tr>
-<tr>
-<td><code>ICHAR(c)</code></td>
-<td>the integer code of the single character <code>c</code></td>
-</tr>
-<tr>
-<td><code>INDEX(s, t)</code></td>
-<td>position of the first occurrence of <code>t</code> in <code>s</code>, else 0</td>
-</tr>
-<tr>
-<td><code>LGE/LGT/LLE/LLT(a, b)</code></td>
-<td>lexical <code>&gt;=</code> / <code>&gt;</code> / <code>&lt;=</code> / <code>&lt;</code> comparison (logical)</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h2 id="3-structured-control-flow-the-block-if">3. Structured control flow — the block <code>IF</code></h2>
-<pre><code class="language-fortran">      IF (cond) THEN
-        ...
-      ELSE IF (cond2) THEN
-        ...
-      ELSE
-        ...
-      END IF              ! ENDIF (one word) is also accepted
-</code></pre>
-<p>Blocks nest, and an arm may jump out with a <code>GO TO</code>; the construct is lowered at parse time
-to the engine's flat label+<code>GOTO</code> form, so it composes with <code>DO</code> loops and arithmetic <code>IF</code>
-exactly as hand-written branches would.</p>
-<blockquote>
-<p><strong>[DEC] <code>DO WHILE (cond) … END DO</code></strong> is <em>not</em> part of ANSI X3.9-1978 — it is a DEC /
-Fortran-90 extension. The F77 dialect <strong>rejects</strong> it; use <code>forterp.FORTRAN10</code> if you need
-it. (This is the one structured construct deliberately kept off the F77 axis.)</p>
-</blockquote>
-<hr />
-<h2 id="4-declarations-and-specification-statements">4. Declarations and specification statements</h2>
-<table>
-<thead>
-<tr>
-<th>Statement</th>
-<th>Notes</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>PARAMETER (N=expr, …)</code></td>
-<td>named constants; the value may be <code>INTEGER</code>/<code>REAL</code>/<code>DOUBLE</code>, <strong><code>LOGICAL</code></strong> (<code>.TRUE.</code>/<code>.FALSE.</code>), <strong><code>COMPLEX</code></strong> (<code>(re,im)</code>), or <code>CHARACTER</code></td>
-</tr>
-<tr>
-<td><code>SAVE [a, b, …]</code></td>
-<td>accepted and honored; use it where you need a local retained across calls (non-<code>SAVE</code> retention is unspecified — see <a href="fortran77/17-association.md">reference manual ch. 17</a>)</td>
-</tr>
-<tr>
-<td><code>INTRINSIC name, …</code></td>
-<td>accepted; declares names as intrinsic (they already resolve by name)</td>
-</tr>
-<tr>
-<td><code>IMPLICIT CHARACTER*n (C)</code></td>
-<td>implicit typing with a length (see §2)</td>
-</tr>
-</tbody>
-</table>
-<h3 id="arrays-assumed-size-and-adjustable">Arrays: assumed-size and adjustable</h3>
-<p>For dummy-argument arrays, F77 allows the bounds to be determined by the call:</p>
-<pre><code class="language-fortran">      SUBROUTINE S (A, B, M, N)
-      DIMENSION A(*)              ! assumed-size: last upper bound = the actual's
-      DIMENSION B(M:N, 3)         ! adjustable: bounds are dummy-argument values
-</code></pre>
-<p>The assumed-size <code>*</code> is the last dimension's upper bound; column-major indexing never needs
-it, and the dummy aliases the actual's storage. Adjustable bounds are resolved per call.</p>
-<hr />
-<h2 id="5-expressions-and-operators">5. Expressions and operators</h2>
+<h2 id="contents">Contents</h2>
+<p><strong>The basics</strong></p>
+<ol>
+<li><a href="01-overview.md">Overview &amp; program structure</a></li>
+<li><a href="02-language-elements.md">Language elements &amp; concepts</a></li>
+<li><a href="03-source-form.md">Source form</a></li>
+<li><a href="04-data-types.md">Data types &amp; constants</a></li>
+</ol>
+<p><strong>Building blocks</strong>
+5. <a href="05-arrays-substrings.md">Arrays &amp; substrings</a>
+6. <a href="06-expressions.md">Expressions &amp; operators</a>
+7. <a href="07-statements.md">Statements at a glance</a>
+8. <a href="08-specification.md">Specification statements</a></p>
+<p><strong>Giving values &amp; doing work</strong>
+9. <a href="09-data.md">The <code>DATA</code> statement</a>
+10. <a href="10-assignment.md">Assignment</a>
+11. <a href="11-control.md">Control statements</a></p>
+<p><strong>Input &amp; output</strong>
+12. <a href="12-io.md">Input / output</a>
+13. <a href="13-format.md"><code>FORMAT</code> &amp; edit descriptors</a></p>
+<p><strong>Program units</strong>
+14. <a href="14-main-program.md">Main program</a>
+15. <a href="15-procedures.md">Functions &amp; subroutines</a>
+16. <a href="16-block-data.md">Block data</a></p>
+<p><strong>The formal model</strong>
+17. <a href="17-association.md">Storage association &amp; definition</a>
+18. <a href="18-scopes.md">Scopes &amp; symbolic names</a></p>
+<p><strong>Appendices</strong></p>
 <ul>
-<li><strong><code>.EQV.</code> / <code>.NEQV.</code></strong> — logical equivalence and non-equivalence (X3.9-1978 §6.6).
-(The DEC-only <code>.XOR.</code> and the symbolic <code>==</code>/<code>&lt;</code>/<code>&gt;</code> relationals stay off the F77 axis.)</li>
-<li><strong>Generic intrinsics</strong> — F77's generic names dispatch on argument type: <code>LOG</code>/<code>LOG10</code>
-(F66 wrote <code>ALOG</code>/<code>ALOG10</code>), and <code>SQRT</code>/<code>EXP</code>/<code>SIN</code>/<code>COS</code>/<code>ABS</code>/… accept <code>REAL</code>, <code>DOUBLE</code>,
-or <code>COMPLEX</code> arguments, routing to the right variant automatically.</li>
-<li><strong><code>DO label, var = …</code></strong> — F77 permits an optional comma after the <code>DO</code> label:
-<code>DO 10, I = 1, N</code>.</li>
+<li>A. <a href="A-intrinsics.md">Intrinsic function reference</a></li>
+<li>B. <a href="B-edit-descriptors.md">Edit-descriptor quick reference</a></li>
+<li>C. <a href="C-precedence-ascii.md">Operator precedence &amp; the collating sequence</a></li>
+<li>D. <a href="D-forterp-extensions.md">forterp extensions &amp; strict gates</a></li>
 </ul>
-<hr />
-<h2 id="6-input-output">6. Input / output</h2>
-<p>F77 broadens the F66 I/O model considerably.</p>
-<h3 id="list-directed-i-o">List-directed I/O — <code>*</code></h3>
-<pre><code class="language-fortran">      WRITE (6, *) I, X, 'TEXT'        ! free-format, compiler-chosen layout
-      READ  (5, *) I, X               ! whitespace/comma-delimited input
-</code></pre>
-<p>Standardized in F77 §12 (a DEC extension before that). On the F77 axis it rides its own
-<code>list_directed_io</code> knob — independent of the rest of the DEC I/O bundle.</p>
-<h3 id="keyword-control-lists">Keyword control lists</h3>
-<p>The control list may use keyword specifiers in any order:</p>
-<pre><code class="language-fortran">      READ  (UNIT=5, FMT=100, END=900, IOSTAT=IOS) A, B
-      WRITE (UNIT=6, FMT='(2I5)')                  I, J
-</code></pre>
-<p><code>UNIT=</code> and <code>FMT=</code> route to the unit and format; <code>END=</code>/<code>ERR=</code>/<code>REC=</code>/<code>IOSTAT=</code> behave as in
-the positional form. The positional form <code>READ(u, f) …</code> is unchanged.</p>
-<h3 id="internal-files">Internal files</h3>
-<p>The &quot;unit&quot; may be a <code>CHARACTER</code> variable, array element, or substring — I/O then transfers
-to/from its text instead of a device (X3.9-1978 §12.2.2):</p>
-<pre><code class="language-fortran">      CHARACTER*16 LINE
-      WRITE (LINE, '(I4,A)') N, ' ITEMS'    ! format INTO the string
-      READ  (LINE(5:8), '(I4)') K           ! parse a substring of it
-</code></pre>
-<h3 id="sequential-files-scratch-units-and-record-fidelity">Sequential files, scratch units, and record fidelity</h3>
-<ul>
-<li>An <strong>unconnected unit</strong> that is written auto-connects as an in-memory sequential scratch
-file (the FORTRAN-10 <code>FORnn.DAT</code> default): <code>WRITE</code> appends records, <code>REWIND</code>/<code>BACKSPACE</code>
-reposition, and a later <code>READ</code> reads them back.</li>
-<li>Under F77 a <strong>formatted</strong> sequential file stores rendered <em>text</em> records, so the format's
-<code>/</code> (record breaks), <code>X</code>/<code>T</code>/column positioning, and <strong>read-side <code>FORMAT</code> reversion</strong> (the
-I/O list outlasting the format, re-scanning over fresh records) all round-trip on
-write→<code>REWIND</code>→read.</li>
-</ul>
-<h3 id="open-close-inquire"><code>OPEN</code> / <code>CLOSE</code> / <code>INQUIRE</code></h3>
-<pre><code class="language-fortran">      OPEN  (UNIT=8, FILE='DATA', ACCESS='SEQUENTIAL', FORM='UNFORMATTED')
-      INQUIRE (UNIT=8, EXIST=EX, OPENED=OP, NUMBER=N, NAME=NM,
-     1         ACCESS=AC, SEQUENTIAL=SQ, DIRECT=DR,
-     2         FORM=FM, FORMATTED=FT, UNFORMATTED=UF, IOSTAT=IOS)
-      INQUIRE (FILE='DATA', EXIST=EX, ...)        ! or inquire by file name
-</code></pre>
-<p><code>INQUIRE</code> (by <code>UNIT</code> or by <code>FILE</code>) reports <code>EXIST</code>/<code>OPENED</code>/<code>NUMBER</code>/<code>NAMED</code>/<code>NAME</code>/<code>IOSTAT</code>
-and the connection properties <code>ACCESS</code>/<code>FORM</code> plus the <code>YES</code>/<code>NO</code>/<code>UNKNOWN</code> specifiers
-<code>SEQUENTIAL</code>/<code>DIRECT</code>/<code>FORMATTED</code>/<code>UNFORMATTED</code> (X3.9-1978 §12.10).</p>
-<h3 id="widthless-a">Widthless <code>A</code></h3>
-<p>F77 §13.5.11 makes the field width optional on the <code>A</code> descriptor alone — a widthless <code>A</code>
-uses the list item's declared <code>CHARACTER</code> length. (Strict F66 requires a width on every
-descriptor.)</p>
-<hr />
-<h2 id="7-what-the-f77-dialect-does-not-add">7. What the F77 dialect does <em>not</em> add</h2>
-<p>The F77 dialect is the 1978 standard, not a superset of everything later or DEC-specific:</p>
-<ul>
-<li><strong><code>DO WHILE</code></strong> — DEC/Fortran-90, not X3.9-1978 (see §3). On <code>FORTRAN10</code>, off <code>F77</code>.</li>
-<li><strong><code>.XOR.</code> and symbolic relationals (<code>==</code>, <code>&lt;</code>, <code>&gt;</code>)</strong> — DEC operators; <code>F77</code> has only
-<code>.EQV.</code>/<code>.NEQV.</code> from the F77 logical set.</li>
-<li><strong>DEC array-bound <code>A(lo/hi)</code></strong> — F77 uses only <code>A(lo:hi)</code>; under F77 a <code>/</code> inside a bound
-is ordinary division (<code>A(6/3:9)</code> is <code>A(2:9)</code>).</li>
-<li><strong>Fortran-90 free-form source, <code>CHARACTER(LEN=…)</code>, modules, dynamic allocation</strong> — out of
-scope; the source form is fixed-form card image as in <a href="../reference/index.html#1-source-form">F66</a>.</li>
-</ul>
-<hr />
-<h2 id="8-conformance-fcvs-77">8. Conformance — FCVS-77</h2>
-<p>The interpreter is exercised against the whole <strong>FCVS</strong> (FORTRAN Compiler Validation System)
-audit corpus — one set of <strong>192 routines</strong> in <code>tests/fcvs/</code>, pristine from the public-domain
-NIST suite (the <code>.FOR</code> files are byte-identical to <a href="https://github.com/gklimowicz/FCVS">github.com/gklimowicz/FCVS</a>).
-FORTRAN-77 is valid against all of it; the F66-valid subset is also run under FORTRAN-66
-(<code>test_fcvs_f66_conformance.py</code>).</p>
-<p>Card-reader input comes from the <strong>canonical NIST <code>&lt;NAME&gt;.DAT</code> decks vendored beside each
-<code>.FOR</code></strong> (one 80-column card per line) — not from the <code>CARD nn</code> image comments in the source,
-which wrap at the 72-column display boundary and so reconstruct lossily. <code>fcvs_runner._card_deck</code>
-reads a sibling <code>.DAT</code> first; nine routines have one (FM110/111/403/404/900/901/903/906/923).</p>
-<ul>
-<li><strong>All 192 parse and run</strong> under F77 — the front end is complete (zero parse-gaps) — and each
-runs <em>every</em> declared sub-test (no mid-run crash; the completeness check reconciles FCVS's own
-&quot;X OF Y TESTS EXECUTED&quot;).</li>
-<li>The self-checking routines report <strong>zero failures</strong>. FM001 TEST 002 (&quot;FORCE FAIL CODE TO BE
-EXECUTED&quot;) is a <em>negative</em> assertion — the suite testing its own fail-reporting path — so the
-runner counts that one by-design failure as a pass. Pinned in <code>tests/test_fcvs_f77_conformance.py</code>.</li>
-<li>The <strong>print-and-eyeball</strong> routines (no self-check) are validated by a <strong>golden</strong> diff against
-gfortran output committed under <code>tests/fcvs_golden/</code> — <code>test_fcvs_golden.py</code> compares without
-needing gfortran at test time (regenerate with <code>tests/fcvs_golden/regenerate.py</code>, which now
-feeds those <code>.DAT</code> decks). With the correct decks, <strong>gfortran runs the entire 192-routine
-corpus</strong> (it used to abort on three) and <strong>forterp byte-matches 191 of 192</strong>. Each routine sits
-in exactly one validation bucket, all enforced by <code>test_whole_corpus_is_accounted_for</code>:
-<ul>
-<li><em>byte-match</em> against the golden (the large majority);</li>
-<li><em>value-token</em> compare for list-directed output, whose field widths/precision the standard
-leaves processor-dependent (FM905/907);</li>
-<li>the routine's <em>own self-check</em> where gfortran is the unreliable oracle (FM257 PAUSE in batch,
-FM406's <code>-0.0</code>);</li>
-<li><strong><code>KNOWN_GF_DIFF</code></strong> — documented, non-matching: just <strong>FM111</strong>, where gfortran is the outlier
-(it overflows <code>F2.1</code> of a value that rounds to zero to <code>**</code>, keeping the sign) and forterp
-matches the routine's own printed CORRECT line (<code>.0</code>).</li>
-</ul>
-</li>
-</ul>
-<p>Driving this corpus to a clean pass surfaced and fixed a series of real edit-descriptor bugs —
-the letterless signed exponent on input (<code>0.987+1</code>), a no-digit-mantissa field as zero (<code>.</code>,
-<code>+.E00</code>), blank-insignificance in a FORMAT (<code>3 I4</code> = <code>3I4</code>, <code>F5 .2</code> = <code>F5.2</code>), E/D output that
-rounds once (no double-round), and the <code>nP</code> scale factor's correct scope (no effect on G in
-F-form; persists across a reverted format on input). See <a href="../reference/index.html">FORTRAN66.md</a> §I/O.</p>
-<p>This corpus is independent of the interpreter's own assumptions (it predates the project by
-~40 years), so it is the primary check on F77 conformance. See also
-<a href="../reference/index.html">FORTRAN66.md</a> for the base-language <code>tests/fcvs/</code> corpus.</p>
-<hr />
-<h2 id="9-the-f77-dialect-knobs">9. The F77 dialect knobs</h2>
-<p><code>forterp.F77</code> is a <code>Dialect</code> (see <a href="../api/index.html#the-two-axes-target-and-dialect">API.md</a>) with these
-flags on. Several were split out of the broader DEC bundles so F77 gets exactly the
-standardized subset:</p>
-<table>
-<thead>
-<tr>
-<th>Knob</th>
-<th>Enables</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>character_type</code></td>
-<td>the <code>CHARACTER</code> data type — quoted strings become <code>str</code>, not Hollerith words</td>
-</tr>
-<tr>
-<td><code>block_if</code></td>
-<td><code>IF … THEN</code> / <code>ELSE IF</code> / <code>ELSE</code> / <code>END IF</code></td>
-</tr>
-<tr>
-<td><code>list_directed_io</code></td>
-<td>list-directed <code>*</code> <code>READ</code>/<code>WRITE</code> (split from the DEC <code>extended_io</code> bundle)</td>
-</tr>
-<tr>
-<td><code>eqv_operators</code></td>
-<td><code>.EQV.</code> / <code>.NEQV.</code> (split from the DEC <code>dec_operators</code> bundle)</td>
-</tr>
-<tr>
-<td><code>parameter_stmt</code></td>
-<td>the <code>PARAMETER</code> statement</td>
-</tr>
-<tr>
-<td><code>implicit_stmt</code></td>
-<td>the <code>IMPLICIT</code> statement (incl. <code>IMPLICIT CHARACTER*n</code>)</td>
-</tr>
-<tr>
-<td><code>save_stmt</code>, <code>intrinsic_stmt</code></td>
-<td><code>SAVE</code> / <code>INTRINSIC</code></td>
-</tr>
-<tr>
-<td><code>expr_subscripts</code></td>
-<td>general integer expressions in subscripts and <code>DO</code> bounds</td>
-</tr>
-<tr>
-<td><code>array_lower_bounds</code></td>
-<td><code>DIMENSION A(lo:hi)</code>, assumed-size <code>A(*)</code>, adjustable bounds</td>
-</tr>
-<tr>
-<td><code>alt_return</code></td>
-<td>alternate-return actual arguments (<code>CALL S(*99)</code>)</td>
-</tr>
-<tr>
-<td><code>mixed_complex_assign</code></td>
-<td><code>COMPLEX</code> ↔ numeric assignment</td>
-</tr>
-<tr>
-<td><code>apostrophe_string</code></td>
-<td><code>'…'</code> string constants</td>
-</tr>
-<tr>
-<td><code>dec_intrinsics</code></td>
-<td>the F77 generic intrinsic library (a superset of F66 Tables 3 &amp; 4)</td>
-</tr>
-</tbody>
-</table>
-<p>Notably <strong>off</strong> for F77 (and on only for <code>FORTRAN10</code>): <code>do_while</code>, <code>dec_operators</code> (<code>.XOR.</code>,
-<code>==</code>/<code>&lt;</code>/<code>&gt;</code>), <code>slash_dim_bound</code> (<code>A(lo/hi)</code>), <code>octal_quote</code>, <code>tab_format</code>, <code>inline_comment</code>
-(<code>!</code>), <code>extended_io</code> (<code>TYPE</code>/<code>ACCEPT</code>/<code>ENCODE</code>/<code>DECODE</code>, random-access), <code>free_form_input</code>.</p>
-<hr />
-<h2 id="10-the-fortran-77-language-reference">10. The FORTRAN 77 language reference</h2>
-<p>Sections 1–9 above are about forterp's F77 <em>dialect</em> — how to select it, the <code>CHARACTER</code> type, the
-I/O additions, the knobs. For the <strong>language itself</strong>, forterp ships a complete, example-driven
-reference to ANSI X3.9-1978, organized on the standard and self-contained:</p>
-<h3 id="the-fortran-77-reference-manual-fortran77-readme-md">→ <a href="../docs/index.html">The FORTRAN 77 reference manual</a></h3>
-<p>Eighteen chapters following the standard's structure, every feature shown with a runnable example,
-each chapter closing with a <strong>forterp notes</strong> box for behavior specific to this implementation.
-Start at the <a href="../docs/index.html">contents page</a>, or jump to a topic:</p>
-<ul>
-<li><a href="fortran77/01-overview.md">1. Overview &amp; program structure</a> ·
-<a href="fortran77/02-language-elements.md">2. Language elements</a> ·
-<a href="fortran77/03-source-form.md">3. Source form</a> ·
-<a href="fortran77/04-data-types.md">4. Data types &amp; constants</a></li>
-<li><a href="fortran77/05-arrays-substrings.md">5. Arrays &amp; substrings</a> ·
-<a href="fortran77/06-expressions.md">6. Expressions</a> ·
-<a href="fortran77/07-statements.md">7. Statements</a> ·
-<a href="fortran77/08-specification.md">8. Specification statements</a></li>
-<li><a href="fortran77/09-data.md">9. DATA</a> ·
-<a href="fortran77/10-assignment.md">10. Assignment</a> ·
-<a href="fortran77/11-control.md">11. Control</a></li>
-<li><a href="fortran77/12-io.md">12. Input / output</a> ·
-<a href="fortran77/13-format.md">13. FORMAT &amp; edit descriptors</a></li>
-<li><a href="fortran77/14-main-program.md">14. Main program</a> ·
-<a href="fortran77/15-procedures.md">15. Functions &amp; subroutines</a> ·
-<a href="fortran77/16-block-data.md">16. Block data</a></li>
-<li><a href="fortran77/17-association.md">17. Storage association &amp; definition</a> ·
-<a href="fortran77/18-scopes.md">18. Scopes &amp; symbolic names</a></li>
-<li>Appendices: <a href="fortran77/A-intrinsics.md">A. Intrinsics</a> ·
-<a href="fortran77/B-edit-descriptors.md">B. Edit descriptors</a> ·
-<a href="fortran77/C-precedence-ascii.md">C. Precedence &amp; collating</a> ·
-<a href="fortran77/D-forterp-extensions.md">D. forterp extensions &amp; strict gates</a></li>
-</ul>
-<p><strong>forterp's behavior at the edges of the standard</strong> — the committed extensions, the strictly
-enforced rules (recursion, complex ordering, char⟷numeric <code>EQUIVALENCE</code>, assignment to a
-<code>PARAMETER</code>, empty <code>''</code>, rank &gt; 7, duplicate unnamed <code>BLOCK DATA</code>, statement order), the tunable
-knobs (<code>bounds_check</code>, <code>recursion</code>, <code>unlimited_rank</code>, <code>carriage_control</code>), and the one value-model
-divergence — is collected in <strong><a href="fortran77/D-forterp-extensions.md">Appendix D</a></strong>. The conformance
-evidence behind it all is the FCVS-77 suite (<a href="#8-conformance--fcvs-77">§8</a>).</p>
 
         </div>
       </article>

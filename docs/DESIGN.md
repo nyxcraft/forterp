@@ -304,8 +304,18 @@ regression, not "out of scope." `test_fcvs_f66_conformance.py` runs the F66-vali
 identical aggregate — independent evidence both seams preserve standard behavior. On top of
 the self-check, `test_fcvs_golden.py` is a **second, independent oracle**: a byte-for-byte
 diff against committed gfortran (`-std=legacy`) output (`tests/fcvs_golden/`), so the
-print-and-eyeball routines that carry no PASS/FAIL tally are still validated. 683 tests pass
-standalone.
+print-and-eyeball routines that carry no PASS/FAIL tally are still validated.
+
+Card-reader input comes from the canonical NIST `<NAME>.DAT` decks vendored beside each `.FOR`
+(one 80-column card per line), not the lossy `CARD nn` image comments. Every routine sits in
+exactly one validation bucket (enforced by `test_whole_corpus_is_accounted_for`): a *byte-match*
+against the golden (the large majority), a *value-token* compare where list-directed field widths
+are processor-dependent (FM905/907), the routine's *own self-check* where gfortran is an unreliable
+oracle (FM257, FM406), or the single documented `KNOWN_GF_DIFF` (FM111, where gfortran is the
+outlier on an `F2.1` overflow). With the correct decks gfortran runs the whole 192-routine corpus
+and **forterp byte-matches 191 of 192**; the self-checking routines report **zero failures**
+(FM001's "force fail" test is a negative assertion the runner counts as a pass by design). The full
+suite passes standalone (747 tests), no gfortran needed at test time.
 
 ---
 

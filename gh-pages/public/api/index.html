@@ -37,6 +37,7 @@
 <li><a class="section-nav__link section-nav__link--l2" href="#the-public-surface">The public surface</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#run-and-inspect">Run and inspect</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#the-two-axes-target-and-dialect">The two axes: target and dialect</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#the-f77-dialect-knobs">The F77 dialect knobs</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#prebuilt-interpreters-and-the-interpreter-class">Prebuilt interpreters and the `Interpreter` class</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#embedding-and-i-o">Embedding and I/O</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#expert-namespaces">Expert namespaces</a></li>
@@ -146,11 +147,91 @@ ASCII, <code>.TRUE.</code>=−1 with bit-wise logicals. The faithful, validated 
 <code>!</code> comments, apostrophe strings, random-access I/O, free-form input, the DEC intrinsic
 library); <code>forterp.F77</code> is ANSI X3.9-1978 — the <code>CHARACTER</code> type, the block <code>IF</code>,
 list-directed and keyword-driven I/O, internal files, <code>INQUIRE</code>, <code>PARAMETER</code>/<code>SAVE</code>, and
-<code>.EQV.</code>/<code>.NEQV.</code>. See <strong><a href="../fortran77/index.html">FORTRAN77.md</a></strong> for the full F77 reference.</p>
+<code>.EQV.</code>/<code>.NEQV.</code>. See the <strong><a href="../docs/index.html">FORTRAN 77 reference manual</a></strong> for the
+language itself, and the F77 dialect knobs just below.</p>
 <p><strong>SourceOptions</strong> — orthogonal to the dialect; it copes with imperfect <em>input</em>, not a
 language variant. <code>forterp.SourceOptions(recover_shifted_cols=True)</code> keeps statement text
 that spilled past column 72 in a mechanically re-indented deck. The default is no recovery
 (columns 7–72, sequence field dropped).</p>
+<h3 id="the-f77-dialect-knobs">The F77 dialect knobs</h3>
+<p>A <code>Dialect</code> is a set of front-end flags; <code>forterp.F77</code> turns on exactly the subset ANSI
+X3.9-1978 standardized (several were split out of the broader DEC bundles so F77 gets the
+standardized feature without the rest of the DEC extension):</p>
+<table>
+<thead>
+<tr>
+<th>Knob</th>
+<th>Enables</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character_type</code></td>
+<td>the <code>CHARACTER</code> data type — quoted strings become <code>str</code>, not Hollerith words</td>
+</tr>
+<tr>
+<td><code>block_if</code></td>
+<td><code>IF … THEN</code> / <code>ELSE IF</code> / <code>ELSE</code> / <code>END IF</code></td>
+</tr>
+<tr>
+<td><code>list_directed_io</code></td>
+<td>list-directed <code>*</code> <code>READ</code>/<code>WRITE</code> (split from the DEC <code>extended_io</code> bundle)</td>
+</tr>
+<tr>
+<td><code>eqv_operators</code></td>
+<td><code>.EQV.</code> / <code>.NEQV.</code> (split from the DEC <code>dec_operators</code> bundle)</td>
+</tr>
+<tr>
+<td><code>parameter_stmt</code></td>
+<td>the <code>PARAMETER</code> statement</td>
+</tr>
+<tr>
+<td><code>implicit_stmt</code></td>
+<td>the <code>IMPLICIT</code> statement (incl. <code>IMPLICIT CHARACTER*n</code>)</td>
+</tr>
+<tr>
+<td><code>save_stmt</code>, <code>intrinsic_stmt</code></td>
+<td><code>SAVE</code> / <code>INTRINSIC</code></td>
+</tr>
+<tr>
+<td><code>expr_subscripts</code></td>
+<td>general integer expressions in subscripts and <code>DO</code> bounds</td>
+</tr>
+<tr>
+<td><code>array_lower_bounds</code></td>
+<td><code>DIMENSION A(lo:hi)</code>, assumed-size <code>A(*)</code>, adjustable bounds</td>
+</tr>
+<tr>
+<td><code>alt_return</code></td>
+<td>alternate-return actual arguments (<code>CALL S(*99)</code>)</td>
+</tr>
+<tr>
+<td><code>mixed_complex_assign</code></td>
+<td><code>COMPLEX</code> ↔ numeric assignment</td>
+</tr>
+<tr>
+<td><code>apostrophe_string</code></td>
+<td><code>'…'</code> string constants</td>
+</tr>
+<tr>
+<td><code>dec_intrinsics</code></td>
+<td>the F77 generic intrinsic library (a superset of F66 Tables 3 &amp; 4)</td>
+</tr>
+<tr>
+<td><code>strict_stmt_order</code></td>
+<td>enforce &quot;specifications before executables&quot; (§3.5) as a hard error</td>
+</tr>
+<tr>
+<td><code>carriage_control</code></td>
+<td><strong>off</strong> for F77 — standard output is a terminal, not a line printer</td>
+</tr>
+</tbody>
+</table>
+<p>The strict/relax knobs <code>recursion</code>, <code>unlimited_rank</code>, and <code>bounds_check</code> are off by default on
+every dialect; see <a href="fortran77/D-forterp-extensions.md">reference manual Appendix D</a>.</p>
+<p>Notably <strong>off</strong> for F77 (on only for <code>FORTRAN10</code>): <code>do_while</code>, <code>dec_operators</code> (<code>.XOR.</code>,
+<code>==</code>/<code>&lt;</code>/<code>&gt;</code>), <code>slash_dim_bound</code> (<code>A(lo/hi)</code>), <code>octal_quote</code>, <code>tab_format</code>, <code>inline_comment</code>
+(<code>!</code>), <code>extended_io</code> (<code>TYPE</code>/<code>ACCEPT</code>/<code>ENCODE</code>/<code>DECODE</code>, random-access), <code>free_form_input</code>.</p>
 <h2 id="prebuilt-interpreters-and-the-interpreter-class">Prebuilt interpreters and the <code>Interpreter</code> class</h2>
 <p><code>forterp.fortran10</code> (<code>PDP10</code> + <code>FORTRAN10</code> + free-form input), <code>forterp.f66</code> (<code>NATIVE</code> +
 strict <code>F66</code>), and <code>forterp.f77</code> (<code>NATIVE</code> + <code>F77</code>, with the <code>CHARACTER</code> type on) are

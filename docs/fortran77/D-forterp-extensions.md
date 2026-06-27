@@ -47,7 +47,8 @@ forterp reports an error instead of guessing:
 | `unlimited_rank` | off | lifts the seven-dimension array cap |
 | `carriage_control` | per dialect | force standard output to be a line printer (on) or a terminal (off); F77 defaults to terminal, F66/FORTRAN-10 to line printer ([Ch 13](13-format.md)) |
 
-(These are engine flags; the dialect sets sensible defaults. See the [forterp F77 guide](../FORTRAN77.md).)
+(These are engine flags; the dialect sets sensible defaults. See the
+[Python API guide](../API.md#the-f77-dialect-knobs) for the full knob list and how to set them.)
 
 ## The one true divergence
 
@@ -74,3 +75,18 @@ result, the result is unspecified and may change between versions:
 
 Write to the standard — initialize before use, `SAVE` what must persist, stay in bounds — and none
 of this matters.
+
+## Not in FORTRAN 77
+
+The `F77` dialect is the 1978 standard — not a superset of later Fortran, and not the DEC
+FORTRAN-10 extension set. These common additions are **not** part of F77 and are rejected (use the
+`FORTRAN10` dialect for the DEC ones):
+
+- **DEC / FORTRAN-10 extensions:** `DO WHILE … END DO`; the `.XOR.` operator and the symbolic
+  relationals `==` `<` `>`; the `A(lo/hi)` array-bound form (under F77 a `/` in a bound is ordinary
+  division, so `A(6/3:9)` is `A(2:9)`); octal `"…` literals; tab-format source; the trailing-`!`
+  inline comment; `TYPE`/`ACCEPT`/`ENCODE`/`DECODE` and random-access I/O; free-form numeric input.
+  All of these are available under `forterp.FORTRAN10`.
+- **Fortran 90 and later:** free-form source, `IMPLICIT NONE`, the `CHARACTER(LEN=…)` declaration
+  form, modules, dynamic allocation, derived types, array sections. Out of scope — F77 source is
+  fixed-form ([Chapter 3](03-source-form.md)).

@@ -48,10 +48,11 @@ engine, the expert namespaces, custom host builtins, and the OOB census.</li>
 <li><strong><a href="../reference/index.html">FORTRAN66.md</a></strong> — a language reference for the base
 dialect <code>forterp</code> implements (standard FORTRAN-66 plus the DEC FORTRAN-10 extensions),
 written for users of this interpreter.</li>
-<li><strong><a href="../fortran77/index.html">FORTRAN77.md</a></strong> — the FORTRAN 77 dialect (<code>forterp.F77</code> / <code>--std f77</code>):
-the <code>CHARACTER</code> type, the block <code>IF</code>, list-directed and keyword-driven I/O, internal
-files, <code>INQUIRE</code>, <code>PARAMETER</code>/<code>SAVE</code>, and <code>.EQV.</code>/<code>.NEQV.</code> — everything F77 adds over the
-FORTRAN-66 base.</li>
+<li><strong><a href="index.html">FORTRAN 77 reference manual</a></strong> — the complete FORTRAN 77 language
+(ANSI X3.9-1978), example-driven and organized on the standard: data types, arrays,
+expressions, control flow, I/O and <code>FORMAT</code>, procedures, and the intrinsic library, with a
+<em>forterp notes</em> box per chapter. This is the <code>forterp.F77</code> dialect (<code>--std f77</code>); see
+<a href="../api/index.html#the-two-axes-target-and-dialect">API.md</a> to select it and for the dialect knobs.</li>
 <li><strong><a href="../changelog/index.html">CHANGELOG.md</a></strong> — dated history of the standalone interpreter.</li>
 </ul>
 <p>Runnable material lives outside <code>docs/</code>:</p>
@@ -88,7 +89,7 @@ with zero failures. gfortran golden outputs under <code>tests/fcvs_golden/</code
 print-only routines (no gfortran needed at test time): with the canonical decks gfortran runs the
 whole corpus and forterp byte-matches 191 of 192 — the lone exception (FM111) is a documented
 gfortran outlier where forterp matches the routine's own CORRECT line. Run <code>pytest</code> to execute
-them; see <a href="../fortran77/index.html#8-conformance--fcvs-77">FORTRAN77.md §8</a> for the full breakdown.</p>
+them; see <a href="../design/index.html#9-testing">DESIGN.md §9 (Testing)</a> for the full breakdown.</p>
 <h2 id="security-trust-model">Security &amp; trust model</h2>
 <p>forterp is an <strong>interpreter, not a sandbox</strong>: a program runs with the invoking process's
 privileges and its <code>OPEN</code>/<code>READ</code>/<code>WRITE</code> reach the real filesystem (absolute or <code>..</code> paths

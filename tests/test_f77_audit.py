@@ -1,6 +1,6 @@
-"""ANSI X3.9-1978 conformance audit -- regression tests for the subtle rules that the
-docs/FORTRAN77.md §10 compliance map asserts as "verified" but that previously had no
-dedicated unit test (they were covered only incidentally by the FCVS corpus, or not at all).
+"""ANSI X3.9-1978 conformance audit -- regression tests for the subtle standard rules that
+previously had no dedicated unit test (they were covered only incidentally by the FCVS corpus,
+or not at all). The reference manual is docs/fortran77/.
 
 Each test names the standard section it pins. Run under the F77 dialect on the NATIVE target,
 the same configuration as test_f77.py. Values land in COMMON /O/ and are read 1-based.

@@ -11,10 +11,11 @@
 - **[FORTRAN66.md](FORTRAN66.md)** — a language reference for the base
   dialect `forterp` implements (standard FORTRAN-66 plus the DEC FORTRAN-10 extensions),
   written for users of this interpreter.
-- **[FORTRAN77.md](FORTRAN77.md)** — the FORTRAN 77 dialect (`forterp.F77` / `--std f77`):
-  the `CHARACTER` type, the block `IF`, list-directed and keyword-driven I/O, internal
-  files, `INQUIRE`, `PARAMETER`/`SAVE`, and `.EQV.`/`.NEQV.` — everything F77 adds over the
-  FORTRAN-66 base.
+- **[FORTRAN 77 reference manual](fortran77/README.md)** — the complete FORTRAN 77 language
+  (ANSI X3.9-1978), example-driven and organized on the standard: data types, arrays,
+  expressions, control flow, I/O and `FORMAT`, procedures, and the intrinsic library, with a
+  *forterp notes* box per chapter. This is the `forterp.F77` dialect (`--std f77`); see
+  [API.md](API.md#the-two-axes-target-and-dialect) to select it and for the dialect knobs.
 - **[CHANGELOG.md](../CHANGELOG.md)** — dated history of the standalone interpreter.
 
 Runnable material lives outside `docs/`:
@@ -54,7 +55,7 @@ with zero failures. gfortran golden outputs under `tests/fcvs_golden/` independe
 print-only routines (no gfortran needed at test time): with the canonical decks gfortran runs the
 whole corpus and forterp byte-matches 191 of 192 — the lone exception (FM111) is a documented
 gfortran outlier where forterp matches the routine's own CORRECT line. Run `pytest` to execute
-them; see [FORTRAN77.md §8](FORTRAN77.md#8-conformance--fcvs-77) for the full breakdown.
+them; see [DESIGN.md §9 (Testing)](DESIGN.md#9-testing) for the full breakdown.
 
 ## Security & trust model
 
