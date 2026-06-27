@@ -285,6 +285,8 @@ class ProgramUnit:
     params: list[str] = field(default_factory=list)
     ret_type: Optional[str] = None  # for typed functions
     ret_len: Optional[int] = None  # CHARACTER*len result length (0 = assumed, *(*))
+    recursive: bool = False  # declared RECURSIVE (F90 kw): self-reference is allowed (per-call
+    # local storage); without it a re-entry is rejected as the §15.5.2-prohibited recursion
     implicit: dict[str, str] = field(default_factory=dict)  # letter -> type
     implicit_char_len: dict[str, int] = field(
         default_factory=dict

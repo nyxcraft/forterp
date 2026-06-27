@@ -29,7 +29,7 @@ forterp reports an error instead of guessing:
 
 | Rule | Why enforced |
 |---|---|
-| **Recursion** ([Ch 15](15-procedures.md)) | static locals can't represent it → would be silently wrong. *Opt in* with the `recursion` knob to permit it correctly. |
+| **Recursion** ([Ch 15](15-procedures.md)) | static locals can't represent it → would be silently wrong, so it's rejected by default. *Opt in* per-procedure with the F90 `RECURSIVE` keyword, or globally with the `recursion` knob; either way it's made correct (per-call locals). |
 | **Complex ordering** `C1 .LT. C2` ([Ch 6](06-expressions.md)) | no ordering of complex values; a nonsense comparison. |
 | **char⟷numeric `EQUIVALENCE`** ([Ch 8](08-specification.md)) | its only use is byte type-punning, which the value model can't do faithfully. |
 | **Assignment to a `PARAMETER`** ([Ch 8](08-specification.md)) | a constant is not a variable; the assignment would otherwise vanish silently. |
@@ -43,7 +43,7 @@ forterp reports an error instead of guessing:
 | Knob | Default | Effect when changed |
 |---|---|---|
 | `bounds_check` | off | array subscripts and substrings outside their bounds become hard errors (the `-fcheck=bounds` analog) |
-| `recursion` | off | recursion is permitted and made correct (per-call local storage) |
+| `recursion` | off | global override: *every* procedure may recurse (like `-frecursive`); per-procedure, prefer the `RECURSIVE` keyword. Either way it's made correct (per-call local storage) |
 | `unlimited_rank` | off | lifts the seven-dimension array cap |
 | `carriage_control` | per dialect | force standard output to be a line printer (on) or a terminal (off); F77 defaults to terminal, F66/FORTRAN-10 to line printer ([Ch 13](13-format.md)) |
 

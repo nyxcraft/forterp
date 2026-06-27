@@ -126,7 +126,7 @@ the F77 knob table):
 | Knob | Effect |
 |------|--------|
 | `zero_trip_do` | use the F77 zero-trip `DO` test instead of one-trip |
-| `recursion` | permit correct recursion (off by default — re-entry is otherwise rejected) |
+| `recursion` | global override to permit correct recursion (off by default — re-entry is otherwise rejected; per-procedure, prefer the F90 `RECURSIVE` keyword) |
 | `bounds_check` | trap out-of-bounds array access instead of the non-fatal read→0 / dropped write |
 | `unlimited_rank` | lift the array-rank cap (forterp already allows 7 vs the standard's 3) |
 | `carriage_control` | treat the output unit as a printer (carriage control) vs a terminal |

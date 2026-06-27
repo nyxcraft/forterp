@@ -108,7 +108,7 @@ forterp reports an error instead of guessing:</p>
 <tbody>
 <tr>
 <td><strong>Recursion</strong> (<a href="../15-procedures/index.html">Ch 15</a>)</td>
-<td>static locals can't represent it → would be silently wrong. <em>Opt in</em> with the <code>recursion</code> knob to permit it correctly.</td>
+<td>static locals can't represent it → would be silently wrong, so it's rejected by default. <em>Opt in</em> per-procedure with the F90 <code>RECURSIVE</code> keyword, or globally with the <code>recursion</code> knob; either way it's made correct (per-call locals).</td>
 </tr>
 <tr>
 <td><strong>Complex ordering</strong> <code>C1 .LT. C2</code> (<a href="../06-expressions/index.html">Ch 6</a>)</td>
@@ -158,7 +158,7 @@ forterp reports an error instead of guessing:</p>
 <tr>
 <td><code>recursion</code></td>
 <td>off</td>
-<td>recursion is permitted and made correct (per-call local storage)</td>
+<td>global override: <em>every</em> procedure may recurse (like <code>-frecursive</code>); per-procedure, prefer the <code>RECURSIVE</code> keyword. Either way it's made correct (per-call local storage)</td>
 </tr>
 <tr>
 <td><code>unlimited_rank</code></td>

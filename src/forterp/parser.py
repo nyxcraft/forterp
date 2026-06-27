@@ -1446,6 +1446,10 @@ def const_eval(node, consts):
 def _is_header(toks):
     if not toks:
         return False
+    if toks[0].kind == "ID" and toks[0].value == "RECURSIVE":
+        toks = toks[1:]  # RECURSIVE FUNCTION / SUBROUTINE / type FUNCTION (F90 prefix)
+        if not toks:
+            return False
     v0 = toks[0].value if toks[0].kind == "ID" else None
     if v0 in ("SUBROUTINE", "PROGRAM", "FUNCTION"):
         return True
@@ -1465,7 +1469,11 @@ def _is_header(toks):
 def _parse_header(toks):
     p = StatementParser(toks)
     ret_type = None
-    v0 = toks[0].value if toks[0].kind == "ID" else None
+    recursive = False
+    if p.is_id("RECURSIVE"):  # F90 RECURSIVE prefix: this procedure may reference itself
+        p.advance()
+        recursive = True
+    v0 = p.peek().value if p.is_id() else None
     if v0 == "BLOCKDATA" or v0 == "BLOCK":  # BLOCK DATA [name] (V5 Ch16)
         p.advance()  # BLOCK / BLOCKDATA
         if v0 == "BLOCK":
@@ -1485,6 +1493,9 @@ def _parse_header(toks):
         elif typ == "CHARACTER":  # CHARACTER*len FUNCTION / CHARACTER*(*) FUNCTION (the result len)
             ret_len = p._char_len()
         ret_type = typ
+        if p.is_id("RECURSIVE"):  # type RECURSIVE FUNCTION (the other F90 order)
+            p.advance()
+            recursive = True
         # now expect FUNCTION
         p.expect_id()  # 'FUNCTION'
         kind = "function"
@@ -1505,7 +1516,9 @@ def _parse_header(toks):
                 if not p.accept_op(","):
                     break
         p.expect_op(")")
-    return A.ProgramUnit(kind=kind, name=name, params=params, ret_type=ret_type, ret_len=ret_len)
+    return A.ProgramUnit(
+        kind=kind, name=name, params=params, ret_type=ret_type, ret_len=ret_len, recursive=recursive
+    )
 
 
 def _format_body(text):

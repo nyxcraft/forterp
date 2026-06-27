@@ -73,8 +73,10 @@ class Dialect:
 
     # recursion: §15.5.2 prohibits a subprogram referencing itself. OFF on every standard dialect
     # (a re-entry is rejected -- forterp's static locals cannot represent it, and the period
-    # compilers did not support it either); turn ON to permit recursion with correct per-call
-    # local storage. A capability gate, not a strictness one -- usable with any dialect.
+    # compilers did not support it either). A procedure declared with the F90 RECURSIVE keyword may
+    # recurse regardless of this flag (the per-procedure opt-in, like gfortran); turning this ON is
+    # the global override (every procedure may recurse, like gfortran -frecursive). Either way the
+    # nested activation gets correct per-call local storage. A capability gate, any dialect.
     recursion: bool = False
 
     # unlimited_rank: §5.1 caps an array at seven dimensions. Enforced by default (an 8-D+

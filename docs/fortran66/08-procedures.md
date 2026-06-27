@@ -138,7 +138,7 @@ the *only* way to initialize labeled common *(§7.2.2)*.
 > - **Recursion is prohibited** by the standard: a procedure subprogram may not be referenced a
 >   second time before a `RETURN` from the first has intervened *(§10.2.1)* — so a subprogram must
 >   not, directly or indirectly, reference itself. forterp rejects re-entry by default rather than
->   give a silently wrong answer; a `recursion` knob enables correct recursion when you want it. See
->   [Appendix C](C-forterp-extensions.md).
+>   give a silently wrong answer; declare a procedure with the F90 `RECURSIVE` keyword (or flip the
+>   `recursion` knob globally) to permit correct recursion. See [Appendix C](C-forterp-extensions.md).
 > - An external function or subroutine may live in a **separate source file**; forterp links the
 >   units of a program together (see [CLI.md](../CLI.md)).

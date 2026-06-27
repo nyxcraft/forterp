@@ -1665,16 +1665,17 @@ class Engine:
 
     # ---- calls
     def _enter_unit(self, crt):
-        """Recursion guard, called as a unit `crt` is about to run. If `crt` is already active
-        this is a recursive re-entry (§15.5.2): raise IllegalRecursion unless `allow_recursion`,
-        in which case snapshot the active activation's static locals so the nested call gets its
-        own working storage. Returns the snapshot to hand back to `_leave_unit` (None if this is
-        the outermost activation). COMMON is intentionally untouched -- it is shared, not local."""
+        """Recursion guard, called as a unit `crt` is about to run. If `crt` is already active this
+        is a recursive re-entry (§15.5.2): permit it only when the procedure is declared RECURSIVE
+        (F90) or the global `recursion` knob is on, snapshotting the active activation's static
+        locals so the nested call gets its own working storage; otherwise raise IllegalRecursion.
+        Returns the snapshot to hand to `_leave_unit` (None if this is the outermost activation).
+        COMMON is intentionally untouched -- it is shared, not local."""
         if crt in self._active:
-            if not self.allow_recursion:
+            if not (crt.unit.recursive or self.allow_recursion):
                 raise IllegalRecursion(
                     f"subprogram {crt.unit.name!r} references itself (recursion; F77 15.5.2). "
-                    f"Enable the `recursion` dialect knob to allow it."
+                    f"Declare it RECURSIVE, or enable the `recursion` dialect knob, to allow it."
                 )
             return (
                 dict(crt.local_scalars),

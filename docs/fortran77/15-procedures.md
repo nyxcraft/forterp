@@ -147,8 +147,10 @@ conforming F77.
 > **forterp notes.**
 > - **Recursion is rejected** by default on every dialect (a re-entry of a still-active procedure
 >   is a hard error) — forterp's static locals can't represent it, so it errors rather than
->   returning a silently wrong answer. The opt-in **`recursion`** dialect knob *enables* it and
->   makes it correct (each call gets its own locals); see [Appendix D](D-forterp-extensions.md).
+>   returning a silently wrong answer. To allow it (correctly — each activation gets its own
+>   locals), declare the procedure with the F90 **`RECURSIVE`** keyword (`RECURSIVE FUNCTION …` /
+>   `RECURSIVE SUBROUTINE …`, the per-procedure opt-in, like gfortran), or flip the **`recursion`**
+>   knob as a global override (like gfortran `-frecursive`). See [Appendix D](D-forterp-extensions.md).
 > - **`EXTERNAL` is required** to pass a procedure as an argument (a bare name is read as a
 >   variable). All four procedure kinds, alternate return, `ENTRY`, `CHARACTER*(*)` results, and
 >   adjustable/assumed-size array dummies are supported.

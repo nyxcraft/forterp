@@ -9,10 +9,13 @@ returned a silently wrong answer. Now:
   * default (every dialect): re-entry of a still-active unit is detected and raises
     IllegalRecursion -- a clean error beats silent corruption, and the period compilers did not
     support recursion either.
-  * opt-in (`recursion` dialect knob / `allow_recursion` engine flag): recursion is permitted and
-    made correct by snapshotting and restoring the active unit's locals around the nested call.
+  * opt-in per procedure (the F90 `RECURSIVE` keyword): that procedure may recurse even with the
+    knob off -- the per-procedure opt-in, like gfortran's RECURSIVE / -frecursive.
+  * opt-in globally (`recursion` dialect knob / `allow_recursion` engine flag): every procedure may
+    recurse. Either way it is made correct by snapshotting and restoring the active unit's locals
+    around the nested call.
 
-The capability is dialect-independent -- the gate works with F66, FORTRAN10, and F77 alike.
+The capability is dialect-independent -- it works with F66, FORTRAN10, and F77 alike.
 """
 
 import dataclasses
@@ -153,3 +156,48 @@ def test_non_recursive_repeated_calls_still_work():
     )
     eng = forterp.run_source(src, dialect=forterp.F77, target=forterp.NATIVE)
     assert eng.commons["O"][:3] == [4, 25, 49]
+
+
+# ---- the RECURSIVE keyword (F90): per-procedure opt-in, like gfortran ----
+# A procedure declared RECURSIVE may reference itself even with the `recursion` knob OFF (the
+# default); it gets correct per-activation local storage. This mirrors gfortran, where a self-
+# referencing procedure needs the RECURSIVE keyword (or -frecursive) and is otherwise rejected.
+
+_REC_FAC = (
+    "      {header}\n"
+    "      IF (N.LE.1) THEN\n      IFAC=1\n      ELSE\n      IFAC=N*IFAC(N-1)\n      END IF\n"
+    "      RETURN\n      END\n"
+    "      PROGRAM T\n      COMMON /O/ R\n      INTEGER R\n      R=IFAC(5)\n      END\n"
+)
+
+
+@pytest.mark.parametrize(
+    "header",
+    [
+        "RECURSIVE INTEGER FUNCTION IFAC(N)",
+        "INTEGER RECURSIVE FUNCTION IFAC(N)",  # the other F90 keyword order
+        "RECURSIVE FUNCTION IFAC(N)",  # implicit (integer) result type
+    ],
+)
+def test_recursive_keyword_enables_recursion_with_knob_off(header):
+    src = _REC_FAC.format(header=header)
+    eng = forterp.run_source(src, dialect=forterp.FORTRAN10, target=forterp.NATIVE)
+    assert eng.commons["O"][0] == 120  # 5! -- correct per-activation storage, no knob needed
+
+
+def test_plain_function_still_rejected_without_recursive_or_knob():
+    src = _REC_FAC.format(header="INTEGER FUNCTION IFAC(N)")
+    with pytest.raises(forterp.engine.IllegalRecursion):
+        forterp.run_source(src, dialect=forterp.FORTRAN10, target=forterp.NATIVE)
+
+
+def test_recursive_subroutine():
+    src = (
+        "      RECURSIVE SUBROUTINE COUNT(N)\n      COMMON /O/ R\n      INTEGER R\n"
+        "      IF (N.GT.0) THEN\n      R=R+1\n      CALL COUNT(N-1)\n      END IF\n"
+        "      RETURN\n      END\n"
+        "      PROGRAM T\n      COMMON /O/ R\n      INTEGER R\n"
+        "      R=0\n      CALL COUNT(5)\n      END\n"
+    )
+    eng = forterp.run_source(src, dialect=forterp.FORTRAN10, target=forterp.NATIVE)
+    assert eng.commons["O"][0] == 5

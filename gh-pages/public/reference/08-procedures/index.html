@@ -155,8 +155,8 @@ number of <strong>DEC FORTRAN-10 intrinsics</strong> beyond the standard (collec
 <li><strong>Recursion is prohibited</strong> by the standard: a procedure subprogram may not be referenced a
 second time before a <code>RETURN</code> from the first has intervened <em>(§10.2.1)</em> — so a subprogram must
 not, directly or indirectly, reference itself. forterp rejects re-entry by default rather than
-give a silently wrong answer; a <code>recursion</code> knob enables correct recursion when you want it. See
-<a href="../C-forterp-extensions/index.html">Appendix C</a>.</li>
+give a silently wrong answer; declare a procedure with the F90 <code>RECURSIVE</code> keyword (or flip the
+<code>recursion</code> knob globally) to permit correct recursion. See <a href="../C-forterp-extensions/index.html">Appendix C</a>.</li>
 <li>An external function or subroutine may live in a <strong>separate source file</strong>; forterp links the
 units of a program together (see <a href="../../cli/index.html">CLI.md</a>).</li>
 </ul>
