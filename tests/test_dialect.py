@@ -198,6 +198,19 @@ def test_f77_intrinsics_gated_separately_from_dec_intrinsics():
     assert not _rejected(PH + "        V(1) = SQRT(4.0)\n" + END, dialect=F66)
 
 
+def test_io_keywords_usable_as_array_names():
+    # Keywords are not reserved: OPEN/READ/WRITE may name an array, and `NAME(i) = x` is an
+    # assignment, not the I/O statement -- gfortran accepts this on every -std (legacy and f95).
+    # Regression for the statement dispatcher committing to the I/O form before checking for a
+    # top-level '=' (external review #5 follow-up).
+    for kw in ("OPEN", "READ", "WRITE"):
+        src = (
+            PH + f"        DIMENSION {kw}(5)\n        {kw}(3) = 7.0\n        V(1) = {kw}(3)\n" + END
+        )
+        for dia in (F66, F77, FORTRAN10):
+            assert out(run(src, dialect=dia), 1) == 7.0
+
+
 def test_uuo_library_gated_to_fortran10_not_f77():
     # TOPS-10 monitor UUOs (CALL SLEEP/OUTSTR/...) are PDP-10-specific: available under FORTRAN10,
     # NOT under strict F77 (external review #5 -- uuo_library split off the F77 generic library).

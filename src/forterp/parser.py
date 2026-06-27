@@ -568,6 +568,13 @@ class StatementParser:
         t = self.peek()
         kw = t.value if (t and t.kind == "ID") else None
         nx = self.peek_next()
+        # A non-reserved I/O keyword (READ/WRITE/OPEN/CLOSE/...) followed by '(' is the I/O
+        # statement -- UNLESS the line has a top-level '=', which makes it an assignment to a
+        # like-named array (READ(I)=x, OPEN(3)=y). Keywords are not reserved; gfortran accepts
+        # these on every -std (legacy and f95), so the top-level '=' draws the line, exactly as
+        # it already does for GO TO / CALL below.
+        assign = self._has_toplevel_eq()
+        io_paren = bool(nx and nx.kind == "OP" and nx.value == "(") and not assign
         if kw == "IF" and nx and nx.kind == "OP" and nx.value == "(":
             return self.parse_if()
         if self.dialect.do_while and (
@@ -599,17 +606,17 @@ class StatementParser:
             return A.Continue()
         if kw in ("TYPE", "ACCEPT", "PRINT", "PUNCH") and self._starts_io_format(nx):
             return self.parse_type_io(kw)
-        if kw in ("READ", "WRITE") and nx and nx.kind == "OP" and nx.value == "(":
+        if kw in ("READ", "WRITE") and io_paren:
             return self.parse_readwrite(kw)
-        if kw == "FIND" and nx and nx.kind == "OP" and nx.value == "(":
+        if kw == "FIND" and io_paren:
             return self.parse_find()
         if kw in ("READ", "WRITE", "REREAD") and self._starts_io_format(nx):
             return self.parse_default_io(kw)  # default-device form
         if kw == "DEFINE" and nx and nx.kind == "ID" and nx.value == "FILE":
             return self.parse_define_file()
-        if kw in ("OPEN", "CLOSE", "INQUIRE") and nx and nx.kind == "OP" and nx.value == "(":
+        if kw in ("OPEN", "CLOSE", "INQUIRE") and io_paren:
             return self.parse_filectl(kw)
-        if kw in ("REWIND", "BACKSPACE", "ENDFILE"):  # bare unit or (specs)
+        if kw in ("REWIND", "BACKSPACE", "ENDFILE") and not assign:  # bare unit or (specs)
             return self.parse_filectl(kw)
         if kw == "END" and nx and nx.kind == "ID" and nx.value == "FILE":
             # 'END FILE u' is the ANSI X3.9-1966 (7.1.3.3) spelling of ENDFILE; one-word
