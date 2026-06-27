@@ -136,7 +136,7 @@ made executable: <code>#!/usr/bin/env -S pyfortran10 -x</code>.</p>
 </tr>
 <tr>
 <td><code>--word-memory</code></td>
-<td>store <code>COMMON</code>/<code>EQUIVALENCE</code> in word-addressable memory so cross-type punning is bit-faithful (a <code>REAL</code> read as <code>INTEGER</code> yields the genuine machine word). Needs a faithful target — <code>pdp10</code> (KL10 words) or <code>lp64le</code> (IEEE bytes, matches gfortran); off by default (typed cells). Costs ~2× on <code>COMMON</code> access — see the <a href="../reference/C-forterp-extensions/index.html">FORTRAN 66 manual, Appendix C</a>.</td>
+<td>store <code>COMMON</code>/<code>EQUIVALENCE</code> in word-addressable memory so cross-type punning is bit-faithful (a <code>REAL</code> read as <code>INTEGER</code> yields the genuine machine word). Needs a target with a memory model — <code>pdp10</code> (KL10 words, validated vs a real KL10), <code>lp64le</code> (IEEE bytes, matches gfortran), or <code>vax</code> (LE ints + middle-endian F/D floats, <strong>best-effort/unvalidated</strong>); off by default (typed cells). Costs ~2× on <code>COMMON</code> access — see the <a href="../reference/C-forterp-extensions/index.html">FORTRAN 66 manual, Appendix C</a>.</td>
 </tr>
 <tr>
 <td><code>-c CMD</code></td>

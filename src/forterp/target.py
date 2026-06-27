@@ -168,6 +168,7 @@ VAX = Target(
     bitwise_logic=True,
     little_endian=True,
     truth="low_bit",
+    mem_model="vax",  # word_memory: LE ints, middle-endian F/D floats (best-effort, unvalidated)
 )
 
 # The modern 64-bit IEEE machine -- the little-endian LP64 data model gfortran targets on

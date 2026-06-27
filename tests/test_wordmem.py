@@ -351,3 +351,59 @@ def test_lp64_engine_block_layout_is_byte_accurate():
     assert len(eng.commons["O"]) == 12
     assert eng.wmem.read(eng.commons["O"], 4, "INTEGER") == 99  # K at byte 4
     assert eng.wmem.read(eng.commons["O"], 8, "INTEGER") == 99  # M = K, at byte 8
+
+
+# ---- VAX codec: LE integers, middle-endian F/D floats (best effort, UNVALIDATED) ----------------
+# No VAX oracle yet; these pin the documented format, anchored by the canonical F_float 1.0=0x4080
+# and self-consistent round-trips. Correct against a real VAX/simulator when one exists.
+
+from forterp.wordmem import VaxByteMemory  # noqa: E402
+
+VX = VaxByteMemory()
+
+
+def _le32(b):
+    return b[0] | b[1] << 8 | b[2] << 16 | b[3] << 24
+
+
+def test_vax_f_float_matches_documented_patterns():
+    cases = {1.0: 0x00004080, 0.5: 0x00004000, 2.0: 0x00004100, 3.0: 0x00004140, -1.0: 0x0000C080}
+    for v, word in cases.items():
+        b = VX.alloc(4)
+        VX.write(b, 0, "REAL", v)
+        assert _le32(b) == word, (v, hex(_le32(b)), hex(word))
+        assert VX.read(b, 0, "REAL") == v  # round-trips
+
+
+def test_vax_real_punned_as_integer_is_word_swapped_float():
+    b = VX.alloc(4)
+    VX.write(b, 0, "REAL", 1.0)
+    assert VX.read(b, 0, "INTEGER") == 0x4080  # F_float 1.0, words swapped -> 0x00004080
+
+
+def test_vax_d_float_round_trips():
+    for v in (1.0, 0.5, 3.14, -2.5, 1234.5):
+        b = VX.alloc(8)
+        VX.write(b, 0, "DOUBLE PRECISION", v)
+        assert abs(VX.read(b, 0, "DOUBLE PRECISION") - v) <= 1e-12 * max(1.0, abs(v))
+
+
+def test_vax_integer_is_plain_little_endian():
+    b = VX.alloc(4)
+    VX.write(b, 0, "INTEGER", 0x04030201)
+    assert list(b) == [0x01, 0x02, 0x03, 0x04]  # LE
+    VX.write(b, 0, "INTEGER", -2)
+    assert VX.read(b, 0, "INTEGER") == -2
+
+
+def test_vax_engine_punning_and_layout():
+    import forterp
+    from forterp.target import VAX
+
+    src = (
+        "      PROGRAM T\n      COMMON /O/ X, K, M\n      REAL X\n      INTEGER K, M\n"
+        "      X=1.0\n      K=42\n      M=K\n      END\n"
+    )
+    eng = forterp.run_source(src, dialect=forterp.F77, target=VAX, word_memory=True)
+    assert len(eng.commons["O"]) == 12  # REAL(4) + INTEGER(4) + INTEGER(4), byte-addressed
+    assert eng.wmem.read(eng.commons["O"], 4, "INTEGER") == 42  # K at byte 4

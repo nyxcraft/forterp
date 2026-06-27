@@ -591,11 +591,13 @@ class Engine:
         self.word_memory = word_memory and self.tgt.mem_model is not None
         self.wmem = None
         if self.word_memory:
-            from forterp.wordmem import Lp64LeByteMemory, Pdp10WordMemory
+            from forterp.wordmem import Lp64LeByteMemory, Pdp10WordMemory, VaxByteMemory
 
-            self.wmem = {"pdp10": Pdp10WordMemory, "lp64le": Lp64LeByteMemory}[self.tgt.mem_model](
-                self.tgt
-            )
+            self.wmem = {
+                "pdp10": Pdp10WordMemory,
+                "lp64le": Lp64LeByteMemory,
+                "vax": VaxByteMemory,
+            }[self.tgt.mem_model](self.tgt)
         self.units = units
         self.commons = {}  # block -> list (flat store)
         self.rts = {}  # unit name -> UnitRT

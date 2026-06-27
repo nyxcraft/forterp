@@ -147,3 +147,126 @@ class Lp64LeByteMemory:
             _LP64[typ].pack_into(store, off, float(val))
         else:  # INTEGER, LOGICAL, Hollerith: the 4-byte two's-complement word
             _LP64["INTEGER"].pack_into(store, off, _to_i32(val))
+
+
+# ---- VAX codec: little-endian integers, MIDDLE-endian (word-swapped) floats (best effort) -------
+# UNVALIDATED: no VAX hardware or simulator oracle has been checked against this yet (the VAX target
+# is itself provisional). The format is from the published VAX architecture: INTEGER is plain
+# little-endian; F_floating (REAL, 4 bytes) and D_floating (DOUBLE, 8 bytes) store their 16-bit
+# words in PDP-11 "middle-endian" order -- the sign/exponent word is at the LOW address, and the
+# 32-/64-bit value is the words swapped relative to a straight little-endian read. Both use an 8-bit
+# excess-128 exponent and a hidden-bit mantissa normalized to [0.5, 1.0) -- the same value formula
+# as the PDP-10 float, only narrower and word-swapped. Anchored by the canonical F_float 1.0 =
+# 0x00004080 (bytes 80 40 00 00). DOUBLE is D_floating (the VAX FORTRAN default; /G_FLOATING is not
+# modeled). When a VAX oracle exists, validate as the PDP-10 probe did and correct as needed.
+
+_VAX_SIZE = {"INTEGER": 4, "REAL": 4, "DOUBLE PRECISION": 8, "COMPLEX": 8, "LOGICAL": 4}
+
+
+def _vax_f_decode(store, off: int) -> float:
+    lo = store[off] | (store[off + 1] << 8)  # sign/exp/high-fraction word (low address)
+    hi = store[off + 2] | (store[off + 3] << 8)  # low-fraction word
+    fp = (lo << 16) | hi  # the conventional 32-bit value, sign at bit 31
+    e = (fp >> 23) & 0xFF
+    if e == 0:  # true zero (s=0); s=1,e=0 is a reserved operand -- treat as 0 (best effort)
+        return 0.0
+    m = (0x800000 | (fp & 0x7FFFFF)) / 16777216.0  # (2^23 + f) / 2^24, in [0.5, 1)
+    v = m * (2.0 ** (e - 128))
+    return -v if (fp >> 31) else v
+
+
+def _vax_f_encode(store, off: int, x: float) -> None:
+    x = float(x)
+    if x == 0.0:
+        store[off : off + 4] = b"\x00\x00\x00\x00"
+        return
+    import math
+
+    s = 1 if x < 0 else 0
+    m, e = math.frexp(abs(x))  # m in [0.5, 1)
+    full = round(m * 16777216.0)
+    if full >= (1 << 24):  # rounding carried into 1.0
+        full >>= 1
+        e += 1
+    big_e = e + 128
+    if not (1 <= big_e <= 255):
+        raise OverflowError(f"{x!r} is out of VAX F_floating range")
+    fp = (s << 31) | ((big_e & 0xFF) << 23) | (full & 0x7FFFFF)
+    lo, hi = (fp >> 16) & 0xFFFF, fp & 0xFFFF
+    store[off], store[off + 1] = lo & 0xFF, lo >> 8
+    store[off + 2], store[off + 3] = hi & 0xFF, hi >> 8
+
+
+def _vax_d_decode(store, off: int) -> float:
+    w = [store[off + 2 * k] | (store[off + 2 * k + 1] << 8) for k in range(4)]
+    fp = (w[0] << 48) | (w[1] << 32) | (w[2] << 16) | w[3]  # word 0 (sign/exp) at low address
+    e = (fp >> 55) & 0xFF
+    if e == 0:
+        return 0.0
+    m = ((1 << 55) | (fp & ((1 << 55) - 1))) / float(1 << 56)  # (2^55 + f)/2^56, in [0.5, 1)
+    v = m * (2.0 ** (e - 128))
+    return -v if (fp >> 63) else v
+
+
+def _vax_d_encode(store, off: int, x: float) -> None:
+    x = float(x)
+    if x == 0.0:
+        store[off : off + 8] = b"\x00" * 8
+        return
+    import math
+
+    s = 1 if x < 0 else 0
+    m, e = math.frexp(abs(x))
+    full = round(m * float(1 << 56))
+    if full >= (1 << 56):
+        full >>= 1
+        e += 1
+    big_e = e + 128
+    if not (1 <= big_e <= 255):  # D_floating shares F's 8-bit exponent range (~1e38)
+        raise OverflowError(f"{x!r} is out of VAX D_floating range")
+    fp = (s << 63) | ((big_e & 0xFF) << 55) | (full & ((1 << 55) - 1))
+    for k in range(4):
+        w = (fp >> (48 - 16 * k)) & 0xFFFF
+        store[off + 2 * k], store[off + 2 * k + 1] = w & 0xFF, w >> 8
+
+
+class VaxByteMemory:
+    """A typed accessor over a `bytearray` in the VAX representation: little-endian INTEGER, and
+    MIDDLE-endian (word-swapped) F_floating / D_floating for REAL / DOUBLE PRECISION. The byte-
+    addressable sibling of `Pdp10WordMemory` for the VAX value model.
+
+    BEST EFFORT / UNVALIDATED: no VAX oracle has been checked yet (the VAX target is provisional).
+    Anchored by the canonical F_float 1.0 = 0x00004080; correct against a real VAX/simulator when
+    one is available."""
+
+    def __init__(self, target=None):
+        self.t = target
+
+    @staticmethod
+    def units(typ: str) -> int:
+        return _VAX_SIZE.get(typ, 4)
+
+    @staticmethod
+    def alloc(n: int) -> bytearray:
+        return bytearray(n)
+
+    def read(self, store, off: int, typ: str):
+        if typ == "REAL":
+            return _vax_f_decode(store, off)
+        if typ == "DOUBLE PRECISION":
+            return _vax_d_decode(store, off)
+        if typ == "COMPLEX":
+            return complex(_vax_f_decode(store, off), _vax_f_decode(store, off + 4))
+        return _LP64["INTEGER"].unpack_from(store, off)[0]  # INTEGER/LOGICAL: plain LE int32
+
+    def write(self, store, off: int, typ: str, val) -> None:
+        if typ == "REAL":
+            _vax_f_encode(store, off, float(val))
+        elif typ == "DOUBLE PRECISION":
+            _vax_d_encode(store, off, float(val))
+        elif typ == "COMPLEX":
+            v = val if isinstance(val, complex) else complex(float(val), 0.0)
+            _vax_f_encode(store, off, v.real)
+            _vax_f_encode(store, off + 4, v.imag)
+        else:  # INTEGER / LOGICAL / Hollerith: little-endian two's-complement 32-bit
+            _LP64["INTEGER"].pack_into(store, off, _to_i32(val))
