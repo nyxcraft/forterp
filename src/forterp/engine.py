@@ -1258,6 +1258,11 @@ class Engine:
             # is X(I+1), ... Re-view the cell's storage at its offset as the array base.
             if isinstance(a, CellRef):
                 return ArrayView(a.store, a.idx)
+            # word_memory: a word-addressed element actual (WordRef) bound to an array dummy
+            # sequence-associates the same way, but the dummy reinterprets the words by ITS element
+            # type (the codec runs on read/write), so view from the actual's word offset.
+            if isinstance(a, WordRef):
+                return WordArrayView(self.wmem, a.store, a.off, self.type_of(unit, name))
             # A CHARACTER substring / array-element actual bound to a CHARACTER array dummy:
             # the dummy's char-length'd elements tile the actual's character stream (17.x).
             if isinstance(a, SubstringRef) and isinstance(a.base, CellRef):
@@ -1383,7 +1388,7 @@ class Engine:
             subs = [self.eval(a, frame) for a in node.args]
             if type(frame.args.get(name)) is SubstringRef:  # CHARACTER seq-association: char window
                 return self.arrayview(frame, name).loc(self._idx(subs, dims, name)).read()
-            if self.word_memory and name in frame.rt.common_map:  # decode by element type
+            if self.word_memory:  # decode by element type via the (possibly Word)ArrayView
                 return self.arrayview(frame, name).loc(self._idx(subs, dims, name)).read()
             store, base = self._array_base(frame, name)  # read directly, no CellRef/ArrayView
             return oob_read(store, base + self._idx(subs, dims, name))
@@ -1936,7 +1941,7 @@ class Engine:
             subs = [self.eval(a, frame) for a in tgt.args]
             if type(frame.args.get(tgt.name)) is SubstringRef:  # CHARACTER seq-association window
                 self.arrayview(frame, tgt.name).loc(self._idx(subs, dims, tgt.name)).write(val)
-            elif self.word_memory and tgt.name in frame.rt.common_map:  # encode by element type
+            elif self.word_memory:  # encode by element type via the (possibly Word)ArrayView
                 self.arrayview(frame, tgt.name).loc(self._idx(subs, dims, tgt.name)).write(val)
             else:
                 store, base = self._array_base(frame, tgt.name)

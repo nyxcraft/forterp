@@ -202,3 +202,52 @@ def test_word_memory_double_array_punned_as_integer_words():
         "      D(1)=1.5D0\n      N=W(1)\n      END\n"
     )
     assert _run(src, "INTEGER") == double_to_dec10_pair(1.5)[0]
+
+
+# ---- word_memory step 4: I/O and argument passing of word-backed entities ----------------------
+
+
+def test_word_memory_io_writes_decoded_value():
+    # WRITE of a storage-associated REAL formats the decoded value, not the raw word
+    eng = forterp.run_source(
+        "      PROGRAM T\n      COMMON /C/ X\n      REAL X\n"
+        "      X=1.5\n      WRITE(6,100)X\n100   FORMAT(1X,F8.4)\n      END\n",
+        dialect=forterp.F66,
+        target=forterp.PDP10,
+        word_memory=True,
+    )
+    assert eng.out == ["  1.5000\n"]
+
+
+def test_word_memory_arg_pass_scalar():
+    # a COMMON scalar passed by reference is modified through the WordRef (decode/encode)
+    src = (
+        "      PROGRAM T\n      COMMON /C/ X, OUT\n      REAL X, OUT\n"
+        "      X=3.0\n      CALL DBL(X)\n      OUT=X\n      END\n"
+        "      SUBROUTINE DBL(A)\n      A=A*2.0\n      RETURN\n      END\n"
+    )
+    eng = forterp.run_source(src, dialect=forterp.F66, target=forterp.PDP10, word_memory=True)
+    assert eng.wmem.read(eng.commons["C"], 1, "REAL") == 6.0
+
+
+def test_word_memory_arg_pass_whole_array():
+    src = (
+        "      PROGRAM T\n      COMMON /C/ A(3), OUT\n      REAL A, OUT\n"
+        "      A(1)=4.0\n      CALL FIRST(A)\n      OUT=A(1)\n      END\n"
+        "      SUBROUTINE FIRST(V)\n      DIMENSION V(3)\n"
+        "      V(1)=V(1)+1.0\n      RETURN\n      END\n"
+    )
+    eng = forterp.run_source(src, dialect=forterp.F66, target=forterp.PDP10, word_memory=True)
+    assert eng.wmem.read(eng.commons["C"], 3, "REAL") == 5.0
+
+
+def test_word_memory_arg_pass_array_element_seq_association():
+    # passing A(2) to an array dummy: the dummy's element 0 IS A(2) (sequence association)
+    src = (
+        "      PROGRAM T\n      COMMON /C/ A(5), OUT\n      REAL A, OUT\n"
+        "      A(2)=4.0\n      CALL FIRST(A(2))\n      OUT=A(2)\n      END\n"
+        "      SUBROUTINE FIRST(V)\n      DIMENSION V(3)\n"
+        "      V(1)=V(1)+1.0\n      RETURN\n      END\n"
+    )
+    eng = forterp.run_source(src, dialect=forterp.F66, target=forterp.PDP10, word_memory=True)
+    assert eng.wmem.read(eng.commons["C"], 5, "REAL") == 5.0
