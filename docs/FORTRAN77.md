@@ -8,6 +8,11 @@ keyword-driven I/O, internal files, `INQUIRE`, `PARAMETER`/`SAVE`/`INTRINSIC`, a
 [FORTRAN-66](FORTRAN66.md) — read that first for the base language (source form, the
 arithmetic/control/`COMMON` core, `FORMAT`).
 
+> 📖 **Looking for the language itself?** This page is a guide to forterp's F77 *dialect* —
+> selecting it, the `CHARACTER` type, the I/O additions, the tunable knobs. For a complete,
+> example-driven reference to the **FORTRAN 77 language**, organized on the standard and
+> self-contained, read the **[FORTRAN 77 reference manual](fortran77/README.md)**.
+
 > Notation: items here are FORTRAN-77 features unless marked **[DEC]** (a FORTRAN-10
 > extension that strict F77 does not include) or **[F66]** (carried over from the base).
 > Select the dialect with `forterp.F77`, the prebuilt `forterp.f77`, or the CLI `--std f77`.
@@ -145,7 +150,7 @@ exactly as hand-written branches would.
 | Statement | Notes |
 |-----------|-------|
 | `PARAMETER (N=expr, …)` | named constants; the value may be `INTEGER`/`REAL`/`DOUBLE`, **`LOGICAL`** (`.TRUE.`/`.FALSE.`), **`COMPLEX`** (`(re,im)`), or `CHARACTER` |
-| `SAVE [a, b, …]` | accepted and honored; use it where you need a local retained across calls (non-`SAVE` retention is unspecified — see §10 §17) |
+| `SAVE [a, b, …]` | accepted and honored; use it where you need a local retained across calls (non-`SAVE` retention is unspecified — see [reference manual ch. 17](fortran77/17-association.md)) |
 | `INTRINSIC name, …` | accepted; declares names as intrinsic (they already resolve by name) |
 | `IMPLICIT CHARACTER*n (C)` | implicit typing with a length (see §2) |
 
@@ -333,511 +338,44 @@ Notably **off** for F77 (and on only for `FORTRAN10`): `do_while`, `dec_operator
 
 ---
 
-## 10. ANSI X3.9-1978 compliance map
+## 10. The FORTRAN 77 language reference
 
-A condensed, section-by-section restatement of the **ANSI X3.9-1978** ("FORTRAN 77 Full
-Language") standard, keyed to its section numbers, with forterp's status against each rule.
-Built by reading the standard text in full (the source PDF lives in the project notes, not
-the repo). Status legend: **✓** forterp conforms (or a deliberate, conformant choice — an
-enforced rule, a permitted extension, or processor-determined latitude) · **▲** a documented
-divergence that *can* change a conforming program's result · **✗** known gap (see
-[§8](#8-conformance--fcvs-77) and the test suite). Non-breaking extensions are collected in
-[§11](#11-non-breaking-extensions). This is the full language; forterp does not implement the
-separate "subset FORTRAN" level.
+Sections 1–9 above are about forterp's F77 *dialect* — how to select it, the `CHARACTER` type, the
+I/O additions, the knobs. For the **language itself**, forterp ships a complete, example-driven
+reference to ANSI X3.9-1978, organized on the standard and self-contained:
 
-### §1 Conformance
+### → [The FORTRAN 77 reference manual](fortran77/README.md)
 
-- **Conformance (1.4).** "must" is a requirement, "must not" a prohibition (1.5). A
-  conforming *program* uses only standard forms; a conforming *processor* runs them per the
-  standard interpretation and may add extensions that don't change a conforming program's
-  meaning. A program must not use processor-added intrinsics; a name in `EXTERNAL` overrides
-  any like-named processor intrinsic. — ✓ forterp's F77 is the full language; the DEC
-  extensions live on the separate `FORTRAN10` dialect, off under `F77`.
+Eighteen chapters following the standard's structure, every feature shown with a runnable example,
+each chapter closing with a **forterp notes** box for behavior specific to this implementation.
+Start at the [contents page](fortran77/README.md), or jump to a topic:
 
-### §2 Terms and concepts
+- [1. Overview & program structure](fortran77/01-overview.md) ·
+  [2. Language elements](fortran77/02-language-elements.md) ·
+  [3. Source form](fortran77/03-source-form.md) ·
+  [4. Data types & constants](fortran77/04-data-types.md)
+- [5. Arrays & substrings](fortran77/05-arrays-substrings.md) ·
+  [6. Expressions](fortran77/06-expressions.md) ·
+  [7. Statements](fortran77/07-statements.md) ·
+  [8. Specification statements](fortran77/08-specification.md)
+- [9. DATA](fortran77/09-data.md) ·
+  [10. Assignment](fortran77/10-assignment.md) ·
+  [11. Control](fortran77/11-control.md)
+- [12. Input / output](fortran77/12-io.md) ·
+  [13. FORMAT & edit descriptors](fortran77/13-format.md)
+- [14. Main program](fortran77/14-main-program.md) ·
+  [15. Functions & subroutines](fortran77/15-procedures.md) ·
+  [16. Block data](fortran77/16-block-data.md)
+- [17. Storage association & definition](fortran77/17-association.md) ·
+  [18. Scopes & symbolic names](fortran77/18-scopes.md)
+- Appendices: [A. Intrinsics](fortran77/A-intrinsics.md) ·
+  [B. Edit descriptors](fortran77/B-edit-descriptors.md) ·
+  [C. Precedence & collating](fortran77/C-precedence-ascii.md) ·
+  [D. forterp extensions & strict gates](fortran77/D-forterp-extensions.md)
 
-- **Symbolic name (2.2).** 1–6 letters/digits, first a letter. — ✓
-- **Statement label (2.2).** 1–5 digits, at least one nonzero. — ✓
-- **No reserved words (2.2).** keyword vs name is by context. — ✓
-- **Program structure (2.4).** one main program + any number of subprograms/external
-  procedures; `PROGRAM` is optional; main program = no `FUNCTION`/`SUBROUTINE`/`BLOCK DATA`
-  first. — ✓
-- **Implicit typing (2.5).** absent a type-statement/`IMPLICIT`, `I`–`N` ⇒ integer, else
-  real. — ✓
-- **Storage units (2.13).** integer/real/logical = 1 numeric unit; **double precision and
-  complex = 2 numeric units**; character = 1 character unit per character; numeric and
-  character units are unrelated (can't associate across the two). — ▲ forterp's storage
-  association uses one *value slot* per element: `COMPLEX` correctly occupies two slots
-  (`ComplexPairRef`), but `DOUBLE PRECISION` occupies one slot rather than two numeric units.
-  This only differs observably under `EQUIVALENCE`/`COMMON` aliasing of a double against a
-  pair of reals (rare; not exercised by the FCVS corpus) — see §8/§17 notes.
-- **Definition status (2.11).** entities are undefined at program start unless `DATA`-
-  initialized; a reference requires a defined value; a CHARACTER entity is defined iff every
-  length-one substring is. — ✓ (forterp does not trap *use* of undefined; faithful to the
-  "no predictable value" latitude.)
-- **Association (2.14).** `COMMON`, `EQUIVALENCE`, argument, `ENTRY`. — ✓ (details in §8/§15/§17.)
-
-### §3 Characters, lines, execution sequence
-
-- **Character set (3.1).** 26 letters, 10 digits, 13 specials (blank `= + - * / ( ) , . $ ' :`).
-  — ✓
-- **Collating sequence (3.1.5).** only a partial order is required — `A<…<Z`, `0<…<9`,
-  blank below both, digits and letters not interleaved; `LGE/LGT/LLE/LLT` compare by it. — ✓
-  (forterp uses ASCII, which satisfies the partial order.)
-- **Fixed source form (3.2).** 72-column lines; comment = `C`/`*` in col 1 or all-blank;
-  initial line has blank/`0` in col 6; a continuation line has a non-blank, non-`0` col 6 and
-  blank cols 1–5; ≤19 continuation lines; statement text in cols 7–72; `END` only on an
-  initial line. — ✓
-- **Statement labels (3.4).** 1–5 digits, ≥1 nonzero, cols 1–5, unique per program unit,
-  leading zeros/blanks insignificant; only labeled executable and `FORMAT` statements are
-  referenceable. — ✓
-- **Statement order (3.5).** `PROGRAM`/`FUNCTION`/`SUBROUTINE`/`BLOCK DATA` first;
-  `IMPLICIT` before other specs (except `PARAMETER`); specifications before
-  `DATA`/statement-functions/executables; statement functions before executables; `FORMAT`/
-  `DATA`/`ENTRY` may float past the spec section; `END` last. — ✓ **enforced under F77**: a
-  specification statement appearing after an executable statement is a hard error (`?FTNORD`,
-  the `strict_stmt_order` knob; verified against the corpus — no conforming routine trips it).
-  The finer sub-rules — `IMPLICIT` before the other specifications, and the `PARAMETER`
-  type-ordering — are not yet diagnosed.
-- **Execution & recursion (3.6).** execution starts at the main program's first executable;
-  a procedure "must not be referenced a second time without the prior execution of a `RETURN`
-  or `END`" — i.e. **no recursion**. — ✓ **enforced**: re-entry of a still-active unit (direct
-  or indirect) raises `IllegalRecursion` on every dialect, rather than silently corrupting the
-  static locals. The `recursion` dialect knob opts in to permitting it *correctly* (per-call
-  local storage); see [§15](#15-functions-and-subroutines).
-
-### §4 Data types and constants
-
-- **Six types (4.1).** integer, real, double precision, complex, logical, character; one type
-  per name per program unit; implicit typing `I`–`N` ⇒ integer else real (4.1.2). — ✓
-- **Signed zero (4.1.3).** zero is neither positive nor negative; `-0.0` equals `0.0`. — ✓
-- **Integer constant (4.3.1).** `[±]` digits, decimal. — ✓
-- **Real constant (4.4).** `[±][int].[frac]` (not both parts empty), optional `E`-exponent;
-  `5.`, `.5`, `5E3`, `5.0E3` all valid. — ✓
-- **Double precision (4.5).** a `D`-exponent makes the constant double precision (`2.0D0`);
-  precision must exceed real; two numeric storage units. — ▲ faithful under the **PDP10**
-  target (36-bit single vs two-word double); under the default **NATIVE** target real and
-  double precision share a 64-bit host double, so the precision is equal rather than strictly
-  greater (a pluggable-value-model choice).
-- **Complex constant (4.6.1).** `(re, im)` where each part is an optionally-signed real or
-  integer constant; two numeric storage units (real then imaginary). — ✓
-- **Logical (4.7).** `.TRUE.` / `.FALSE.` only. — ✓
-- **Character constant (4.8.1).** an apostrophe, a **nonempty** string of characters, an
-  apostrophe; blanks significant; a doubled `''` denotes one embedded apostrophe. — ✓ the
-  nonempty requirement is **enforced on every dialect**: the empty constant `''` is a hard
-  error (`?FTNECC`), since a zero-length string is meaningless in both the CHARACTER and
-  Hollerith models (and is a Fortran-90 feature, not F77). The check keys on the resolved
-  value, so an embedded apostrophe (`'O''CLOCK'` → `O'CLOCK`) is unaffected.
-
-### §5 Arrays and substrings
-
-- **Array declarator (5.1).** `a(d[,d]…)`, **1–7 dimensions**; a dimension is `[lo:]hi`
-  (default `lo`=1, `hi`≥`lo`); the last `hi` may be `*` (assumed-size); variables in a bound
-  ⇒ adjustable (dummy arrays only); constant/adjustable/assumed-size kinds; actual
-  declarators must be constant. — ✓ lower bounds, assumed-size, and adjustable arrays are all
-  supported; the seven-dimension maximum is **enforced** on every dialect (an 8-D+ declarator
-  is a hard error, `?FTNRNK`), liftable with the `unlimited_rank` knob. (F66's stricter
-  three-dimension limit is left lenient — an accept-more for the base dialect.)
-- **Element ordering (5.2.4).** column-major — the first subscript varies fastest. — ✓
-  (verified by `EQUIVALENCE`-flattening).
-- **Subscripts (5.4).** one integer subscript expression per dimension; the value must lie
-  within the declared bounds (a *program* requirement — a processor need not detect a
-  violation). — ✓ by default forterp does not trap an out-of-bounds subscript; it reproduces
-  the FORTRAN-10 unchecked-storage model **faithfully** (a committed extension, see
-  [§11](#11-non-breaking-extensions)): an out-of-bounds access traverses the `COMMON`/
-  `EQUIVALENCE` storage sequence, so the deliberate over-/under-indexing tricks land in the
-  neighbouring variable (read and write, both ends), reading 0 only past the whole store. The
-  standard explicitly permits this non-detection. — ✓ an opt-in **`bounds_check`** knob
-  (engine `bounds_check=True`) turns any subscript outside its declared `[lo,hi]` into a hard
-  error (`OobError`, the gfortran `-fcheck=bounds` analog — it catches the neighbour-reaching
-  case too); the store-level census `forterp.debug.oob_census()` remains available.
-- **Substring (5.7).** `v(e1:e2)` / `a(s…)(e1:e2)`, `1 ≤ e1 ≤ e2 ≤ len`, omitted `e1`⇒1,
-  `e2`⇒len, `v(:)`≡`v`, length `e2−e1+1`. — ✓ for in-range use. — by default an out-of-range
-  window (`e1<1` / `e2>len` / `e1>e2`) is **not trapped**; since the standard makes it undefined,
-  what forterp returns is **unspecified and may change** — don't rely on it. — ✓ the
-  **`bounds_check`** knob makes it a hard error (`OobError`), the same gate as the array-subscript
-  check (§5.4) — forterp's `-fcheck=bounds` analog spans both array subscripts and substrings.
-
-### §6 Expressions
-
-- **Arithmetic (6.1).** operators `** / * - +`; precedence `**` > `* /` > `+ -`; `**` is
-  **right-associative** (`2**3**2` = `2**(3**2)` = 512), `* /` and `+ -` left-associative;
-  `-A**2` = `-(A**2)`; no two adjacent operators (`A**(-B)` not `A**-B`). — ✓ verified.
-- **Result type (6.1.4, Tables 2–3).** a mixed-type operator converts the operand that
-  differs from the result type; real/double/complex `** integer` leaves the integer
-  unconverted; **double precision combined with complex is prohibited**; `C**C` is the
-  principal value `EXP(x2·LOG(x1))`. — ✓ promotions. The Table-2/3 "Prohibited" entry for
-  double-precision ⊗ complex arithmetic is accepted as an extension: forterp promotes and
-  computes the double-complex result (e.g. `2D0*(1.,3.)` → `(2.,6.)`), identical to gfortran in
-  every mode (incl. `-std=f95`). §1.4 permits this — a conforming program never forms it, so
-  accepting it can't change any conforming program's meaning.
-- **Integer division (6.1.5).** truncates toward zero — `(-8)/3` = −2, `5/2` = 2,
-  `2**(-3)` = 0. — ✓ verified.
-- **Math errors (6.6).** "Any arithmetic operation whose result is not mathematically defined is
-  prohibited" — *examples:* dividing by zero, a **zero**-valued base to a zero/negative power, and
-  a **negative** base to a real/double power. (Note a *nonzero* base to a negative integer power
-  is **defined**, §6.1.5: `2**(-3)` = `1/(2**3)` = `0` — forterp computes this correctly, it is
-  not a divergence.) — ✓ **non-fatal**, and now **target-aware**: these undefined ops never trap,
-  and the value follows the target's `ieee_math` flag. **NATIVE** delivers IEEE results identical
-  to gfortran (`1.0/0.0`→`Inf`, `0.0/0.0`→`NaN`, `0.0**(-1)`→`Inf`, `(-4.)**0.5`/`SQRT(-1)`→`NaN`);
-  **PDP10** keeps FOROTS's non-fatal recovery (`0.0` on divide, a `|x|` stand-in + a LIB warning
-  on a domain error). Any result conforms (the op is undefined) and a conforming program never
-  reaches it. Operand short-circuiting (6.6.1) is permitted-not-required; forterp evaluates eagerly.
-- **Character (6.2).** `//` concatenation, left-associative, parentheses don't change the
-  value. — ✓
-- **Relational (6.3).** `.LT. .LE. .EQ. .NE. .GT. .GE.`; compare two arithmetic or two
-  character operands (never mixed); a complex operand only with `.EQ.`/`.NE.`; the shorter
-  character operand is blank-padded on the right; `.EQ.`/`.NE.` are collating-independent. — ✓
-  — ✓ an ordering comparison on a complex operand (`C1 .LT. C2` etc.) is **rejected** on every
-  dialect (`RuntimeError`, §6.3.3): complex values have no ordering, so it is a nonsense
-  comparison with no defined result — gfortran rejects it in all modes, and forterp now does too
-  rather than returning a silent `.FALSE.`.
-- **Logical (6.4).** `.NOT. .AND. .OR. .EQV. .NEQV.`, precedence `.NOT.` > `.AND.` > `.OR.` >
-  `.EQV./.NEQV.`, left-associative within a level. — ✓ verified.
-- **Operator-class precedence (6.5).** arithmetic > character > relational > logical. — ✓
-- **Integrity of parentheses (6.6.3).** a parenthesized subexpression is evaluated as a unit
-  (`A*(B*C)` is not regrouped to `(A*B)*C`). — ✓ (forterp evaluates the parse tree as written).
-
-### §7 Statement classification
-
-- **Statement classes (§7).** all executable and nonexecutable statements listed are
-  supported. — ✓
-
-### §8 Specification statements
-
-- **DIMENSION / COMMON / EQUIVALENCE (8.1–8.3).** array declarators in `DIMENSION`/type/
-  `COMMON`; `EQUIVALENCE` shares storage with no type conversion; named and blank (`//`)
-  common; repeated common names continue the list; `EQUIVALENCE` may extend a common block
-  only forward. — ✓ (forterp detects contradictory `EQUIVALENCE`). — ✓ §8.3.1 ("all entities in a
-  character common block must be character") is **not** enforced (a permitted accept-more) — a mixed char/numeric COMMON
-  block is accepted (harmless: the values are stored and read back correctly, and gfortran accepts
-  it in every mode incl. `-std=f95`). — ✓ §8.2.3 ("a character entity may be equivalenced only
-  with character entities") **is** enforced: a char⟷numeric `EQUIVALENCE` is a hard error on every
-  dialect (`RuntimeError`). Its only use is byte type-punning, which the value-slot model can't do
-  faithfully (it would silently overwrite the shared slot with one type); gfortran also rejects it
-  under `-std=f95` (a "GNU Extension" otherwise).
-- **Type-statements (8.4).** `INTEGER`/`REAL`/`DOUBLE PRECISION`/`COMPLEX`/`LOGICAL`/
-  `CHARACTER`; `CHARACTER*len` with a statement-wide default, per-entity `*len` overrides,
-  per-element length for arrays, and `*(*)` assumed length for dummies / external functions /
-  named character constants. — ✓ verified (`CHARACTER*4 A, B*2, C(3)*5` → lengths 4/2/5).
-- **`LEN` is the declared length (8.4/15.10).** `LEN(c)` is a compile-time property and does
-  not require `c` to be defined. — ✓ **fixed in this review**: forterp had read the runtime
-  value and crashed on an undefined CHARACTER variable; it now resolves the declared length
-  (substring windows and assumed-length dummies included).
-- **IMPLICIT (8.5).** `IMPLICIT typ(a, c-g, …)` letter ranges; precedes other specs except
-  `PARAMETER`; overridable by a type-statement. — ✓
-- **PARAMETER (8.6).** `PARAMETER (p = const-expr, …)`; the constant expression matches `p`'s
-  type; a non-default type/length must be set before the `PARAMETER`; a `PARAMETER` name may
-  be a primary or appear in `DATA` but not inside a `FORMAT`. — ✓
-- **EXTERNAL / INTRINSIC (8.7–8.8).** declare a name an external/dummy procedure, or an
-  intrinsic, so it can be passed as an actual argument; an `EXTERNAL` name overrides a
-  like-named intrinsic. — ✓ `EXTERNAL` **is** required to pass a procedure as an actual argument
-  (§8.7): a bare undeclared name is taken as a variable, so the program fails when the dummy is
-  called (at the call site, where gfortran rejects it at compile time). Both reach the same
-  conforming outcome.
-- **SAVE (8.9).** retains a local's value across `RETURN`/`END`; `/cb/` saves a whole common
-  block; listless `SAVE` saves everything; a no-op in a main program. — ✓ (verified a saved
-  counter persists across calls).
-
-### §9 DATA statement
-
-- **DATA (§9).** `DATA nlist /clist/ …`; `r*c` repeat counts; an unsubscripted array name
-  takes one constant per element (column-major); implied-DO `(…, i=m1,m2[,m3])` with a
-  positive trip count; numeric constants convert to the entity's type, character/logical must
-  match; a character entity longer than its constant is blank-padded on the right, shorter is
-  truncated. Named-common entities are initialized only in `BLOCK DATA`; blank common and
-  dummy arguments cannot be initialized. — ✓ (`V/3*7./`, `(V(I),I=1,3)/…/` verified).
-
-### §10 Assignment statements
-
-- **Arithmetic assignment (10.1).** `v = e` converts `e` to `v`'s type (Table 4): `INT`
-  truncates toward zero (`I=3.9`→3, `I=-3.9`→−3), `REAL`/`DBLE`/`CMPLX` as appropriate. — ✓
-- **Logical assignment (10.2).** `v = e`, `e` logical. — ✓
-- **ASSIGN (10.3).** `ASSIGN s TO i` gives integer `i` a statement-label value (the only way),
-  for an assigned `GO TO` or a run-time format identifier; `s` must label an executable or
-  `FORMAT` statement in the same unit. — ✓ (`ASSIGN`+assigned-`GO TO` verified).
-- **Character assignment (10.4).** `v` and `e` may differ in length — `e` is blank-padded
-  (`v` longer) or right-truncated (`v` shorter); assigning a substring leaves the rest
-  unchanged. — ✓ (`A*2='ABCD'`→`'AB'`, `B*5='XY'`→`'XY   '`).
-
-### §11 Control statements
-
-- **GO TO (11.1–11.3).** unconditional, computed `GO TO (s,…)[,]i` (out-of-range `i` falls
-  through as `CONTINUE`), and assigned `GO TO i[,(s,…)]`. — ✓ (computed fall-through verified).
-- **Arithmetic IF (11.4).** `IF (e) s1,s2,s3` branches on `e<0`/`=0`/`>0` (`e` integer/real/
-  double). — ✓
-- **Logical IF (11.5).** `IF (e) st`. — ✓
-- **Block IF (11.6–11.9).** `IF(e) THEN` / `ELSE IF(e) THEN` / `ELSE` / `END IF`, IF-level
-  matching, no transfer into a block. — ✓ (covered by `test_f77.py`).
-- **DO (11.10).** `DO s[,]i = e1,e2[,e3]`; the DO-variable may be integer, real, or double;
-  **iteration count `MAX(INT((m2−m1+m3)/m3),0)` — a zero-trip loop when the count is ≤0** (the
-  signature F77 change from F66's one-trip minimum); after the loop the DO-variable keeps its
-  last value. — ✓ verified: zero-trip `DO K=5,1` runs 0× and leaves K=5; `DO I=1,10` leaves
-  I=11; `DO I=1,10,3` runs 4× and leaves I=13. (`zero_trip_do` is on under F77; F66/FORTRAN10
-  keep the one-trip rule.)
-- **CONTINUE / STOP / PAUSE / END (11.11–11.14).** `STOP [n]` / `PAUSE [n]` take ≤5 digits or a
-  character constant; `END` acts as `RETURN` in a subprogram and terminates in a main program.
-  — ✓
-
-### §12 Input/output statements
-
-- **The nine statements (§12).** `READ`, `WRITE`, `PRINT`, `OPEN`, `CLOSE`, `INQUIRE`,
-  `BACKSPACE`, `ENDFILE`, `REWIND`. — ✓
-- **Units & files (12.2–12.5).** external units (a non-negative integer or `*`) and internal
-  files (a character variable/array/element/substring); sequential and direct access;
-  `[UNIT=]u`, `[FMT=]f`, `REC=rn`. An internal file is sequential-formatted only (no `*`, no
-  `REC`). — ✓
-- **Control list (12.8).** exactly one unit, at most one of `FMT`/`REC`/`IOSTAT`/`ERR`/`END`;
-  array names expand to all elements (column-major); implied-DO lists; `READ(u) N,A(N)` reads
-  `N` first. — ✓
-- **`IOSTAT=` / `ERR=` / `END=` (12.6–12.7).** after the statement, `IOSTAT` is defined **0 on
-  success, positive on an error, negative at end-of-file**; `ERR=s` / `END=s` branch to `s`; a
-  read that meets EOF (or error) with none of these specifiers terminates the program. — ✓
-  **fixed in this review**: `IOSTAT=` was previously parsed but not assigned on READ/WRITE, so
-  the `IF(IOS.LT.0)`/`IF(IOS.GT.0)` idioms saw a stale 0; it is now defined per 12.7.
-- **OPEN / CLOSE (12.10.1–2).** `OPEN` specifiers `UNIT`/`FILE`/`STATUS`(OLD/NEW/SCRATCH/
-  UNKNOWN)/`ACCESS`(SEQUENTIAL/DIRECT)/`FORM`(FORMATTED/UNFORMATTED)/`RECL`/`BLANK`(NULL/ZERO)/
-  `IOSTAT`/`ERR`; `CLOSE` `STATUS`(KEEP/DELETE). — ✓
-- **INQUIRE (12.10.3).** by file or by unit: `EXIST`/`OPENED`/`NUMBER`/`NAMED`/`NAME`/`ACCESS`/
-  `SEQUENTIAL`/`DIRECT`/`FORM`/`FORMATTED`/`UNFORMATTED`/`RECL`/`NEXTREC`/`BLANK`. — ✓
-- **File positioning (12.10.4).** `BACKSPACE` / `ENDFILE` / `REWIND` (sequential units). — ✓
-- **Carriage control on printing (12.9.5.2.3).** leading `blank`/`0`/`1`/`+` ⇒ one line / two
-  lines / new page / no advance; the control character is not printed. — ✓ The standard makes
-  *which devices print* a **processor choice** ("certain devices determined by the processor");
-  forterp makes that choice **per dialect** for standard output (unit 6): **F77 → terminal** (the
-  first character is ordinary data, no carriage control — matching gfortran, which does no
-  carriage control in any mode), **F66 / FORTRAN-10 → line printer** (the first character is
-  consumed as ASA carriage control — the classic DEC behavior). When a device *does* print,
-  forterp applies the §12.9.5.2.3 table exactly. The `carriage_control` engine flag overrides the
-  dialect default ("unless otherwise told"); the FCVS golden run forces it off to byte-match
-  gfortran's file output.
-
-### §13 Format specification
-
-- **Form (13.1–13.2).** `FORMAT` statement or a character format; `([r]ed | ned | [r](fs))…`;
-  comma optional around `/`, `:`, and after `P`. Repeatable descriptors `Iw Iw.m Fw.d Ew.d
-  Ew.dEe Dw.d Gw.d Gw.dEe Lw A Aw`; non-repeatable `'…' nH Tc TLc TRc nX / : S SP SS kP BN BZ`.
-  — ✓
-- **Format control & reversion (13.3).** one repeatable descriptor per list item (complex =
-  two); on the closing `)` with items remaining, advance a record and revert to the last
-  `(` group; reversion preserves the scale factor and S/SP/SS and BN/BZ state. — ✓
-- **Positional & control (13.5.1–13.5.8).** `'…'`/`nH` (output only), `T`/`TL`/`TR`/`X`
-  (skipped output positions blank-filled, never erased), `/`, `:`, `S`/`SP`/`SS` sign control,
-  `kP` scale factor, `BN`/`BZ` blank control. — ✓ (scale-factor rules: F-output ×10ᵏ, E/D mantissa
-  ×10ᵏ with exponent −k, suspended for G in F-form, input ÷ unless the field has an exponent).
-- **Numeric editing (13.5.9).** input ignores leading blanks, `+` optional, all-blank ⇒ 0, a
-  `.` in the field overrides `d`; output right-justified, overflow ⇒ all asterisks, no negative
-  signed zero. `Iw`/`Iw.m` (`m=0` of zero ⇒ blanks); F (no leading zeros but the optional `0`
-  before `.`); E/D (`[±][0].x…xd` with a **required** exponent sign; `Ew.dEe` exact exponent
-  width); G (F- or E-form by magnitude); complex = two descriptors. — ✓ (these are exactly the
-  edge cases driven to byte-match gfortran this session: `Iw.0`-of-zero, F leading-zero,
-  single-round E/D, G-scale, `Ew.dEe`).
-- **L / A editing (13.5.10–13.5.11).** `Lw` accepts optional `.`+`T`/`F` (so `.TRUE.`/`.FALSE.`
-  read), outputs `w−1` blanks + `T`/`F`; widthless `A` uses the item's declared length; A-input
-  takes the rightmost `len` (w≥len) or left-justifies + pads (w<len); A-output of a CHARACTER
-  value right-justifies when `w>len` (leading blanks) and takes the leftmost `w` when `w≤len`.
-  — ✓ verified (`A5` of `'HI'` ⇒ `'   HI'`).
-- **List-directed (13.6).** values separated by blanks/comma/slash, `r*c` repeat, `r*` null,
-  end-of-record acts as a blank; complex `(re,im)` and apostrophe strings may span records; a
-  `/` ends input (rest null). Output: integer `Iw`, real/double `0PFw.d` or `1PEw.dEe` by
-  magnitude, logical `T`/`F`, complex `(re,im)`, character without apostrophes, each record led
-  by a blank. — ✓ (processor-dependent widths validated by the gfortran value-token metric).
-
-### §14 Main program
-
-- **Main program (§14).** an optional `PROGRAM pgm` first statement; exactly one main program;
-  execution starts at its first executable; a main program contains no `BLOCK DATA`/`FUNCTION`/
-  `SUBROUTINE`/`ENTRY`/`RETURN` and cannot be referenced. — ✓ (`PROGRAM` optional and named).
-
-### §15 Functions and subroutines
-
-- **Procedures (15.1–15.2).** intrinsic functions, statement functions, external functions,
-  subroutines; a function reference is a primary in an expression; a `CALL` references a
-  subroutine. — ✓ the standard's **no-recursion** rule (§15.5.2 — a subprogram must not
-  reference itself directly or indirectly) is enforced: a re-entry raises `IllegalRecursion`
-  rather than silently corrupting forterp's static local storage. Set the `recursion` dialect
-  knob (`allow_recursion` on the engine) to permit recursion *and* make it correct — each
-  activation gets its own snapshot of the unit's locals (COMMON stays shared).
-- **Statement functions (15.4).** `f(d,…) = e` after the specifications; dummies scoped to the
-  statement; may reference earlier statement functions. — ✓
-- **External functions (15.5).** `[type] FUNCTION f(d,…)`; `CHARACTER*len` / `CHARACTER*(*)`
-  functions; the function name acts as a result variable defined before `RETURN`/`END`. — ✓
-- **Subroutines & CALL (15.6).** `SUBROUTINE s[([d,…])]`, `CALL s[([a,…])]`; an `*` dummy is an
-  alternate-return point. — ✓
-- **ENTRY (15.7).** alternate entry points in a function or subroutine. — ✓
-- **RETURN (15.8).** `RETURN` / `RETURN e` (alternate return — `e` selects the e-th `*`); `END`
-  acts as `RETURN`; the definition-status survivors on return are SAVEd entities, blank common,
-  still-initially-defined entities, and named common shared with a referencing unit. — ✓
-- **Arguments (15.9).** positional association, equal counts, type agreement (except a
-  subroutine name or alternate-return specifier); character dummy length ≤ actual; adjustable
-  and assumed-size dummy arrays; dummy procedures. — ✓
-- **Intrinsic functions (15.10, Table 5).** — ✓ **all 85 standard specific/generic intrinsics
-  are present** (the type-conversion, truncation, nearest-whole/integer, absolute-value,
-  remaindering, sign-transfer, positive-difference, double-product, max/min, length, index,
-  imaginary-part, conjugate, square-root, exponential, logarithm, trigonometric, hyperbolic,
-  and lexical-comparison families) with the Table-5 semantics verified (`INT` toward zero,
-  `NINT` round-half-away, `MOD`/`SIGN`/`DIM`, `ICHAR`/`CHAR` inverse, `INDEX` first occurrence,
-  `LGE`/`LGT`/`LLE`/`LLT` on the ASCII collating sequence). `LEN`'s argument need not be defined
-  (Note 11) — the fix recorded in §8.
-
-### §16 Block data
-
-- **Block data (§16).** `BLOCK DATA [sub]` supplies initial values for **named** common blocks
-  via `DATA`, using only specification statements; only named-common entities may be
-  initialized. — ✓ verified (a `BLOCK DATA` initializes a named block read by the main program).
-  The two §16.2 restrictions split: — ✓ "specify all entities of an initialized block" is **not**
-  enforced (a permitted accept-more): a block data declaring only a *prefix* of the block initializes those
-  entities correctly and leaves the rest uninitialized — harmless, and gfortran only warns. — ✓
-  "**at most one unnamed block data**" **is** enforced: a second unnamed `BLOCK DATA` is a hard
-  error (`?FTNBDU`, all dialects), because the two would otherwise collide in the unit table and
-  one block's initialization would be silently lost. Named block datas are unaffected.
-
-### §17 Association and definition
-
-- **Storage sequence (17.1.1).** integer/real/logical = 1 numeric unit; double precision and
-  complex = 2 numeric units; character = one unit per character. — ▲ forterp's storage
-  association is value-slot-based: `COMPLEX` occupies two slots (`ComplexPairRef`), but `DOUBLE
-  PRECISION` occupies one slot, so the *partial-association* cases that overlap a double (or a
-  complex half) with a pair of reals are not bit-faithful (rare; the PDP10 word model is
-  closer). Same caveat as §2.13.
-- **Association (17.1.2–17.1.3).** `COMMON`, `EQUIVALENCE`, `ENTRY`, and argument association;
-  total vs partial association. — ✓ (the association mechanisms themselves work; a contradictory
-  `EQUIVALENCE` is detected).
-- **Definition status (17.2–17.3).** the standard enumerates exactly which events define and
-  undefine entities (assignment, input, `DATA`, `ASSIGN`, `RETURN`/`END`, type-mismatched
-  association, skipped function side effects, input error/EOF, …); §17.1 — an undefined entity
-  "does not have a predictable value." — ✓ forterp does not *track* definition status or trap a
-  reference to an undefined entity. Since the standard makes such a reference undefined, **what
-  forterp returns is unspecified and not contractual** — it may change. A conforming program
-  defines before it reads, so this never affects it. (Out-of-bounds / undefined access is
-  auditable via `forterp.debug.oob_census()`.)
-
-### §18 Scopes and classes of symbolic names
-
-- **Scope (18.1).** global entities (main program, common blocks, external functions,
-  subroutines, block data) span the executable program; local entities (variable, array,
-  constant, statement function, intrinsic function, dummy procedure) belong to one program unit;
-  statement-function dummies and `DATA` implied-DO variables have narrower scopes. — ✓
-- **Classes & disambiguation (18.2).** with no reserved words, a name's class is fixed by
-  context: a common-block name may double as a local variable/array/statement-function name; an
-  intrinsic name can be overridden by a dummy argument or `EXTERNAL`; a function name is also a
-  result variable in its subprogram. — ✓ forterp resolves these by context (dummy/statement-
-  function/`EXTERNAL`/user-unit checked before the intrinsic library), as exercised throughout
-  the FCVS corpus. — ✓ the general static prohibition on one name occupying two local classes is
-  not comprehensively diagnosed (a permitted accept-more: it needs full symbol-class tracking, and
-  a conforming program never triggers it; forterp resolves by context). — ✓ but its one common, practical instance —
-  **assigning to a `PARAMETER` constant** (constant + variable) — is now a hard error rather than
-  a silently-dropped assignment (gfortran rejects it likewise). Names longer than six characters
-  are accepted (truncated to six), per §2.2.
-
-### Appendices A–D
-
-- **Appendix A (F66→F77 conflicts).** the 24 incompatibilities with ANSI X3.9-1966 are exactly
-  the deltas forterp's dialect axis encodes (F77 vs F66/FORTRAN10): no Hollerith constants under
-  F77, all-blank line is a comment, no transfer into a `DO` range, no negative-zero output, no
-  unnecessary leading zeros (I/F), a required exponent sign, the 30 added intrinsic names, ≤1
-  unnamed block data. The output-format items were the edits driven to byte-match gfortran this
-  session; the 30 new intrinsics are all present.
-- **Appendix B (section notes).** non-normative clarifications, all consistent with forterp's
-  verified behavior (`DO J=J1,J2` with `J1>J2` runs zero times; negative zero ≡ positive zero;
-  column-major ordering; label blanks/leading-zeros insignificant; record-count and
-  external-vs-intrinsic resolution rules).
-- **Appendix C (Hollerith).** F77 deletes the Hollerith type in favor of `CHARACTER`; forterp
-  keeps Hollerith on the **F66/FORTRAN10** dialects (the packed-word value model, per the
-  recommended C1–C7 rules) and uses `CHARACTER` under **F77** — the dialect axis separates them.
-- **Appendix D (subset overview).** the standard defines a *full* and a *subset* level; **forterp
-  implements the full language**, so every subset-omitted feature (double precision, complex,
-  `PARAMETER`, `ENTRY`, `BLOCK DATA`, list-directed I/O, substrings, concatenation, character
-  functions, `LEN`/`CHAR`/`INDEX`, partial association, lower bounds, …) is present.
-
-### Review summary
-
-This map was produced by reading the **entire ANSI X3.9-1978 standard** (all 18 sections +
-Appendices A–D) and checking forterp against each rule. Findings:
-
-- **Conformance is strong.** Every section's core semantics are implemented and verified —
-  expression evaluation, control flow (incl. the F77 zero-trip `DO`), the full statement set,
-  the complete FORMAT edit-descriptor family, the entire I/O model, and **all 85 Table-5
-  intrinsic functions** with their specified semantics.
-- **Two bugs were found and fixed during the review:** `LEN` of an undefined `CHARACTER`
-  variable (§8/§15.10 — must be the declared length), and the `IOSTAT=` specifier never being
-  assigned on `READ`/`WRITE` (§12.7 — must be 0 / positive / negative). Both have regression
-  tests.
-- **A follow-up audit (`tests/test_f77_audit.py`) locks in the subtle rules.** A second,
-  skeptical pass re-probed every claim against the live interpreter and added dedicated
-  regression tests for the ANSI rules that previously had only incidental (FCVS) coverage:
-  `**` right-associativity and `-A**2`, the real-base/integer-exponent rule, the four-tier
-  operator-class precedence, real/double `DO` control variables, column-major storage via
-  `EQUIVALENCE`, and `Iw.0`-of-zero blanking. No new bugs were found.
-- **A full marker-by-marker re-audit classified every documented divergence**, applying one test:
-  *can it change the result of a conforming program?* The **only** genuine `▲` (yes) is the
-  **pluggable value model** — NATIVE `REAL`≡`DOUBLE PRECISION` precision and `DOUBLE PRECISION` as
-  one value slot (the PDP10 target is faithful); it affects a conforming program via storage
-  association/precision. **Everything else (no) resolved to one of three conformant outcomes:**
-  - **enforced** as a hard error (the standard says *must not* and forterp would otherwise be
-    silently wrong): no-recursion (§15.5.2, all dialects + an opt-in to do it correctly), empty
-    `''` (§4.8.1), array rank ≤ 7 (§5.1, + `unlimited_rank`), char⟷numeric `EQUIVALENCE` (§8.2.3),
-    complex ordering comparison (§6.3.3), >1 unnamed `BLOCK DATA` (§16.2), assignment to a
-    `PARAMETER` (§8.6), and statement order (§3.5, F77 dialect);
-  - a **committed non-breaking extension** (documented in [§11](#11-non-breaking-extensions)):
-    non-fatal arithmetic (target-aware IEEE/FOROTS), unchecked array access (the storage-sequence
-    tricks), `DOUBLE`⊗`COMPLEX`, mixed `COMMON`, longer names; or
-  - **unspecified undefined-behavior latitude** a conforming program never observes (uninitialized
-    reads / definition status, out-of-range substring) — left unpinned so we may change it.
-
-  None of these can mis-run a conforming program. An opt-in **`bounds_check`** turns the unchecked
-  array/substring latitude into hard errors (the gfortran `-fcheck=bounds` analog), and the
-  per-dialect carriage-control default (F77 = terminal, F66/FORTRAN-10 = line printer) follows the
-  §12.9.5.2.3 processor-determined-device latitude.
-
----
-
-## 11. Non-breaking extensions
-
-§1.4 lets a conforming processor "allow additional forms and relationships **provided that such
-additions do not … change the proper interpretation of a standard-conforming program**." The
-items below are places where forterp accepts or does *more* than strict ANSI X3.9-1978 — but
-because a conforming program never relies on the prohibited or undefined form, **none of them can
-change a conforming program's result.** (Contrast the value model — NATIVE `REAL`≡`DOUBLE
-PRECISION` precision, `DOUBLE PRECISION` as one storage slot — which *can* affect a conforming
-program and is therefore a `▲` divergence in §10, not an extension.)
-
-### On by default
-
-- **Longer names (§2.2).** A name over six characters is accepted (significant to the first six),
-  not rejected.
-- **Non-fatal arithmetic (§6.6).** Divide-by-zero, `0**0`, `0**negative`, and a negative base to a
-  real power do not trap — they yield a value (IEEE `Inf`/`NaN` on NATIVE, FOROTS recovery on
-  PDP10). The op is prohibited, so any result conforms.
-- **Unchecked array access (§5.4).** An out-of-bounds subscript traverses the `COMMON`/
-  `EQUIVALENCE` storage sequence — the deliberate over-/under-indexing idioms reach the
-  neighbouring variable (read *and* write) — instead of trapping. This is a *committed* extension
-  (the faithful unchecked-storage model real DEC code relies on); `bounds_check` is its strict
-  opposite. (An out-of-range *substring*, by contrast, is left **unspecified** — see §5.7 — not a
-  committed extension.)
-- **`DOUBLE PRECISION` ⊗ `COMPLEX` arithmetic (§6.1.4).** The Table-2/3 "Prohibited" combination is
-  promoted to the double-complex result (identical to gfortran in every mode).
-- **Mixed `COMMON` (§8.3.1).** A common block may hold both character and numeric entities; each is
-  stored and read back correctly.
-
-### Opt-in (off by default)
-
-- **`recursion`** *(dialect knob)* — permit a subprogram to reference itself, with correct
-  per-activation local storage (§15.5.2). Off by default, a re-entry is a hard error (the static
-  store would otherwise corrupt silently).
-- **`unlimited_rank`** *(dialect knob)* — lift the seven-dimension array cap (§5.1).
-- **target value model** *(`NATIVE` vs `PDP10`)* — selects the result of undefined arithmetic
-  (IEEE vs FOROTS) and the storage/precision model; see §10 §2.13.
-
-### The inverse — a conformance check
-
-- **`bounds_check`** *(dialect knob)* — turns the unchecked array/substring latitude above into
-  hard errors (`OobError`, the gfortran `-fcheck=bounds` analog). Not an extension — a strictness
-  gate for *testing* whether a program stays in bounds.
-
-### Dialect supersets
-
-The `FORTRAN10` dialect adds the full DEC FORTRAN-10 V5 superset — octal `"…` literals, `DO WHILE`,
-`.XOR.` and the symbolic relationals (`==` `<` `>`), the `A(lo/hi)` bound form, tab-format source,
-`TYPE`/`ACCEPT`/`ENCODE`/`DECODE` and random-access I/O — **all off under `F77`** (see
-[§7](#7-what-the-f77-dialect-does-not-add) and [§9](#9-the-f77-dialect-knobs)).
+**forterp's behavior at the edges of the standard** — the committed extensions, the strictly
+enforced rules (recursion, complex ordering, char⟷numeric `EQUIVALENCE`, assignment to a
+`PARAMETER`, empty `''`, rank > 7, duplicate unnamed `BLOCK DATA`, statement order), the tunable
+knobs (`bounds_check`, `recursion`, `unlimited_rank`, `carriage_control`), and the one value-model
+divergence — is collected in **[Appendix D](fortran77/D-forterp-extensions.md)**. The conformance
+evidence behind it all is the FCVS-77 suite ([§8](#8-conformance--fcvs-77)).
