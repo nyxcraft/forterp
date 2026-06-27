@@ -891,10 +891,19 @@ class Engine:
 
     def _scalar_words(self, unit, name):
         """Word-cells a SCALAR of this name occupies in word-addressable storage (COMMON /
-        EQUIVALENCE): a COMPLEX scalar spans TWO (real, imag) so a REAL overlay sees each part;
-        everything else is one. (Arrays size by element count -- a COMPLEX array stays one cell
-        per element for now, since the FCVS cluster only ever EQUIVALENCEs COMPLEX *scalars*.)"""
-        return 2 if self.type_of(unit, name) == "COMPLEX" else 1
+        EQUIVALENCE): a COMPLEX or DOUBLE PRECISION scalar spans TWO, everything else one
+        (X3.9-1966 7.2.1.3.1.1 -- a double or complex datum counts as two storage units). This
+        keeps COMMON member offsets and EQUIVALENCE counting word-accurate.
+
+        The two cells differ by type. COMPLEX splits losslessly -- real in the first cell, imag in
+        the second -- so a REAL overlay reads each part (see ComplexPairRef). DOUBLE PRECISION does
+        NOT split on NATIVE (one host float, no meaningful second word): the value lives in the
+        first cell and the second is a permanent zero shadow, so an overlay onto the second word
+        reads 0. Faithful two-word DOUBLE splitting is a PDP10-target concern, deferred.
+
+        (Arrays size by element count -- a COMPLEX/DOUBLE array stays one cell per element for now,
+        since the FCVS cluster only ever EQUIVALENCEs such *scalars*.)"""
+        return 2 if self.type_of(unit, name) in ("COMPLEX", "DOUBLE PRECISION") else 1
 
     def type_of(self, unit, name):
         if name in unit.types:

@@ -399,6 +399,33 @@ def test_equivalence_complex_scalar_over_real_pair():
     assert eng.commons["OUT"][:3] == [3.5, -2.25, 17.0]
 
 
+def test_double_scalar_occupies_two_storage_units():
+    # X3.9-1966 7.2.1.3.1.1: a DOUBLE PRECISION datum counts as TWO storage units. In COMMON /CB/
+    # D,K the integer K therefore sits at word 2, so a unit overlaying the block as three singles
+    # A,B,M aliases M onto K -- the cross-unit layout stays word-accurate (it did not before the
+    # DOUBLE-as-two-cells fix, when D occupied one cell and K/M misaligned by a word).
+    eng = run(
+        "        PROGRAM T\n        COMMON /OUT/ KK\n        COMMON /CB/ D, K\n"
+        "        DOUBLE PRECISION D\n        D = 1.5D0\n        K = 99\n"
+        "        CALL S\n        KK = K\n        END\n"
+        "        SUBROUTINE S\n        COMMON /CB/ A, B, M\n"
+        "        M = 7\n        RETURN\n        END\n"
+    )
+    assert eng.commons["OUT"][0] == 7  # M (word 2) aliased K (word 2)
+
+
+def test_equivalence_double_scalar_over_real_pair():
+    # A DOUBLE PRECISION scalar EQUIVALENCEd onto REAL(2) occupies two words: the value lands in
+    # R(1) and R(2) is a zero shadow. Unlike COMPLEX, DOUBLE does not split across the two words on
+    # the NATIVE target (one host float) -- faithful two-word splitting is a PDP10-target concern.
+    eng = run(
+        "        PROGRAM T\n        COMMON /OUT/ V1, V2\n"
+        "        DOUBLE PRECISION D\n        REAL R(2)\n        EQUIVALENCE (D, R)\n"
+        "        D = 1.5D0\n        V1 = R(1)\n        V2 = R(2)\n        END\n"
+    )
+    assert eng.commons["OUT"][:2] == [1.5, 0.0]
+
+
 def test_equivalence_extends_common_forward():
     # the manual's example: COMMON/R/X,Y,Z + EQUIVALENCE(A,Y) -> A(1)=Y, A(2)=Z, A(3),A(4)
     eng = run(

@@ -56,17 +56,19 @@ result of an otherwise-conforming program, so they are worth knowing.
 - **`REAL` is the host double on `NATIVE`.** There is no distinct single precision, so a program
   that depends on single-precision *rounding* sees double-precision results. The `PDP10` target
   restores the true 36-bit single / two-word double split.
-- **`DOUBLE PRECISION` occupies one storage cell, not the two the standard counts** *(§7.2.1.3.1.1
-  counts a double or complex datum as two storage units)*. This is silently lossy in two ways.
-  (1) It shifts the layout of any `COMMON` block that contains a `DOUBLE` member: the block is one
-  word short per such member, so another unit overlaying the block with a different member list reads
-  the words after it at the wrong offset. (2) `EQUIVALENCE`-ing a `DOUBLE` onto two single-width
-  entities keeps the whole value in the first slot and leaves the second zero — `D=1.5D0` then
-  `EQUIVALENCE(D,R)` gives `R(1)=1.5, R(2)=0.0`. Rule of thumb: a `COMMON` block is word-accurate
-  exactly when every member is `INTEGER`, single `REAL`, `LOGICAL`, or `COMPLEX`.
-- **`COMPLEX` is handled correctly:** it occupies two cells (its real and imaginary parts), so it
-  counts as two storage units in `COMMON` and splits faithfully under `EQUIVALENCE` —
-  `C=(3.0,4.0)` overlaid on `R(2)` gives `R(1)=3.0, R(2)=4.0`.
+- **`COMPLEX` and `DOUBLE PRECISION` both occupy two storage cells**, matching the count the
+  standard assigns them *(§7.2.1.3.1.1: a double or complex datum is two storage units; an integer,
+  real, or logical datum is one)*. So `COMMON`-block member offsets and `EQUIVALENCE` counting are
+  word-accurate even when a block mixes these types with single-width members. The two cells differ
+  in what they hold:
+  - **`COMPLEX` splits faithfully** — the real part in the first cell, the imaginary in the second —
+    so an overlay reads each part: `C=(3.0,4.0)` over `R(2)` gives `R(1)=3.0, R(2)=4.0`.
+  - **`DOUBLE PRECISION` does not split on `NATIVE`**, where a double is a single 64-bit host float
+    with no meaningful second word. The value lives in the first cell and the second is a permanent
+    **zero shadow**: `D=1.5D0` with `EQUIVALENCE(D,R)` gives `R(1)=1.5, R(2)=0.0`. The *counting*
+    is correct (a following `COMMON` member sits at the right word); only the second-word *content*
+    is a placeholder. Faithful two-word `DOUBLE` splitting belongs to the `PDP10` target, where the
+    two 36-bit words are physical.
 
 ### Non-fatal behavior in undefined areas
 
