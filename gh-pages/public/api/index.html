@@ -97,7 +97,7 @@ package root exposes a focused surface; deeper machinery lives in explicit names
 <td>the front-end dialect axis</td>
 </tr>
 <tr>
-<td><code>NATIVE</code>, <code>PDP10</code>, <code>VAX</code>, <code>Target</code></td>
+<td><code>NATIVE</code>, <code>PDP10</code>, <code>LP64LE</code>, <code>VAX</code>, <code>Target</code></td>
 <td>the machine value-model axis</td>
 </tr>
 <tr>
@@ -137,10 +137,20 @@ convention, the character codec):</p>
 with boolean logicals. <strong>The default</strong>, for running standard F66 portably.</li>
 <li><code>forterp.PDP10</code> — the DEC FORTRAN-10 machine: 36-bit two's-complement, 5×7-bit packed
 ASCII, <code>.TRUE.</code>=−1 with bit-wise logicals. The faithful, validated opt-in.</li>
+<li><code>forterp.LP64LE</code> — a 64-bit little-endian IEEE machine (32-bit <code>INTEGER</code>/<code>REAL</code>, 64-bit
+<code>DOUBLE</code>) — matches gfortran on x86_64; most useful with <code>word_memory</code> (below).</li>
 <li><code>forterp.VAX</code> — a provisional, unvalidated 32-bit guess.</li>
-<li><code>forterp.Target(word_bits=…, chars_per_word=…, bits_per_char=…, logical_true=…, bitwise_logic=…, little_endian=…, truth=…)</code> — build your own.</li>
+<li><code>forterp.Target(word_bits=…, chars_per_word=…, bits_per_char=…, logical_true=…, bitwise_logic=…, little_endian=…, truth=…, mem_model=…)</code> — build your own.</li>
 </ul>
 <pre><code class="language-python">forterp.run_source(src, target=forterp.PDP10)   # 36-bit arithmetic, packed ASCII
+</code></pre>
+<p><strong>Faithful type punning</strong> — by default <code>COMMON</code>/<code>EQUIVALENCE</code> cells hold typed values, so reading
+the same storage as a different type isn't bit-faithful. Pass <code>word_memory=True</code> (PDP10/LP64LE/VAX
+only; CLI <code>--word-memory</code>) to store such blocks as raw machine words/bytes and reinterpret on
+access, so a <code>REAL</code> read as an <code>INTEGER</code> yields the genuine machine word — validated against a real
+KL10 (PDP10) and gfortran (LP64LE). Off by default: it changes the <code>commons</code> representation to raw
+words and costs ~2× per <code>COMMON</code> access. See the <a href="../reference/C-forterp-extensions/index.html">FORTRAN 66 manual, Appendix C</a>.</p>
+<pre><code class="language-python">forterp.run_source(src, target=forterp.PDP10, word_memory=True)  # bit-faithful punning
 </code></pre>
 <p><strong>Dialect</strong> — the front-end language. <code>forterp.F66</code> is strict ANSI X3.9-1966 and genuinely
 <em>rejects</em> non-F66 constructs; <code>forterp.FORTRAN10</code> is the DEC superset (octal, tab-format,

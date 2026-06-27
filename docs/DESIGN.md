@@ -127,6 +127,39 @@ can *observe* this without changing it through the public census API in `forterp
 block), the standalone `set_oob_mode` / `oob_mode` / `oob_counts` / `oob_log`, or `"raise"`
 mode to turn an overrun into an `OobError` for a checker or fuzzer.
 
+### 3.1 Faithful type punning — the word-addressable memory model (`wordmem.py`)
+
+By default a `COMMON`/`EQUIVALENCE` cell holds a **typed Python value** (an `int` for `INTEGER`,
+a `float` for `REAL`, a `complex` for `COMPLEX`). That's fast and clean, but it isn't *bit*-faithful
+when a program **puns** storage — reads the same words as a different type (the classic `EQUIVALENCE
+(X, K)` with `X` real and `K` integer, to look at a float's bits). A `REAL` cell holding a host
+float can't be reinterpreted as the genuine machine word.
+
+The opt-in **`word_memory`** mode (engine flag / `--word-memory`; off by default) fixes this for the
+value-model targets. A storage-associated block becomes a **raw store** and every access goes through
+a **per-type codec** keyed on the *accessing* type, so the same words read as different types
+reinterpret the bits exactly as the real machine does. The codec is the target's, selected by
+`Target.mem_model`, behind a tiny uniform interface — `alloc(n)`, `units(type)`, `read(store, off,
+type)`, `write(store, off, type, val)` — so the engine stays representation-agnostic (it only knows
+types and offsets; the codec owns the bits and the addressable unit, word vs byte):
+
+- **`Pdp10WordMemory`** (`mem_model="pdp10"`) — a list of 36-bit words; floats via the KL10 codec in
+  `forbin`. Validated bit-for-bit against a real PDP-10 (SIMH KS10, DEC FORTRAN-10).
+- **`Lp64LeByteMemory`** (`mem_model="lp64le"`) — a `bytearray`; floats via Python `struct` in the
+  little-endian LP64/IEEE layout. Byte-matches gfortran on x86_64.
+- **`VaxByteMemory`** (`mem_model="vax"`) — a `bytearray`; LE integers and middle-endian (word-
+  swapped) `F`/`D_floating`. Best-effort, **unvalidated** (no VAX oracle yet).
+
+`COMPLEX`/`DOUBLE PRECISION`/`DOUBLE COMPLEX` occupy two/two/four storage units (`_member_words`
+sizes them in the codec's unit), so block offsets stay accurate; the engine routes the
+storage-associated read/write/array/argument paths through the codec (`WordRef` / `WordArrayView`)
+when `word_memory` is on, and keeps the fast typed-cell path otherwise. It is off by default because
+it changes the observable `commons` representation (raw words/bytes, not typed values) and costs
+~2× per `COMMON` access; locals — never aliased — always stay typed and fast. The faithful single/
+double splitting of `DOUBLE` is a PDP10/LP64/VAX concern; on `NATIVE` (no `mem_model`) a `DOUBLE`
+stays one host float with a zero shadow. This layer is the substrate the planned macroterp bridge's
+word-level memory will build on.
+
 ---
 
 ## 4. The control model
@@ -282,8 +315,9 @@ What each module **owns** (responsibilities age better than line counts):
 | `uuolib.py` | `UUOLIB` — the standard TOPS-10 monitor UUOs (OUTSTR/OUTCHR/MSTIME/SLEEP/GETTAB); installed only under the FORTRAN-10 dialect |
 | `hostlib.py` | the host-routine authoring layer: the `@fcall`/`@uuo`/`@builtin` decorators + arg modes (`IN`/`INT`/`STR`/`OUT`/`ARRAY`), `OutRef`, `builtins_in`, and the baseline injectable `Monitor` facade |
 | `forbin.py` | FOROTS unformatted-record framing (LSCW) + DEC-10 float (incl. the two-word DOUBLE PRECISION doubleword) — the `binio` codec |
+| `wordmem.py` | word-addressable typed memory for faithful cross-type punning (`word_memory`): the `Pdp10WordMemory` / `Lp64LeByteMemory` / `VaxByteMemory` per-target codecs (see §3.1) |
 | `diagnostics.py` | V5 Appendix-F message rendering (`?FTNxxx` / `%FTNxxx`) |
-| `target.py` | the `Target` value-model seam (`PDP10` / `NATIVE` / `VAX`) |
+| `target.py` | the `Target` value-model seam (`PDP10` / `NATIVE` / `LP64LE` / `VAX`) |
 | `dialect.py` | the `Dialect` front-end seam (`F66` default / `FORTRAN10` superset) |
 | `__init__.py` | public API + `install_runtime` / `make_engine` / `parse_source` / `run_source` |
 

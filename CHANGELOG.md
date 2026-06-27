@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-06-27 — faithful type punning, the value-model targets, and three language features
+
+- **12:10** — `DOUBLE PRECISION` now occupies **two** storage units in `COMMON`/`EQUIVALENCE`, matching the standard's storage-unit count (it was one) — so a member after a `DOUBLE` no longer lands at the wrong word. On the PDP10 target a double is stored as its two genuine KL10 machine words.
+- **13:30** — Ran a punning probe on a real PDP-10 (SIMH KS10, DEC FORTRAN-10) to ground the float codec against hardware. It confirmed the single/double encodings bit-for-bit **and** caught a real bug: a negative `DOUBLE`'s low word must clear its sign bit (the KL10 doesn't carry a sign there) — fixed in the FOROTS binary codec.
+- **15:00** — **Faithful cross-type punning** (`--word-memory` / `word_memory=True`, PDP10): `COMMON`/`EQUIVALENCE` storage becomes word-addressable, so reading the same storage as a different type reinterprets the bits the way the real machine does — a `REAL` read as `INTEGER` yields the genuine machine word, a `DOUBLE`'s two words read as integers are the real doubleword, and so on. Works across scalars, arrays (single- and multi-word elements), I/O, and argument passing; off by default. Validated against the real KL10.
+- **17:20** — A new **`LP64LE`** target (`--target lp64le`): a 64-bit little-endian IEEE machine matching gfortran on x86_64; with `--word-memory` its punning byte-matches gfortran. The engine's storage path is now codec-driven, so adding a target is adding a codec.
+- **18:00** — A **best-effort VAX** punning codec (little-endian integers, middle-endian `F_floating`/`D_floating`) — implemented from the published format, **unvalidated** (no VAX oracle yet; a probe deck is staged for when one exists).
+- **18:40** — The **`Z` (hexadecimal) edit descriptor** (a Fortran-90/gfortran extension), on output and input; matches gfortran's hex bit-for-bit.
+- **19:30** — The **`DOUBLE COMPLEX`** (`COMPLEX*16`) data type — two doubles, with `DREAL`/`DIMAG`/`DCONJG` and the `CD…` math — across arithmetic, storage, punning, and I/O.
+- **20:10** — The **`RECURSIVE` keyword** — a per-procedure recursion opt-in (like gfortran's `RECURSIVE`/`-frecursive`); the runtime already gave each recursive activation its own locals, so this is purely the front-end opt-in. Plus a study confirming forterp's gates (rank cap, recursion, statement order, bounds-check) mirror gfortran's `--std`/`-fdec`/`-frecursive`/`-fcheck` gating.
+
+## 2026-06-27 — the FORTRAN 66 reference manual, and a cross-dialect bridge
+
+- **09:30** — Wrote the **FORTRAN 66 reference manual** (`docs/fortran66/`): 14 chapters and appendices mapped one-to-one onto the X3.9-1966 standard's sections, in the same example-driven style as the FORTRAN 77 manual, with a *forterp notes* box per chapter. Every example was run live on the F66 dialect.
+- **10:30** — Published both manuals as individual web pages (the site builder auto-discovers each chapter), and **retired** the single-file `FORTRAN66.md` / `FORTRAN77.md` into the chaptered manuals.
+- **11:15** — Added FORTRAN 77 **Appendix E — Differences from FORTRAN 66** (grounded in X3.9-1978's own conflicts list), the bridge between the two manuals.
+
 ## 2026-06-26 — FCVS: the whole conformance corpus now matches gfortran
 
 - **00:24** — Filled the last language gaps the audit corpus needs: COMPLEX numbers in storage and I/O, CHARACTER-valued functions, and several formatted-output edge cases.

@@ -15,7 +15,7 @@ package root exposes a focused surface; deeper machinery lives in explicit names
 | `f66`, `fortran10`, `f77` | prebuilt, ready-to-run interpreters |
 | `Interpreter` | roll your own (target + dialect + runtime) |
 | `F66`, `FORTRAN10`, `F77`, `Dialect` | the front-end dialect axis |
-| `NATIVE`, `PDP10`, `VAX`, `Target` | the machine value-model axis |
+| `NATIVE`, `PDP10`, `LP64LE`, `VAX`, `Target` | the machine value-model axis |
 | `ParseError`, `SourceOptions` | the parse error; source-recovery options |
 
 ## Run and inspect
@@ -57,12 +57,25 @@ convention, the character codec):
   with boolean logicals. **The default**, for running standard F66 portably.
 - `forterp.PDP10` — the DEC FORTRAN-10 machine: 36-bit two's-complement, 5×7-bit packed
   ASCII, `.TRUE.`=−1 with bit-wise logicals. The faithful, validated opt-in.
+- `forterp.LP64LE` — a 64-bit little-endian IEEE machine (32-bit `INTEGER`/`REAL`, 64-bit
+  `DOUBLE`) — matches gfortran on x86_64; most useful with `word_memory` (below).
 - `forterp.VAX` — a provisional, unvalidated 32-bit guess.
 - `forterp.Target(word_bits=…, chars_per_word=…, bits_per_char=…, logical_true=…,
-  bitwise_logic=…, little_endian=…, truth=…)` — build your own.
+  bitwise_logic=…, little_endian=…, truth=…, mem_model=…)` — build your own.
 
 ```python
 forterp.run_source(src, target=forterp.PDP10)   # 36-bit arithmetic, packed ASCII
+```
+
+**Faithful type punning** — by default `COMMON`/`EQUIVALENCE` cells hold typed values, so reading
+the same storage as a different type isn't bit-faithful. Pass `word_memory=True` (PDP10/LP64LE/VAX
+only; CLI `--word-memory`) to store such blocks as raw machine words/bytes and reinterpret on
+access, so a `REAL` read as an `INTEGER` yields the genuine machine word — validated against a real
+KL10 (PDP10) and gfortran (LP64LE). Off by default: it changes the `commons` representation to raw
+words and costs ~2× per `COMMON` access. See the [FORTRAN 66 manual, Appendix C](fortran66/C-forterp-extensions.md).
+
+```python
+forterp.run_source(src, target=forterp.PDP10, word_memory=True)  # bit-faithful punning
 ```
 
 **Dialect** — the front-end language. `forterp.F66` is strict ANSI X3.9-1966 and genuinely

@@ -41,6 +41,7 @@
 <li><a class="section-nav__link section-nav__link--l3" href="#2-3-parser-parser-py">2.3 Parser — `parser.py`</a></li>
 <li><a class="section-nav__link section-nav__link--l3" href="#2-4-engine-engine-py">2.4 Engine — `engine.py`</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#3-the-memory-model">3. The memory model</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#3-1-faithful-type-punning-the-word-addressable-memory-model-wordmem-py">3.1 Faithful type punning — the word-addressable memory model (`wordmem.py`)</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#4-the-control-model">4. The control model</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#5-i-o-and-format">5. I/O and FORMAT</a></li>
 <li><a class="section-nav__link section-nav__link--l2" href="#6-the-four-seams-why-forterp-is-standalone-and-composable">6. The four seams (why forterp is standalone and composable)</a></li>
@@ -171,6 +172,34 @@ can <em>observe</em> this without changing it through the public census API in <
 <code>oob_census()</code> (a context manager yielding the OOB reads/writes and per-site log for the
 block), the standalone <code>set_oob_mode</code> / <code>oob_mode</code> / <code>oob_counts</code> / <code>oob_log</code>, or <code>&quot;raise&quot;</code>
 mode to turn an overrun into an <code>OobError</code> for a checker or fuzzer.</p>
+<h3 id="3-1-faithful-type-punning-the-word-addressable-memory-model-wordmem-py">3.1 Faithful type punning — the word-addressable memory model (<code>wordmem.py</code>)</h3>
+<p>By default a <code>COMMON</code>/<code>EQUIVALENCE</code> cell holds a <strong>typed Python value</strong> (an <code>int</code> for <code>INTEGER</code>,
+a <code>float</code> for <code>REAL</code>, a <code>complex</code> for <code>COMPLEX</code>). That's fast and clean, but it isn't <em>bit</em>-faithful
+when a program <strong>puns</strong> storage — reads the same words as a different type (the classic <code>EQUIVALENCE (X, K)</code> with <code>X</code> real and <code>K</code> integer, to look at a float's bits). A <code>REAL</code> cell holding a host
+float can't be reinterpreted as the genuine machine word.</p>
+<p>The opt-in <strong><code>word_memory</code></strong> mode (engine flag / <code>--word-memory</code>; off by default) fixes this for the
+value-model targets. A storage-associated block becomes a <strong>raw store</strong> and every access goes through
+a <strong>per-type codec</strong> keyed on the <em>accessing</em> type, so the same words read as different types
+reinterpret the bits exactly as the real machine does. The codec is the target's, selected by
+<code>Target.mem_model</code>, behind a tiny uniform interface — <code>alloc(n)</code>, <code>units(type)</code>, <code>read(store, off, type)</code>, <code>write(store, off, type, val)</code> — so the engine stays representation-agnostic (it only knows
+types and offsets; the codec owns the bits and the addressable unit, word vs byte):</p>
+<ul>
+<li><strong><code>Pdp10WordMemory</code></strong> (<code>mem_model=&quot;pdp10&quot;</code>) — a list of 36-bit words; floats via the KL10 codec in
+<code>forbin</code>. Validated bit-for-bit against a real PDP-10 (SIMH KS10, DEC FORTRAN-10).</li>
+<li><strong><code>Lp64LeByteMemory</code></strong> (<code>mem_model=&quot;lp64le&quot;</code>) — a <code>bytearray</code>; floats via Python <code>struct</code> in the
+little-endian LP64/IEEE layout. Byte-matches gfortran on x86_64.</li>
+<li><strong><code>VaxByteMemory</code></strong> (<code>mem_model=&quot;vax&quot;</code>) — a <code>bytearray</code>; LE integers and middle-endian (word-
+swapped) <code>F</code>/<code>D_floating</code>. Best-effort, <strong>unvalidated</strong> (no VAX oracle yet).</li>
+</ul>
+<p><code>COMPLEX</code>/<code>DOUBLE PRECISION</code>/<code>DOUBLE COMPLEX</code> occupy two/two/four storage units (<code>_member_words</code>
+sizes them in the codec's unit), so block offsets stay accurate; the engine routes the
+storage-associated read/write/array/argument paths through the codec (<code>WordRef</code> / <code>WordArrayView</code>)
+when <code>word_memory</code> is on, and keeps the fast typed-cell path otherwise. It is off by default because
+it changes the observable <code>commons</code> representation (raw words/bytes, not typed values) and costs
+~2× per <code>COMMON</code> access; locals — never aliased — always stay typed and fast. The faithful single/
+double splitting of <code>DOUBLE</code> is a PDP10/LP64/VAX concern; on <code>NATIVE</code> (no <code>mem_model</code>) a <code>DOUBLE</code>
+stays one host float with a zero shadow. This layer is the substrate the planned macroterp bridge's
+word-level memory will build on.</p>
 <hr />
 <h2 id="4-the-control-model">4. The control model</h2>
 <p>FORTRAN's arbitrary <code>GO TO</code>s mean a structured AST-of-blocks is the wrong shape. Instead a
@@ -369,12 +398,16 @@ body is the logic and nothing else, and the messy minority that needs the AST st
 <td>FOROTS unformatted-record framing (LSCW) + DEC-10 float (incl. the two-word DOUBLE PRECISION doubleword) — the <code>binio</code> codec</td>
 </tr>
 <tr>
+<td><code>wordmem.py</code></td>
+<td>word-addressable typed memory for faithful cross-type punning (<code>word_memory</code>): the <code>Pdp10WordMemory</code> / <code>Lp64LeByteMemory</code> / <code>VaxByteMemory</code> per-target codecs (see §3.1)</td>
+</tr>
+<tr>
 <td><code>diagnostics.py</code></td>
 <td>V5 Appendix-F message rendering (<code>?FTNxxx</code> / <code>%FTNxxx</code>)</td>
 </tr>
 <tr>
 <td><code>target.py</code></td>
-<td>the <code>Target</code> value-model seam (<code>PDP10</code> / <code>NATIVE</code> / <code>VAX</code>)</td>
+<td>the <code>Target</code> value-model seam (<code>PDP10</code> / <code>NATIVE</code> / <code>LP64LE</code> / <code>VAX</code>)</td>
 </tr>
 <tr>
 <td><code>dialect.py</code></td>

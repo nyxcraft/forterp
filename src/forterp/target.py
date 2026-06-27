@@ -7,7 +7,12 @@ logical-truth convention, and whether the logical connectives are bit-wise. The 
 holds one (`Engine(..., target=...)`) and routes its whole value model through it, so the
 core itself is representation-agnostic. Shipped targets: NATIVE (the default -- a portable
 64-bit host), PDP10 (faithful DEC FORTRAN-10: 36-bit words, 5x7-bit packing, .TRUE.=-1),
-and VAX (provisional, unvalidated).
+LP64LE (a 64-bit little-endian IEEE machine -- matches gfortran on x86_64), and VAX
+(provisional, unvalidated).
+
+A target may also name a `mem_model` -- the word-addressable codec used for faithful cross-type
+storage punning under the engine's `word_memory` flag (PDP10 = 36-bit KL10 words; LP64LE = LE IEEE
+bytes; VAX = middle-endian F/D floats). See forterp.wordmem.
 """
 
 from __future__ import annotations
