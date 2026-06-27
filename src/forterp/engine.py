@@ -252,6 +252,23 @@ class DictRef:
         self.d[self.key] = v
 
 
+class WordRef:
+    """Writable reference to a storage-associated scalar in word-addressable memory: read/write go
+    through the target's typed codec (wordmem), so the bits are reinterpreted by the access type.
+    Used when `word_memory` is on (PDP10) in place of a CellRef/ComplexPairRef/DecDoublePairRef."""
+
+    __slots__ = ("wmem", "store", "off", "typ")
+
+    def __init__(self, wmem, store, off, typ):
+        self.wmem, self.store, self.off, self.typ = wmem, store, off, typ
+
+    def read(self):
+        return self.wmem.read(self.store, self.off, self.typ)
+
+    def write(self, v):
+        self.wmem.write(self.store, self.off, self.typ, v)
+
+
 class TempRef:
     """Reference to a pass-by-value temporary."""
 
@@ -500,6 +517,7 @@ class Engine:
         tty_autowrap=True,
         allow_recursion=False,
         bounds_check=False,
+        word_memory=False,
     ):
         from forterp.forlib import Fortran10RNG
 
@@ -548,6 +566,17 @@ class Engine:
         # model: an out-of-bounds access traverses the COMMON/EQUIVALENCE storage sequence (the
         # deliberate over-/under-indexing tricks land in the neighbor), 0 only past the whole store.
         self.bounds_check = bounds_check
+        # word_memory: route storage-associated (COMMON/EQUIVALENCE) access through the
+        # word-addressable typed codec (wordmem) so cross-type punning is bit-faithful -- a REAL
+        # read as INTEGER yields the genuine machine word, etc. Only meaningful on a packed target
+        # (PDP10); NATIVE keeps typed cells. EXPERIMENTAL / partial: SCALARS only so far (arrays and
+        # I/O still use the typed path), so default off until the migration is complete.
+        self.word_memory = word_memory and self.tgt.packed_double
+        self.wmem = None
+        if self.word_memory:
+            from forterp.wordmem import Pdp10WordMemory
+
+            self.wmem = Pdp10WordMemory(self.tgt)
         self.units = units
         self.commons = {}  # block -> list (flat store)
         self.rts = {}  # unit name -> UnitRT
@@ -1175,8 +1204,11 @@ class Engine:
 
     def _scalar_static_ref(self, rt, unit, name):
         if name in rt.common_map:
-            block, off, _ = rt.common_map[name]
+            block, off, d = rt.common_map[name]
             store = self.commons[block]
+            # word_memory: a scalar reads/writes through the typed word codec (faithful punning).
+            if self.word_memory and d is None:
+                return WordRef(self.wmem, store, off, self.type_of(unit, name))
             # A storage-associated COMPLEX scalar spans two word-cells (real, imag) so a REAL
             # EQUIVALENCEd onto the same words reads each part; see ComplexPairRef.
             if self.type_of(unit, name) == "COMPLEX":
@@ -1304,6 +1336,8 @@ class Engine:
         slot = frame.rt.common_map.get(name)
         if slot is not None:
             store = self.commons[slot[0]]
+            if self.word_memory and slot[2] is None:  # faithful punning: decode by type
+                return self.wmem.read(store, slot[1], self.type_of(frame.rt.unit, name))
             if name in frame.rt.complex_scalars:  # 2-word COMPLEX: re, im -> one complex
                 off = slot[1]
                 return complex(float(oob_read(store, off)), float(oob_read(store, off + 1)))
@@ -1856,7 +1890,9 @@ class Engine:
             else:
                 slot = frame.rt.common_map.get(name)
                 if slot is not None:
-                    if ttype == "COMPLEX":  # 2-word COMPLEX: split into re, im cells
+                    if self.word_memory and slot[2] is None:  # faithful punning: encode by type
+                        self.wmem.write(self.commons[slot[0]], slot[1], ttype, val)
+                    elif ttype == "COMPLEX":  # 2-word COMPLEX: split into re, im cells
                         ComplexPairRef(self.commons[slot[0]], slot[1]).write(val)
                     elif name in frame.rt.double_word_scalars:  # 2-word DOUBLE: split hi, lo
                         DecDoublePairRef(self.commons[slot[0]], slot[1]).write(val)
