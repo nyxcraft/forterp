@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>10. Assignment | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">10. Assignment</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#arithmetic-assignment">Arithmetic assignment</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#logical-assignment">Logical assignment</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#character-assignment">Character assignment</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#the-assign-statement">The ASSIGN statement</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>10. Assignment</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">10. Assignment</p>
+        </header>
+        <div class="prose">
+<p>Assignment is how a running program stores a computed value into a variable. The form is the same
+for every type — <code>variable = expression</code> — but the conversion rules differ by type <em>(§10)</em>.</p>
+<h2 id="arithmetic-assignment">Arithmetic assignment</h2>
+<pre><code class="language-fortran">      v = e
+</code></pre>
+<p>The expression <code>e</code> is evaluated, then <strong>converted to the type of <code>v</code></strong> before being stored
+<em>(§10.1, Table 4)</em>. The conversions that matter:</p>
+<ul>
+<li>
+<p><strong>Real/double → integer truncates toward zero</strong> (the fractional part is dropped):</p>
+<pre><code class="language-fortran">      I = 3.9          ! I = 3
+      I = -3.9         ! I = -3   (toward zero, not -4)
+</code></pre>
+</li>
+<li>
+<p><strong>Integer → real/double</strong> widens exactly; <strong>→ complex</strong> sets the real part, imaginary 0.</p>
+</li>
+<li>
+<p>Assigning a value already of <code>v</code>'s type stores it unchanged.</p>
+</li>
+</ul>
+<p>Note the asymmetry with <a href="../06-expressions/index.html">Chapter 6</a>: there, mixing types in an <em>expression</em>
+converts up; here, the final store converts to the <em>target's</em> type, which may convert <strong>down</strong>
+(real → integer) and lose the fraction.</p>
+<h2 id="logical-assignment">Logical assignment</h2>
+<pre><code class="language-fortran">      LOGICAL FLAG
+      FLAG = X .GT. 0.0        ! the relational yields a logical, stored in FLAG
+</code></pre>
+<p><code>v</code> and <code>e</code> are both logical.</p>
+<h2 id="character-assignment">Character assignment</h2>
+<p><code>v</code> and <code>e</code> are character; they may differ in length <em>(§10.4)</em>. The value is fitted to <code>v</code>'s
+declared length: a shorter value is <strong>blank-padded on the right</strong>, a longer one is <strong>truncated</strong>.</p>
+<pre><code class="language-fortran">      CHARACTER*5 S
+      S = 'HI'           ! S = 'HI   '   (padded)
+      S = 'HELLO!'       ! S = 'HELLO'   (truncated to 5)
+</code></pre>
+<p>Assigning to a <strong>substring</strong> changes only those character positions; the rest of the string is
+untouched (<a href="../05-arrays-substrings/index.html">Chapter 5</a>):</p>
+<pre><code class="language-fortran">      S = 'ABCDE'
+      S(2:4) = 'XY'      ! S = 'AXY E'  (RHS fitted to the 3-char slice)
+</code></pre>
+<h2 id="the-assign-statement">The ASSIGN statement</h2>
+<p><code>ASSIGN</code> is a special, narrow form that stores a <strong>statement label</strong> (not a value) into an integer
+variable, for use by an assigned <code>GO TO</code> or as a run-time format identifier <em>(§10.3)</em>:</p>
+<pre><code class="language-fortran">      ASSIGN 100 TO LBL
+      GO TO LBL                ! jumps to the statement labelled 100
+      ...
+  100 CONTINUE
+</code></pre>
+<p>While a variable holds an assigned label it must not be used as an ordinary integer. <code>ASSIGN</code> and
+the assigned <code>GO TO</code> are little used in new code; you will meet them in older programs
+(<a href="../11-control/index.html">Chapter 11</a>).</p>
+<hr />
+<blockquote>
+<p><strong>forterp notes.</strong> Assignment conversions follow Table 4 exactly, including the truncate-toward-
+zero rule and the character pad/truncate rule. Two edges handled per the audit: assigning to a
+<code>PARAMETER</code> named constant is a hard error (<a href="../08-specification/index.html">Chapter 8</a>), and a character
+substring target outside <code>1 ≤ e1 ≤ e2 ≤ len</code> is unspecified by default / an error under
+<code>bounds_check</code> (<a href="../05-arrays-substrings/index.html">Chapter 5</a>).</p>
+</blockquote>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

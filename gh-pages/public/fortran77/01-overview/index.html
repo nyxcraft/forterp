@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>1. Overview &amp; program structure | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">1. Overview &amp; program structure</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#your-first-program">Your first program</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#what-a-program-is-made-of">What a program is made of</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#how-a-program-runs">How a program runs</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#running-these-examples">Running these examples</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>1. Overview &amp; program structure</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">1. Overview &amp; program structure</p>
+        </header>
+        <div class="prose">
+<p>FORTRAN 77 is a language for numerical and scientific computing, standardized as ANSI X3.9-1978.
+It is compact and close to the machine of its era: fixed-format source, a handful of data types,
+arrays, and a rich formatted-I/O system. This chapter shows you a whole program, names its parts,
+and explains how it runs — the details of each part follow in later chapters.</p>
+<h2 id="your-first-program">Your first program</h2>
+<pre><code class="language-fortran">      PROGRAM AREA
+C     Area of a circle of radius 2.
+      REAL R, A
+      R = 2.0
+      A = 3.14159 * R * R
+      WRITE (6, 10) R, A
+   10 FORMAT (' radius =', F5.2, '   area =', F7.3)
+      END
+</code></pre>
+<p>Running it prints:</p>
+<pre><code> radius = 2.00   area = 12.566
+</code></pre>
+<p>Reading it top to bottom:</p>
+<ul>
+<li><strong><code>PROGRAM AREA</code></strong> names the main program. The name is for your benefit; it is optional (a
+program with no <code>PROGRAM</code> line is still a valid main program).</li>
+<li><strong><code>C</code> in column 1</strong> marks a comment line — the whole line is ignored.</li>
+<li><strong><code>REAL R, A</code></strong> is a <em>declaration</em>: it tells the compiler that <code>R</code> and <code>A</code> hold real
+(floating-point) numbers. Declarations describe data; they do not do anything when the program
+runs.</li>
+<li><strong><code>R = 2.0</code></strong> and <strong><code>A = 3.14159 * R * R</code></strong> are <em>assignments</em> — they compute a value and store
+it in a variable. These are <em>executable</em> statements: they happen, in order, when the program
+runs.</li>
+<li><strong><code>WRITE (6, 10) R, A</code></strong> sends <code>R</code> and <code>A</code> to output unit 6 (the standard output), formatted
+according to the <code>FORMAT</code> statement labelled <code>10</code>.</li>
+<li><strong><code>10 FORMAT (...)</code></strong> describes how the numbers are laid out as text. <code>F5.2</code> means &quot;a real
+number in a 5-character field with 2 decimals&quot;; the quoted pieces are printed literally. The
+<code>10</code> in columns 1–5 is its <em>statement label</em>, referenced by the <code>WRITE</code>.</li>
+<li><strong><code>END</code></strong> marks the physical end of the program unit. Reaching <code>END</code> in a main program stops the
+program.</li>
+</ul>
+<p>Notice the indentation: real code starts in <strong>column 7</strong>. The first six columns are reserved (for
+comment markers, statement labels, and line continuation). That fixed layout is the one quirk
+that surprises newcomers; <a href="../03-source-form/index.html">Chapter 3</a> covers it fully. For now, just start each
+statement at column 7 and put any label in columns 1–5.</p>
+<h2 id="what-a-program-is-made-of">What a program is made of</h2>
+<p>A complete FORTRAN program is one <strong>executable program</strong>, built from one or more <strong>program
+units</strong>. There are four kinds:</p>
+<table>
+<thead>
+<tr>
+<th>Program unit</th>
+<th>Purpose</th>
+<th>Begins with</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Main program</strong></td>
+<td>where execution starts; exactly one per program</td>
+<td><code>PROGRAM</code> (optional)</td>
+</tr>
+<tr>
+<td><strong>Subroutine</strong></td>
+<td>a reusable action, invoked with <code>CALL</code></td>
+<td><code>SUBROUTINE</code></td>
+</tr>
+<tr>
+<td><strong>Function</strong></td>
+<td>a reusable computation that returns a value, used in an expression</td>
+<td><code>[type] FUNCTION</code></td>
+</tr>
+<tr>
+<td><strong>Block data</strong></td>
+<td>supplies initial values for <code>COMMON</code> blocks; does nothing at run time</td>
+<td><code>BLOCK DATA</code></td>
+</tr>
+</tbody>
+</table>
+<p>Subroutines and functions are collectively called <strong>subprograms</strong> or <strong>procedures</strong>. Here is a
+program with a function alongside the main program:</p>
+<pre><code class="language-fortran">      PROGRAM SQ
+      INTEGER N
+      N = ISQ(7)
+      WRITE (6, *) N
+      END
+
+      INTEGER FUNCTION ISQ(K)
+      ISQ = K * K
+      RETURN
+      END
+</code></pre>
+<p>→ prints <code> 49</code>. (<code>WRITE (6, *)</code> is <em>list-directed</em> output — &quot;format it sensibly for me&quot;; see
+<a href="../12-io/index.html">Chapter 12</a>.)</p>
+<p>Each program unit is independent: it has its own variables and its own statement labels. Units
+share data only through argument lists (<a href="../15-procedures/index.html">Chapter 15</a>) or <code>COMMON</code>
+(<a href="../08-specification/index.html">Chapter 8</a>). The program units may appear in any order in the source; the
+one that <em>runs first</em> is always the main program, regardless of where it sits.</p>
+<h2 id="how-a-program-runs">How a program runs</h2>
+<p>Execution begins at the <strong>first executable statement of the main program</strong> and proceeds one
+statement after another, in source order, until something redirects it:</p>
+<ul>
+<li>a control statement (<code>GO TO</code>, an <code>IF</code>, a <code>DO</code> loop — <a href="../11-control/index.html">Chapter 11</a>) jumps or
+loops,</li>
+<li>a <code>CALL</code> or function reference runs a subprogram and returns,</li>
+<li><code>STOP</code> (or reaching the main program's <code>END</code>) ends the program.</li>
+</ul>
+<p>Nonexecutable statements — declarations, <code>FORMAT</code>, <code>DATA</code>, <code>PARAMETER</code>, and so on — are not
+&quot;reached&quot; in this flow; they inform the compiler and may appear before the executable statements
+(the exact ordering rules are in <a href="../07-statements/index.html">Chapter 7</a>).</p>
+<h2 id="running-these-examples">Running these examples</h2>
+<p>Every example in this manual runs on forterp. The shortest way:</p>
+<pre><code class="language-python">import forterp
+forterp.run_source(src, dialect=forterp.F77, printer=print)
+</code></pre>
+<p>or from the command line, <code>forterp --std f77 prog.for</code>. See the
+<a href="../../api/index.html#the-two-axes-target-and-dialect">Python API guide</a> for the dialect switches, targets,
+and tunable knobs, and <a href="../../cli/index.html">CLI.md</a> for the command line.</p>
+<hr />
+<blockquote>
+<p><strong>forterp notes.</strong> forterp implements the <strong>full</strong> F77 language (not the subset level). The F77
+dialect is one of three forterp offers — <code>F66</code> (the 1966 base), <code>FORTRAN10</code> (the DEC FORTRAN-10
+superset), and <code>F77</code> — selected with <code>dialect=forterp.F77</code>. Standard output (unit 6) defaults to
+a <em>terminal</em> model under F77, matching modern compilers; the classic line-printer carriage
+control is the default under <code>F66</code>/<code>FORTRAN10</code> and is tunable (see <a href="../13-format/index.html">Chapter 13</a>).
+Where a program does something the standard prohibits, forterp's response is described in the
+relevant chapter's notes and summarized in <a href="../D-forterp-extensions/index.html">Appendix D</a>.</p>
+</blockquote>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

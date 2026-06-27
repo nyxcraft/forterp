@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>8. Specification statements | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">8. Specification statements</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#type-statements">Type statements</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#implicit">IMPLICIT</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#dimension">DIMENSION</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#common-sharing-storage-across-program-units">COMMON — sharing storage across program units</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#equivalence-two-names-one-storage">EQUIVALENCE — two names, one storage</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#parameter-named-constants">PARAMETER — named constants</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#external-and-intrinsic">EXTERNAL and INTRINSIC</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#save">SAVE</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>8. Specification statements</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">8. Specification statements</p>
+        </header>
+        <div class="prose">
+<p>Specification statements describe your data before the program runs: what type each name is, how
+arrays are shaped, what storage is shared, and what is constant. They are nonexecutable and come
+before the executable statements <em>(§8)</em>.</p>
+<h2 id="type-statements">Type statements</h2>
+<p>A type statement declares the type (and, for <code>CHARACTER</code>, the length) of names:</p>
+<pre><code class="language-fortran">      INTEGER          I, J, COUNT
+      REAL             X, Y, V(10)
+      DOUBLE PRECISION D
+      COMPLEX          Z
+      LOGICAL          FLAG
+      CHARACTER*8      NAME
+</code></pre>
+<p>A type statement may also give an array its shape (<code>V(10)</code> above), so you often don't need a
+separate <code>DIMENSION</code>. For <code>CHARACTER</code>, the length is part of the type:</p>
+<pre><code class="language-fortran">      CHARACTER         C            ! length 1 (the default)
+      CHARACTER*8       NAME         ! length 8
+      CHARACTER         TAG*3, MSG*40   ! per-name *len overrides the statement length
+      CHARACTER*(*)     ARG          ! assumed length: a dummy takes the actual's length
+      CHARACTER*(LMAX)  BUF          ! a parenthesised integer-constant expression
+</code></pre>
+<h2 id="implicit">IMPLICIT</h2>
+<p><code>IMPLICIT</code> changes the default type for whole ranges of initial letters <em>(§8.5)</em>. It must precede
+the other specification statements (a <code>PARAMETER</code> may come before it).</p>
+<pre><code class="language-fortran">      IMPLICIT INTEGER (A-H, O-Z)    ! everything not I-N is integer too
+      IMPLICIT REAL*8 (D)            ! names starting with D are double precision
+      IMPLICIT NONE                  ! [F90] -- NOT part of F77
+</code></pre>
+<p>Without any <code>IMPLICIT</code>, the built-in default applies: <code>I</code>–<code>N</code> ⇒ integer, else real
+(<a href="../04-data-types/index.html">Chapter 4</a>). An explicit type statement always overrides <code>IMPLICIT</code>.</p>
+<h2 id="dimension">DIMENSION</h2>
+<p><code>DIMENSION</code> declares array shapes when you don't want to put them on the type statement
+(<a href="../05-arrays-substrings/index.html">Chapter 5</a>):</p>
+<pre><code class="language-fortran">      DIMENSION A(10), M(3,4), T(0:5)
+</code></pre>
+<h2 id="common-sharing-storage-across-program-units">COMMON — sharing storage across program units</h2>
+<p>A <code>COMMON</code> block is a named region of storage that several program units can all see. Each unit
+lists the variables it maps onto the block, in order; the mapping is by <strong>position</strong>, not by name
+<em>(§8.3)</em>.</p>
+<pre><code class="language-fortran">      PROGRAM MAIN
+      COMMON /STATE/ COUNT, TOTAL
+      COUNT = 0
+      CALL TICK
+      ...
+      END
+
+      SUBROUTINE TICK
+      COMMON /STATE/ COUNT, TOTAL     ! same block: COUNT and TOTAL are shared
+      COUNT = COUNT + 1
+      RETURN
+      END
+</code></pre>
+<ul>
+<li>A <strong>named</strong> block is <code>/name/ list</code>. A <strong>blank</strong> (unnamed) common is <code>// list</code> or just <code>COMMON list</code>.</li>
+<li>Different units may use different variable <em>names</em> for the same block — only the position and
+type/size matter. Lay them out identically to avoid confusion.</li>
+<li>A <code>BLOCK DATA</code> subprogram is the only place a named common block may be given initial values
+(<a href="../16-block-data/index.html">Chapter 16</a>).</li>
+</ul>
+<h2 id="equivalence-two-names-one-storage">EQUIVALENCE — two names, one storage</h2>
+<p><code>EQUIVALENCE</code> makes two or more names in the <em>same</em> unit refer to the same storage <em>(§8.2)</em>. It is
+used to overlay data (e.g. view an array two ways) or to save memory.</p>
+<pre><code class="language-fortran">      REAL    A(4)
+      INTEGER B(4)
+      EQUIVALENCE (A, B)        ! A and B share the same 4 storage units
+</code></pre>
+<p>Equivalencing is by storage, with no type conversion: reading <code>A(1)</code> and <code>B(1)</code> interprets the
+same bits as a real and as an integer respectively. It can also extend a common block (forward
+only). Character entities may be equivalenced only with other character entities.</p>
+<h2 id="parameter-named-constants">PARAMETER — named constants</h2>
+<p><code>PARAMETER</code> gives a name to a constant value computed from a constant expression <em>(§8.6)</em>. The
+name is a <em>constant</em>, usable anywhere a literal is — and not assignable.</p>
+<pre><code class="language-fortran">      INTEGER   MAX
+      REAL      PI
+      PARAMETER (MAX = 100, PI = 3.14159)
+      PARAMETER (TWOPI = 2.0 * PI)        ! constant expressions are allowed
+      REAL  BUF(MAX)
+</code></pre>
+<p>Give a name a non-default type <em>before</em> its <code>PARAMETER</code> (the <code>INTEGER MAX</code> above). A <code>PARAMETER</code>
+name may appear in a <code>DATA</code> statement and in expressions, but not inside a <code>FORMAT</code>.</p>
+<h2 id="external-and-intrinsic">EXTERNAL and INTRINSIC</h2>
+<p>To pass a procedure <em>as an argument</em>, you must declare its name so the compiler knows it is a
+procedure and not a variable <em>(§8.7–8.8)</em>:</p>
+<ul>
+<li><strong><code>EXTERNAL</code></strong> names your own (or a library) external procedures.</li>
+<li><strong><code>INTRINSIC</code></strong> names a built-in function you intend to pass on.</li>
+</ul>
+<pre><code class="language-fortran">      EXTERNAL  MYFUNC
+      INTRINSIC SIN
+      CALL INTEGRATE (MYFUNC, 0.0, 1.0)
+      CALL TABULATE  (SIN,    0.0, 3.14)
+</code></pre>
+<p>An <code>EXTERNAL</code> name also overrides a like-named intrinsic, letting you supply your own <code>SIN</code>, say.</p>
+<h2 id="save">SAVE</h2>
+<p><code>SAVE</code> asks that a local variable keep its value between calls to a subprogram (without it, a
+non-<code>SAVE</code> local is undefined after <code>RETURN</code>) <em>(§8.9)</em>:</p>
+<pre><code class="language-fortran">      SUBROUTINE COUNTER (SLOT)
+      SAVE NCALLS
+      NCALLS = NCALLS + 1            ! retained across calls because of SAVE
+      ...
+      END
+</code></pre>
+<p><code>SAVE name</code> saves one entity, <code>SAVE /block/</code> a whole common block, and a bare <code>SAVE</code> saves
+everything in the unit. In a main program <code>SAVE</code> has no effect (the main program is never exited
+and re-entered).</p>
+<hr />
+<blockquote>
+<p><strong>forterp notes.</strong></p>
+<ul>
+<li><strong>EXTERNAL is required</strong> to pass a procedure as an argument (a bare undeclared name is taken as
+a variable, and the call fails when the dummy is used) — exactly as the standard mandates.</li>
+<li><strong>EQUIVALENCE</strong> detects a contradictory grouping, and rejects mixing a <code>CHARACTER</code> entity with
+a non-character one (its only use is byte type-punning, which forterp's value model can't do
+faithfully). A <strong>mixed character/numeric <code>COMMON</code> block</strong> is, by contrast, accepted (harmless).</li>
+<li><strong><code>PARAMETER</code>:</strong> assigning to a <code>PARAMETER</code> name is a hard error (it is a constant, not a
+variable) rather than a silently-dropped assignment.</li>
+<li><strong><code>SAVE</code>:</strong> use it where you need a local retained across calls; non-<code>SAVE</code> retention is
+unspecified (don't rely on it). See <a href="../D-forterp-extensions/index.html">Appendix D</a>.</li>
+</ul>
+</blockquote>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

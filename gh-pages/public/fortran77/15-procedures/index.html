@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>15. Functions &amp; subroutines | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">15. Functions &amp; subroutines</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#intrinsic-functions">Intrinsic functions</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#statement-functions">Statement functions</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#external-functions">External functions</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#subroutines-and-call">Subroutines and CALL</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#arguments">Arguments</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#return">RETURN</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#entry">ENTRY</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#a-note-on-recursion">A note on recursion</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>15. Functions &amp; subroutines</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">15. Functions &amp; subroutines</p>
+        </header>
+        <div class="prose">
+<p>Procedures let you name a piece of computation and reuse it. FORTRAN 77 has four kinds <em>(§15)</em>:
+<strong>intrinsic functions</strong> (built in), <strong>statement functions</strong> (one-line, local), <strong>external
+functions</strong> (full subprograms that return a value), and <strong>subroutines</strong> (full subprograms invoked
+with <code>CALL</code>). This is the largest chapter; take it a section at a time.</p>
+<h2 id="intrinsic-functions">Intrinsic functions</h2>
+<p>The library built into the language — <code>SQRT</code>, <code>SIN</code>, <code>ABS</code>, <code>MOD</code>, <code>MAX</code>, <code>LEN</code>, and dozens more.
+You just use them:</p>
+<pre><code class="language-fortran">      Y = SQRT(X)
+      M = MAX(A, B, C)
+      L = LEN(NAME)
+</code></pre>
+<p>Most are <strong>generic</strong>: <code>ABS</code> works on integer, real, double, or complex and returns the matching
+type. The complete list, with argument and result types, is <a href="../A-intrinsics/index.html">Appendix A</a>. To pass
+an intrinsic <em>as an argument</em> to another procedure, name it in an <code>INTRINSIC</code> statement
+(<a href="../08-specification/index.html">Chapter 8</a>).</p>
+<h2 id="statement-functions">Statement functions</h2>
+<p>A <strong>statement function</strong> is a one-line function defined inside a program unit, after the
+specifications and before the executables <em>(§15.4)</em>. It is local to that unit and handy for a short
+formula used several times:</p>
+<pre><code class="language-fortran">      REAL SQ
+      SQ(X) = X * X                 ! definition (a specification-area statement)
+      ...
+      AREA = SQ(SIDE)               ! use it like any function
+</code></pre>
+<p>The dummy arguments (<code>X</code>) are local to the definition; the body is a single expression that may
+use other variables of the unit and earlier statement functions.</p>
+<h2 id="external-functions">External functions</h2>
+<p>An <strong>external function</strong> is a complete subprogram that computes and returns a value
+<em>(§15.5)</em>:</p>
+<pre><code class="language-fortran">      INTEGER FUNCTION ISQ (K)
+      ISQ = K * K                   ! assign the result to the function's own name
+      RETURN
+      END
+</code></pre>
+<ul>
+<li>The header is <code>[type] FUNCTION name (dummies)</code>. The type may be on the header (above) or
+declared separately in the function.</li>
+<li>Inside the function, the <strong>function name acts as a variable</strong> — you assign the result to it
+before returning.</li>
+<li>Call it by using its name in an expression: <code>N = ISQ(6)</code>.</li>
+</ul>
+<p>A <code>CHARACTER</code> function declares its result length; <code>CHARACTER*(*)</code> lets the caller's context fix it:</p>
+<pre><code class="language-fortran">      CHARACTER*4 FUNCTION UP (S)
+      CHARACTER*(*) S
+      UP = S
+      RETURN
+      END
+</code></pre>
+<h2 id="subroutines-and-call">Subroutines and CALL</h2>
+<p>A <strong>subroutine</strong> is a subprogram invoked with <code>CALL</code>; it returns nothing directly but acts through
+its arguments and <code>COMMON</code> <em>(§15.6)</em>:</p>
+<pre><code class="language-fortran">      SUBROUTINE ADD1 (M)
+      M = M + 1                     ! changes the caller's variable (see arguments)
+      RETURN
+      END
+
+C     in the caller:
+      CALL ADD1 (COUNT)             ! COUNT is incremented
+</code></pre>
+<h2 id="arguments">Arguments</h2>
+<p>Arguments connect a caller's data to a procedure's <strong>dummy arguments</strong>, by position <em>(§15.9)</em>:</p>
+<ul>
+<li>
+<p>Association is effectively <strong>by reference</strong> — the dummy names the actual argument's storage, so
+assigning to a dummy changes the caller's variable (that is how <code>ADD1</code> above works, and how a
+subroutine &quot;returns&quot; results).</p>
+</li>
+<li>
+<p>The number of arguments must match, and the types must agree (apart from a subroutine name or an
+alternate-return specifier).</p>
+</li>
+<li>
+<p>You may pass a constant or expression for an <em>input</em> argument — but then the procedure must not
+try to redefine it.</p>
+</li>
+<li>
+<p>A <code>CHARACTER</code> dummy may be shorter than the actual; <code>CHARACTER*(*)</code> takes the actual's length.</p>
+</li>
+<li>
+<p>An array dummy may be <strong>adjustable</strong> or <strong>assumed-size</strong> (<a href="../05-arrays-substrings/index.html">Chapter 5</a>).</p>
+</li>
+<li>
+<p>A <strong>dummy procedure</strong> lets you pass a function or subroutine as an argument (declare the actual
+<code>EXTERNAL</code> or <code>INTRINSIC</code>, <a href="../08-specification/index.html">Chapter 8</a>):</p>
+<pre><code class="language-fortran">      EXTERNAL MYF
+      CALL INTEGRATE (MYF, 0.0, 1.0)
+</code></pre>
+</li>
+</ul>
+<h2 id="return">RETURN</h2>
+<p><code>RETURN</code> returns control to the caller <em>(§15.8)</em>. Reaching <code>END</code> does the same. An <strong>alternate
+return</strong> lets a subroutine choose among labels the caller supplies:</p>
+<pre><code class="language-fortran">      CALL PARSE (LINE, *900)       ! *900 is an alternate-return label
+      ...
+  900 CONTINUE                      ! reached if PARSE does RETURN 1
+
+      SUBROUTINE PARSE (S, *)       ! * is the alternate-return dummy
+      IF (bad) RETURN 1             ! returns to the caller's first * label
+      RETURN
+      END
+</code></pre>
+<h2 id="entry">ENTRY</h2>
+<p><code>ENTRY</code> defines additional entry points in a function or subroutine, sharing its body and locals
+<em>(§15.7)</em>:</p>
+<pre><code class="language-fortran">      FUNCTION TWICE (K)
+      TWICE = K * 2
+      RETURN
+      ENTRY THRICE (K)              ! a second way in, same unit
+      THRICE = K * 3
+      RETURN
+      END
+</code></pre>
+<p><code>TWICE(5)</code> is 10, <code>THRICE(5)</code> is 15.</p>
+<h2 id="a-note-on-recursion">A note on recursion</h2>
+<p>Standard FORTRAN 77 <strong>prohibits recursion</strong> — a subprogram must not call itself, directly or
+indirectly <em>(§15.5.2)</em>. This is rooted in the static-storage model of the era (a single set of
+local variables per procedure, with nowhere to keep a second activation's values). If you are
+coming from a modern language, this is a real restriction: there is no recursive <code>FACTORIAL</code> in
+conforming F77.</p>
+<hr />
+<blockquote>
+<p><strong>forterp notes.</strong></p>
+<ul>
+<li><strong>Recursion is rejected</strong> by default on every dialect (a re-entry of a still-active procedure
+is a hard error) — forterp's static locals can't represent it, so it errors rather than
+returning a silently wrong answer. The opt-in <strong><code>recursion</code></strong> dialect knob <em>enables</em> it and
+makes it correct (each call gets its own locals); see <a href="../D-forterp-extensions/index.html">Appendix D</a>.</li>
+<li><strong><code>EXTERNAL</code> is required</strong> to pass a procedure as an argument (a bare name is read as a
+variable). All four procedure kinds, alternate return, <code>ENTRY</code>, <code>CHARACTER*(*)</code> results, and
+adjustable/assumed-size array dummies are supported.</li>
+<li>All <strong>85</strong> standard intrinsic functions are present with their specified semantics
+(<a href="../A-intrinsics/index.html">Appendix A</a>).</li>
+</ul>
+</blockquote>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>5. Arrays &amp; substrings | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">5. Arrays &amp; substrings</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#declaring-an-array">Declaring an array</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#subscripts">Subscripts</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#how-arrays-are-laid-out-column-major">How arrays are laid out: column-major</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#whole-array-use">Whole-array use</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#dummy-arrays-assumed-size-and-adjustable">Dummy arrays: assumed-size and adjustable</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#character-substrings">Character substrings</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>5. Arrays &amp; substrings</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">5. Arrays &amp; substrings</p>
+        </header>
+        <div class="prose">
+<p>An <strong>array</strong> is a named block of elements of one type, addressed by one or more integer
+subscripts. A <strong>substring</strong> is a contiguous slice of a single character value. Both are built from
+the data types of <a href="../04-data-types/index.html">Chapter 4</a>; this chapter is how you declare and index them.</p>
+<h2 id="declaring-an-array">Declaring an array</h2>
+<p>You give an array its shape with an <strong>array declarator</strong> — <code>name(bounds)</code> — in a <code>DIMENSION</code>
+statement, a type statement, or a <code>COMMON</code> statement <em>(§5.1)</em>. These three are equivalent ways to
+declare a 10-element real array <code>V</code>:</p>
+<pre><code class="language-fortran">      DIMENSION V(10)
+      REAL V(10)
+      REAL V
+      DIMENSION V(10)
+</code></pre>
+<p>Each <strong>dimension</strong> is written <code>[lower:]upper</code>. If you omit the lower bound it defaults to 1, so
+<code>V(10)</code> runs <code>V(1)…V(10)</code>. You may give an explicit lower bound, including zero or negative:</p>
+<pre><code class="language-fortran">      REAL    A(10)            ! A(1) .. A(10)
+      REAL    B(0:9)           ! B(0) .. B(9)   -- ten elements, 0-based
+      INTEGER C(-3:3)          ! C(-3) .. C(3)  -- seven elements
+</code></pre>
+<p>An array may have <strong>1 to 7 dimensions</strong> <em>(§5.1)</em>. The bounds are constants (or, for a dummy
+argument, expressions — see <em>adjustable arrays</em> below):</p>
+<pre><code class="language-fortran">      REAL M(3,4)              ! a 3x4 matrix: M(1,1) .. M(3,4)
+      REAL T(2,2,2)            ! a 3-dimensional array
+</code></pre>
+<h2 id="subscripts">Subscripts</h2>
+<p>An element is selected with one integer subscript expression per dimension <em>(§5.4)</em>. Subscripts
+may be any integer expression, not just constants:</p>
+<pre><code class="language-fortran">      M(2,3)     = 1.0
+      M(I, J+1)  = M(I, J) * 2.0
+</code></pre>
+<p>The standard requires each subscript to lie within its declared bounds. (What happens if it does
+not is in the forterp notes below.)</p>
+<h2 id="how-arrays-are-laid-out-column-major">How arrays are laid out: column-major</h2>
+<p>Array elements occupy a single storage sequence, and FORTRAN stores them in <strong>column-major</strong>
+order — the <strong>first subscript varies fastest</strong> <em>(§5.2.4)</em>. For <code>A(2,2)</code> the elements sit in
+memory in this order:</p>
+<pre><code>   A(1,1)  A(2,1)  A(1,2)  A(2,2)
+</code></pre>
+<p>You can see it by overlaying a 1-D array on a 2-D one with <code>EQUIVALENCE</code>
+(<a href="../08-specification/index.html">Chapter 8</a>):</p>
+<pre><code class="language-fortran">      DIMENSION A(2,2), B(4)
+      EQUIVALENCE (A, B)
+      DO 1 I = 1, 4
+    1   B(I) = I
+C     now A(1,1)=1  A(2,1)=2  A(1,2)=3  A(2,2)=4
+</code></pre>
+<p>This matters whenever array storage is shared or passed as a whole: the order is columns-first,
+the opposite of C's row-major. It is also why a tight loop should make the <strong>first</strong> subscript the
+innermost one, to walk memory sequentially.</p>
+<h2 id="whole-array-use">Whole-array use</h2>
+<p>An unsubscripted array name stands for the whole array in a few contexts — in <code>COMMON</code>, <code>DATA</code>,
+<code>EQUIVALENCE</code>, an I/O list, or as an actual argument:</p>
+<pre><code class="language-fortran">      REAL V(100)
+      WRITE (6, *) V           ! writes all 100 elements (in storage order)
+      CALL NORMALIZE(V)        ! passes the whole array
+</code></pre>
+<h2 id="dummy-arrays-assumed-size-and-adjustable">Dummy arrays: assumed-size and adjustable</h2>
+<p>When an array is a <strong>dummy argument</strong> of a subprogram, its bounds may depend on the call rather
+than being fixed <em>(§5.1.2)</em>:</p>
+<ul>
+<li>
+<p><strong>Adjustable array</strong> — a bound is an integer variable (itself a dummy or in <code>COMMON</code>), so the
+array's shape is whatever the caller's data requires:</p>
+<pre><code class="language-fortran">      SUBROUTINE SCALE (A, N)
+      REAL A(N)              ! adjustable: N comes from the caller
+      DO 1 I = 1, N
+  1     A(I) = A(I) * 2.0
+      END
+</code></pre>
+</li>
+<li>
+<p><strong>Assumed-size array</strong> — the last upper bound is <code>*</code>, meaning &quot;however large the actual is.&quot;
+You can index it but cannot ask its total size:</p>
+<pre><code class="language-fortran">      SUBROUTINE SHOW (A)
+      REAL A(*)              ! assumed size
+      WRITE (6, *) A(1), A(2)
+      END
+</code></pre>
+</li>
+</ul>
+<h2 id="character-substrings">Character substrings</h2>
+<p>A <strong>substring</strong> selects a contiguous run of characters from a character variable or array element,
+written <code>name(e1:e2)</code> — 1-based and inclusive <em>(§5.7)</em>. It can be read as a value <strong>or</strong> assigned
+to as a target:</p>
+<pre><code class="language-fortran">      CHARACTER*5 R
+      R = 'ABCDE'
+      R(2:4) = 'XY'        ! R = 'AXY E'  (RHS fitted to the 3-char slice; rest untouched)
+      C2 = R(2:3)          ! reads 'XY'
+</code></pre>
+<p>Either bound may be omitted: <code>R(:3)</code> is <code>R(1:3)</code>, <code>R(3:)</code> is <code>R(3:LEN(R))</code>, and <code>R(:)</code> is the
+whole string. The substring of an array element is <code>W(K)(1:2)</code> — element <code>K</code> of array <code>W</code>, then
+characters 1–2 of it. The valid range is <code>1 ≤ e1 ≤ e2 ≤ len</code>.</p>
+<hr />
+<blockquote>
+<p><strong>forterp notes.</strong></p>
+<ul>
+<li><strong>Rank limit:</strong> the seven-dimension maximum <em>is enforced</em> — an 8-D (or larger) declarator is a
+hard error. The <code>unlimited_rank</code> knob lifts the cap if you really need it.</li>
+<li><strong>Out-of-bounds access (default):</strong> forterp does <strong>not</strong> trap an out-of-range subscript; it
+reproduces the classic unchecked-storage model, so an access past an array's end walks into the
+neighbouring variable in the same <code>COMMON</code>/<code>EQUIVALENCE</code> block (the deliberate over-indexing
+idioms in old code work), reading 0 only past the whole block. This never affects a conforming
+program (which stays in bounds). Turn on the <strong><code>bounds_check</code></strong> knob to make any out-of-range
+subscript — or substring — a hard error (forterp's <code>-fcheck=bounds</code> analog).</li>
+<li><strong>Out-of-range substring:</strong> by default it is not trapped and the result is unspecified (don't
+rely on it); <code>bounds_check</code> makes it an error. Lower bounds and assumed-size/adjustable dummies
+are fully supported.</li>
+</ul>
+</blockquote>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

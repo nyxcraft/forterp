@@ -147,7 +147,7 @@ ASCII, <code>.TRUE.</code>=−1 with bit-wise logicals. The faithful, validated 
 <code>!</code> comments, apostrophe strings, random-access I/O, free-form input, the DEC intrinsic
 library); <code>forterp.F77</code> is ANSI X3.9-1978 — the <code>CHARACTER</code> type, the block <code>IF</code>,
 list-directed and keyword-driven I/O, internal files, <code>INQUIRE</code>, <code>PARAMETER</code>/<code>SAVE</code>, and
-<code>.EQV.</code>/<code>.NEQV.</code>. See the <strong><a href="../docs/index.html">FORTRAN 77 reference manual</a></strong> for the
+<code>.EQV.</code>/<code>.NEQV.</code>. See the <strong><a href="../fortran77/index.html">FORTRAN 77 reference manual</a></strong> for the
 language itself, and the F77 dialect knobs just below.</p>
 <p><strong>SourceOptions</strong> — orthogonal to the dialect; it copes with imperfect <em>input</em>, not a
 language variant. <code>forterp.SourceOptions(recover_shifted_cols=True)</code> keeps statement text
@@ -228,7 +228,7 @@ standardized feature without the rest of the DEC extension):</p>
 </tbody>
 </table>
 <p>The strict/relax knobs <code>recursion</code>, <code>unlimited_rank</code>, and <code>bounds_check</code> are off by default on
-every dialect; see <a href="fortran77/D-forterp-extensions.md">reference manual Appendix D</a>.</p>
+every dialect; see <a href="../fortran77/D-forterp-extensions/index.html">reference manual Appendix D</a>.</p>
 <p>Notably <strong>off</strong> for F77 (on only for <code>FORTRAN10</code>): <code>do_while</code>, <code>dec_operators</code> (<code>.XOR.</code>,
 <code>==</code>/<code>&lt;</code>/<code>&gt;</code>), <code>slash_dim_bound</code> (<code>A(lo/hi)</code>), <code>octal_quote</code>, <code>tab_format</code>, <code>inline_comment</code>
 (<code>!</code>), <code>extended_io</code> (<code>TYPE</code>/<code>ACCEPT</code>/<code>ENCODE</code>/<code>DECODE</code>, random-access), <code>free_form_input</code>.</p>

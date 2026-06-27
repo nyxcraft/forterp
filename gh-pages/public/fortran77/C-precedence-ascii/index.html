@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Appendix C — Operator precedence &amp; the collating sequence | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">Appendix C — Operator precedence &amp; the collating sequence</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#operator-precedence">Operator precedence</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#the-collating-sequence">The collating sequence</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>Appendix C — Operator precedence &amp; the collating sequence</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">Appendix C — Operator precedence &amp; the collating sequence</p>
+        </header>
+        <div class="prose">
+<h2 id="operator-precedence">Operator precedence</h2>
+<p>From highest (binds tightest) to lowest <em>(§6)</em>. Within a level, evaluation is left-to-right, except
+<code>**</code>, which is <strong>right-to-left</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Rank</th>
+<th>Operators</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1 (highest)</td>
+<td><code>**</code></td>
+<td>exponentiation; right-associative (<code>2**3**2</code> = <code>2**(3**2)</code>)</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>*</code> <code>/</code></td>
+<td>multiply, divide</td>
+</tr>
+<tr>
+<td>3</td>
+<td>unary <code>+</code> <code>-</code>, binary <code>+</code> <code>-</code></td>
+<td>(so <code>-A**2</code> = <code>-(A**2)</code>)</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>//</code></td>
+<td>character concatenation</td>
+</tr>
+<tr>
+<td>5</td>
+<td><code>.LT. .LE. .EQ. .NE. .GT. .GE.</code></td>
+<td>relational (yield logical)</td>
+</tr>
+<tr>
+<td>6</td>
+<td><code>.NOT.</code></td>
+<td>logical negation</td>
+</tr>
+<tr>
+<td>7</td>
+<td><code>.AND.</code></td>
+<td>logical and</td>
+</tr>
+<tr>
+<td>8</td>
+<td><code>.OR.</code></td>
+<td>logical or</td>
+</tr>
+<tr>
+<td>9 (lowest)</td>
+<td><code>.EQV.</code> <code>.NEQV.</code></td>
+<td>logical equivalence / non-equivalence</td>
+</tr>
+</tbody>
+</table>
+<p>Across families this is the ladder <strong>arithmetic &gt; character &gt; relational &gt; logical</strong>, so
+<code>2 + 3 .GT. 4</code> is <code>(2+3) .GT. 4</code> and needs no parentheses. You may not place two operators
+adjacently — write <code>A**(-B)</code>, not <code>A**-B</code>. Parenthesized subexpressions are evaluated as written
+and not regrouped.</p>
+<h2 id="the-collating-sequence">The collating sequence</h2>
+<p>Character comparison (<code>.LT.</code>, the <code>LGE</code>/<code>LGT</code>/<code>LLE</code>/<code>LLT</code> intrinsics, etc.) uses a <strong>collating
+sequence</strong>. The standard requires only a partial order <em>(§3.1.5)</em>:</p>
+<ul>
+<li><code>A &lt; B &lt; … &lt; Z</code>,</li>
+<li><code>0 &lt; 1 &lt; … &lt; 9</code>,</li>
+<li>blank is less than both <code>A</code> and <code>0</code>,</li>
+<li>the letters and digits are not interleaved (all digits precede <code>A</code>, or all follow <code>Z</code>).</li>
+</ul>
+<p><code>.EQ.</code> and <code>.NE.</code> do not depend on the collating sequence. When two character operands differ in
+length, the shorter is blank-padded on the right before comparison, so <code>'HI'</code> equals <code>'HI   '</code>.</p>
+<hr />
+<blockquote>
+<p><strong>forterp notes.</strong> forterp uses the <strong>ASCII</strong> collating sequence, which satisfies the standard's
+partial order (in ASCII: blank 32, digits 48–57, upper-case letters 65–90 — so blank &lt; digits &lt;
+letters). <code>ICHAR</code>/<code>CHAR</code> therefore map to ASCII codes.</p>
+</blockquote>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

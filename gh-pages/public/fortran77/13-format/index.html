@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>13. `FORMAT` &amp; edit descriptors | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">13. `FORMAT` &amp; edit descriptors</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#where-a-format-comes-from">Where a format comes from</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#numeric-edit-descriptors-repeatable">Numeric edit descriptors (repeatable)</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#logical-and-character-repeatable">Logical and character (repeatable)</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#literal-text-and-hollerith-output">Literal text and Hollerith (output)</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#positional-control-non-repeatable">Positional &amp; control (non-repeatable)</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#repeat-counts-and-groups">Repeat counts and groups</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#format-reversion">Format reversion</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#carriage-control-printing">Carriage control (printing)</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#list-directed-formatting">List-directed formatting</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>13. `FORMAT` &amp; edit descriptors</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">13. `FORMAT` &amp; edit descriptors</p>
+        </header>
+        <div class="prose">
+<p>A <strong>format</strong> describes how data is laid out as text — field widths, decimal places, spacing,
+literal text. It pairs with a formatted <code>READ</code>/<code>WRITE</code> (<a href="../12-io/index.html">Chapter 12</a>) and is the most
+detailed part of the language <em>(§13)</em>.</p>
+<h2 id="where-a-format-comes-from">Where a format comes from</h2>
+<p>Three ways to supply one:</p>
+<pre><code class="language-fortran">      WRITE (6, 10) N, X
+   10 FORMAT (I5, F8.3)               ! a labelled FORMAT statement
+
+      WRITE (6, '(I5, F8.3)') N, X    ! a character-constant format, inline
+
+      CHARACTER*20 FM
+      FM = '(I5, F8.3)'
+      WRITE (6, FM) N, X              ! a character variable holding a format
+</code></pre>
+<p>A format is a parenthesized list of <strong>edit descriptors</strong> separated by commas.</p>
+<h2 id="numeric-edit-descriptors-repeatable">Numeric edit descriptors (repeatable)</h2>
+<table>
+<thead>
+<tr>
+<th>Descriptor</th>
+<th>For</th>
+<th>Example</th>
+<th>Output of the value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Iw</code></td>
+<td>integer in width <code>w</code></td>
+<td><code>I5</code> of <code>42</code></td>
+<td><code>␣␣␣42</code></td>
+</tr>
+<tr>
+<td><code>Iw.m</code></td>
+<td>integer, ≥ <code>m</code> digits (zero-filled)</td>
+<td><code>I5.3</code> of <code>42</code></td>
+<td><code>␣␣042</code></td>
+</tr>
+<tr>
+<td><code>Fw.d</code></td>
+<td>fixed-point real, <code>d</code> decimals</td>
+<td><code>F8.3</code> of <code>3.14159</code></td>
+<td><code>␣␣␣3.142</code></td>
+</tr>
+<tr>
+<td><code>Ew.d</code></td>
+<td>scientific real</td>
+<td><code>E12.4</code> of <code>1.5</code></td>
+<td><code>␣␣0.1500E+01</code></td>
+</tr>
+<tr>
+<td><code>Ew.dEe</code></td>
+<td>scientific, exponent width <code>e</code></td>
+<td><code>E12.4E3</code></td>
+<td><code>…E+001</code></td>
+</tr>
+<tr>
+<td><code>Dw.d</code></td>
+<td>double-precision scientific (like <code>E</code>)</td>
+<td><code>D12.4</code></td>
+<td><code>…D+01</code></td>
+</tr>
+<tr>
+<td><code>Gw.d</code></td>
+<td>general — picks <code>F</code> or <code>E</code> by magnitude</td>
+<td><code>G12.4</code></td>
+<td>(F- or E-form)</td>
+</tr>
+</tbody>
+</table>
+<p>(<code>␣</code> marks a blank.) Output is right-justified in the field; if the value doesn't fit, the field
+fills with asterisks (<code>****</code>). On input, leading blanks are ignored, a <code>+</code> is optional, and an
+all-blank field reads as zero.</p>
+<pre><code class="language-fortran">      WRITE (6, '(I5, F8.3)') 42, 3.14159     ! -&gt;  '   42   3.142'
+      WRITE (6, '(E12.4)')    1.5             ! -&gt;  '  0.1500E+01'
+</code></pre>
+<h2 id="logical-and-character-repeatable">Logical and character (repeatable)</h2>
+<table>
+<thead>
+<tr>
+<th>Descriptor</th>
+<th>For</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Lw</code></td>
+<td>logical</td>
+<td>outputs <code>w−1</code> blanks then <code>T</code> or <code>F</code></td>
+</tr>
+<tr>
+<td><code>A</code></td>
+<td>character</td>
+<td>uses the item's own declared length</td>
+</tr>
+<tr>
+<td><code>Aw</code></td>
+<td>character in width <code>w</code></td>
+<td>right-justify if <code>w</code> &gt; len; leftmost <code>w</code> chars if <code>w</code> ≤ len</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-fortran">      CHARACTER*3 C
+      C = 'HI'
+      WRITE (6, '(A)') C            ! -&gt; 'HI '   (the item's length, 3)
+</code></pre>
+<h2 id="literal-text-and-hollerith-output">Literal text and Hollerith (output)</h2>
+<table>
+<thead>
+<tr>
+<th>Descriptor</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>'text'</code></td>
+<td>print the quoted text literally</td>
+</tr>
+<tr>
+<td><code>nHtext</code></td>
+<td>print the <code>n</code> characters after <code>H</code> (the old Hollerith form)</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-fortran">      WRITE (6, '('' answer ='', I4)') 42      ! -&gt;  ' answer =  42'
+</code></pre>
+<h2 id="positional-control-non-repeatable">Positional &amp; control (non-repeatable)</h2>
+<table>
+<thead>
+<tr>
+<th>Descriptor</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>nX</code></td>
+<td>skip <code>n</code> positions (blanks on output)</td>
+</tr>
+<tr>
+<td><code>Tc</code></td>
+<td>move to absolute column <code>c</code></td>
+</tr>
+<tr>
+<td><code>TLc</code> / <code>TRc</code></td>
+<td>move left / right <code>c</code> columns</td>
+</tr>
+<tr>
+<td><code>/</code></td>
+<td>end this record, start the next (a line break)</td>
+</tr>
+<tr>
+<td><code>:</code></td>
+<td>stop format processing if the I/O list is exhausted</td>
+</tr>
+<tr>
+<td><code>S</code> <code>SP</code> <code>SS</code></td>
+<td>sign control: default / always print <code>+</code> / suppress <code>+</code></td>
+</tr>
+<tr>
+<td><code>kP</code></td>
+<td>scale factor: shift the decimal point by <code>k</code></td>
+</tr>
+<tr>
+<td><code>BN</code> <code>BZ</code></td>
+<td>on input, treat blanks in a numeric field as null / as zeros</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-fortran">      WRITE (6, '(I3, /, I3)') 1, 2      ! two lines: ' 1' then ' 2'
+</code></pre>
+<h2 id="repeat-counts-and-groups">Repeat counts and groups</h2>
+<p>A descriptor may be repeated with a leading count, and a parenthesized <strong>group</strong> may be repeated
+as a unit:</p>
+<pre><code class="language-fortran">      FORMAT (3I5)              ! same as I5, I5, I5
+      FORMAT (2(I3, F6.2))      ! the group (I3,F6.2) twice
+</code></pre>
+<h2 id="format-reversion">Format reversion</h2>
+<p>If the I/O list has more items than the format has descriptors, the format <strong>reverts</strong>: a new
+record starts and processing resumes at the last open parenthesis (the last group) <em>(§13.3)</em>. This
+is how one <code>FORMAT</code> prints an arbitrarily long list, a record per group:</p>
+<pre><code class="language-fortran">      WRITE (6, '(5I4)') (J, J = 1, 12)   ! 5 per line, reverting -&gt; 3 lines
+</code></pre>
+<h2 id="carriage-control-printing">Carriage control (printing)</h2>
+<p>When a formatted record is sent to a device that <strong>prints</strong>, the <strong>first character of each record
+is not printed</strong> — it controls vertical spacing <em>(§12.9.5.2.3)</em>:</p>
+<table>
+<thead>
+<tr>
+<th>First char</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>blank</td>
+<td>advance one line (normal)</td>
+</tr>
+<tr>
+<td><code>0</code></td>
+<td>advance two lines (blank line before)</td>
+</tr>
+<tr>
+<td><code>1</code></td>
+<td>advance to the top of a new page</td>
+</tr>
+<tr>
+<td><code>+</code></td>
+<td>no advance (overprint the previous line)</td>
+</tr>
+</tbody>
+</table>
+<p>This is the famous gotcha: on a printing device, <code>WRITE (6,'(I3)') 100</code> prints <code>00</code>, because the
+<code>1</code> is eaten as carriage control (and starts a new page!). The cure is to begin output formats
+with a blank — <code>1X</code> or <code>' '</code>:</p>
+<pre><code class="language-fortran">      WRITE (6, '('' '', I3)') 100      ! leading blank = single-space; prints ' 100'
+</code></pre>
+<p>Whether a given unit <em>prints</em> (interprets that first character) is left to the processor — see the
+forterp notes.</p>
+<h2 id="list-directed-formatting">List-directed formatting</h2>
+<p><code>FMT = *</code> skips descriptors entirely and formats each value sensibly, separated by blanks (output)
+or by blanks/commas/slashes (input) — see <a href="../12-io/index.html">Chapter 12</a>.</p>
+<hr />
+<blockquote>
+<p><strong>forterp notes.</strong> The full edit-descriptor family is implemented (quick reference:
+<a href="../B-edit-descriptors/index.html">Appendix B</a>), including <code>Iw.m</code>, the scale factor, <code>S</code>/<code>SP</code>/<code>SS</code>,
+<code>BN</code>/<code>BZ</code>, the exact-exponent <code>Ew.dEe</code>, and reversion. The carriage-control question — <em>does the
+first character get consumed?</em> — is answered per dialect, because the standard leaves &quot;which
+devices print&quot; to the processor: under <strong><code>F77</code></strong> standard output is a <strong>terminal</strong> (the first
+character is ordinary data, matching gfortran), while under <strong><code>F66</code>/<code>FORTRAN10</code></strong> it is a
+<strong>line printer</strong> (first character consumed as carriage control). The <code>carriage_control</code> engine
+flag overrides the dialect default. See <a href="../D-forterp-extensions/index.html">Appendix D</a>.</p>
+</blockquote>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

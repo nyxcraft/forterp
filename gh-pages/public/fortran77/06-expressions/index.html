@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>6. Expressions &amp; operators | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">6. Expressions &amp; operators</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#arithmetic-expressions">Arithmetic expressions</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#integer-division-truncates-toward-zero">Integer division truncates toward zero</a></li>
+<li><a class="section-nav__link section-nav__link--l3" href="#mixed-types-are-converted">Mixed types are converted</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#character-expressions">Character expressions</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#relational-expressions">Relational expressions</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#logical-expressions">Logical expressions</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#the-whole-precedence-ladder">The whole precedence ladder</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>6. Expressions &amp; operators</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">6. Expressions &amp; operators</p>
+        </header>
+        <div class="prose">
+<p>An <strong>expression</strong> computes a value from constants, variables, function references, and operators.
+FORTRAN 77 has four families of expression — arithmetic, character, relational, and logical — with
+a clear precedence order between and within them <em>(§6)</em>.</p>
+<h2 id="arithmetic-expressions">Arithmetic expressions</h2>
+<p>The arithmetic operators, from highest precedence to lowest <em>(§6.1)</em>:</p>
+<table>
+<thead>
+<tr>
+<th>Operator</th>
+<th>Meaning</th>
+<th>Precedence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>**</code></td>
+<td>exponentiation</td>
+<td>highest</td>
+</tr>
+<tr>
+<td><code>*</code> <code>/</code></td>
+<td>multiply, divide</td>
+<td>middle</td>
+</tr>
+<tr>
+<td><code>+</code> <code>-</code></td>
+<td>add, subtract (and unary <code>+</code>/<code>-</code>)</td>
+<td>lowest</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-fortran">      A + B * C        ! = A + (B*C)      -- * before +
+      -A ** 2          ! = -(A**2)        -- ** before unary minus
+      2 ** 3 ** 2      ! = 2**(3**2) = 512  -- ** is RIGHT-associative
+</code></pre>
+<p>Two points trip people up:</p>
+<ul>
+<li><strong><code>**</code> is right-associative</strong>, so <code>2**3**2</code> is <code>2**(3**2)</code> = <code>2**9</code> = 512, not <code>(2**3)**2</code> = 64.</li>
+<li><strong>Unary minus binds looser than <code>**</code></strong>, so <code>-3**2</code> is <code>-(3**2)</code> = −9, not <code>(-3)**2</code> = 9.</li>
+</ul>
+<p>You may not write two operators adjacently — <code>A**-B</code> is illegal; parenthesize it as <code>A**(-B)</code>.</p>
+<h3 id="integer-division-truncates-toward-zero">Integer division truncates toward zero</h3>
+<p>When both operands are integers, <code>/</code> gives an <strong>integer</strong> result, truncated toward zero (the
+fractional part is discarded) <em>(§6.1.5)</em>:</p>
+<pre><code class="language-fortran">      7 / 2            ! = 3   (not 3.5)
+      (-8) / 3         ! = -2  (toward zero, not -3)
+</code></pre>
+<p>A negative integer power follows from this: <code>2**(-3)</code> is <code>1/(2**3)</code> = <code>1/8</code>, which truncates to
+<strong>0</strong>. (So <code>2**(-1)</code> is 0 — that is the defined result, not a bug.)</p>
+<h3 id="mixed-types-are-converted">Mixed types are converted</h3>
+<p>When an operator combines two different numeric types, the value of the &quot;lower&quot; type is converted
+up before the operation, and the result is the &quot;higher&quot; type <em>(§6.1.4)</em>: integer → real → double,
+and complex with real/double. So <code>2 + 3.0</code> is real <code>5.0</code>; <code>1.0D0 * 2</code> is double. The one exception
+is a real/double/complex base raised to an <strong>integer</strong> power — the exponent stays an integer
+(<code>X**2</code>, not <code>X**2.0</code>), which is both faster and avoids a domain error on a negative base.</p>
+<h2 id="character-expressions">Character expressions</h2>
+<p>The only character operator is <strong><code>//</code></strong>, concatenation <em>(§6.2)</em>:</p>
+<pre><code class="language-fortran">      CHARACTER*6 R
+      R = 'AB' // 'CD'         ! R = 'ABCD  '  (then padded to R's length 6)
+</code></pre>
+<h2 id="relational-expressions">Relational expressions</h2>
+<p>A relational operator compares two values and yields a <strong>logical</strong> result <em>(§6.3)</em>:</p>
+<table>
+<thead>
+<tr>
+<th>Operator</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>.LT.</code></td>
+<td>less than</td>
+</tr>
+<tr>
+<td><code>.LE.</code></td>
+<td>less than or equal</td>
+</tr>
+<tr>
+<td><code>.EQ.</code></td>
+<td>equal</td>
+</tr>
+<tr>
+<td><code>.NE.</code></td>
+<td>not equal</td>
+</tr>
+<tr>
+<td><code>.GT.</code></td>
+<td>greater than</td>
+</tr>
+<tr>
+<td><code>.GE.</code></td>
+<td>greater than or equal</td>
+</tr>
+</tbody>
+</table>
+<p>You may compare two arithmetic values <em>or</em> two character values (not one of each). Character
+comparison pads the shorter operand with blanks on the right, then compares left to right using the
+collating sequence (<a href="../C-precedence-ascii/index.html">Appendix C</a>), so <code>'HI'</code> and <code>'HI   '</code> compare
+<strong>equal</strong> <em>(§6.3.5)</em>. A <strong>complex</strong> value may be compared only with <code>.EQ.</code> / <code>.NE.</code> — there is no
+ordering of complex numbers.</p>
+<pre><code class="language-fortran">      IF (N .GE. 0) ...
+      IF (NAME .EQ. 'DONE') ...
+</code></pre>
+<h2 id="logical-expressions">Logical expressions</h2>
+<p>The logical operators, highest to lowest precedence <em>(§6.4)</em>:</p>
+<table>
+<thead>
+<tr>
+<th>Operator</th>
+<th>Meaning</th>
+<th>Precedence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>.NOT.</code></td>
+<td>negation</td>
+<td>highest</td>
+</tr>
+<tr>
+<td><code>.AND.</code></td>
+<td>conjunction</td>
+<td></td>
+</tr>
+<tr>
+<td><code>.OR.</code></td>
+<td>disjunction</td>
+<td></td>
+</tr>
+<tr>
+<td><code>.EQV.</code> <code>.NEQV.</code></td>
+<td>equivalence / non-equivalence</td>
+<td>lowest</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-fortran">      .NOT. A .AND. B          ! = (.NOT. A) .AND. B
+      A .OR. B .AND. C         ! = A .OR. (B .AND. C)   -- AND before OR
+</code></pre>
+<h2 id="the-whole-precedence-ladder">The whole precedence ladder</h2>
+<p>Across families, the order is <strong>arithmetic &gt; character &gt; relational &gt; logical</strong> <em>(§6.5)</em>. That is
+why a comparison like this needs no parentheses:</p>
+<pre><code class="language-fortran">      IF (2 + 3 .GT. 4) ...        ! arithmetic first: (2+3) .GT. 4  -&gt; .TRUE.
+      IF ('AB' // 'C' .EQ. 'ABC') ...   ! concat first: ('AB'//'C') .EQ. 'ABC'  -&gt; .TRUE.
+</code></pre>
+<p>When in doubt, parenthesize — and note that a parenthesized subexpression is evaluated as a unit:
+the compiler will not regroup <code>A*(B*C)</code> into <code>(A*B)*C</code> <em>(§6.6)</em>.</p>
+<hr />
+<blockquote>
+<p><strong>forterp notes.</strong> A few behaviors at the edges of the standard:</p>
+<ul>
+<li><strong>Complex ordering</strong> (<code>C1 .LT. C2</code>) is a hard error on every dialect — complex values have no
+order, so it is a nonsense comparison (gfortran rejects it too).</li>
+<li><strong><code>DOUBLE PRECISION</code> combined with <code>COMPLEX</code></strong> in arithmetic is &quot;Prohibited&quot; by the standard
+(F77 had no double-complex type), but forterp accepts it and computes the double-complex result
+— identical to gfortran in every mode. A useful extension; a conforming program never forms it.</li>
+<li><strong>Undefined arithmetic</strong> (divide-by-zero, <code>0**0</code>, a negative base to a real power) does not
+trap — it yields a value. On the <code>NATIVE</code> target that value is IEEE (<code>Inf</code>/<code>NaN</code>, matching
+gfortran); on <code>PDP10</code> it is the FORTRAN-10 recovery value. The operation is undefined, so any
+result conforms; a conforming program never reaches it. (A <em>nonzero</em> base to a negative integer
+power, e.g. <code>2**(-1)</code> = 0, is <strong>defined</strong> and computed correctly — not in this category.)</li>
+</ul>
+</blockquote>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

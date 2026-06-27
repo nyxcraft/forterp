@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>16. Block data | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">16. Block data</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>16. Block data</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">16. Block data</p>
+        </header>
+        <div class="prose">
+<p>A <strong>block data</strong> subprogram exists for one purpose: to give <strong>initial values to named <code>COMMON</code>
+blocks</strong> <em>(§16)</em>. It is the only place a named common block may be initialized — a <code>DATA</code> statement
+in a main program or ordinary subprogram cannot touch common.</p>
+<pre><code class="language-fortran">      BLOCK DATA TABLES
+      COMMON /PHYS/ G, C
+      DATA   G, C /9.81, 2.998E8/
+      END
+</code></pre>
+<ul>
+<li>Begins with <strong><code>BLOCK DATA</code></strong>, optionally named (<code>BLOCK DATA TABLES</code>). The name, if given, must
+be unique across the program.</li>
+<li>It is <strong>nonexecutable</strong> — it contains only specification statements: <code>IMPLICIT</code>, <code>PARAMETER</code>,
+<code>DIMENSION</code>, <code>COMMON</code>, <code>SAVE</code>, <code>EQUIVALENCE</code>, type statements, and <code>DATA</code>. No executable code.</li>
+<li>Only <strong>named</strong> common may be initialized here (not blank common).</li>
+<li>A program may have several block data subprograms, but a given common block may be initialized
+in only one of them.</li>
+</ul>
+<p>The main program (and any subprogram) then declares the same <code>COMMON</code> block and sees the initial
+values:</p>
+<pre><code class="language-fortran">      PROGRAM SIM
+      COMMON /PHYS/ G, C        ! G and C already hold 9.81 and 2.998E8
+      ...
+      END
+</code></pre>
+<p>Two finer rules <em>(§16.2)</em>: if you initialize <em>any</em> entity of a common block, the block data should
+list <strong>all</strong> of the block's entities (so its full layout is established); and a program may contain
+<strong>at most one <em>unnamed</em></strong> block data subprogram.</p>
+<hr />
+<blockquote>
+<p><strong>forterp notes.</strong> A <code>BLOCK DATA</code> correctly seeds named common read by other units. The
+<strong>at-most-one-unnamed</strong> rule <em>is enforced</em> — a second unnamed <code>BLOCK DATA</code> is a hard error
+(otherwise the two would collide and one block's initialization would be silently lost). The
+&quot;specify all entities&quot; rule is <em>not</em> enforced: a block data may initialize just a prefix of a
+block (harmless; the rest stays uninitialized). Note <code>BLOCK DATA</code> is obsolescent in modern
+Fortran (replaced by module initialization), but it is the standard mechanism in F77. See
+<a href="../D-forterp-extensions/index.html">Appendix D</a>.</p>
+</blockquote>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

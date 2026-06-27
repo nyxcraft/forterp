@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>3. Source form | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">3. Source form</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#the-column-layout">The column layout</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#comment-lines">Comment lines</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#continuation-lines">Continuation lines</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#statement-labels">Statement labels</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#blanks-are-not-significant">Blanks are not significant</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#the-order-of-statements">The order of statements</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#the-end-line">The END line</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>3. Source form</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">3. Source form</p>
+        </header>
+        <div class="prose">
+<p>FORTRAN 77 source is <strong>fixed-form</strong>: the meaning of a line depends on which <em>column</em> a character
+sits in. This is the single biggest surprise for newcomers, and the cause of most &quot;why won't it
+compile&quot; puzzles. Once you know the column rules it is mechanical. (The layout dates from the
+80-column punched card.)</p>
+<h2 id="the-column-layout">The column layout</h2>
+<p>Each line is up to 72 meaningful characters, divided into four fields <em>(§3.2, §3.3)</em>:</p>
+<pre><code> column: 1   2   3   4   5   6   7 ............................... 72 | 73 ... 80
+         └────────┬────────┘   │   └──────────────┬──────────────┘   └────┬────┘
+          label field (1–5)     │       statement field (7–72)         ignored
+                          continuation (6)
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Columns</th>
+<th>Field</th>
+<th>What goes there</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>1–5</strong></td>
+<td>label</td>
+<td>an optional statement number (1–5 digits), right- or left-justified</td>
+</tr>
+<tr>
+<td><strong>6</strong></td>
+<td>continuation</td>
+<td>blank or <code>0</code> → this is a new statement; anything else → continues the previous line</td>
+</tr>
+<tr>
+<td><strong>7–72</strong></td>
+<td>statement</td>
+<td>the statement text itself</td>
+</tr>
+<tr>
+<td><strong>73–80</strong></td>
+<td>(ignored)</td>
+<td>historically the card sequence number; ignored by the compiler</td>
+</tr>
+</tbody>
+</table>
+<p>So an ordinary statement starts in <strong>column 7</strong>:</p>
+<pre><code class="language-fortran">C234567 ← column ruler (the digit under each position)
+      X = 2.0
+      Y = X * X
+</code></pre>
+<h2 id="comment-lines">Comment lines</h2>
+<p>A line is a <strong>comment</strong> <em>(§3.2.1)</em> if it has <code>C</code> (or <code>*</code>) in <strong>column 1</strong>, or if it is entirely
+blank. The whole line is ignored.</p>
+<pre><code class="language-fortran">C This whole line is a comment.
+*     So is this one.
+
+      X = 1.0          ! (the blank line above is also a comment)
+</code></pre>
+<h2 id="continuation-lines">Continuation lines</h2>
+<p>A long statement is split by putting a <strong>non-blank, non-<code>0</code> character in column 6</strong> of the
+following line. Columns 1–5 of a continuation must be blank. Any character will do as the
+continuation mark; a digit or <code>&amp;</code> is conventional.</p>
+<pre><code class="language-fortran">      TOTAL = A + B + C + D +
+     1        E + F + G
+</code></pre>
+<p>The <code>1</code> in column 6 of the second line says &quot;this is a continuation of the statement above.&quot; A
+statement may have up to nineteen continuation lines.</p>
+<h2 id="statement-labels">Statement labels</h2>
+<p>A <strong>statement label</strong> is 1 to 5 digits (at least one non-zero) placed in columns 1–5 <em>(§3.4)</em>. It
+names a statement so other statements can refer to it — a <code>FORMAT</code> referenced by a <code>WRITE</code>, or a
+target of a <code>GO TO</code> or a <code>DO</code>. Labels need not be in order or contiguous; leading zeros and blanks
+within the field are not significant (<code>10</code>, <code>010</code>, and <code>1 0</code> are the same label).</p>
+<pre><code class="language-fortran">      GO TO 100
+  100 CONTINUE
+   10 FORMAT (I5)
+</code></pre>
+<p>Only labelled statements can be referred to, and a label may name at most one statement in a
+program unit.</p>
+<h2 id="blanks-are-not-significant">Blanks are not significant</h2>
+<p>Outside a character constant, <strong>blanks have no meaning</strong> <em>(§3.1.6)</em> — they exist only to make the
+source readable. This has two consequences that startle newcomers:</p>
+<ul>
+<li><strong>Keywords may be spaced (or not):</strong> <code>GO TO</code>, <code>GOTO</code>, and <code>G O T O</code> are identical; so are
+<code>END IF</code> and <code>ENDIF</code>, <code>DOUBLE PRECISION</code> and <code>DOUBLEPRECISION</code>.</li>
+<li><strong>Names and numbers may contain blanks:</strong> <code>N ( 1 ) = 4 2</code> means <code>N(1) = 42</code>, and <code>I N TEGER X</code>
+is the declaration <code>INTEGER X</code>.</li>
+</ul>
+<pre><code class="language-fortran">      I N TEGER N
+      N ( 1 ) = 4 2          ! same as  INTEGER N  /  N(1) = 42
+</code></pre>
+<p>You would not normally write code this way, but it explains old listings that do — and it is why
+a stray space inside a keyword never breaks anything.</p>
+<h2 id="the-order-of-statements">The order of statements</h2>
+<p>Within a program unit, statements must appear in a required order <em>(§3.5)</em>. The rules, simply:</p>
+<ol>
+<li>The unit's header (<code>PROGRAM</code>, <code>FUNCTION</code>, <code>SUBROUTINE</code>, or <code>BLOCK DATA</code>) comes first, if present.</li>
+<li><strong><code>IMPLICIT</code></strong> statements come before the other specification statements.</li>
+<li>All <strong>specification</strong> statements (type declarations, <code>DIMENSION</code>, <code>COMMON</code>, <code>EQUIVALENCE</code>,
+<code>PARAMETER</code>, <code>EXTERNAL</code>, <code>INTRINSIC</code>, <code>SAVE</code>) come before the executable statements.</li>
+<li><strong>Statement-function</strong> definitions come after the specifications and before the executables.</li>
+<li><strong>Executable</strong> statements come last, then <strong><code>END</code></strong>.</li>
+<li><code>FORMAT</code> and <code>ENTRY</code> may appear anywhere; <code>DATA</code> may appear anywhere after the specifications.</li>
+</ol>
+<p>In short: <em>declare first, then do.</em> Putting a declaration after an executable statement is an
+error.</p>
+<h2 id="the-end-line">The END line</h2>
+<p>Every program unit ends with an <strong><code>END</code></strong> statement on its own initial line (no continuation).
+<code>END</code> marks the physical end of the unit; in a main program it also stops execution, and in a
+subprogram it acts like a <code>RETURN</code> (<a href="../15-procedures/index.html">Chapter 15</a>).</p>
+<hr />
+<blockquote>
+<p><strong>forterp notes.</strong> forterp reads columns 7–72 as the statement and drops 73–80, exactly as
+specified, and honors blank-insignificance (the spaced examples above all run). A few latitudes:</p>
+<ul>
+<li><strong>The order rule (point 3) is enforced under the <code>F77</code> dialect</strong> — a specification statement
+after an executable is a hard error. <code>F66</code>/<code>FORTRAN10</code> accept it (lenient). One consequence:
+reusing a <em>type keyword</em> as a variable name and assigning to it after an executable (<code>REAL = 3.0</code>) is read as a misplaced type-statement; declare such a name up front.</li>
+<li>forterp also accepts the DEC column-1 comment markers <code>! $ / D</code> in addition to <code>C</code>/<code>*</code> (a
+superset; harmless), and does not enforce the nineteen-continuation-line limit.</li>
+<li>The nineteen-line limit and the 73–80 sequence field are about the punched-card era; forterp
+keeps the field-dropping behavior but is otherwise relaxed about line counts.</li>
+</ul>
+</blockquote>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

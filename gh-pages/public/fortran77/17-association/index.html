@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>17. Storage association &amp; definition | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">17. Storage association &amp; definition</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#the-storage-sequence">The storage sequence</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#association-when-two-names-share-storage">Association: when two names share storage</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#definition-status">Definition status</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>17. Storage association &amp; definition</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">17. Storage association &amp; definition</p>
+        </header>
+        <div class="prose">
+<p>This chapter is the formal model behind two things you have already used: making names <strong>share
+storage</strong> (<code>COMMON</code>, <code>EQUIVALENCE</code>, arguments), and the idea that a variable may be <strong>defined</strong> or
+<strong>undefined</strong> <em>(§17)</em>. You can write plenty of F77 without reading it; come here when sharing or
+initialization behaves in a way you want to understand exactly.</p>
+<h2 id="the-storage-sequence">The storage sequence</h2>
+<p>The standard models memory as a <strong>storage sequence</strong> of <em>storage units</em> <em>(§17.1, §2.13)</em>:</p>
+<ul>
+<li>integer, real, logical → <strong>one</strong> numeric storage unit each,</li>
+<li>double precision, complex → <strong>two</strong> numeric storage units each,</li>
+<li>character of length <em>n</em> → <strong>n</strong> character storage units.</li>
+</ul>
+<p>Numeric and character units are different kinds and never associate with each other.</p>
+<h2 id="association-when-two-names-share-storage">Association: when two names share storage</h2>
+<p>Two storage sequences are <strong>associated</strong> when they occupy the same memory <em>(§17.1.2)</em>. F77 creates
+association four ways:</p>
+<ul>
+<li><strong><code>COMMON</code></strong> — units lay their variables onto a shared block, matched by position
+(<a href="../08-specification/index.html">Chapter 8</a>).</li>
+<li><strong><code>EQUIVALENCE</code></strong> — two names in one unit name the same storage
+(<a href="../08-specification/index.html">Chapter 8</a>).</li>
+<li><strong>Argument association</strong> — a dummy argument names the actual argument's storage
+(<a href="../15-procedures/index.html">Chapter 15</a>).</li>
+<li><strong><code>ENTRY</code></strong> — entry points share the host's storage.</li>
+</ul>
+<p><strong>Total</strong> association is when the sequences line up exactly; <strong>partial</strong> association is a partial
+overlap (only allowed between character entities, or between a double/complex entity and the
+numeric units it spans). The classic overlay:</p>
+<pre><code class="language-fortran">      REAL    A(4)
+      INTEGER B(4)
+      EQUIVALENCE (A, B)        ! A(i) and B(i) are the same storage, viewed two ways
+</code></pre>
+<p>No conversion happens — the <em>bits</em> are shared and reinterpreted by each name's type.</p>
+<h2 id="definition-status">Definition status</h2>
+<p>At any moment a variable is either <strong>defined</strong> (holds a usable value) or <strong>undefined</strong>. The
+standard says a reference to an undefined entity has <strong>&quot;no predictable value&quot;</strong> <em>(§17.1)</em> — so a
+correct program always defines a variable before it reads it.</p>
+<p>What <strong>defines</strong> a variable <em>(§17.2)</em>: assignment, reading into it, a <code>DATA</code> initialization, being
+a <code>DO</code> variable, <code>ASSIGN</code>, or association with something already defined.</p>
+<p>What leaves a variable <strong>undefined</strong> <em>(§17.3)</em>: it starts undefined at program start (unless
+<code>DATA</code>-initialized); a non-<code>SAVE</code> local becomes undefined after <code>RETURN</code>/<code>END</code>; defining one entity
+of an associated pair of <em>different</em> type undefines the other; and a few I/O and skipped-function
+cases.</p>
+<p>The practical upshot is two habits:</p>
+<ul>
+<li><strong>Initialize before you use</strong> (with <code>DATA</code> or an assignment).</li>
+<li><strong>Use <code>SAVE</code></strong> if a local must keep its value across calls (<a href="../08-specification/index.html">Chapter 8</a>) —
+without it, the standard does not promise the value survives a <code>RETURN</code>.</li>
+</ul>
+<hr />
+<blockquote>
+<p><strong>forterp notes.</strong></p>
+<ul>
+<li><strong>Storage units:</strong> forterp uses one <em>value slot</em> per element. <code>COMPLEX</code> correctly occupies two
+slots, but <code>DOUBLE PRECISION</code> occupies one (not two numeric units). This is observable only in
+the rare partial-association overlay of a double against a pair of reals; the <strong><code>PDP10</code></strong> target
+is faithful to the two-word model. (This — and the NATIVE <code>REAL</code>≡<code>DOUBLE</code> precision of
+<a href="../04-data-types/index.html">Chapter 4</a> — is the one divergence that can affect a conforming program; see
+<a href="../D-forterp-extensions/index.html">Appendix D</a>.)</li>
+<li><strong>Definition status is not tracked:</strong> forterp does not trap a read of an undefined entity, and
+its locals happen to be static (persist across calls). Both are within the &quot;no predictable
+value&quot; latitude and never affect a conforming program — but because they are <em>undefined</em>
+behavior, the exact result is unspecified and may change; rely on <code>DATA</code>/assignment and <code>SAVE</code>,
+not on what forterp happens to do.</li>
+</ul>
+</blockquote>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

@@ -112,21 +112,35 @@ def write_text(path: Path, content: str) -> None:
 
 
 def rewrite_md_links(
-    html: str, current_output: Path, output_dir: Path, basename_to_output: dict[str, str]
+    html: str,
+    current_output: Path,
+    output_dir: Path,
+    basename_to_output: dict[str, str],
+    current_source: str | None = None,
+    source_to_output: dict[str, str] | None = None,
 ) -> str:
     """Rewrite `<a href="...md">` links so cross-document links work in the built site too.
 
     The Markdown sources use ordinary relative `.md` links (e.g. `[DESIGN.md](DESIGN.md)`) so
-    they also resolve when browsed on GitHub. Here we map each `.md` target -- by basename --
-    to the corresponding page's pretty URL, made relative to the page being written, preserving
-    any `#anchor`. Links to `.md` files that aren't site pages are left untouched."""
+    they also resolve when browsed on GitHub. Here we map each `.md` target to the corresponding
+    page's pretty URL, made relative to the page being written, preserving any `#anchor`.
+
+    Resolution is **path-aware** first: the link is resolved relative to the current page's source
+    directory and looked up by repo-relative path (so a multi-file manual's `05-foo.md`,
+    `../API.md`, and two README.md files all map correctly). It falls back to a basename match for
+    plain same-folder links, and leaves links to non-page `.md` files untouched."""
 
     def replace(match: re.Match[str]) -> str:
         href = match.group(1)
         if "://" in href or href.startswith(("#", "mailto:")):
             return match.group(0)
         path, _, anchor = href.partition("#")
-        target = basename_to_output.get(os.path.basename(path).lower())
+        target = None
+        if path and current_source is not None and source_to_output is not None:
+            resolved = os.path.normpath(os.path.join(os.path.dirname(current_source), path))
+            target = source_to_output.get(resolved.replace(os.sep, "/"))
+        if target is None:
+            target = basename_to_output.get(os.path.basename(path).lower())
         if target is None:
             return match.group(0)
         suffix = "#" + anchor if anchor else ""
@@ -134,6 +148,14 @@ def rewrite_md_links(
         return f'href="{escape(rel + suffix)}"'
 
     return re.sub(r'href="([^"]+\.md(?:#[^"]*)?)"', replace, html)
+
+
+def first_heading(path: Path) -> str | None:
+    """The text of a Markdown file's first level-1 heading (`# Title`), for auto-titling pages."""
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.startswith("# "):
+            return line[2:].strip()
+    return None
 
 
 INCLUDE_LANGS = {
@@ -224,12 +246,38 @@ def main() -> int:
                 "featured": bool(entry.get("featured", False)),
             }
         )
+        # A multi-file manual: an entry may name a `chapters` directory whose other *.md files are
+        # auto-rendered as sub-pages (slug `<entry>/<stem>`), titled from each file's first heading.
+        # Keeps site.json small and picks up new chapters automatically; they are not featured (so
+        # they don't crowd the home cards) but are fully rendered and cross-linked.
+        chapters_dir = entry.get("chapters")
+        if chapters_dir:
+            for md in sorted((ROOT / chapters_dir).glob("*.md")):
+                if md.name.lower() == "readme.md":
+                    continue  # the index is the entry's own `source`
+                stem = md.stem
+                docs_pages.append(
+                    {
+                        "slug": f"{entry['slug']}/{stem}",
+                        "title": first_heading(md) or stem,
+                        "summary": "",
+                        "source": str(md.relative_to(ROOT)).replace(os.sep, "/"),
+                        "template": entry.get("template", "doc"),
+                        "output": str(Path(entry["slug"]) / stem / "index.html"),
+                        "featured": False,
+                    }
+                )
 
     for page in docs_pages:
         page["href"] = page["output"].replace(os.sep, "/")
 
-    # Map each source's basename -> its built page, so cross-document `.md` links get rewritten
-    # to pretty URLs. README isn't a page of its own; point links to it at the home page.
+    # Path-aware link map: repo-relative source path -> built output (unique per file, so two
+    # different README.md files don't collide). The render loop resolves each `.md` link relative
+    # to its own source directory and looks it up here.
+    source_to_output = {p["source"].replace(os.sep, "/"): p["output"] for p in docs_pages}
+
+    # Basename fallback for plain same-folder links and links to README (not a page of its own;
+    # point those at the home page).
     basename_to_output = {os.path.basename(p["source"]).lower(): p["output"] for p in docs_pages}
     basename_to_output.setdefault("readme.md", "index.html")
 
@@ -322,7 +370,12 @@ def main() -> int:
         rendered = renderer.render(expand_includes(source_path.read_text(encoding="utf-8")))
         output_path = output_dir / page["output"]
         content_html = rewrite_md_links(
-            str(rendered["html"]), output_path, output_dir, basename_to_output
+            str(rendered["html"]),
+            output_path,
+            output_dir,
+            basename_to_output,
+            page["source"].replace(os.sep, "/"),
+            source_to_output,
         )
         content_html = rewrite_img_src(content_html, output_path, output_dir)
         toc_html = build_toc(rendered["toc"])  # type: ignore[arg-type]

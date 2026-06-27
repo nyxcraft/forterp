@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Appendix B — Edit-descriptor quick reference | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">Appendix B — Edit-descriptor quick reference</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#repeatable-data-descriptors">Repeatable (data) descriptors</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#non-repeatable-control-descriptors">Non-repeatable (control) descriptors</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#grouping-reversion">Grouping &amp; reversion</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#carriage-control-printing-devices">Carriage control (printing devices)</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>Appendix B — Edit-descriptor quick reference</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">Appendix B — Edit-descriptor quick reference</p>
+        </header>
+        <div class="prose">
+<p>A one-page summary of the <code>FORMAT</code> edit descriptors <em>(§13)</em>. Full explanations and examples are in
+<a href="../13-format/index.html">Chapter 13</a>. <code>w</code> = field width, <code>d</code> = decimals, <code>m</code> = minimum digits, <code>e</code> =
+exponent width, <code>c</code> = column, <code>n</code>/<code>r</code>/<code>k</code> = counts.</p>
+<h2 id="repeatable-data-descriptors">Repeatable (data) descriptors</h2>
+<table>
+<thead>
+<tr>
+<th>Descriptor</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Iw</code>, <code>Iw.m</code></td>
+<td>integer</td>
+<td>right-justified; <code>Iw.m</code> zero-fills to ≥ <code>m</code> digits</td>
+</tr>
+<tr>
+<td><code>Fw.d</code></td>
+<td>real</td>
+<td>fixed-point, <code>d</code> decimals</td>
+</tr>
+<tr>
+<td><code>Ew.d</code>, <code>Ew.dEe</code></td>
+<td>real</td>
+<td>scientific; <code>Ee</code> sets the exponent width</td>
+</tr>
+<tr>
+<td><code>Dw.d</code></td>
+<td>double</td>
+<td>scientific, <code>D</code> exponent</td>
+</tr>
+<tr>
+<td><code>Gw.d</code>, <code>Gw.dEe</code></td>
+<td>real</td>
+<td>general — <code>F</code>- or <code>E</code>-form chosen by magnitude</td>
+</tr>
+<tr>
+<td><code>Lw</code></td>
+<td>logical</td>
+<td><code>w−1</code> blanks then <code>T</code>/<code>F</code></td>
+</tr>
+<tr>
+<td><code>A</code>, <code>Aw</code></td>
+<td>character</td>
+<td>bare <code>A</code> uses the item's length; <code>Aw</code> uses width <code>w</code></td>
+</tr>
+</tbody>
+</table>
+<p>Overflow (value won't fit <code>w</code>) prints all asterisks. On input, leading blanks are ignored and an
+all-blank field reads as 0.</p>
+<h2 id="non-repeatable-control-descriptors">Non-repeatable (control) descriptors</h2>
+<table>
+<thead>
+<tr>
+<th>Descriptor</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>'text'</code></td>
+<td>literal text (output)</td>
+</tr>
+<tr>
+<td><code>nHtext</code></td>
+<td>Hollerith literal: the <code>n</code> characters after <code>H</code> (output)</td>
+</tr>
+<tr>
+<td><code>nX</code></td>
+<td>skip <code>n</code> positions</td>
+</tr>
+<tr>
+<td><code>Tc</code></td>
+<td>tab to absolute column <code>c</code></td>
+</tr>
+<tr>
+<td><code>TLc</code>, <code>TRc</code></td>
+<td>tab left / right <code>c</code> columns</td>
+</tr>
+<tr>
+<td><code>/</code></td>
+<td>end the current record, start a new one</td>
+</tr>
+<tr>
+<td><code>:</code></td>
+<td>stop if the I/O list is exhausted</td>
+</tr>
+<tr>
+<td><code>S</code>, <code>SP</code>, <code>SS</code></td>
+<td>sign control: default / force <code>+</code> / suppress <code>+</code></td>
+</tr>
+<tr>
+<td><code>kP</code></td>
+<td>scale factor (shift the decimal point by <code>k</code>)</td>
+</tr>
+<tr>
+<td><code>BN</code>, <code>BZ</code></td>
+<td>input: blanks in a numeric field are null / zeros</td>
+</tr>
+</tbody>
+</table>
+<h2 id="grouping-reversion">Grouping &amp; reversion</h2>
+<ul>
+<li><code>rX</code> repeats a descriptor <code>r</code> times: <code>3I5</code> = <code>I5,I5,I5</code>.</li>
+<li><code>r(...)</code> repeats a parenthesized group: <code>2(I3,F6.2)</code>.</li>
+<li>If the I/O list outlasts the format, processing <strong>reverts</strong> to the last open group, starting a
+new record each time.</li>
+</ul>
+<h2 id="carriage-control-printing-devices">Carriage control (printing devices)</h2>
+<p>The first character of a printed record is consumed for vertical spacing: blank = one line, <code>0</code> =
+two lines, <code>1</code> = new page, <code>+</code> = overprint. Begin output formats with a blank (<code>1X</code> or <code>' '</code>) so a
+leading data digit isn't eaten. Whether a device &quot;prints&quot; is processor-determined — under forterp's
+<code>F77</code> dialect standard output is a terminal (no carriage control); see
+<a href="../13-format/index.html">Chapter 13</a> and <a href="../D-forterp-extensions/index.html">Appendix D</a>.</p>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

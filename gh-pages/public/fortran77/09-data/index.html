@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>9. The `DATA` statement | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">9. The `DATA` statement</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#form">Form</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#repeat-counts">Repeat counts</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#whole-arrays-and-implied-do">Whole arrays and implied-DO</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#type-rules">Type rules</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#what-may-and-may-not-be-initialized">What may (and may not) be initialized</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>9. The `DATA` statement</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">9. The `DATA` statement</p>
+        </header>
+        <div class="prose">
+<p><code>DATA</code> supplies <strong>initial values</strong> at compile time — the value a variable or array holds before
+the first executable statement runs <em>(§9)</em>. It is the way to set up constant tables, lookup
+arrays, and starting values without spending executable assignments on them.</p>
+<h2 id="form">Form</h2>
+<pre><code class="language-fortran">      DATA  nlist / clist / [ , nlist / clist / ] ...
+</code></pre>
+<p><code>nlist</code> is a list of variables, array elements, arrays, or substrings; <code>clist</code> is the matching
+list of constants. The two lists are matched <strong>one constant per storage element</strong>, left to right.</p>
+<pre><code class="language-fortran">      INTEGER N
+      REAL    X, Y
+      DATA    N /0/, X /1.5/, Y /2.5/
+</code></pre>
+<h2 id="repeat-counts">Repeat counts</h2>
+<p>A constant may be prefixed <code>r*</code> to repeat it <code>r</code> times — handy for filling an array:</p>
+<pre><code class="language-fortran">      REAL V(5)
+      DATA V /5 * 0.0/            ! all five elements set to 0.0
+      DATA V /3 * 1.0, 2 * 9.0/   ! 1.0 1.0 1.0 9.0 9.0
+</code></pre>
+<h2 id="whole-arrays-and-implied-do">Whole arrays and implied-DO</h2>
+<p>An <strong>unsubscripted array name</strong> takes one constant per element, in storage order (column-major,
+<a href="../05-arrays-substrings/index.html">Chapter 5</a>):</p>
+<pre><code class="language-fortran">      INTEGER T(3)
+      DATA    T /10, 20, 30/      ! T(1)=10 T(2)=20 T(3)=30
+</code></pre>
+<p>An <strong>implied-DO</strong> initializes selected elements with a loop-like list:</p>
+<pre><code class="language-fortran">      REAL A(100)
+      DATA (A(I), I = 1, 100) / 100 * 0.0 /     ! zero the whole array
+      DATA (A(I), I = 1, 10, 2) / 5 * 1.0 /     ! A(1),A(3),A(5),A(7),A(9) = 1.0
+</code></pre>
+<h2 id="type-rules">Type rules</h2>
+<ul>
+<li>A numeric constant is converted to the type of the entity it initializes (as in assignment,
+<a href="../10-assignment/index.html">Chapter 10</a>).</li>
+<li>A <code>CHARACTER</code> entity is initialized from a character constant: shorter is blank-padded on the
+right, longer is truncated.</li>
+<li>A <code>LOGICAL</code> entity takes <code>.TRUE.</code>/<code>.FALSE.</code>.</li>
+</ul>
+<pre><code class="language-fortran">      CHARACTER*5 TAG
+      DATA        TAG /'AB'/      ! TAG = 'AB   '  (padded to 5)
+</code></pre>
+<h2 id="what-may-and-may-not-be-initialized">What may (and may not) be initialized</h2>
+<ul>
+<li><strong>May:</strong> local variables and arrays; named-common entities <strong>only inside a <code>BLOCK DATA</code></strong>
+subprogram (<a href="../16-block-data/index.html">Chapter 16</a>).</li>
+<li><strong>May not:</strong> blank-common entities, and dummy arguments.</li>
+</ul>
+<p>A <code>DATA</code> statement may appear anywhere after the specification statements (it is not required to be
+grouped with them), but it only sets the <em>initial</em> value — it is not re-executed if control passes
+it again.</p>
+<hr />
+<blockquote>
+<p><strong>forterp notes.</strong> <code>DATA</code> is implemented as specified — repeat counts, implied-DO, column-major
+array fill, and the character pad/truncate rule all behave per the standard. (A <code>BLOCK DATA</code>
+that initializes named common is <a href="../16-block-data/index.html">Chapter 16</a>, where forterp also enforces the
+&quot;at most one <em>unnamed</em> block data&quot; rule.)</p>
+</blockquote>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

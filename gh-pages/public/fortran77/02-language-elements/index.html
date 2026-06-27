@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>2. Language elements &amp; concepts | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">2. Language elements &amp; concepts</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#the-character-set">The character set</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#symbolic-names">Symbolic names</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#the-six-data-types">The six data types</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#constants-variables-arrays-and-substrings">Constants, variables, arrays, and substrings</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#statements-and-lines">Statements and lines</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#storage-and-association-a-preview">Storage and association (a preview)</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>2. Language elements &amp; concepts</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">2. Language elements &amp; concepts</p>
+        </header>
+        <div class="prose">
+<p>This chapter is the vocabulary of the language: the characters you write with, the names you give
+things, the kinds of data you can hold, and a few ideas (storage, association) that the later
+chapters lean on. It is a map — each topic links to the chapter that covers it in full.</p>
+<h2 id="the-character-set">The character set</h2>
+<p>A FORTRAN 77 program is written with 49 characters <em>(§3.1)</em>:</p>
+<ul>
+<li>the 26 <strong>letters</strong> <code>A</code>–<code>Z</code> (FORTRAN 77 is written in upper case),</li>
+<li>the 10 <strong>digits</strong> <code>0</code>–<code>9</code>,</li>
+<li>the <strong>blank</strong>, and</li>
+<li>12 <strong>special characters</strong>: <code>= + - * / ( ) , . $ '</code> and the colon <code>:</code>.</li>
+</ul>
+<p>Any other character (lower case, <code>#</code>, <code>@</code>, …) may appear only inside a character or Hollerith
+constant. The blank is not significant outside character context — see
+<a href="../03-source-form/index.html">Chapter 3</a>, where <code>GO TO</code> and <code>GOTO</code> turn out to be the same thing.</p>
+<h2 id="symbolic-names">Symbolic names</h2>
+<p>A <strong>symbolic name</strong> identifies a variable, array, function, common block, and so on. The rules
+<em>(§2.2)</em> are simple:</p>
+<ul>
+<li>1 to 6 characters,</li>
+<li>each a letter or a digit,</li>
+<li>the first a <strong>letter</strong>.</li>
+</ul>
+<p>So <code>X</code>, <code>N</code>, <code>SUM</code>, <code>A1</code>, <code>MATRIX</code> are valid; <code>2NDVAL</code> (starts with a digit) and <code>LONGNAME</code>
+(seven characters) are not.</p>
+<p><strong>There are no reserved words.</strong> <code>IF</code>, <code>DO</code>, <code>REAL</code>, <code>INDEX</code>, <code>SUM</code> are keywords or intrinsic
+functions, but you may also use them as your own variable names — the compiler tells which is
+which from context. Using an intrinsic name as a variable is common and well-defined: in a unit
+where you write <code>INTEGER INDEX</code> and assign to <code>INDEX</code>, it is your variable, not the <code>INDEX</code>
+function.</p>
+<pre><code class="language-fortran">      INTEGER INDEX, SUM
+      INDEX = 5
+      SUM   = 10
+      ...                       ! INDEX and SUM are ordinary variables here
+</code></pre>
+<h2 id="the-six-data-types">The six data types</h2>
+<p>Every datum has one of six types. You will meet them in full in <a href="../04-data-types/index.html">Chapter 4</a>;
+here they are at a glance:</p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Holds</th>
+<th>Example constant</th>
+<th>Declared with</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>INTEGER</strong></td>
+<td>a whole number</td>
+<td><code>42</code>, <code>-7</code></td>
+<td><code>INTEGER</code></td>
+</tr>
+<tr>
+<td><strong>REAL</strong></td>
+<td>a single-precision floating-point number</td>
+<td><code>3.14</code>, <code>5.0E3</code></td>
+<td><code>REAL</code></td>
+</tr>
+<tr>
+<td><strong>DOUBLE PRECISION</strong></td>
+<td>a higher-precision float</td>
+<td><code>2.0D0</code></td>
+<td><code>DOUBLE PRECISION</code></td>
+</tr>
+<tr>
+<td><strong>COMPLEX</strong></td>
+<td>a pair (real, imaginary)</td>
+<td><code>(1.0, 2.0)</code></td>
+<td><code>COMPLEX</code></td>
+</tr>
+<tr>
+<td><strong>LOGICAL</strong></td>
+<td>a truth value</td>
+<td><code>.TRUE.</code>, <code>.FALSE.</code></td>
+<td><code>LOGICAL</code></td>
+</tr>
+<tr>
+<td><strong>CHARACTER</strong></td>
+<td>a fixed-length string</td>
+<td><code>'HELLO'</code></td>
+<td><code>CHARACTER</code></td>
+</tr>
+</tbody>
+</table>
+<p>A name acquires a type in one of three ways, in order of authority: an explicit type-statement
+(<code>REAL X</code>), an <code>IMPLICIT</code> rule, or — failing both — the <strong>implicit default</strong>: a name beginning
+with <code>I, J, K, L, M, N</code> is <code>INTEGER</code>; any other initial letter is <code>REAL</code> <em>(§4.1.2)</em>. (Mnemonic:
+<code>I</code>–<code>N</code> is the integer range, after the first two letters of <em>integer</em>.) This default is why so
+much classic code uses <code>I, J, K</code> for loop counters and <code>N</code> for counts without declaring them.</p>
+<h2 id="constants-variables-arrays-and-substrings">Constants, variables, arrays, and substrings</h2>
+<ul>
+<li>A <strong>constant</strong> is a fixed value written literally (<code>42</code>, <code>'HELLO'</code>). Constant forms are in
+<a href="../04-data-types/index.html">Chapter 4</a>. You can also give a constant a name with <code>PARAMETER</code>
+(<a href="../08-specification/index.html">Chapter 8</a>).</li>
+<li>A <strong>variable</strong> is a single named datum you can assign to.</li>
+<li>An <strong>array</strong> is a named, rectangular collection of elements of one type, addressed by
+subscripts — <code>A(3)</code>, <code>M(I,J)</code> (<a href="../05-arrays-substrings/index.html">Chapter 5</a>).</li>
+<li>A <strong>substring</strong> is a contiguous slice of a character datum — <code>S(2:4)</code>
+(<a href="../05-arrays-substrings/index.html">Chapter 5</a>).</li>
+</ul>
+<h2 id="statements-and-lines">Statements and lines</h2>
+<p>A program is a sequence of <strong>statements</strong>. Most occupy one line, but a long statement may be
+<strong>continued</strong> across several lines, and a line may be a comment. The column layout that
+distinguishes an initial line, a continuation, a label, and a comment is the subject of
+<a href="../03-source-form/index.html">Chapter 3</a>.</p>
+<p>Statements come in two broad classes <em>(§7)</em>:</p>
+<ul>
+<li><strong>Executable</strong> statements <em>do</em> something when the program runs (assignment, <code>IF</code>, <code>DO</code>, <code>CALL</code>,
+<code>READ</code>/<code>WRITE</code>, <code>GO TO</code>, …).</li>
+<li><strong>Nonexecutable</strong> statements <em>describe</em> the program (type declarations, <code>DIMENSION</code>, <code>COMMON</code>,
+<code>PARAMETER</code>, <code>DATA</code>, <code>FORMAT</code>, <code>IMPLICIT</code>, …). They take effect at compile time and have a
+required position relative to the executable statements (<a href="../07-statements/index.html">Chapter 7</a>).</li>
+</ul>
+<h2 id="storage-and-association-a-preview">Storage and association (a preview)</h2>
+<p>The standard describes memory as a <strong>storage sequence</strong> of <em>storage units</em>. Integer, real, and
+logical each occupy one <em>numeric storage unit</em>; double precision and complex occupy two; a
+character of length <em>n</em> occupies <em>n</em> <em>character storage units</em>. Numeric and character units are
+different kinds and never overlap <em>(§2.13)</em>.</p>
+<p>You usually don't think about this — until two names are made to <strong>share</strong> storage. That happens
+with <code>COMMON</code> (sharing data across program units), <code>EQUIVALENCE</code> (two names for the same storage
+in one unit), or <strong>argument association</strong> (a dummy argument naming the actual you passed). The
+full model — and what it means for a value to be <em>defined</em> or <em>undefined</em> — is
+<a href="../17-association/index.html">Chapter 17</a>.</p>
+<hr />
+<blockquote>
+<p><strong>forterp notes.</strong> <strong>No reserved words</strong> is honored: forterp resolves keyword-versus-name by
+context, so an intrinsic name used as a variable (the common case) works. The one rough edge is
+a <em>type keyword</em> reused as a variable and <strong>assigned after an executable statement</strong> (e.g.
+<code>REAL = 3.0</code> following an assignment) — forterp reads the leading <code>REAL</code> as a type-statement and
+reports it out of order; declare such a variable up front, or simply avoid naming a variable
+after a type keyword.</p>
+<p><strong>Name length:</strong> the standard caps names at six characters. forterp accepts a longer name
+(keeping the first six significant) rather than rejecting it; it never matters for conforming
+code, which has no names over six characters. Implicit typing (<code>I</code>–<code>N</code> ⇒ integer) is the default
+exactly as specified.</p>
+</blockquote>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>12. Input / output | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">12. Input / output</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#the-statements">The statements</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#units">Units</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#the-control-list">The control list</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#the-i-o-list">The I/O list</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#list-directed-i-o">List-directed I/O (`*`)</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#internal-files">Internal files</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#files-open-close-inquire">Files: OPEN, CLOSE, INQUIRE</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#positioning-a-sequential-file">Positioning a sequential file</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#handling-end-of-file-and-errors">Handling end-of-file and errors</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>12. Input / output</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">12. Input / output</p>
+        </header>
+        <div class="prose">
+<p>FORTRAN 77's I/O is one of its strengths: a compact set of statements drives flexible, precisely
+formatted transfers between your variables and the outside world <em>(§12)</em>. This chapter covers the
+I/O statements, units, files, and error handling; the layout language (<code>FORMAT</code>) is
+<a href="../13-format/index.html">Chapter 13</a>.</p>
+<h2 id="the-statements">The statements</h2>
+<table>
+<thead>
+<tr>
+<th>Statement</th>
+<th>Does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>READ</code></td>
+<td>bring data in</td>
+</tr>
+<tr>
+<td><code>WRITE</code></td>
+<td>send data out</td>
+</tr>
+<tr>
+<td><code>PRINT</code></td>
+<td>send data out to the default output (a shorthand <code>WRITE</code>)</td>
+</tr>
+<tr>
+<td><code>OPEN</code> / <code>CLOSE</code></td>
+<td>connect / disconnect a file to a unit</td>
+</tr>
+<tr>
+<td><code>INQUIRE</code></td>
+<td>ask about a unit or file</td>
+</tr>
+<tr>
+<td><code>BACKSPACE</code> / <code>ENDFILE</code> / <code>REWIND</code></td>
+<td>position a sequential file</td>
+</tr>
+</tbody>
+</table>
+<h2 id="units">Units</h2>
+<p>Every transfer names a <strong>unit</strong> — a non-negative integer (or <code>*</code> for the default) identifying
+where the data goes <em>(§12.3)</em>. Two units are pre-connected by convention: <strong>unit 5</strong> for standard
+input and <strong>unit 6</strong> for standard output. <code>*</code> means &quot;the default unit&quot; (input for <code>READ</code>, output
+for <code>WRITE</code>).</p>
+<pre><code class="language-fortran">      READ  (5, *) X            ! read from standard input
+      WRITE (6, *) X            ! write to standard output
+      READ  (*, *) X            ! same, using the default unit
+      PRINT *, X                ! shorthand for WRITE to the default output
+</code></pre>
+<h2 id="the-control-list">The control list</h2>
+<p>The parenthesized list after the statement controls the transfer <em>(§12.8)</em>:</p>
+<pre><code class="language-fortran">      READ  (UNIT=u, FMT=f, IOSTAT=ios, ERR=label, END=label) list
+      WRITE (UNIT=u, FMT=f, REC=n, IOSTAT=ios, ERR=label) list
+</code></pre>
+<ul>
+<li>The first two items may be given positionally (<code>READ (5, 10) X</code> is <code>UNIT=5, FMT=10</code>); the rest
+are keyword form.</li>
+<li><strong><code>FMT=</code></strong> is a format: a <code>FORMAT</code> statement label, a character expression holding a format, or
+<code>*</code> for list-directed.</li>
+<li><strong><code>REC=n</code></strong> selects record <code>n</code> of a direct-access file.</li>
+<li><strong><code>IOSTAT=</code>, <code>ERR=</code>, <code>END=</code></strong> handle problems (below).</li>
+</ul>
+<h2 id="the-i-o-list">The I/O list</h2>
+<p>The data items: variables, array elements, whole arrays (expanded in storage order), and
+<strong>implied-DO</strong> lists:</p>
+<pre><code class="language-fortran">      WRITE (6, *) A, B, V               ! V is a whole array
+      WRITE (6, 20) (X(I), I = 1, N)     ! implied-DO: X(1)..X(N)
+      WRITE (6, 30) ((M(I,J), J=1,3), I=1,2)   ! nested implied-DO
+</code></pre>
+<p>On output the list holds expressions; on input it holds things that can be assigned (and an
+earlier item can supply a later subscript: <code>READ (5,*) N, (A(I), I=1,N)</code>).</p>
+<h2 id="list-directed-i-o">List-directed I/O (<code>*</code>)</h2>
+<p>With <code>FMT = *</code> you let the system choose a sensible format <em>(§12)</em>. On input, values are separated
+by blanks, commas, or a slash; <code>r*c</code> repeats a value, <code>r*</code> skips, and a slash ends the read. On
+output each value is written in a natural width with a leading blank:</p>
+<pre><code class="language-fortran">      WRITE (6, *) 1, 2.5, 'HI'      ! -&gt;  1 2.5 HI
+      READ  (5, *) A, B, C           ! reads three values, however spaced
+</code></pre>
+<h2 id="internal-files">Internal files</h2>
+<p>An <strong>internal file</strong> is a <code>CHARACTER</code> variable (or array) used as if it were a file — the way to
+format a number into a string, or parse a number out of one <em>(§12.2.2)</em>:</p>
+<pre><code class="language-fortran">      CHARACTER*10 BUF
+      WRITE (BUF, '(I5)') 42         ! BUF = '   42     '  (format into a string)
+      READ  (BUF, '(I5)') N          ! parse a number back out
+</code></pre>
+<p>This replaces the older <code>ENCODE</code>/<code>DECODE</code> of vendor FORTRANs with a portable, standard mechanism.</p>
+<h2 id="files-open-close-inquire">Files: OPEN, CLOSE, INQUIRE</h2>
+<p>A unit other than the pre-connected ones is connected to a file with <code>OPEN</code> <em>(§12.10)</em>:</p>
+<pre><code class="language-fortran">      OPEN  (UNIT=7, FILE='data.txt', STATUS='OLD', FORM='FORMATTED')
+      READ  (7, *) X
+      CLOSE (UNIT=7, STATUS='KEEP')
+</code></pre>
+<p>Common <code>OPEN</code> specifiers: <code>FILE</code>, <code>STATUS</code> (<code>OLD</code>/<code>NEW</code>/<code>SCRATCH</code>/<code>UNKNOWN</code>), <code>ACCESS</code>
+(<code>SEQUENTIAL</code>/<code>DIRECT</code>), <code>FORM</code> (<code>FORMATTED</code>/<code>UNFORMATTED</code>), <code>RECL</code> (record length, for direct
+access), <code>BLANK</code> (<code>NULL</code>/<code>ZERO</code>), plus <code>IOSTAT</code>/<code>ERR</code>. <code>CLOSE</code> takes <code>STATUS</code> (<code>KEEP</code>/<code>DELETE</code>).
+<code>INQUIRE</code> reports on a unit or file (<code>EXIST</code>, <code>OPENED</code>, <code>NAME</code>, <code>ACCESS</code>, <code>RECL</code>, <code>NEXTREC</code>, …).</p>
+<ul>
+<li><strong>Sequential access</strong> reads/writes records front to back; <strong>direct access</strong> addresses a record
+by number with <code>REC=</code>. A <code>SCRATCH</code> file is a temporary deleted on close.</li>
+</ul>
+<h2 id="positioning-a-sequential-file">Positioning a sequential file</h2>
+<pre><code class="language-fortran">      REWIND  7          ! back to the start
+      BACKSPACE 7        ! back up one record
+      ENDFILE 7          ! write an end-of-file marker
+</code></pre>
+<h2 id="handling-end-of-file-and-errors">Handling end-of-file and errors</h2>
+<p>Without help, hitting end-of-file or an error on a <code>READ</code> stops the program. The control-list
+specifiers let you cope gracefully <em>(§12.7)</em>:</p>
+<ul>
+<li><strong><code>END=label</code></strong> — jump to <code>label</code> at end-of-file.</li>
+<li><strong><code>ERR=label</code></strong> — jump to <code>label</code> on an error.</li>
+<li><strong><code>IOSTAT=ios</code></strong> — set integer <code>ios</code> after the transfer: <strong>0</strong> on success, <strong>negative</strong> at
+end-of-file, <strong>positive</strong> on an error. Test it and branch yourself.</li>
+</ul>
+<pre><code class="language-fortran">   10 READ (5, *, IOSTAT=IOS) X
+      IF (IOS .LT. 0) GO TO 900      ! end of file
+      IF (IOS .GT. 0) STOP 'READ ERROR'
+      ...
+      GO TO 10
+  900 CONTINUE
+</code></pre>
+<hr />
+<blockquote>
+<p><strong>forterp notes.</strong> The nine I/O statements, list-directed I/O, internal files, direct access,
+and <code>INQUIRE</code> are implemented. <strong><code>IOSTAT=</code> is set correctly</strong> on <code>READ</code>/<code>WRITE</code> (0 / negative /
+positive) — the <code>IF (IOS.LT.0)</code> / <code>IF (IOS.GT.0)</code> idioms work. Whether the first character of a
+printed record is consumed as <strong>carriage control</strong> depends on the device model, which forterp
+sets per dialect (F77 = terminal, so the first character is data; F66/FORTRAN-10 = line printer)
+— see <a href="../13-format/index.html">Chapter 13</a>.</p>
+</blockquote>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

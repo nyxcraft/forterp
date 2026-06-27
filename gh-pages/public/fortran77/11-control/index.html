@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>11. Control statements | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">11. Control statements</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#go-to">GO TO</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#the-arithmetic-if">The arithmetic IF</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#the-logical-if">The logical IF</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#the-block-if">The block IF</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#the-do-loop">The DO loop</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#continue-stop-pause-end">CONTINUE, STOP, PAUSE, END</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>11. Control statements</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">11. Control statements</p>
+        </header>
+        <div class="prose">
+<p>By default a program runs straight down, one statement after the next. <strong>Control statements</strong>
+change that — they branch, loop, call out, and stop <em>(§11)</em>. FORTRAN 77 has both the modern
+structured <code>IF</code>/<code>DO</code> and the older <code>GO TO</code> forms you'll meet in vintage code.</p>
+<h2 id="go-to">GO TO</h2>
+<p><strong>Unconditional</strong> — jump to a labelled statement:</p>
+<pre><code class="language-fortran">      GO TO 100
+      ...
+  100 CONTINUE
+</code></pre>
+<p><strong>Computed <code>GO TO</code></strong> — pick the <em>i</em>-th label by an integer selector:</p>
+<pre><code class="language-fortran">      GO TO (10, 20, 30) K       ! K=1 -&gt; 10, K=2 -&gt; 20, K=3 -&gt; 30
+</code></pre>
+<p>If the selector is out of range (here, not 1–3), the <code>GO TO</code> does nothing and falls through to the
+next statement <em>(§11.2)</em>.</p>
+<p><strong>Assigned <code>GO TO</code></strong> — jump to a label previously stored with <code>ASSIGN</code>
+(<a href="../10-assignment/index.html">Chapter 10</a>):</p>
+<pre><code class="language-fortran">      ASSIGN 200 TO LBL
+      GO TO LBL
+</code></pre>
+<p>The computed and assigned forms are legacy; prefer the block <code>IF</code> and <code>DO</code> below.</p>
+<h2 id="the-arithmetic-if">The arithmetic IF</h2>
+<p>A three-way branch on the <strong>sign</strong> of an expression <em>(§11.4)</em> — negative, zero, positive:</p>
+<pre><code class="language-fortran">      IF (X) 10, 20, 30      ! X&lt;0 -&gt; 10,  X=0 -&gt; 20,  X&gt;0 -&gt; 30
+</code></pre>
+<p>Also legacy, but common in old numerical code.</p>
+<h2 id="the-logical-if">The logical IF</h2>
+<p>Run one statement when a condition is true <em>(§11.5)</em>:</p>
+<pre><code class="language-fortran">      IF (N .LT. 0) N = -N           ! a single statement after the condition
+      IF (DONE) GO TO 900
+</code></pre>
+<h2 id="the-block-if">The block IF</h2>
+<p>The structured conditional <em>(§11.6–11.9)</em> — the workhorse of readable F77:</p>
+<pre><code class="language-fortran">      IF (K .EQ. 1) THEN
+        result = 10
+      ELSE IF (K .EQ. 2) THEN
+        result = 20
+      ELSE
+        result = 30
+      END IF
+</code></pre>
+<p><code>ELSE IF</code> and <code>ELSE</code> are optional; you may nest block <code>IF</code>s. <code>END IF</code> may also be written <code>ENDIF</code>.</p>
+<h2 id="the-do-loop">The DO loop</h2>
+<p>A counted loop <em>(§11.10)</em>:</p>
+<pre><code class="language-fortran">      DO 10 I = 1, 10            ! I = 1, 2, ..., 10
+        S = S + A(I)
+   10 CONTINUE
+</code></pre>
+<ul>
+<li>The form is <code>DO label var = start, stop [, step]</code>. The label marks the loop's last statement
+(conventionally a <code>CONTINUE</code>); the step defaults to 1 and may be negative.</li>
+<li>The <strong>trip count</strong> is computed once, up front, as <code>MAX(INT((stop − start + step) / step), 0)</code>.
+If that is zero or negative, <strong>the loop body runs zero times</strong> — a <code>DO 1 K = 5, 1</code> does not
+execute at all. (This <em>zero-trip</em> rule is the defining change from FORTRAN 66, whose loops always
+ran at least once.)</li>
+<li>After the loop, the control variable holds the value that <em>failed</em> the test — one step past the
+last used value. <code>DO I = 1, 10</code> leaves <code>I = 11</code>; a zero-trip <code>DO K = 5, 1</code> leaves <code>K = 5</code>.</li>
+<li>The control variable may be integer, real, or double precision.</li>
+</ul>
+<pre><code class="language-fortran">      M = 0
+      DO 1 K = 5, 1             ! start &gt; stop with step +1 -&gt; zero trips
+        M = M + 1
+    1 CONTINUE
+C     M = 0 (body never ran), K = 5
+</code></pre>
+<h2 id="continue-stop-pause-end">CONTINUE, STOP, PAUSE, END</h2>
+<ul>
+<li><strong><code>CONTINUE</code></strong> does nothing; it is a convenient labelled placeholder, typically a <code>DO</code>
+terminator.</li>
+<li><strong><code>STOP</code></strong> halts the program; an optional 1–5-digit number or character constant is displayed:
+<code>STOP</code>, <code>STOP 99</code>, <code>STOP 'NO DATA'</code>.</li>
+<li><strong><code>PAUSE</code></strong> suspends until the operator resumes it (a relic of batch/interactive terminals);
+like <code>STOP</code> it may carry a number or string.</li>
+<li><strong><code>END</code></strong> ends the program unit; in the main program it acts as <code>STOP</code>, in a subprogram as
+<code>RETURN</code> (<a href="../15-procedures/index.html">Chapter 15</a>).</li>
+</ul>
+<hr />
+<blockquote>
+<p><strong>forterp notes.</strong> All control forms are implemented: the block <code>IF</code> family (<code>ENDIF</code> and <code>END IF</code>), the zero-trip <code>DO</code> with the correct post-loop control-variable value, computed-<code>GO TO</code>
+fall-through on an out-of-range selector, the arithmetic/logical/assigned forms, and
+<code>CONTINUE</code>/<code>STOP</code>/<code>PAUSE</code>/<code>END</code>. (<code>DO WHILE</code> is a DEC/Fortran-90 extension, <strong>not</strong> F77 — it is
+available under the <code>FORTRAN10</code> dialect, rejected under <code>F77</code>.)</p>
+</blockquote>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Appendix A — Intrinsic function reference | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">Appendix A — Intrinsic function reference</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#type-conversion">Type conversion</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#truncation-rounding">Truncation &amp; rounding</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#arithmetic">Arithmetic</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#character">Character</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#complex">Complex</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#square-root-exponential-logarithm">Square root, exponential, logarithm</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#trigonometric-hyperbolic-arguments-in-radians">Trigonometric &amp; hyperbolic (arguments in radians)</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>Appendix A — Intrinsic function reference</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">Appendix A — Intrinsic function reference</p>
+        </header>
+        <div class="prose">
+<p>The functions built into FORTRAN 77 <em>(§15.10, Table 5)</em>. Most are <strong>generic</strong>: you call the
+generic name (e.g. <code>ABS</code>) and the result type follows the argument type. The <strong>specific</strong> names
+(e.g. <code>IABS</code>, <code>DABS</code>, <code>CABS</code>) name one type each; only a specific name may be passed as an actual
+argument, and the type-conversion / <code>MAX</code> / <code>MIN</code> / lexical specifics may not be passed at all.</p>
+<p>Throughout: <code>I</code> integer, <code>R</code> real, <code>D</code> double precision, <code>C</code> complex, <code>Ch</code> character, <code>L</code> logical.</p>
+<h2 id="type-conversion">Type conversion</h2>
+<table>
+<thead>
+<tr>
+<th>Generic</th>
+<th>Specifics</th>
+<th>Result</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>INT</code></td>
+<td><code>IFIX</code> (R→I), <code>IDINT</code> (D→I)</td>
+<td>I</td>
+<td>convert to integer, truncating toward zero</td>
+</tr>
+<tr>
+<td><code>REAL</code></td>
+<td><code>FLOAT</code> (I→R), <code>SNGL</code> (D→R)</td>
+<td>R</td>
+<td>convert to real</td>
+</tr>
+<tr>
+<td><code>DBLE</code></td>
+<td>—</td>
+<td>D</td>
+<td>convert to double precision</td>
+</tr>
+<tr>
+<td><code>CMPLX</code></td>
+<td>—</td>
+<td>C</td>
+<td>convert to complex (<code>CMPLX(x)</code> → x+0i; <code>CMPLX(x,y)</code> → x+yi)</td>
+</tr>
+<tr>
+<td><code>ICHAR</code></td>
+<td>—</td>
+<td>I</td>
+<td>code of a single character</td>
+</tr>
+<tr>
+<td><code>CHAR</code></td>
+<td>—</td>
+<td>Ch</td>
+<td>character with a given code (inverse of <code>ICHAR</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="truncation-rounding">Truncation &amp; rounding</h2>
+<table>
+<thead>
+<tr>
+<th>Generic</th>
+<th>Specifics</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>AINT</code></td>
+<td><code>DINT</code></td>
+<td>truncate to a whole number (toward zero), result real/double</td>
+</tr>
+<tr>
+<td><code>ANINT</code></td>
+<td><code>DNINT</code></td>
+<td>nearest whole number (round half away from zero), result real/double</td>
+</tr>
+<tr>
+<td><code>NINT</code></td>
+<td><code>IDNINT</code></td>
+<td>nearest <strong>integer</strong></td>
+</tr>
+</tbody>
+</table>
+<h2 id="arithmetic">Arithmetic</h2>
+<table>
+<thead>
+<tr>
+<th>Generic</th>
+<th>Specifics</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ABS</code></td>
+<td><code>IABS</code>, <code>DABS</code>, <code>CABS</code></td>
+<td>absolute value (<code>CABS</code> is the complex modulus, a real)</td>
+</tr>
+<tr>
+<td><code>MOD</code></td>
+<td><code>AMOD</code>, <code>DMOD</code></td>
+<td>remainder of <code>a/b</code> (sign of the dividend)</td>
+</tr>
+<tr>
+<td><code>SIGN</code></td>
+<td><code>ISIGN</code>, <code>DSIGN</code></td>
+<td><code>|a|</code> with the sign of <code>b</code></td>
+</tr>
+<tr>
+<td><code>DIM</code></td>
+<td><code>IDIM</code>, <code>DDIM</code></td>
+<td>positive difference: <code>a−b</code> if <code>a&gt;b</code>, else 0</td>
+</tr>
+<tr>
+<td><code>DPROD</code></td>
+<td>—</td>
+<td>double-precision product of two reals</td>
+</tr>
+<tr>
+<td><code>MAX</code></td>
+<td><code>MAX0</code>,<code>AMAX1</code>,<code>DMAX1</code>,<code>AMAX0</code>,<code>MAX1</code></td>
+<td>largest of two or more arguments</td>
+</tr>
+<tr>
+<td><code>MIN</code></td>
+<td><code>MIN0</code>,<code>AMIN1</code>,<code>DMIN1</code>,<code>AMIN0</code>,<code>MIN1</code></td>
+<td>smallest of two or more arguments</td>
+</tr>
+</tbody>
+</table>
+<h2 id="character">Character</h2>
+<table>
+<thead>
+<tr>
+<th>Generic</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>LEN</code></td>
+<td>declared length of a character entity (its argument need not be defined)</td>
+</tr>
+<tr>
+<td><code>INDEX(s, t)</code></td>
+<td>position of the first occurrence of <code>t</code> in <code>s</code>, else 0</td>
+</tr>
+<tr>
+<td><code>LGE</code>, <code>LGT</code>, <code>LLE</code>, <code>LLT</code></td>
+<td>lexical <code>≥</code> / <code>&gt;</code> / <code>≤</code> / <code>&lt;</code> of two strings (logical), by the ASCII collating sequence</td>
+</tr>
+</tbody>
+</table>
+<h2 id="complex">Complex</h2>
+<table>
+<thead>
+<tr>
+<th>Generic</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>AIMAG(z)</code></td>
+<td>imaginary part of <code>z</code> (a real)</td>
+</tr>
+<tr>
+<td><code>CONJG(z)</code></td>
+<td>complex conjugate of <code>z</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="square-root-exponential-logarithm">Square root, exponential, logarithm</h2>
+<table>
+<thead>
+<tr>
+<th>Generic</th>
+<th>Specifics</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SQRT</code></td>
+<td><code>DSQRT</code>, <code>CSQRT</code></td>
+<td>square root</td>
+</tr>
+<tr>
+<td><code>EXP</code></td>
+<td><code>DEXP</code>, <code>CEXP</code></td>
+<td>e raised to the argument</td>
+</tr>
+<tr>
+<td><code>LOG</code></td>
+<td><code>ALOG</code>, <code>DLOG</code>, <code>CLOG</code></td>
+<td>natural logarithm</td>
+</tr>
+<tr>
+<td><code>LOG10</code></td>
+<td><code>ALOG10</code>, <code>DLOG10</code></td>
+<td>base-10 logarithm</td>
+</tr>
+</tbody>
+</table>
+<h2 id="trigonometric-hyperbolic-arguments-in-radians">Trigonometric &amp; hyperbolic (arguments in radians)</h2>
+<table>
+<thead>
+<tr>
+<th>Generic</th>
+<th>Specifics</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SIN</code></td>
+<td><code>DSIN</code>, <code>CSIN</code></td>
+<td>sine</td>
+</tr>
+<tr>
+<td><code>COS</code></td>
+<td><code>DCOS</code>, <code>CCOS</code></td>
+<td>cosine</td>
+</tr>
+<tr>
+<td><code>TAN</code></td>
+<td><code>DTAN</code></td>
+<td>tangent</td>
+</tr>
+<tr>
+<td><code>ASIN</code></td>
+<td><code>DASIN</code></td>
+<td>arcsine</td>
+</tr>
+<tr>
+<td><code>ACOS</code></td>
+<td><code>DACOS</code></td>
+<td>arccosine</td>
+</tr>
+<tr>
+<td><code>ATAN</code></td>
+<td><code>DATAN</code></td>
+<td>arctangent</td>
+</tr>
+<tr>
+<td><code>ATAN2</code></td>
+<td><code>DATAN2</code></td>
+<td>arctangent of <code>y/x</code>, quadrant-correct</td>
+</tr>
+<tr>
+<td><code>SINH</code></td>
+<td><code>DSINH</code></td>
+<td>hyperbolic sine</td>
+</tr>
+<tr>
+<td><code>COSH</code></td>
+<td><code>DCOSH</code></td>
+<td>hyperbolic cosine</td>
+</tr>
+<tr>
+<td><code>TANH</code></td>
+<td><code>DTANH</code></td>
+<td>hyperbolic tangent</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<blockquote>
+<p><strong>forterp notes.</strong> All of the above are implemented with their specified semantics (<code>INT</code>
+toward zero, <code>NINT</code> round-half-away, <code>MOD</code>/<code>SIGN</code>/<code>DIM</code>, <code>ICHAR</code>/<code>CHAR</code> inverse, <code>INDEX</code> first
+occurrence, the lexical family on the ASCII collating sequence — <a href="../C-precedence-ascii/index.html">Appendix C</a>).
+An argument for which the result is not mathematically defined (e.g. <code>SQRT</code> of a negative) is
+non-fatal: it yields a value per the target model (IEEE <code>NaN</code> on <code>NATIVE</code>, a FORTRAN-10 recovery
+value on <code>PDP10</code>) — see <a href="../06-expressions/index.html">Chapter 6</a> and <a href="../D-forterp-extensions/index.html">Appendix D</a>.
+forterp also exposes some DEC/FORTRAN-10 library functions beyond Table 5; those are extensions,
+not part of standard F77.</p>
+</blockquote>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

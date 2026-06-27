@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>4. Data types &amp; constants | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">4. Data types &amp; constants</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#how-a-name-gets-its-type">How a name gets its type</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#integer-constants">Integer constants</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#real-constants">Real constants</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#double-precision-constants">Double-precision constants</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#complex-constants">Complex constants</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#logical-constants">Logical constants</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#character-constants">Character constants</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#signed-zero">Signed zero</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#named-constants">Named constants</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>4. Data types &amp; constants</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">4. Data types &amp; constants</p>
+        </header>
+        <div class="prose">
+<p>FORTRAN 77 has six data types <em>(§4)</em>: <strong>integer, real, double precision, complex, logical,</strong> and
+<strong>character</strong>. This chapter shows how to write a literal value (a <em>constant</em>) of each type, and
+how a name takes on a type. Declaring variables of these types is <a href="../08-specification/index.html">Chapter 8</a>;
+this chapter is about the values themselves.</p>
+<h2 id="how-a-name-gets-its-type">How a name gets its type</h2>
+<p>A variable's type is fixed once, in one of three ways <em>(§4.1.2)</em>, in order of authority:</p>
+<ol>
+<li>an explicit <strong>type-statement</strong> — <code>REAL X</code>, <code>CHARACTER*8 NAME</code>;</li>
+<li>an <strong><code>IMPLICIT</code></strong> rule — <code>IMPLICIT INTEGER (A-H)</code>;</li>
+<li>otherwise the <strong>implicit default</strong>: a name beginning with <code>I, J, K, L, M, N</code> is <strong>integer</strong>;
+any other initial letter is <strong>real</strong>.</li>
+</ol>
+<pre><code class="language-fortran">      REAL    MASS          ! explicit: MASS is real despite starting with M
+      I = 3                 ! implicit: I is integer (I-N)
+      X = 2.5               ! implicit: X is real
+</code></pre>
+<h2 id="integer-constants">Integer constants</h2>
+<p>A whole number, optionally signed: <code>0</code>, <code>42</code>, <code>-7</code>, <code>+100</code> <em>(§4.3)</em>. No decimal point, no
+exponent. The magnitude is limited by the machine's integer size.</p>
+<h2 id="real-constants">Real constants</h2>
+<p>A single-precision floating-point number <em>(§4.4)</em>. It needs <strong>either</strong> a decimal point <strong>or</strong> an
+exponent (or both). All of these are valid reals:</p>
+<pre><code class="language-fortran">      3.14          .5            5.            5E3
+      5.0E3         -2.5          1.0E-10       +0.0
+</code></pre>
+<ul>
+<li><code>.5</code> (no integer part) and <code>5.</code> (no fractional part) are both fine; you cannot omit <em>both</em>.</li>
+<li><code>E</code> introduces a base-10 exponent: <code>5E3</code> is 5000.0, <code>1.0E-10</code> is 10⁻¹⁰.</li>
+</ul>
+<pre><code class="language-fortran">      N(1) = 5.        ! 5.0
+      N(2) = .5        ! 0.5
+      N(3) = 5E3       ! 5000.0
+</code></pre>
+<h2 id="double-precision-constants">Double-precision constants</h2>
+<p>Like a real constant but with a <strong><code>D</code></strong> exponent instead of <code>E</code>, which makes it double precision
+<em>(§4.5)</em>. Double precision carries more significant digits than real.</p>
+<pre><code class="language-fortran">      DOUBLE PRECISION PI
+      PI = 3.141592653589793D0
+      X  = 2.0D0           ! 2.0, double precision
+</code></pre>
+<p>A <code>D</code> exponent is what distinguishes <code>2.0D0</code> (double) from <code>2.0E0</code> (single).</p>
+<h2 id="complex-constants">Complex constants</h2>
+<p>A pair <code>(real_part, imaginary_part)</code>, each part an optionally-signed real or integer constant
+<em>(§4.6)</em>. It occupies two storage units (real then imaginary).</p>
+<pre><code class="language-fortran">      COMPLEX Z
+      Z = (1.0, 2.0)       ! 1 + 2i
+      Z = (3.0, -4.0)      ! 3 - 4i
+</code></pre>
+<h2 id="logical-constants">Logical constants</h2>
+<p>Exactly two: <strong><code>.TRUE.</code></strong> and <strong><code>.FALSE.</code></strong> <em>(§4.7)</em> — note the surrounding dots.</p>
+<pre><code class="language-fortran">      LOGICAL FLAG
+      FLAG = .TRUE.
+</code></pre>
+<h2 id="character-constants">Character constants</h2>
+<p>A string of characters between apostrophes <em>(§4.8)</em>. The string must be <strong>non-empty</strong>. Blanks
+inside are significant (they are part of the value). To put an apostrophe <em>in</em> the string, write
+two apostrophes:</p>
+<pre><code class="language-fortran">      'HELLO'              ! 5 characters
+      'O''CLOCK'           ! 7 characters: O'CLOCK   (the '' is one apostrophe)
+      'A B'                ! 3 characters: A, blank, B
+</code></pre>
+<p>The length of a character constant is the number of characters it represents (each <code>''</code> counts as
+one). The full <code>CHARACTER</code> story — declaration, padding, concatenation, substrings — is in
+<a href="../05-arrays-substrings/index.html">Chapter 5</a> and <a href="../08-specification/index.html">Chapter 8</a>.</p>
+<h2 id="signed-zero">Signed zero</h2>
+<p>Zero is neither positive nor negative: <code>-0.0</code> has the same value as <code>0.0</code>, and they compare equal
+<em>(§4.1.3)</em>.</p>
+<pre><code class="language-fortran">      X = -0.0
+      IF (X .EQ. 0.0) ...      ! true
+</code></pre>
+<h2 id="named-constants">Named constants</h2>
+<p>You can give a constant a name with the <code>PARAMETER</code> statement, then use the name wherever a
+constant is allowed:</p>
+<pre><code class="language-fortran">      REAL PI
+      PARAMETER (PI = 3.14159)
+      AREA = PI * R * R
+</code></pre>
+<p><code>PARAMETER</code> is a specification statement; its full rules (the constant expression, ordering,
+typing) are in <a href="../08-specification/index.html">Chapter 8</a>. A <code>PARAMETER</code> name is a <em>constant</em>, not a
+variable — you cannot assign to it.</p>
+<hr />
+<blockquote>
+<p><strong>forterp notes.</strong> Two points about the value model:</p>
+<ul>
+<li>On forterp's default <strong><code>NATIVE</code></strong> target, both <code>REAL</code> and <code>DOUBLE PRECISION</code> are the host's
+64-bit float, so double precision is not <em>more</em> precise than real (the standard requires it to
+be). This only matters for a program that depends on the precision <em>difference</em>; the faithful
+<strong><code>PDP10</code></strong> target reproduces the genuine 36-bit single / two-word double split. (This is the
+one documented divergence that can affect a conforming program — see
+<a href="../D-forterp-extensions/index.html">Appendix D</a>.)</li>
+<li>The standard requires a character constant to be <strong>non-empty</strong>; forterp rejects the empty
+constant <code>''</code> on every dialect (a zero-length string is meaningless in F77 and is a Fortran-90
+feature). A doubled apostrophe inside a string (<code>'O''CLOCK'</code>) is unaffected — that is an
+embedded apostrophe, not an empty string.</li>
+</ul>
+<p>The <strong>Hollerith</strong> constant (<code>5HHELLO</code>) of older FORTRAN was replaced by <code>CHARACTER</code> in F77 and
+is not part of the F77 dialect; it remains available under <code>F66</code>/<code>FORTRAN10</code>.</p>
+</blockquote>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

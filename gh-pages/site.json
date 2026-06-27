@@ -22,6 +22,7 @@
       "slug": "fortran77",
       "title": "FORTRAN 77 reference",
       "source": "docs/fortran77/README.md",
+      "chapters": "docs/fortran77",
       "summary": "A complete, example-driven reference manual for the FORTRAN 77 language (ANSI X3.9-1978), organized on the standard: data types, arrays, expressions, control flow, I/O and FORMAT, procedures, and the intrinsic library — with a forterp notes box per chapter. This is the forterp.F77 dialect.",
       "featured": true
     },

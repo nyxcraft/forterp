@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Appendix D — forterp extensions &amp; strict gates | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">Appendix D — forterp extensions &amp; strict gates</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#committed-extensions-on-by-default-won-t-reject-your-program">Committed extensions (on by default, won&#x27;t reject your program)</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#enforced-rules-hard-error-forterp-rejects-what-the-standard-forbids">Enforced rules (hard error — forterp rejects what the standard forbids)</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#tunable-knobs">Tunable knobs</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#the-one-true-divergence">The one true divergence</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#unspecified-behavior-don-t-rely-on-it">Unspecified behavior (don&#x27;t rely on it)</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#not-in-fortran-77">Not in FORTRAN 77</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>Appendix D — forterp extensions &amp; strict gates</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">Appendix D — forterp extensions &amp; strict gates</p>
+        </header>
+        <div class="prose">
+<p>This manual describes standard FORTRAN 77. This appendix collects, in one place, everything
+particular to <strong>forterp</strong> at the edges of the standard — what it accepts beyond F77, what it
+enforces more strictly, and the knobs that change either. The guiding rule throughout: none of
+these can change the result of a <em>conforming</em> program; they only decide what happens at the
+boundaries a conforming program never reaches.</p>
+<p>The governing principle is the standard's own <em>(§1.4)</em>: a processor may allow forms the standard
+prohibits, <strong>provided doing so cannot change a conforming program's meaning</strong>.</p>
+<h2 id="committed-extensions-on-by-default-won-t-reject-your-program">Committed extensions (on by default, won't reject your program)</h2>
+<p>These are deliberately supported beyond strict F77:</p>
+<table>
+<thead>
+<tr>
+<th>Extension</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Unchecked array access</strong></td>
+<td>an out-of-bounds subscript traverses the <code>COMMON</code>/<code>EQUIVALENCE</code> storage sequence (the vintage over-/under-indexing tricks reach the neighbouring variable), reading 0 only past the whole block. Turn <code>bounds_check</code> on to make it an error. (<a href="../05-arrays-substrings/index.html">Ch 5</a>)</td>
+</tr>
+<tr>
+<td><strong>Non-fatal arithmetic</strong></td>
+<td>divide-by-zero, <code>0**0</code>, a negative base to a real power yield a value rather than trapping — IEEE on <code>NATIVE</code>, FORTRAN-10 recovery on <code>PDP10</code>. (<a href="../06-expressions/index.html">Ch 6</a>)</td>
+</tr>
+<tr>
+<td><strong><code>DOUBLE PRECISION</code> × <code>COMPLEX</code></strong></td>
+<td>accepted and computed as double-complex (the standard marks it &quot;Prohibited&quot;; gfortran also accepts). (<a href="../06-expressions/index.html">Ch 6</a>)</td>
+</tr>
+<tr>
+<td><strong>Mixed character/numeric <code>COMMON</code></strong></td>
+<td>a common block may hold both kinds. (<a href="../08-specification/index.html">Ch 8</a>)</td>
+</tr>
+<tr>
+<td><strong>Longer names</strong></td>
+<td>a name over six characters is accepted (first six significant), not rejected. (<a href="../02-language-elements/index.html">Ch 2</a>)</td>
+</tr>
+<tr>
+<td><strong>DEC column-1 comment markers</strong></td>
+<td><code>! $ / D</code> in column 1 mark comments, in addition to <code>C</code>/<code>*</code>. (<a href="../03-source-form/index.html">Ch 3</a>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="enforced-rules-hard-error-forterp-rejects-what-the-standard-forbids">Enforced rules (hard error — forterp rejects what the standard forbids)</h2>
+<p>These are cases the standard prohibits where ignoring it would silently corrupt results, so
+forterp reports an error instead of guessing:</p>
+<table>
+<thead>
+<tr>
+<th>Rule</th>
+<th>Why enforced</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Recursion</strong> (<a href="../15-procedures/index.html">Ch 15</a>)</td>
+<td>static locals can't represent it → would be silently wrong. <em>Opt in</em> with the <code>recursion</code> knob to permit it correctly.</td>
+</tr>
+<tr>
+<td><strong>Complex ordering</strong> <code>C1 .LT. C2</code> (<a href="../06-expressions/index.html">Ch 6</a>)</td>
+<td>no ordering of complex values; a nonsense comparison.</td>
+</tr>
+<tr>
+<td><strong>char⟷numeric <code>EQUIVALENCE</code></strong> (<a href="../08-specification/index.html">Ch 8</a>)</td>
+<td>its only use is byte type-punning, which the value model can't do faithfully.</td>
+</tr>
+<tr>
+<td><strong>Assignment to a <code>PARAMETER</code></strong> (<a href="../08-specification/index.html">Ch 8</a>)</td>
+<td>a constant is not a variable; the assignment would otherwise vanish silently.</td>
+</tr>
+<tr>
+<td><strong>Empty character constant <code>''</code></strong> (<a href="../04-data-types/index.html">Ch 4</a>)</td>
+<td>meaningless in F77 (a Fortran-90 feature).</td>
+</tr>
+<tr>
+<td><strong>More than one <em>unnamed</em> <code>BLOCK DATA</code></strong> (<a href="../16-block-data/index.html">Ch 16</a>)</td>
+<td>the two would collide and lose one's initialization.</td>
+</tr>
+<tr>
+<td><strong>Array rank &gt; 7</strong> (<a href="../05-arrays-substrings/index.html">Ch 5</a>)</td>
+<td>the standard's seven-dimension maximum. <em>Lift</em> with <code>unlimited_rank</code>.</td>
+</tr>
+<tr>
+<td><strong>Statement order</strong> (<a href="../03-source-form/index.html">Ch 3</a>)</td>
+<td>specifications must precede executables — enforced under the <code>F77</code> dialect (lenient under <code>F66</code>/<code>FORTRAN10</code>).</td>
+</tr>
+</tbody>
+</table>
+<h2 id="tunable-knobs">Tunable knobs</h2>
+<table>
+<thead>
+<tr>
+<th>Knob</th>
+<th>Default</th>
+<th>Effect when changed</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>bounds_check</code></td>
+<td>off</td>
+<td>array subscripts and substrings outside their bounds become hard errors (the <code>-fcheck=bounds</code> analog)</td>
+</tr>
+<tr>
+<td><code>recursion</code></td>
+<td>off</td>
+<td>recursion is permitted and made correct (per-call local storage)</td>
+</tr>
+<tr>
+<td><code>unlimited_rank</code></td>
+<td>off</td>
+<td>lifts the seven-dimension array cap</td>
+</tr>
+<tr>
+<td><code>carriage_control</code></td>
+<td>per dialect</td>
+<td>force standard output to be a line printer (on) or a terminal (off); F77 defaults to terminal, F66/FORTRAN-10 to line printer (<a href="../13-format/index.html">Ch 13</a>)</td>
+</tr>
+</tbody>
+</table>
+<p>(These are engine flags; the dialect sets sensible defaults. See the
+<a href="../../api/index.html#the-f77-dialect-knobs">Python API guide</a> for the full knob list and how to set them.)</p>
+<h2 id="the-one-true-divergence">The one true divergence</h2>
+<p>Everything above is conformant. The <strong>value model</strong> is the single behavior that can change a
+<em>conforming</em> program's result, and is therefore a genuine divergence, not an extension:</p>
+<ul>
+<li>On the default <strong><code>NATIVE</code></strong> target, <code>REAL</code> and <code>DOUBLE PRECISION</code> are both the host's 64-bit
+float — so double precision is not <em>more</em> precise than real (the standard requires it to be), and
+<code>DOUBLE PRECISION</code> occupies one value slot rather than two numeric units (observable only under
+partial storage association).</li>
+<li>The faithful <strong><code>PDP10</code></strong> target reproduces the genuine 36-bit single / two-word double model.</li>
+</ul>
+<p>Choose the <code>PDP10</code> target when precise reproduction of the DEC-10 value model matters.</p>
+<h2 id="unspecified-behavior-don-t-rely-on-it">Unspecified behavior (don't rely on it)</h2>
+<p>Where the standard makes something <em>undefined</em> and forterp does <strong>not</strong> commit to a particular
+result, the result is unspecified and may change between versions:</p>
+<ul>
+<li>the value read from an <strong>uninitialized</strong> variable, and definition status generally
+(<a href="../17-association/index.html">Ch 17</a>);</li>
+<li>an <strong>out-of-range substring</strong> with <code>bounds_check</code> off (<a href="../05-arrays-substrings/index.html">Ch 5</a>);</li>
+<li>whether a <strong>non-<code>SAVE</code> local</strong> persists across calls (<a href="../08-specification/index.html">Ch 8</a>).</li>
+</ul>
+<p>Write to the standard — initialize before use, <code>SAVE</code> what must persist, stay in bounds — and none
+of this matters.</p>
+<h2 id="not-in-fortran-77">Not in FORTRAN 77</h2>
+<p>The <code>F77</code> dialect is the 1978 standard — not a superset of later Fortran, and not the DEC
+FORTRAN-10 extension set. These common additions are <strong>not</strong> part of F77 and are rejected (use the
+<code>FORTRAN10</code> dialect for the DEC ones):</p>
+<ul>
+<li><strong>DEC / FORTRAN-10 extensions:</strong> <code>DO WHILE … END DO</code>; the <code>.XOR.</code> operator and the symbolic
+relationals <code>==</code> <code>&lt;</code> <code>&gt;</code>; the <code>A(lo/hi)</code> array-bound form (under F77 a <code>/</code> in a bound is ordinary
+division, so <code>A(6/3:9)</code> is <code>A(2:9)</code>); octal <code>&quot;…</code> literals; tab-format source; the trailing-<code>!</code>
+inline comment; <code>TYPE</code>/<code>ACCEPT</code>/<code>ENCODE</code>/<code>DECODE</code> and random-access I/O; free-form numeric input.
+All of these are available under <code>forterp.FORTRAN10</code>.</li>
+<li><strong>Fortran 90 and later:</strong> free-form source, <code>IMPLICIT NONE</code>, the <code>CHARACTER(LEN=…)</code> declaration
+form, modules, dynamic allocation, derived types, array sections. Out of scope — F77 source is
+fixed-form (<a href="../03-source-form/index.html">Chapter 3</a>).</li>
+</ul>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>

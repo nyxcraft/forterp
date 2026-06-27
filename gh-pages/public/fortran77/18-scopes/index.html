@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>18. Scopes &amp; symbolic names | forterp</title>
+  <meta name="description" content="">
+  <link rel="stylesheet" href="../../assets/site.css?v=de204dc9">
+</head>
+<body class="site-doc">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header site-header--compact">
+      <a class="brand" href="../../index.html">
+        <img class="brand__icon" src="../../assets/logo-forterp.svg" alt="" aria-hidden="true">
+        <span class="brand__name">forterp</span><span class="brand__badge">beta</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="../../docs/index.html">Docs</a>
+        <a href="https://github.com/nyxcraft/forterp">GitHub</a>
+      </nav>
+    </header>
+
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../../index.html">Home</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <a href="../../docs/index.html">Docs</a>
+      <span class="breadcrumbs__sep" aria-hidden="true">›</span>
+      <span aria-current="page">18. Scopes &amp; symbolic names</span>
+    </nav>
+
+    <main id="main-content" class="docs-layout" tabindex="-1">
+      <aside class="docs-sidebar">
+        <p class="docs-sidebar__eyebrow">On this page</p>
+        <nav class="section-nav" aria-label="On this page">
+<ul class="section-nav__list">
+<li><a class="section-nav__link section-nav__link--l2" href="#global-vs-local">Global vs local</a></li>
+<li><a class="section-nav__link section-nav__link--l2" href="#classes-and-no-reserved-words">Classes, and &quot;no reserved words&quot;</a></li>
+</ul>
+        </nav>
+      </aside>
+
+      <article class="docs-article">
+        <header class="docs-article__header">
+          <p class="eyebrow">Documentation</p>
+          <h1>18. Scopes &amp; symbolic names</h1>
+          <p class="docs-article__summary"></p>
+          <p class="docs-article__source">18. Scopes &amp; symbolic names</p>
+        </header>
+        <div class="prose">
+<p>The last formal chapter answers: <em>where is a name known, and what does it mean?</em> FORTRAN 77's
+scoping is simple — there are no nested procedures and no blocks — so a name is either <strong>global</strong>
+(known across the whole program) or <strong>local</strong> (known in one program unit) <em>(§18)</em>.</p>
+<h2 id="global-vs-local">Global vs local</h2>
+<p><strong>Global</strong> entities are known throughout the executable program, and their names must be unique
+across it <em>(§18.1.1)</em>:</p>
+<ul>
+<li>common-block names,</li>
+<li>external function and subroutine names,</li>
+<li>the main program name and block-data names.</li>
+</ul>
+<p><strong>Local</strong> entities belong to a single program unit; the <em>same</em> name may mean different things in
+different units <em>(§18.1.2)</em>:</p>
+<ul>
+<li>variables, arrays, named constants (<code>PARAMETER</code>),</li>
+<li>statement functions, intrinsic functions, dummy procedures.</li>
+</ul>
+<p>So <code>X</code> in one subroutine and <code>X</code> in another are unrelated variables; they share data only through
+arguments or <code>COMMON</code>. A few names have an even narrower scope: a statement function's dummy
+arguments, and a <code>DATA</code> implied-DO variable, are local to that one statement.</p>
+<h2 id="classes-and-no-reserved-words">Classes, and &quot;no reserved words&quot;</h2>
+<p>Because FORTRAN has no reserved words, the compiler decides what a name <em>is</em> — its <strong>class</strong> — from
+context <em>(§18.2)</em>. The same spelling can be a keyword in one place and your variable in another:</p>
+<pre><code class="language-fortran">      INTEGER INDEX            ! INDEX is now this unit's variable...
+      INDEX = 5
+      K = INDEX(STR, 'X')      ! ...and INDEX the intrinsic elsewhere is a different unit's affair
+</code></pre>
+<p>The resolution rules, informally:</p>
+<ul>
+<li>A name followed by <code>(</code> in an expression is a function reference or an array element — decided by
+whether the name was declared an array.</li>
+<li>An intrinsic-function name can be shadowed by a dummy argument, a declared variable, or an
+<code>EXTERNAL</code>/<code>INTRINSIC</code> declaration.</li>
+<li>A common-block name (it lives in <code>/…/</code>) may also be used as a local variable or array name —
+they don't collide.</li>
+<li>A function's own name doubles as the result variable inside the function
+(<a href="../15-procedures/index.html">Chapter 15</a>).</li>
+</ul>
+<p>The one firm rule: <strong>a name must not belong to two local classes in the same unit</strong> — you cannot
+use <code>FOO</code> as both a variable and a statement function, or assign to a <code>PARAMETER</code> constant.</p>
+<hr />
+<blockquote>
+<p><strong>forterp notes.</strong> forterp resolves name classes by context exactly this way (no reserved
+words), so an intrinsic name used as a variable — the common case — works, and is exercised
+throughout the conformance corpus. The general &quot;one name, one local class&quot; prohibition is not
+comprehensively diagnosed (a conforming program never violates it), but its one common, harmful
+instance — <strong>assigning to a <code>PARAMETER</code></strong> — is a hard error rather than a silently-dropped
+assignment (<a href="../08-specification/index.html">Chapter 8</a>). Names longer than six characters are accepted
+(first six significant) rather than rejected; see <a href="../D-forterp-extensions/index.html">Appendix D</a>.</p>
+</blockquote>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2026 Nicholas J. Kisseberth · <a href="../../index.html">forterp</a> is <a href="../../license/index.html">MIT-licensed</a>.</p>
+      <p class="site-footer__attr">Software Architecture, Design &amp; Engineering by Nicholas J. Kisseberth.<br>Code Synthesized via Anthropic Claude Code / Opus 4.8.<br>Automated Code Review via OpenAI Codex / ChatGPT 5.5.</p>
+    </footer>
+  </div>
+
+  <script>
+  // Section viewer: split the page into one panel per H2 and show one at a time, driven by the
+  // left-rail "On this page" links (and any in-prose # link). Degrades to the full page when
+  // JavaScript is off -- the panels are only hidden once .js-sections is set here.
+  (function () {
+    var prose = document.querySelector('.prose');
+    if (!prose) return;
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.section-nav a[href^="#"]'));
+
+    var kids = Array.prototype.slice.call(prose.childNodes);
+    var groups = [], preface = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.nodeType === 1 && n.tagName === 'H2') { cur = { id: n.id, nodes: [n] }; groups.push(cur); }
+      else if (cur) { cur.nodes.push(n); }
+      else { preface.push(n); }
+    });
+    if (!groups.length) return;                 // no H2s -> leave the page as one scroll
+    groups[0].nodes = preface.concat(groups[0].nodes);
+
+    prose.innerHTML = '';
+    prose.classList.add('js-sections');
+    var anchorToSection = {};
+    var sections = groups.map(function (g) {
+      var s = document.createElement('section');
+      s.className = 'doc-section';
+      g.nodes.forEach(function (n) { s.appendChild(n); });
+      prose.appendChild(s);
+      Array.prototype.forEach.call(s.querySelectorAll('[id]'), function (el) { anchorToSection[el.id] = s; });
+      if (g.id) anchorToSection[g.id] = s;
+      return s;
+    });
+
+    function activate(anchor, scroll) {
+      var target = anchorToSection[anchor] || sections[0];
+      sections.forEach(function (s) { s.classList.toggle('is-active', s === target); });
+      navLinks.forEach(function (a) {
+        var id = decodeURIComponent(a.getAttribute('href').slice(1));
+        a.classList.toggle('is-active', anchorToSection[id] === target);
+      });
+      if (scroll) {
+        var el = (anchor && document.getElementById(anchor)) || target;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    function fromHash(scroll) { activate(decodeURIComponent((location.hash || '').slice(1)), scroll); }
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!a) return;
+      var id = decodeURIComponent(a.getAttribute('href').slice(1));
+      if (anchorToSection[id]) activate(id, true);
+    });
+    window.addEventListener('hashchange', function () { fromHash(true); });
+    fromHash(false);
+  })();
+  </script>
+</body>
+</html>
