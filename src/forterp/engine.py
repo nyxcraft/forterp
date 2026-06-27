@@ -812,7 +812,7 @@ class Engine:
                 off = off_by_block.get(block, 0)
                 for name, dims in members:
                     d = dims or u.arrays.get(name)
-                    off += array_size(d) if d else self._scalar_words(u, name)
+                    off += self._member_words(u, name, d)
                 off_by_block[block] = off
                 sizes[block] = max(sizes.get(block, 0), off)
         for block, n in sizes.items():
@@ -826,7 +826,7 @@ class Engine:
                 for mname, dims in members:
                     d = dims or u.arrays.get(mname)
                     rt.common_map[mname] = (block, off, d)
-                    off += array_size(d) if d else self._scalar_words(u, mname)
+                    off += self._member_words(u, mname, d)
                 off_by_block[block] = off
             self._layout_equivalence(name, u, rt)  # EQUIVALENCE storage aliasing (V5 6.6)
             # COMPLEX scalars sharing word storage occupy two cells (real, imag); the read/write
@@ -904,7 +904,7 @@ class Engine:
             return linidx(vals, dims)
 
         def size_of(name):
-            return array_size(u.arrays[name]) if name in u.arrays else self._scalar_words(u, name)
+            return self._member_words(u, name, u.arrays.get(name))
 
         for group in u.equivs:
             if not group:
@@ -984,6 +984,17 @@ class Engine:
         (Arrays size by element count -- a COMPLEX/DOUBLE array stays one cell per element for now,
         since the FCVS cluster only ever EQUIVALENCEs such *scalars*.)"""
         return 2 if self.type_of(unit, name) in ("COMPLEX", "DOUBLE PRECISION") else 1
+
+    def _member_words(self, unit, name, d):
+        """Words a COMMON/EQUIVALENCE member occupies, used to lay out block offsets. Scalars defer
+        to `_scalar_words` (COMPLEX/DOUBLE span two). Arrays are the element count, times the
+        element's word count UNDER word_memory (so a DOUBLE/COMPLEX array reserves its genuine
+        two-word elements and following members stay word-accurate); one cell per element otherwise
+        (the legacy single-cell model -- arrays are typed cells when word_memory is off)."""
+        if d is None:
+            return self._scalar_words(unit, name)
+        n = array_size(d)
+        return n * self.wmem.units(self.type_of(unit, name)) if self.word_memory else n
 
     def type_of(self, unit, name):
         if name in unit.types:
@@ -1170,13 +1181,8 @@ class Engine:
         dims = unit.arrays[name]
         if name in rt.common_map:
             block, off, _ = rt.common_map[name]
-            if self.word_memory:  # faithful punning over words (single-word elements; 3b: 2-word)
+            if self.word_memory:  # faithful punning over words (element i at off + i*units)
                 typ = self.type_of(unit, name)
-                if self.wmem.units(typ) != 1:
-                    raise NotImplementedError(
-                        f"{typ} array {name!r} under word_memory is not supported yet "
-                        "(multi-word array elements -- P1 step 3b)"
-                    )
                 return WordArrayView(self.wmem, self.commons[block], off, typ), dims
             return ArrayView(self.commons[block], off), dims
         if name not in rt.local_arrays:

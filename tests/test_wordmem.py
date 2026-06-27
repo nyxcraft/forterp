@@ -4,7 +4,7 @@ genuine KL10 bit pattern captured from a real PDP-10 under DEC FORTRAN-10 (SIMH 
 across types the way the real machine does."""
 
 import forterp
-from forterp.forbin import double_to_dec10
+from forterp.forbin import double_to_dec10, double_to_dec10_pair
 from forterp.target import PDP10
 from forterp.wordmem import Pdp10WordMemory, units
 
@@ -180,14 +180,25 @@ def test_word_memory_real_array_arithmetic_round_trips():
     assert _run(src, "REAL") == 5.0
 
 
-def test_word_memory_double_array_is_guarded():
-    # multi-word array elements aren't supported under word_memory yet (P1 step 3b): fail loud,
-    # not silently wrong.
-    import pytest
-
+def test_word_memory_double_array_two_words_per_element():
+    # step 3b: a DOUBLE array reserves two words/element, so it round-trips AND a following COMMON
+    # member sits at the word-accurate offset (3 doubles -> word 6).
     src = (
-        "      PROGRAM T\n      COMMON /CB/ D(3)\n      DOUBLE PRECISION D\n"
-        "      D(1)=1.0D0\n      END\n"
+        "      PROGRAM T\n      COMMON /CB/ D(3), K\n      DOUBLE PRECISION D\n      INTEGER K\n"
+        "      D(1)=1.5D0\n      D(2)=2.5D0\n      D(3)=D(1)+D(2)\n      K=7\n      END\n"
     )
-    with pytest.raises(NotImplementedError, match="word_memory"):
-        forterp.run_source(src, dialect=forterp.F66, target=forterp.PDP10, word_memory=True)
+    eng = forterp.run_source(src, dialect=forterp.F66, target=forterp.PDP10, word_memory=True)
+    st = eng.commons["CB"]
+    assert len(st) == 7  # 3 doubles * 2 words + 1 integer
+    assert eng.wmem.read(st, 4, "DOUBLE PRECISION") == 4.0  # D(3) at word 2*2=4
+    assert eng.wmem.read(st, 6, "INTEGER") == 7  # K lands at word 6, not 3
+
+
+def test_word_memory_double_array_punned_as_integer_words():
+    # a DOUBLE array element's two words read through an aliased INTEGER array are the doubleword
+    src = (
+        "      PROGRAM T\n      COMMON /O/ N\n      INTEGER N\n"
+        "      DOUBLE PRECISION D(2)\n      INTEGER W(4)\n      EQUIVALENCE (D,W)\n"
+        "      D(1)=1.5D0\n      N=W(1)\n      END\n"
+    )
+    assert _run(src, "INTEGER") == double_to_dec10_pair(1.5)[0]
