@@ -4,7 +4,7 @@ name: Publish to PyPI
 # Uses PyPI Trusted Publishing (OIDC) -- no API token is stored as a secret. One-time setup
 # on PyPI: add this repo as a trusted publisher for the `forterp` project, workflow
 # `release.yml`, environment `forterp-pypi`. Cut a release by tagging, e.g.:
-#     git tag v0.1.0 && git push origin v0.1.0
+#     git tag v0.2.0 && git push origin v0.2.0
 # The tag should match forterp.__version__ (the version baked into the build).
 #
 # A tag-triggered run pauses at the `gate` job for one manual approval before anything is

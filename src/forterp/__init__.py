@@ -52,7 +52,7 @@ from forterp.uuolib import UnmodeledMonitorTable
 # The one place the version is written. pyproject.toml reads it via
 # [tool.setuptools.dynamic] (attr = "forterp.__version__"), so the package metadata and
 # this attribute can never drift apart.
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 # The complete public surface: the package root exposes exactly these names. Everything else
 # lives in the expert namespaces (forterp.frontend / .format / .runtime / .ast / .hostlib).

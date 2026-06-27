@@ -1,6 +1,6 @@
 # Changelog
 
-## 2026-06-27 — type punning & value-model targets, FORTRAN 77 by default, the docs site
+## 2026-06-27 — 0.2.0: type punning & value-model targets, FORTRAN 77 by default, the docs site
 
 - **00:00** — Published the **FORTRAN 66 reference manual** (and F77 Appendix E, the differences from F66); `DOUBLE PRECISION` now occupies its two genuine storage units in `COMMON`/`EQUIVALENCE`.
 - **08:19** — **Faithful type punning** (`word_memory`, off by default): `COMMON`/`EQUIVALENCE` stored as raw machine words/bytes so cross-type aliasing is bit-faithful — validated against a real PDP-10, which also caught a `forbin` negative-double bug.
