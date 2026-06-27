@@ -52,8 +52,8 @@
 <h2 id="prebuilt-interpreters-and-the-interpreter-class">Prebuilt interpreters and the <code>Interpreter</code> class</h2>
 <p><code>forterp.fortran10</code> (<code>PDP10</code> + <code>FORTRAN10</code> + free-form input), <code>forterp.f66</code> (<code>NATIVE</code> +
 strict <code>F66</code>), and <code>forterp.f77</code> (<code>NATIVE</code> + <code>F77</code>, with the <code>CHARACTER</code> type on) are
-ready-to-run presets. Build your own with <code>Interpreter(target, dialect, *, free_form_input=None, dec_intrinsics=None, runtime=True, source_options=None)</code> — the two
-flags default from the dialect, so you can't construct a contradictory pairing.</p>
+ready-to-run presets. Build your own with <code>Interpreter(target, dialect, *, free_form_input=None, f77_intrinsics=None, dec_library=None, uuo_library=None, character_type=None, runtime=True, source_options=None)</code> — the flags default from the dialect,
+so you can't construct a contradictory pairing.</p>
 <p>Each interpreter offers a uniform surface:</p>
 <pre><code class="language-python">fp = forterp.fortran10
 

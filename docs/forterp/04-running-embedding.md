@@ -4,8 +4,9 @@
 `forterp.fortran10` (`PDP10` + `FORTRAN10` + free-form input), `forterp.f66` (`NATIVE` +
 strict `F66`), and `forterp.f77` (`NATIVE` + `F77`, with the `CHARACTER` type on) are
 ready-to-run presets. Build your own with `Interpreter(target, dialect,
-*, free_form_input=None, dec_intrinsics=None, runtime=True, source_options=None)` — the two
-flags default from the dialect, so you can't construct a contradictory pairing.
+*, free_form_input=None, f77_intrinsics=None, dec_library=None, uuo_library=None,
+character_type=None, runtime=True, source_options=None)` — the flags default from the dialect,
+so you can't construct a contradictory pairing.
 
 Each interpreter offers a uniform surface:
 

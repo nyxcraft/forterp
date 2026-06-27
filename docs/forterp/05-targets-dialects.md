@@ -64,7 +64,9 @@ standardized feature without the rest of the DEC extension):
 | `alt_return` | alternate-return actual arguments (`CALL S(*99)`) |
 | `mixed_complex_assign` | `COMPLEX` ↔ numeric assignment |
 | `apostrophe_string` | `'…'` string constants |
-| `dec_intrinsics` | the F77 generic intrinsic library (a superset of F66 Tables 3 & 4) |
+| `f77_intrinsics` | the ANSI F77 intrinsic additions (generic `LOG`/`MAX`/`MIN`, `TAN`/`ASIN`/…, the `D…` specifics, `NINT`/`ANINT`, `LEN`/`CHAR`/…) |
+| `dec_library` | the DEC-only library: DEC intrinsics (`LSH`/`ROT`, degree trig, `DOUBLE COMPLEX` helpers) + DEC subprograms (`RAN`/`DATE`/…) + the DEC terminal CR-LF wrap |
+| `uuo_library` | TOPS-10 monitor UUOs callable from FORTRAN (`OUTSTR`/`SLEEP`/`GETTAB`/…) — PDP-10-specific |
 | `strict_stmt_order` | enforce "specifications before executables" (§3.5) as a hard error |
 | `carriage_control` | **off** for F77 — standard output is a terminal, not a line printer |
 

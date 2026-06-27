@@ -144,8 +144,16 @@ standardized feature without the rest of the DEC extension):</p>
 <td><code>'…'</code> string constants</td>
 </tr>
 <tr>
-<td><code>dec_intrinsics</code></td>
-<td>the F77 generic intrinsic library (a superset of F66 Tables 3 &amp; 4)</td>
+<td><code>f77_intrinsics</code></td>
+<td>the ANSI F77 intrinsic additions (generic <code>LOG</code>/<code>MAX</code>/<code>MIN</code>, <code>TAN</code>/<code>ASIN</code>/…, the <code>D…</code> specifics, <code>NINT</code>/<code>ANINT</code>, <code>LEN</code>/<code>CHAR</code>/…)</td>
+</tr>
+<tr>
+<td><code>dec_library</code></td>
+<td>the DEC-only library: DEC intrinsics (<code>LSH</code>/<code>ROT</code>, degree trig, <code>DOUBLE COMPLEX</code> helpers) + DEC subprograms (<code>RAN</code>/<code>DATE</code>/…) + the DEC terminal CR-LF wrap</td>
+</tr>
+<tr>
+<td><code>uuo_library</code></td>
+<td>TOPS-10 monitor UUOs callable from FORTRAN (<code>OUTSTR</code>/<code>SLEEP</code>/<code>GETTAB</code>/…) — PDP-10-specific</td>
 </tr>
 <tr>
 <td><code>strict_stmt_order</code></td>

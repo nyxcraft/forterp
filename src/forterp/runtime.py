@@ -30,15 +30,17 @@ def install_runtime(eng):
     """Install the DEC FORTRAN-10 runtime onto an engine: the DEC library subprograms and
     the FOROTS unformatted-I/O codec used by binary (unformatted) READ/WRITE.
 
-    The DEC library (RAN, DATE, ERRSET, ...) is a DEC facility, absent from strict ANSI
-    F66 -- so it is installed only when the engine's `dec_intrinsics` is on. A library
-    name that the program defines itself is never shadowed (the program's unit wins).
+    The DEC library (RAN, DATE, ERRSET, ...) is a DEC facility, absent from strict ANSI F66/F77
+    -- so it installs only when the engine's `dec_library` is on (FORTRAN10). A library name
+    that the program defines itself is never shadowed (the program's unit wins).
 
-    The standard TOPS-10 monitor UUOs (OUTSTR/OUTCHR/MSTIME/SLEEP/GETTAB; see `uuolib`) install
-    on the same FORTRAN-10 gate, so a program that CALLs them just runs; a host registering its
-    own (richer/translated) variant afterward overrides these baseline ones."""
-    if eng.dec_intrinsics:
+    The TOPS-10 monitor UUOs (OUTSTR/OUTCHR/MSTIME/SLEEP/GETTAB; see `uuolib`) are PDP-10-specific
+    and install on their own `uuo_library` gate (also FORTRAN10 only) -- so strict F77 does NOT
+    accept `CALL SLEEP`. A host registering its own (richer/translated) variant afterward overrides
+    these baseline ones."""
+    if eng.dec_library:
         eng.register_builtins({k: v for k, v in STDLIB.items() if k not in eng.units})
+    if eng.uuo_library:
         eng.register_builtins({k: v for k, v in UUOLIB.items() if k not in eng.units})
     eng.binio = forbin
     return eng
@@ -46,13 +48,15 @@ def install_runtime(eng):
 
 def engine_kwargs(dialect):
     """The dialect-derived runtime behaviors the Engine needs -- it is otherwise
-    dialect-agnostic: `free_form_input` (widthless input fields read free-form vs
-    column) and `dec_intrinsics` (the DEC/F77 library beyond F66 Tables 3 & 4). The
-    single source of truth, so adding a future engine-relevant dialect flag is a
+    dialect-agnostic: `free_form_input` (widthless input fields read free-form vs column) and the
+    three intrinsic/library tiers `f77_intrinsics` / `dec_library` / `uuo_library` (beyond the F66
+    standard 55). The single source of truth, so adding a future engine-relevant dialect flag is a
     one-line change here rather than an edit at every engine-construction site."""
     return {
         "free_form_input": dialect.free_form_input,
-        "dec_intrinsics": dialect.dec_intrinsics,
+        "f77_intrinsics": dialect.f77_intrinsics,
+        "dec_library": dialect.dec_library,
+        "uuo_library": dialect.uuo_library,
         "character_type": dialect.character_type,
         "zero_trip_do": dialect.zero_trip_do,
         "blank_null": dialect.blank_null,

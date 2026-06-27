@@ -43,7 +43,9 @@ class Interpreter:
         dialect,
         *,
         free_form_input=None,
-        dec_intrinsics=None,
+        f77_intrinsics=None,
+        dec_library=None,
+        uuo_library=None,
         character_type=None,
         runtime=True,
         source_options=None,
@@ -55,7 +57,9 @@ class Interpreter:
         self.free_form_input = (
             dialect.free_form_input if free_form_input is None else free_form_input
         )
-        self.dec_intrinsics = dialect.dec_intrinsics if dec_intrinsics is None else dec_intrinsics
+        self.f77_intrinsics = dialect.f77_intrinsics if f77_intrinsics is None else f77_intrinsics
+        self.dec_library = dialect.dec_library if dec_library is None else dec_library
+        self.uuo_library = dialect.uuo_library if uuo_library is None else uuo_library
         self.character_type = dialect.character_type if character_type is None else character_type
         self.runtime = runtime
         self.source_options = source_options or DEFAULT_OPTIONS
@@ -73,7 +77,9 @@ class Interpreter:
         use it instead of the baseline (forterp.hostlib)."""
         kwargs.setdefault("target", self.target)
         kwargs.setdefault("free_form_input", self.free_form_input)
-        kwargs.setdefault("dec_intrinsics", self.dec_intrinsics)
+        kwargs.setdefault("f77_intrinsics", self.f77_intrinsics)
+        kwargs.setdefault("dec_library", self.dec_library)
+        kwargs.setdefault("uuo_library", self.uuo_library)
         kwargs.setdefault("character_type", self.character_type)
         # FOROTS runtime (binary files + advance-before terminal CC) for real DEC FORTRAN-10:
         # the PDP10 target + the FORTRAN10 dialect. Overridable via an explicit forots= kwarg.
@@ -84,7 +90,7 @@ class Interpreter:
 
             forterp.runtime.install_runtime(
                 eng
-            )  # DEC library (gated on dec_intrinsics) + FOROTS I/O
+            )  # DEC library (dec_library) + UUOs (uuo_library) + FOROTS I/O
         if monitor is not None:
             eng.monitor = monitor(eng)
         if builtins:
@@ -163,8 +169,8 @@ class Interpreter:
 #: source_options=SourceOptions(recover_shifted_cols=True).
 fortran10 = Interpreter(PDP10, FORTRAN10)
 
-#: Strict ANSI FORTRAN-66 -- portable NATIVE machine, F66 dialect, column input, no DEC
-#: library (free_form_input / dec_intrinsics are taken from the F66 dialect).
+#: Strict ANSI FORTRAN-66 -- portable NATIVE machine, F66 dialect, column input, no F77/DEC
+#: library (free_form_input / f77_intrinsics / dec_library / uuo_library default from the dialect).
 f66 = Interpreter(NATIVE, F66)
 
 #: ANSI FORTRAN 77 (X3.9-1978) -- portable NATIVE machine, F77 dialect. The full language: the

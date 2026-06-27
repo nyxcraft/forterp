@@ -23,7 +23,9 @@ from forterp import ast_nodes as A
 from forterp.intrinsics import (
     _CHAR_LOGICAL,
     _COMPLEX_GENERIC,
+    _DEC_INTRINSICS,
     _F66_INTRINSICS,
+    _F77_INTRINSICS,
     _INT_RESULT,
     _LIB_MSG,
     _LIB_RECOVER,
@@ -210,7 +212,9 @@ class Engine:
         target=None,
         binio=None,
         free_form_input=False,
-        dec_intrinsics=True,
+        f77_intrinsics=True,
+        dec_library=True,
+        uuo_library=True,
         character_type=False,
         zero_trip_do=False,
         blank_null=False,
@@ -240,10 +244,14 @@ class Engine:
         # None -> the baseline (tty/files/clock) is built on first use; set it to a richer facade
         # Two dialect-derived knobs the engine needs at run time (else dialect-agnostic):
         #  - free_form_input: widthless input fields read free-form (FORTRAN-10) vs column (F66)
-        #  - dec_intrinsics: expose the DEC/F77 extra library functions beyond F66 Tables 3 & 4
-        # (default True so a bare Engine has the full library; the dialect paths gate it).
+        #  - f77_intrinsics / dec_library / uuo_library: the three intrinsic/library tiers beyond
+        #    the F66 standard 55 (see intrinsics.py / install_runtime). dec_library also gates the
+        #    DEC terminal free-CR-LF wrap. (All default True so a bare Engine has the full library;
+        #    the dialect paths gate them -- F77 gets f77_intrinsics only, F66 none.)
         self.free_form_input = free_form_input
-        self.dec_intrinsics = dec_intrinsics
+        self.f77_intrinsics = f77_intrinsics
+        self.dec_library = dec_library
+        self.uuo_library = uuo_library
         self.zero_trip_do = zero_trip_do  # F77 zero-trip DO vs F66/DEC one-trip (see exec_do)
         # blank_null: a width'd numeric input field's blanks are ignored (FORTRAN-10/F77 default)
         # vs read as zeros (ANSI F66 7.2.3.6). read_values takes blank_zero = not this.
@@ -352,7 +360,7 @@ class Engine:
         # FORTRAN-10 terminal line discipline ('free CR-LF'): emit() inserts a newline at the
         # carriage width so terminal output doesn't overrun the margin. `tty_width` is the carriage
         # width (0 = no wrap); `_autowrap` is the switch a program toggles via TRMOP. .TONFC (our
-        # TRMOP2). Active only under the DEC dialect (dec_intrinsics); strict F66 never wraps.
+        # TRMOP2). Active only under the DEC dialect (dec_library); strict F66/F77 never wrap.
         # `_col` tracks the output column (also read by the tty facade's crlf/tab).
         self._tty_width = tty_width
         self._autowrap = tty_autowrap
@@ -365,7 +373,7 @@ class Engine:
         # carriage width. Gated on the DEC dialect + the autowrap switch (TRMOP2 / .TONFC disables
         # it for a cursor-addressed full-screen display); strict F66 never wraps. Either way, track
         # the output column so the tty facade's crlf/tab stay accurate.
-        if self.dec_intrinsics and self._autowrap and self._tty_width > 0:
+        if self.dec_library and self._autowrap and self._tty_width > 0:
             s = self._wrap_cols(s)
         else:
             nl = s.rfind("\n")
@@ -1123,7 +1131,9 @@ class Engine:
         if name in unit.externals and name in self.units and self.units[name].kind == "function":
             return self.call_function(name, node.args, frame)  # V5 15.3: EXTERNAL beats intrinsic
         if (name in INTRINSICS or name in _CHAR_LOGICAL) and (
-            self.dec_intrinsics or name in _F66_INTRINSICS
+            name in _F66_INTRINSICS
+            or (self.f77_intrinsics and name in _F77_INTRINSICS)
+            or (self.dec_library and name in _DEC_INTRINSICS)
         ):
             if name == "LEN" and len(node.args) == 1:
                 # LEN is the DECLARED length of its CHARACTER argument -- a compile-time property

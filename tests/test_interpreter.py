@@ -152,7 +152,7 @@ def test_presets_do_not_recover_shifted_columns_by_default():
 
 # ---- API-review contracts: dialect gating, no-shadow, clean errors, namespaces ----
 def test_strict_f66_does_not_install_the_dec_library():
-    # the DEC library (RAN/DATE/...) is gated on dec_intrinsics, so strict f66 must not
+    # the DEC library (RAN/DATE/...) is gated on dec_library, so strict f66 must not
     # provide it -- calling RAN under f66 is an error, not a silent random value.
     ran = "      PROGRAM T\n      COMMON /OUT/ R\n      R = RAN(0)\n      END\n"
     with pytest.raises(RuntimeError):
@@ -182,12 +182,16 @@ def test_run_source_raises_value_error_when_there_is_no_program():
 
 
 def test_interpreter_derives_flags_from_its_dialect():
-    # free_form_input / dec_intrinsics default from the Dialect, so a caller cannot build a
-    # contradictory pairing by omission.
+    # free_form_input / the three intrinsic-library tiers default from the Dialect, so a caller
+    # cannot build a contradictory pairing by omission.
     fi = forterp.Interpreter(forterp.NATIVE, forterp.F66)
-    assert fi.free_form_input is False and fi.dec_intrinsics is False
+    assert fi.free_form_input is False
+    assert (fi.f77_intrinsics, fi.dec_library, fi.uuo_library) == (False, False, False)
+    f77 = forterp.Interpreter(forterp.NATIVE, forterp.F77)
+    assert (f77.f77_intrinsics, f77.dec_library, f77.uuo_library) == (True, False, False)
     f10 = forterp.Interpreter(forterp.PDP10, forterp.FORTRAN10)
-    assert f10.free_form_input is True and f10.dec_intrinsics is True
+    assert f10.free_form_input is True
+    assert (f10.f77_intrinsics, f10.dec_library, f10.uuo_library) == (True, True, True)
 
 
 def test_expert_namespaces_exist_and_root_is_slimmed():

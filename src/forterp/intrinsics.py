@@ -119,10 +119,16 @@ _CHAR_LOGICAL = {
     "LLT": lambda a, b: a < b,
 }
 
-# The ANSI X3.9-1966 standard library: Table 3 (intrinsic) + Table 4 (basic external), 55
-# functions. Everything else in INTRINSICS (TAN, NINT/ANINT, the DTAN.../TAND... families,
-# LSH, MAX/MIN, ...) is a DEC/F77 extension, exposed only when the dialect's dec_intrinsics
-# is on (FORTRAN10, or an F66 dialect that opts in).
+# The intrinsic library splits into three tiers, gated independently by the dialect so a strict
+# dialect exposes only what it should (see engine._apply_intrinsic and dialect.py):
+#   * _F66_INTRINSICS -- the ANSI X3.9-1966 library: Table 3 (intrinsic) + Table 4 (basic
+#     external), 55 functions. Always available.
+#   * _F77_INTRINSICS -- the ANSI X3.9-1978 additions (generic LOG/MAX/MIN, TAN/ASIN/ACOS/SINH/
+#     COSH, the D... double specifics, NINT/ANINT, DPROD/DDIM, and the CHARACTER intrinsics
+#     LEN/CHAR/ICHAR/INDEX + LGE/LGT/LLE/LLT). Gated on `f77_intrinsics` (F77 and FORTRAN10).
+#   * _DEC_INTRINSICS -- everything else in INTRINSICS: the DEC-only functions (LSH/ROT, the
+#     degree-argument trig TAND/SIND/..., the DOUBLE COMPLEX helpers DCMPLX/DIMAG/CD..., FLOATR/
+#     DFLOAT/TIM2GO). Gated on `dec_library` (FORTRAN10 only). Computed below, after INTRINSICS.
 _F66_INTRINSICS = frozenset(
     # Table 3 (31 intrinsic functions)
     "ABS IABS DABS AINT INT IDINT AMOD MOD AMAX0 AMAX1 MAX0 MAX1 DMAX1 AMIN0 AMIN1 MIN0 "
@@ -130,6 +136,12 @@ _F66_INTRINSICS = frozenset(
     # Table 4 (24 basic external functions)
     "EXP DEXP CEXP ALOG DLOG CLOG ALOG10 DLOG10 SIN DSIN CSIN COS DCOS CCOS TANH SQRT "
     "DSQRT CSQRT ATAN DATAN ATAN2 DATAN2 DMOD CABS".split()
+)
+# ANSI X3.9-1978 (FORTRAN 77) additions beyond the F66 library. The CHARACTER intrinsics
+# (LEN/CHAR/ICHAR/INDEX, LGE/LGT/LLE/LLT) are listed here but also need the character_type dialect.
+_F77_INTRINSICS = frozenset(
+    "LOG LOG10 MAX MIN TAN ASIN ACOS SINH COSH NINT ANINT IDNINT DNINT DINT DTAN DASIN DACOS "
+    "DSINH DCOSH DTANH DDIM DPROD LEN CHAR ICHAR INDEX LGE LGT LLE LLT".split()
 )
 
 
@@ -258,3 +270,9 @@ INTRINSICS = {
     "DMAX1": lambda a: max(float(x) for x in a),
     "DMIN1": lambda a: min(float(x) for x in a),
 }
+
+# The DEC-only tier: every intrinsic past the F66 + F77 libraries (LSH/ROT, the degree-argument
+# trig, the DOUBLE COMPLEX helpers, FLOATR/DFLOAT/TIM2GO). Gated on `dec_library` (FORTRAN10).
+_DEC_INTRINSICS = frozenset(
+    k for k in INTRINSICS if k not in _F66_INTRINSICS and k not in _F77_INTRINSICS
+)

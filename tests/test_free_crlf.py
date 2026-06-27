@@ -39,7 +39,7 @@ def test_autowrap_off_disables_the_wrap():
 
 
 def test_strict_f66_never_wraps():
-    # the wrap is a DEC/TOPS-10 behavior (gated on dec_intrinsics); strict F66 emits verbatim
+    # the wrap is a DEC/TOPS-10 behavior (gated on dec_library); strict F66 emits verbatim
     out = []
     eng = forterp.f66.build_engine({}, emit=out.append)
     eng.emit("X" * 85)

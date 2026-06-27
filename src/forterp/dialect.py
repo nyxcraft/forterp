@@ -36,10 +36,14 @@ class Dialect:
     # a DEC extension before that -- on under FORTRAN-10, and on its own for F77)
     bare_format_width: bool = False  # widthless FORMAT descriptors I/F/A/... (F66 §7.2.3.1
     # requires an explicit width on every descriptor; DEC supplies V5 default widths)
-    dec_intrinsics: bool = False  # the DEC/F77 extra library functions beyond F66 Tables 3
-    # & 4 (TAN, NINT/ANINT, the DP DTAN.../degree TAND... families, LSH, MAX/MIN, ...). F66
-    # exposes only the 55 standard functions; set this (e.g. Dialect(dec_intrinsics=True))
-    # to opt into the DEC library under F66 without the rest of the FORTRAN10 superset.
+    f77_intrinsics: bool = False  # the ANSI X3.9-1978 intrinsic additions beyond F66 Tables 3
+    # & 4: generic LOG/MAX/MIN, TAN/ASIN/ACOS/SINH/COSH, the D... double specifics, NINT/ANINT,
+    # DPROD/DDIM, and the CHARACTER intrinsics (LEN/CHAR/ICHAR/INDEX, LGE/LGT/LLE/LLT). On for F77.
+    dec_library: bool = False  # the DEC-only library beyond F77: the DEC intrinsics (LSH/ROT,
+    # degree-argument trig TAND/SIND..., the DOUBLE COMPLEX helpers, FLOATR/DFLOAT/TIM2GO), the
+    # DEC subprograms (RAN/DATE/ERRSET/...), and the DEC terminal free-CR-LF wrap. FORTRAN10 only.
+    uuo_library: bool = False  # the TOPS-10 monitor UUOs callable from FORTRAN (OUTSTR/OUTCHR/
+    # MSTIME/SLEEP/GETTAB; see uuolib). PDP-10-specific; FORTRAN10 only, never strict F66/F77.
     dec_operators: bool = False  # operators beyond ANSI X3.9-1966 §6.1: the symbolic
     # relationals (== # < > <= >=, vs .EQ./.NE./.LT./.LE./.GT./.GE.), .XOR., and `^` as a
     # power operator (`**` is ANSI). .EQV./.NEQV. are F77-standard -- see eqv_operators.
@@ -113,7 +117,9 @@ FORTRAN10 = Dialect(  # DEC FORTRAN-10 V5 superset: every extension on
     extended_io=True,
     list_directed_io=True,
     bare_format_width=True,
-    dec_intrinsics=True,
+    f77_intrinsics=True,
+    dec_library=True,
+    uuo_library=True,
     dec_operators=True,
     eqv_operators=True,
     stmt_separator=True,
@@ -140,7 +146,7 @@ F77 = Dialect(
     parameter_stmt=True,
     alt_return=True,
     mixed_complex_assign=True,
-    dec_intrinsics=True,  # the F77 generic intrinsic library (a superset is fine for now)
+    f77_intrinsics=True,  # the F77 generic intrinsic library (DEC library + UUOs stay off)
     block_if=True,
     save_stmt=True,
     intrinsic_stmt=True,

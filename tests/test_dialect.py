@@ -8,7 +8,7 @@ that DEC/F77-era constructs run under FORTRAN-10 but are correctly rejected unde
 from conftest import out, run, run_int
 
 import forterp
-from forterp.dialect import F66, FORTRAN10, Dialect
+from forterp.dialect import F66, F77, FORTRAN10, Dialect
 
 H = "        PROGRAM T\n        IMPLICIT INTEGER(A-Z)\n        COMMON /OUT/ V(40)\n"
 END = "        END\n"
@@ -178,14 +178,32 @@ def test_f66_keeps_unit_formatted_write():
     assert not _rejected(src, dialect=F66)
 
 
-# ---- DEC/F77 extra intrinsics are gated to FORTRAN10 (F66 = Tables 3 & 4 only) ----
-def test_dec_intrinsics_gated_to_fortran10():
-    dtan = PH + "        V(1) = DTAN(1.0)\n" + END  # DEC double-precision extra
+# ---- the intrinsic library is gated in three tiers: F66 / F77 / DEC-only ----
+def test_f77_intrinsics_gated_separately_from_dec_intrinsics():
+    # DTAN is an F77 intrinsic (double tangent): available under F77 and FORTRAN10, not strict F66.
+    dtan = PH + "        V(1) = DTAN(1.0)\n" + END
     assert not _rejected(dtan)  # FORTRAN10 (default): available
+    assert not _rejected(dtan, dialect=F77)  # F77: available (f77_intrinsics)
     assert _rejected(dtan, dialect=F66)  # strict F66: unknown function
-    assert not _rejected(dtan, dialect=Dialect(dec_intrinsics=True))  # F66 opt-in: available
+    assert not _rejected(dtan, dialect=Dialect(f77_intrinsics=True))  # opt-in: available
+
+    # LSH is a DEC-only intrinsic: available under FORTRAN10, but NOT under strict F77.
+    lsh = PH + "        V(1) = LSH(1, 2)\n" + END
+    assert not _rejected(lsh)  # FORTRAN10: available (dec_library)
+    assert _rejected(lsh, dialect=F77)  # strict F77: DEC-only, unknown
+    assert _rejected(lsh, dialect=F66)  # strict F66: unknown
+    assert not _rejected(lsh, dialect=Dialect(dec_library=True))  # opt-in: available
+
     # the F66 standard library (Tables 3/4) is always available, even strict
     assert not _rejected(PH + "        V(1) = SQRT(4.0)\n" + END, dialect=F66)
+
+
+def test_uuo_library_gated_to_fortran10_not_f77():
+    # TOPS-10 monitor UUOs (CALL SLEEP/OUTSTR/...) are PDP-10-specific: available under FORTRAN10,
+    # NOT under strict F77 (external review #5 -- uuo_library split off the F77 generic library).
+    sleep = "        CALL SLEEP(0)\n"
+    assert not _rejected(PH + sleep + END)  # FORTRAN10: the UUO is installed
+    assert _rejected(PH + sleep + END, dialect=F77)  # strict F77: undefined subroutine
 
 
 def test_random_access_io_gated_to_fortran10():
