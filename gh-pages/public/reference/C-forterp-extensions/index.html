@@ -122,15 +122,24 @@ is correct but the second word is a placeholder. On <strong><code>PDP10</code></
 KL10 machine words</strong> (high, low) of the doubleword, so an <strong><code>INTEGER</code></strong> EQUIVALENCEd onto a
 double reads the real machine words — the canonical &quot;examine the bits&quot; idiom — and <code>DOUBLE</code>↔
 <code>DOUBLE</code> association is exact.</li>
-<li><strong>The one remaining gap:</strong> overlaying a <strong><code>REAL</code></strong> onto a <code>PDP10</code> double's words yields the raw
-word value, not the word <em>reinterpreted</em> as a single-precision float (<code>R(1)</code> reads the high word
-as an integer, not <code>1.5</code>). Faithful cross-type bit reinterpretation needs a word-level memory
-model (where every cell is a raw word, typed on access) — that is reserved for the macroterp
-bridge. The <code>INTEGER</code>-overlay and <code>DOUBLE</code>↔<code>DOUBLE</code> idioms, which are the common ones, are
-faithful today.</li>
+<li><strong>By default</strong>, other cross-type punning is <em>not</em> bit-faithful — a <code>REAL</code> and an <code>INTEGER</code> that
+share storage read each other's <em>value</em>, not each other's <em>bits</em> (<code>R(1)</code> over a double's word
+reads the raw word as an integer, not the reinterpreted <code>1.5</code>), because a <code>REAL</code>/<code>INTEGER</code> cell
+holds a typed Python value rather than the machine word.</li>
 </ul>
 </li>
 </ul>
+<blockquote>
+<p><strong>Faithful punning: the <code>word_memory</code> option.</strong> Enabling <code>word_memory</code> makes a <code>PDP10</code> program
+store <code>COMMON</code>/<code>EQUIVALENCE</code> blocks in <strong>word-addressable memory</strong> — each cell is a genuine 36-bit
+machine word, and every access reinterprets the bits through the accessing type's KL10 codec. With
+it on, <em>all</em> cross-type punning is bit-faithful: <code>REAL</code>↔<code>INTEGER</code> both ways, <code>DOUBLE</code>↔<code>REAL</code>, the
+machine-word idioms, exactly as real DEC FORTRAN-10. It is <strong>off by default</strong> (it changes the value
+model only where storage is shared, and costs ~2× on <code>COMMON</code>/<code>EQUIVALENCE</code> access); enable it with
+the <strong><code>--word-memory</code></strong> CLI flag or <code>word_memory=True</code> in the API. (The single/double bit patterns
+it produces are validated against a real KL10.) Truly bit-level cross-<em>program</em> memory — running
+alongside MACRO-10 — remains the macroterp bridge's job; <code>word_memory</code> covers FORTRAN punning.</p>
+</blockquote>
 <h3 id="non-fatal-behavior-in-undefined-areas">Non-fatal behavior in undefined areas</h3>
 <ul>
 <li><strong>Arithmetic.</strong> Integer/real divide-by-zero yields <code>0</code> and continues; library domain errors

@@ -139,6 +139,13 @@ def _run(argv, dialect, prog, *, allow_std, default_target="native"):
         help="disable the FORTRAN-10 terminal free-CR-LF wrap at column 80 (TOPS-10 .TONFC); "
         "no effect under strict F66, which never wraps",
     )
+    ap.add_argument(
+        "--word-memory",
+        action="store_true",
+        help="store COMMON/EQUIVALENCE in word-addressable memory so cross-type punning is "
+        "bit-faithful (a REAL read as INTEGER yields the genuine machine word). PDP10 target "
+        "only; off by default (typed cells). Costs ~2x on COMMON access; see docs",
+    )
     if allow_std:
         ap.add_argument(
             "--std",
@@ -259,6 +266,7 @@ def _run(argv, dialect, prog, *, allow_std, default_target="native"):
             printer=sys.stdout.write,  # line-printer (units 3/6) -> stdout
             readline=sys.stdin.readline,  # READ / ACCEPT <- stdin
             tty_autowrap=not args.no_wrap,  # FORTRAN-10 free-CR-LF wrap at col 80 unless --no-wrap
+            word_memory=args.word_memory,  # faithful word-addressable punning (PDP10); off default
             # echo control (ECHOON/ECHOFF) -> run_source's default_terminal_echo on a real tty
         )
     except forterp.ParseError as e:

@@ -70,12 +70,20 @@ result of an otherwise-conforming program, so they are worth knowing.
     KL10 machine words** (high, low) of the doubleword, so an **`INTEGER`** EQUIVALENCEd onto a
     double reads the real machine words — the canonical "examine the bits" idiom — and `DOUBLE`↔
     `DOUBLE` association is exact.
-  - **The one remaining gap:** overlaying a **`REAL`** onto a `PDP10` double's words yields the raw
-    word value, not the word *reinterpreted* as a single-precision float (`R(1)` reads the high word
-    as an integer, not `1.5`). Faithful cross-type bit reinterpretation needs a word-level memory
-    model (where every cell is a raw word, typed on access) — that is reserved for the macroterp
-    bridge. The `INTEGER`-overlay and `DOUBLE`↔`DOUBLE` idioms, which are the common ones, are
-    faithful today.
+  - **By default**, other cross-type punning is *not* bit-faithful — a `REAL` and an `INTEGER` that
+    share storage read each other's *value*, not each other's *bits* (`R(1)` over a double's word
+    reads the raw word as an integer, not the reinterpreted `1.5`), because a `REAL`/`INTEGER` cell
+    holds a typed Python value rather than the machine word.
+
+> **Faithful punning: the `word_memory` option.** Enabling `word_memory` makes a `PDP10` program
+> store `COMMON`/`EQUIVALENCE` blocks in **word-addressable memory** — each cell is a genuine 36-bit
+> machine word, and every access reinterprets the bits through the accessing type's KL10 codec. With
+> it on, *all* cross-type punning is bit-faithful: `REAL`↔`INTEGER` both ways, `DOUBLE`↔`REAL`, the
+> machine-word idioms, exactly as real DEC FORTRAN-10. It is **off by default** (it changes the value
+> model only where storage is shared, and costs ~2× on `COMMON`/`EQUIVALENCE` access); enable it with
+> the **`--word-memory`** CLI flag or `word_memory=True` in the API. (The single/double bit patterns
+> it produces are validated against a real KL10.) Truly bit-level cross-*program* memory — running
+> alongside MACRO-10 — remains the macroterp bridge's job; `word_memory` covers FORTRAN punning.
 
 ### Non-fatal behavior in undefined areas
 
