@@ -30,9 +30,10 @@ python bench/bench.py graph               # ASCII sparklines + (re)write bench/h
 `bench/history.json` is the committed data table (one row per `{commit, case}`); `bench/history.svg`
 is the rendered line chart (dependency-free; no matplotlib).
 
-The pytest [`tests/test_performance.py`](../tests/test_performance.py) is the **notifier**: opt-in
-via `FORTERP_BENCH=1 pytest tests/test_performance.py -s`, it warns on a slowdown but never fails
-the build (it only asserts the workloads still *run*).
+`bench.py run` is the **notifier**: it times the current tree and prints each case against the
+last recorded baseline (a `% time` delta), surfacing a slowdown — or a workload that fails to run
+— without ever failing a build. It's a standalone tool, **not** a pytest test, so the suite carries
+no slow, environment-sensitive, perpetually-skipped perf case.
 
 ## Methodology (learned the hard way)
 

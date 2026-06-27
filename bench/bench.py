@@ -2,7 +2,9 @@
 """forterp performance benchmark + history.
 
 Times two fixed workloads through the interpreter and tracks the numbers over git history,
-so a slowdown is visible (a *notification*, not a hard gate -- see tests/test_performance.py):
+so a slowdown is visible (a *notification*, not a hard gate). This is a standalone tool driven by
+its CLI (`bench.py run` / `record` / `graph` / `backfill`) -- deliberately NOT a pytest test, so
+the suite stays free of a slow, environment-sensitive, perpetually-skipped case:
 
   loop  -- a tight DO loop (1M iterations): raw interpreter per-statement overhead.
   fft   -- 100x forward+inverse 256-point FFT (demos' Singleton FFT): a real numeric workload.
