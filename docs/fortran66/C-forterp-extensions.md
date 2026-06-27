@@ -56,12 +56,17 @@ result of an otherwise-conforming program, so they are worth knowing.
 - **`REAL` is the host double on `NATIVE`.** There is no distinct single precision, so a program
   that depends on single-precision *rounding* sees double-precision results. The `PDP10` target
   restores the true 36-bit single / two-word double split.
-- **`COMPLEX` and `DOUBLE PRECISION` occupy one storage cell.** This is silently lossy if you
-  *split* such a value through storage association — `EQUIVALENCE`-ing a `COMPLEX` onto two `REAL`s
-  keeps the whole value in the first slot and leaves the second zero — and it shifts the layout of a
-  `COMMON` block that contains one (the block is a word short per such member). Rule of thumb: a
-  `COMMON` block is word-accurate exactly when every member is `INTEGER`, single `REAL`, or
-  `LOGICAL`.
+- **`DOUBLE PRECISION` occupies one storage cell, not the two the standard counts** *(§7.2.1.3.1.1
+  counts a double or complex datum as two storage units)*. This is silently lossy in two ways.
+  (1) It shifts the layout of any `COMMON` block that contains a `DOUBLE` member: the block is one
+  word short per such member, so another unit overlaying the block with a different member list reads
+  the words after it at the wrong offset. (2) `EQUIVALENCE`-ing a `DOUBLE` onto two single-width
+  entities keeps the whole value in the first slot and leaves the second zero — `D=1.5D0` then
+  `EQUIVALENCE(D,R)` gives `R(1)=1.5, R(2)=0.0`. Rule of thumb: a `COMMON` block is word-accurate
+  exactly when every member is `INTEGER`, single `REAL`, `LOGICAL`, or `COMPLEX`.
+- **`COMPLEX` is handled correctly:** it occupies two cells (its real and imaginary parts), so it
+  counts as two storage units in `COMMON` and splits faithfully under `EQUIVALENCE` —
+  `C=(3.0,4.0)` overlaid on `R(2)` gives `R(1)=3.0, R(2)=4.0`.
 
 ### Non-fatal behavior in undefined areas
 
