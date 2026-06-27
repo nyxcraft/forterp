@@ -407,3 +407,54 @@ def test_vax_engine_punning_and_layout():
     eng = forterp.run_source(src, dialect=forterp.F77, target=VAX, word_memory=True)
     assert len(eng.commons["O"]) == 12  # REAL(4) + INTEGER(4) + INTEGER(4), byte-addressed
     assert eng.wmem.read(eng.commons["O"], 4, "INTEGER") == 42  # K at byte 4
+
+
+# ---- DOUBLE COMPLEX (COMPLEX*16): two doubles (re, im) across all three codecs ------------------
+
+
+def test_double_complex_storage_units():
+    from forterp.wordmem import units as pdp_units
+
+    assert pdp_units("DOUBLE COMPLEX") == 4  # PDP10 words
+    assert Lp64LeByteMemory.units("DOUBLE COMPLEX") == 16  # LP64 bytes
+    assert VaxByteMemory.units("DOUBLE COMPLEX") == 16  # VAX bytes
+
+
+def test_double_complex_round_trips_all_codecs():
+    z = complex(1.5, -2.5)
+    for codec, n in ((M, 4), (L, 16), (VX, 16)):
+        s = codec.alloc(n)
+        codec.write(s, 0, "DOUBLE COMPLEX", z)
+        assert codec.read(s, 0, "DOUBLE COMPLEX") == z
+
+
+def test_double_complex_pdp10_words_are_two_doubleword_pairs():
+    z = complex(1.5, 2.5)
+    s = M.alloc(4)
+    M.write(s, 0, "DOUBLE COMPLEX", z)
+    assert (s[0], s[1]) == double_to_dec10_pair(1.5)  # real -> first doubleword
+    assert (s[2], s[3]) == double_to_dec10_pair(2.5)  # imag -> second doubleword
+
+
+def test_double_complex_engine_arith_and_intrinsics():
+    src = (
+        "      PROGRAM T\n      COMMON /O/ R(2)\n"
+        "      DOUBLE COMPLEX Z, W\n      DOUBLE PRECISION R\n"
+        "      Z=(1.5D0,2.5D0)\n      W=Z*(2.0D0,0.0D0)\n"
+        "      R(1)=DREAL(W)\n      R(2)=DIMAG(W)\n      END\n"
+    )
+    eng = forterp.run_source(src, dialect=forterp.FORTRAN10, target=forterp.NATIVE)
+    assert eng.commons["O"][:2] == [3.0, 5.0]
+
+
+def test_double_complex_word_memory_layout_and_punning():
+    # PDP10 word_memory: DOUBLE COMPLEX is 4 words, so a following member sits at word 4, and the
+    # element punned as INTEGER words is the two doublewords.
+    src = (
+        "      PROGRAM T\n      COMMON /C/ Z, K\n      DOUBLE COMPLEX Z\n      INTEGER K\n"
+        "      Z=(1.5D0,2.5D0)\n      K=7\n      END\n"
+    )
+    eng = forterp.run_source(src, dialect=forterp.FORTRAN10, target=forterp.PDP10, word_memory=True)
+    assert len(eng.commons["C"]) == 5  # 4 words + 1 integer
+    assert eng.wmem.read(eng.commons["C"], 4, "INTEGER") == 7
+    assert eng.wmem.read(eng.commons["C"], 0, "DOUBLE COMPLEX") == complex(1.5, 2.5)

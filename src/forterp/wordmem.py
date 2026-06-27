@@ -33,6 +33,7 @@ STORAGE_UNITS = {
     "LOGICAL": 1,
     "DOUBLE PRECISION": 2,
     "COMPLEX": 2,
+    "DOUBLE COMPLEX": 4,  # two doubles (re, im), two words each
 }
 
 
@@ -68,6 +69,11 @@ class Pdp10WordMemory:
             return dec10_pair_to_double(w, store[off + 1] & MASK36)
         if typ == "COMPLEX":
             return complex(dec10_to_double(w), dec10_to_double(store[off + 1] & MASK36))
+        if typ == "DOUBLE COMPLEX":  # two doubles (re, im), two words each
+            return complex(
+                dec10_pair_to_double(w, store[off + 1] & MASK36),
+                dec10_pair_to_double(store[off + 2] & MASK36, store[off + 3] & MASK36),
+            )
         # INTEGER, LOGICAL, Hollerith: the raw machine word as a signed integer
         return self.t.wrap(w)
 
@@ -81,6 +87,10 @@ class Pdp10WordMemory:
             v = val if isinstance(val, complex) else complex(float(val), 0.0)
             store[off] = double_to_dec10(v.real)
             store[off + 1] = double_to_dec10(v.imag)
+        elif typ == "DOUBLE COMPLEX":  # two doubles (re, im), two words each
+            v = val if isinstance(val, complex) else complex(float(val), 0.0)
+            store[off], store[off + 1] = double_to_dec10_pair(v.real)
+            store[off + 2], store[off + 3] = double_to_dec10_pair(v.imag)
         else:  # INTEGER, LOGICAL, Hollerith: store the word bit-pattern
             store[off] = int(val) & MASK36
 
@@ -97,7 +107,15 @@ _LP64 = {
     "LOGICAL": _struct.Struct("<i"),
 }
 _LP64_SINGLE = _struct.Struct("<f")  # the two halves of a COMPLEX
-_LP64_SIZE = {"INTEGER": 4, "REAL": 4, "DOUBLE PRECISION": 8, "COMPLEX": 8, "LOGICAL": 4}
+_LP64_DOUBLE = _struct.Struct("<d")  # the two halves of a DOUBLE COMPLEX
+_LP64_SIZE = {
+    "INTEGER": 4,
+    "REAL": 4,
+    "DOUBLE PRECISION": 8,
+    "COMPLEX": 8,
+    "DOUBLE COMPLEX": 16,
+    "LOGICAL": 4,
+}
 
 
 def _to_i32(v: int) -> int:
@@ -136,6 +154,10 @@ class Lp64LeByteMemory:
             re = _LP64_SINGLE.unpack_from(store, off)[0]
             im = _LP64_SINGLE.unpack_from(store, off + 4)[0]
             return complex(re, im)
+        if typ == "DOUBLE COMPLEX":
+            re = _LP64_DOUBLE.unpack_from(store, off)[0]
+            im = _LP64_DOUBLE.unpack_from(store, off + 8)[0]
+            return complex(re, im)
         return _LP64.get(typ, _LP64["INTEGER"]).unpack_from(store, off)[0]
 
     def write(self, store, off: int, typ: str, val) -> None:
@@ -143,6 +165,10 @@ class Lp64LeByteMemory:
             v = val if isinstance(val, complex) else complex(float(val), 0.0)
             _LP64_SINGLE.pack_into(store, off, v.real)
             _LP64_SINGLE.pack_into(store, off + 4, v.imag)
+        elif typ == "DOUBLE COMPLEX":
+            v = val if isinstance(val, complex) else complex(float(val), 0.0)
+            _LP64_DOUBLE.pack_into(store, off, v.real)
+            _LP64_DOUBLE.pack_into(store, off + 8, v.imag)
         elif typ in ("REAL", "DOUBLE PRECISION"):
             _LP64[typ].pack_into(store, off, float(val))
         else:  # INTEGER, LOGICAL, Hollerith: the 4-byte two's-complement word
@@ -160,7 +186,14 @@ class Lp64LeByteMemory:
 # 0x00004080 (bytes 80 40 00 00). DOUBLE is D_floating (the VAX FORTRAN default; /G_FLOATING is not
 # modeled). When a VAX oracle exists, validate as the PDP-10 probe did and correct as needed.
 
-_VAX_SIZE = {"INTEGER": 4, "REAL": 4, "DOUBLE PRECISION": 8, "COMPLEX": 8, "LOGICAL": 4}
+_VAX_SIZE = {
+    "INTEGER": 4,
+    "REAL": 4,
+    "DOUBLE PRECISION": 8,
+    "COMPLEX": 8,
+    "DOUBLE COMPLEX": 16,
+    "LOGICAL": 4,
+}
 
 
 def _vax_f_decode(store, off: int) -> float:
@@ -257,6 +290,8 @@ class VaxByteMemory:
             return _vax_d_decode(store, off)
         if typ == "COMPLEX":
             return complex(_vax_f_decode(store, off), _vax_f_decode(store, off + 4))
+        if typ == "DOUBLE COMPLEX":  # two D_floating doubles (re, im)
+            return complex(_vax_d_decode(store, off), _vax_d_decode(store, off + 8))
         return _LP64["INTEGER"].unpack_from(store, off)[0]  # INTEGER/LOGICAL: plain LE int32
 
     def write(self, store, off: int, typ: str, val) -> None:
@@ -268,5 +303,9 @@ class VaxByteMemory:
             v = val if isinstance(val, complex) else complex(float(val), 0.0)
             _vax_f_encode(store, off, v.real)
             _vax_f_encode(store, off + 4, v.imag)
+        elif typ == "DOUBLE COMPLEX":  # two D_floating doubles (re, im)
+            v = val if isinstance(val, complex) else complex(float(val), 0.0)
+            _vax_d_encode(store, off, v.real)
+            _vax_d_encode(store, off + 8, v.imag)
         else:  # INTEGER / LOGICAL / Hollerith: little-endian two's-complement 32-bit
             _LP64["INTEGER"].pack_into(store, off, _to_i32(val))

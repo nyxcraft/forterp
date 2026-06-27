@@ -31,6 +31,11 @@ MASK36 = PDP10.mask
 SIGN36 = PDP10.sign
 wrap36 = PDP10.wrap
 
+# COMPLEX and DOUBLE COMPLEX both carry a Python complex value and split into two storage units
+# (re, im); they differ only in component width (single vs double). Code that asks "is this a
+# complex datum?" -- for storage layout, the two-cell split, I/O field counts -- tests both.
+COMPLEX_TYPES = ("COMPLEX", "DOUBLE COMPLEX")
+
 
 def trunc_div(a: int, b: int) -> int:
     if b == 0:
@@ -840,7 +845,7 @@ class Engine:
             rt.complex_scalars = {
                 nm
                 for nm in rt.common_map
-                if nm not in u.arrays and self.type_of(u, nm) == "COMPLEX"
+                if nm not in u.arrays and self.type_of(u, nm) in COMPLEX_TYPES
             }
             # On a packed-double target (PDP10) a storage-associated DOUBLE is held as its two
             # machine words (hi, lo) via DecDoublePairRef; the fast paths consult this set.
@@ -991,7 +996,8 @@ class Engine:
 
         (Arrays size by element count -- a COMPLEX/DOUBLE array stays one cell per element for now,
         since the FCVS cluster only ever EQUIVALENCEs such *scalars*.)"""
-        return 2 if self.type_of(unit, name) in ("COMPLEX", "DOUBLE PRECISION") else 1
+        t = self.type_of(unit, name)
+        return 2 if t in ("COMPLEX", "DOUBLE PRECISION", "DOUBLE COMPLEX") else 1
 
     def _member_words(self, unit, name, d):
         """Addressable units a COMMON/EQUIVALENCE member occupies, used to lay out block offsets.
@@ -1250,7 +1256,7 @@ class Engine:
                 return WordRef(self.wmem, store, off, self.type_of(unit, name))
             # A storage-associated COMPLEX scalar spans two word-cells (real, imag) so a REAL
             # EQUIVALENCEd onto the same words reads each part; see ComplexPairRef.
-            if self.type_of(unit, name) == "COMPLEX":
+            if self.type_of(unit, name) in COMPLEX_TYPES:
                 return ComplexPairRef(store, off)
             # On a packed-double target a storage-associated DOUBLE is held as two machine words.
             if self.tgt.packed_double and self.type_of(unit, name) == "DOUBLE PRECISION":
@@ -1476,7 +1482,7 @@ class Engine:
         type-boundary conversion; logicals and strings pass through unchanged)."""
         if isinstance(val, (bool, str)):
             return val
-        if ttype == "COMPLEX":
+        if ttype in COMPLEX_TYPES:
             return val if isinstance(val, complex) else complex(float(val), 0.0)
         if isinstance(val, complex):  # complex -> scalar uses the real part
             return self.tgt.wrap(int(val.real)) if ttype == "INTEGER" else val.real
@@ -1919,7 +1925,7 @@ class Engine:
             val = (val[:n] if len(val) > n else val.ljust(n)) if n else val  # n=0: assumed length
         elif isinstance(val, bool) or isinstance(s.expr, A.StrLit):
             pass
-        elif ttype == "COMPLEX":  # real/int -> complex(x, 0)
+        elif ttype in COMPLEX_TYPES:  # real/int -> complex(x, 0)
             if not isinstance(val, complex):
                 val = complex(float(val), 0.0)
         elif isinstance(val, complex):  # complex -> scalar uses the real part
@@ -1938,7 +1944,7 @@ class Engine:
                 if slot is not None:
                     if self.word_memory and slot[2] is None:  # faithful punning: encode by type
                         self.wmem.write(self.commons[slot[0]], slot[1], ttype, val)
-                    elif ttype == "COMPLEX":  # 2-word COMPLEX: split into re, im cells
+                    elif ttype in COMPLEX_TYPES:  # 2-word COMPLEX: split into re, im cells
                         ComplexPairRef(self.commons[slot[0]], slot[1]).write(val)
                     elif name in frame.rt.double_word_scalars:  # 2-word DOUBLE: split hi, lo
                         DecDoublePairRef(self.commons[slot[0]], slot[1]).write(val)
@@ -2261,7 +2267,7 @@ class Engine:
                 s = s[1:]
             return self.tgt.from_bool(s[:1].upper() == "T")
         norm = tok.replace("D", "E").replace("d", "e")  # D/d and E/e exponents interchange (13.6.3)
-        if ty == "COMPLEX":  # a bare real datum for a COMPLEX target -> (re, 0); (re,im) is _ld_in
+        if ty in COMPLEX_TYPES:  # a bare real datum for a COMPLEX target -> (re, 0); (re,im)=_ld_in
             return complex(self._ld_real(norm), 0.0)
         try:
             return int(tok) if ty == "INTEGER" else float(norm)
@@ -2333,7 +2339,7 @@ class Engine:
                     re_s, _, im_s = "".join(parts).partition(",")
                     ref, ty, _clen = targets[ti]
                     cval = complex(self._ld_real(re_s), self._ld_real(im_s))
-                    ref.write(cval if ty == "COMPLEX" else cval.real)
+                    ref.write(cval if ty in COMPLEX_TYPES else cval.real)
                     ti += 1
                 else:
                     start = i
@@ -2980,7 +2986,7 @@ class Engine:
         # real fields). Keep consuming records -- advancing at each `/` and, when the list
         # outlasts the format, reverting to `rev` for a fresh record -- until the list is full.
         needed = sum(
-            2 if ty == "COMPLEX" else 1
+            2 if ty in COMPLEX_TYPES else 1
             for it in s.items
             for _, ty in self._item_refs_typed(it, frame)
         )
@@ -3455,7 +3461,7 @@ class Engine:
 
         def width(name):
             ty = self.type_of(unit, name)
-            if ty == "COMPLEX":
+            if ty in COMPLEX_TYPES:
                 return [None, None]
             return [self.char_length(unit, name) if ty == "CHARACTER" else None]
 
@@ -3501,6 +3507,10 @@ class Engine:
                 v = ref.read()
                 if ty == "DOUBLE PRECISION":
                     words += list(bn.double_to_dec10_pair(float(v)))
+                elif ty == "DOUBLE COMPLEX":  # two DEC-10 doubles (re, im) -> four words
+                    c = v if isinstance(v, complex) else complex(float(v), 0.0)
+                    words += list(bn.double_to_dec10_pair(c.real))
+                    words += list(bn.double_to_dec10_pair(c.imag))
                 elif ty == "COMPLEX" or isinstance(v, complex):
                     c = v if isinstance(v, complex) else complex(float(v), 0.0)
                     words += [bn.double_to_dec10(c.real), bn.double_to_dec10(c.imag)]
@@ -3524,6 +3534,10 @@ class Engine:
                     return  # record exhausted: leave the remaining list items untouched
                 if ty == "DOUBLE PRECISION":
                     ref.write(bn.dec10_pair_to_double(w, next(wi, 0)))
+                elif ty == "DOUBLE COMPLEX":  # four words -> two doubles (re, im)
+                    re = bn.dec10_pair_to_double(w, next(wi, 0))
+                    im = bn.dec10_pair_to_double(next(wi, 0), next(wi, 0))
+                    ref.write(complex(re, im))
                 elif ty == "COMPLEX":
                     ref.write(complex(bn.dec10_to_double(w), bn.dec10_to_double(next(wi, 0))))
                 elif ty == "REAL":
@@ -3542,7 +3556,7 @@ class Engine:
                     v = next(vals)
                 except StopIteration:
                     return
-                if ty == "COMPLEX" and not isinstance(v, complex):
+                if ty in COMPLEX_TYPES and not isinstance(v, complex):
                     v = complex(float(v), float(next(vals, 0.0)))
                 elif ty == "CHARACTER" and isinstance(v, str):
                     # F77 A input (X3.9-1978 13.5.11): a field wider than the target supplies
@@ -3707,13 +3721,22 @@ INTRINSICS = {
     "CMPLX": lambda a: complex(a[0], a[1] if len(a) > 1 else 0.0),
     "DCMPLX": lambda a: complex(a[0], a[1] if len(a) > 1 else 0.0),
     "AIMAG": lambda a: a[0].imag if isinstance(a[0], complex) else 0.0,
+    "DIMAG": lambda a: a[0].imag if isinstance(a[0], complex) else 0.0,  # imag part of DBLE COMPLEX
+    "DREAL": lambda a: a[0].real if isinstance(a[0], complex) else float(a[0]),  # DBLE CPLX real
     "CONJG": lambda a: a[0].conjugate() if isinstance(a[0], complex) else complex(a[0]),
+    "DCONJG": lambda a: a[0].conjugate() if isinstance(a[0], complex) else complex(a[0]),
     "CABS": lambda a: abs(a[0]),
+    "CDABS": lambda a: abs(a[0]),  # DOUBLE COMPLEX modulus
     "CSQRT": lambda a: cmath.sqrt(a[0]),
+    "CDSQRT": lambda a: cmath.sqrt(a[0]),
     "CEXP": lambda a: cmath.exp(a[0]),
+    "CDEXP": lambda a: cmath.exp(a[0]),
     "CLOG": lambda a: cmath.log(a[0]),
+    "CDLOG": lambda a: cmath.log(a[0]),
     "CSIN": lambda a: cmath.sin(a[0]),
+    "CDSIN": lambda a: cmath.sin(a[0]),
     "CCOS": lambda a: cmath.cos(a[0]),
+    "CDCOS": lambda a: cmath.cos(a[0]),
     "TIM2GO": lambda a: 1.0e9,  # CPU time remaining (V5 Table 15-2): effectively unlimited
     "DBLE": lambda a: float(_re(a[0])),
     "AINT": lambda a: float(int(_re(a[0]))),  # truncate toward zero

@@ -47,7 +47,14 @@ def _apply_size(base, size):
         return "DOUBLE PRECISION"
     if base == "REAL" and size == 8:
         return "DOUBLE PRECISION"
+    if base == "COMPLEX" and size == 16:  # COMPLEX*16 == DOUBLE COMPLEX (two doubles)
+        return "DOUBLE COMPLEX"
     return base
+
+
+# COMPLEX and DOUBLE COMPLEX both carry a Python complex value; they differ only in storage width
+# (single vs double components). Code that asks "is this a complex datum?" tests both.
+COMPLEX_TYPES = frozenset({"COMPLEX", "DOUBLE COMPLEX"})
 
 
 IO_SPEC_KEYS = {"END", "ERR", "FMT", "UNIT", "REC", "IOSTAT"}
@@ -277,9 +284,9 @@ class StatementParser:
         if isinstance(e, A.Complex):
             return True
         if isinstance(e, A.Var):
-            return self.types.get(e.name) == "COMPLEX"
+            return self.types.get(e.name) in COMPLEX_TYPES
         if isinstance(e, A.Ref):
-            return e.name in _COMPLEX_FUNCS or self.types.get(e.name) == "COMPLEX"
+            return e.name in _COMPLEX_FUNCS or self.types.get(e.name) in COMPLEX_TYPES
         if isinstance(e, A.Binary):
             return self._expr_is_complex(e.left) or self._expr_is_complex(e.right)
         if isinstance(e, A.Unary):
@@ -1089,7 +1096,7 @@ class StatementParser:
         expr = self.parse_expr()
         if not self.dialect.mixed_complex_assign:
             # F66 Table 1: COMPLEX may only be assigned to/from COMPLEX.
-            if (self.types.get(name) == "COMPLEX") != self._expr_is_complex(expr):
+            if (self.types.get(name) in COMPLEX_TYPES) != self._expr_is_complex(expr):
                 raise ParseError("F66 prohibits COMPLEX <-> numeric assignment", "NRC")
         return A.Assign(target=target, expr=expr)
 
@@ -1256,6 +1263,9 @@ class StatementParser:
             if typ == "DOUBLE" and self.is_id("PRECISION"):
                 self.advance()
                 typ = "DOUBLE PRECISION"
+            elif typ == "DOUBLE" and self.is_id("COMPLEX"):
+                self.advance()
+                typ = "DOUBLE COMPLEX"
             clen = self._char_len(
                 unit.consts
             )  # *len CHARACTER length (numeric *byte sizes ignored)
@@ -1469,6 +1479,9 @@ def _parse_header(toks):
         if typ == "DOUBLE" and p.is_id("PRECISION"):
             p.advance()
             typ = "DOUBLE PRECISION"
+        elif typ == "DOUBLE" and p.is_id("COMPLEX"):
+            p.advance()
+            typ = "DOUBLE COMPLEX"
         elif typ == "CHARACTER":  # CHARACTER*len FUNCTION / CHARACTER*(*) FUNCTION (the result len)
             ret_len = p._char_len()
         ret_type = typ
@@ -1695,7 +1708,22 @@ def parse_expression(text, *, dialect=F66, unit=None):
 
 
 # Intrinsics that yield a COMPLEX result (for the F66 complex-assignment check).
-_COMPLEX_FUNCS = {"CMPLX", "DCMPLX", "CONJG", "CEXP", "CLOG", "CSIN", "CCOS", "CSQRT"}
+_COMPLEX_FUNCS = {
+    "CMPLX",
+    "DCMPLX",
+    "CONJG",
+    "DCONJG",
+    "CEXP",
+    "CDEXP",
+    "CLOG",
+    "CDLOG",
+    "CSIN",
+    "CDSIN",
+    "CCOS",
+    "CDCOS",
+    "CSQRT",
+    "CDSQRT",
+}
 
 
 def _is_c_times_v(e):
@@ -1871,10 +1899,14 @@ def _route(unit, st, toks, on_warn=None, dialect=F66):
         return
     if kw in TYPE_KW and not _is_header(toks):
         base = p.advance().value
+        typ = None
         if base == "DOUBLE" and p.is_id("PRECISION"):
             p.advance()
+        elif base == "DOUBLE" and p.is_id("COMPLEX"):  # DOUBLE COMPLEX (two doubles)
+            p.advance()
+            typ = "DOUBLE COMPLEX"
         size = p.opt_size()  # REAL*8 etc. on the type keyword
-        p.parse_type_decl(unit, base, _apply_size(base, size))
+        p.parse_type_decl(unit, base, typ or _apply_size(base, size))
         return
 
     # executable

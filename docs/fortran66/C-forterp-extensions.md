@@ -32,7 +32,9 @@ change the meaning of a program that stays within the standard, so they are pure
 **Statements**
 - `IMPLICIT`, `PARAMETER`, `ENTRY`, `ENCODE`/`DECODE`;
 - `PRINT`, unit-less `READ`, `ACCEPT`, `TYPE`; list-directed `*` I/O; random-access I/O;
-- explicit array lower bounds `A(lo:hi)`; `*n` byte-size type specifiers (`INTEGER*4`);
+- explicit array lower bounds `A(lo:hi)`; `*n` byte-size type specifiers (`INTEGER*4`); the
+  **`DOUBLE COMPLEX`** type (also spelled `COMPLEX*16`) — a complex of two double-precision parts,
+  with `DREAL`/`DIMAG`/`DCONJG`/`DCMPLX` and the `CD…` math (`CDABS`, `CDSQRT`, …);
   alternate-return `CALL` arguments.
 
 **Operators**
